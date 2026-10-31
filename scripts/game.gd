@@ -55,6 +55,8 @@ var invert_y := false
 var voice_lines := true
 var quality := 1
 var gilded := false
+var player_name := ""
+var lobby_url := ""
 ## Revelations: deeds the pilgrimage remembers.
 const REVELATIONS := {
 	"first_blood": ["The First Undoing", "Undo a lesser form."],
@@ -258,7 +260,8 @@ func save() -> void:
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
-			"leaves": leaves.keys(), "shades": shades_heard.keys()}))
+			"leaves": leaves.keys(), "shades": shades_heard.keys(),
+			"player_name": player_name, "lobby_url": lobby_url}))
 
 
 func load_save() -> void:
@@ -288,6 +291,8 @@ func load_save() -> void:
 		voice_lines = bool(d.get("voice_lines", voice_lines))
 		quality = clampi(int(d.get("quality", quality)), 0, 1)
 		gilded = bool(d.get("gilded", gilded))
+		player_name = str(d.get("player_name", player_name)).left(20)
+		lobby_url = str(d.get("lobby_url", lobby_url))
 		for r in d.get("revealed", []):
 			revealed[r] = true
 		for r in d.get("leaves", []):

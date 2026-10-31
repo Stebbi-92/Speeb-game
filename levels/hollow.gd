@@ -59,7 +59,7 @@ func build() -> void:
 		var b := sphere(p, 1.4, cloud, true, 0.45)
 		b.scale = Vector3(1.6, 1, 1.0)
 		var body: StaticBody3D = b.get_child(0)
-		make_interactable(body, "Lie down and rest awhile", func(): _sleep("He lay down upon the clouds, only for a moment. The moment did not end."))
+		personal_interactable(body, "Lie down and rest awhile", func(): _sleep("He lay down upon the clouds, only for a moment. The moment did not end."))
 		beds.append(p)
 	# The way out: a plain stone arch, unadorned
 	var stone := mat(Color(0.45, 0.43, 0.42), 0.95, 0.35, 0.2)

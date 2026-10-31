@@ -168,4 +168,4 @@ func _carve() -> void:
 	last.modulate.a = 0.0
 	create_tween().tween_property(last, "modulate:a", 1.0, 4.0)
 	await hud.fade_to(1.0, 5.0)
-	Game.main.show_credits()
+	Game.main.next_level()

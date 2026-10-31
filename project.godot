@@ -3,7 +3,7 @@ config_version=5
 
 [application]
 
-config/version="1.0.0"
+config/version="1.1.0"
 config/name="Brelm: The Hermit of Nine Visions"
 config/description="A first-person pilgrimage through the Nine Meowifestations of Speeb."
 run/main_scene="res://main.tscn"
@@ -15,6 +15,7 @@ config/icon="res://assets/emoji/_speeb.png"
 [autoload]
 
 Game="*res://scripts/game.gd"
+Net="*res://scripts/net.gd"
 
 [display]
 

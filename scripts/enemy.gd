@@ -39,6 +39,16 @@ var _disc: Node3D
 var _beam: MeshInstance3D
 var _mites: Array = []
 var _cry_cd := 0.0
+# In a fellowship the host runs every form; the others see puppets that follow what the host tells them
+var net_id := 0
+var puppet := false
+var credit := false
+var last_hitter := 1
+var heard_at := 0
+var _net_to := Vector3.ZERO
+var _net_body_y := 0.0
+var _net_head := Vector2.ZERO
+var _net_v := Vector3.ZERO
 
 
 func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
@@ -52,7 +62,9 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 
 func _ready() -> void:
 	collision_layer = 2
-	collision_mask = 1 | 2
+	collision_mask = 0 if puppet else (1 | 2)
+	_net_to = position
+	heard_at = Time.get_ticks_msec()
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED if kind == "spider" else CharacterBody3D.MOTION_MODE_FLOATING
 	var cs := CollisionShape3D.new()
 	if kind == "saucer":
@@ -125,13 +137,20 @@ func _cry(sound: String, vol := 0.0) -> void:
 func _physics_process(delta: float) -> void:
 	if not _alive or level.player == null:
 		return
+	if puppet:
+		_puppet_tick(delta)
+		return
 	delta *= level.enemy_time
 	_t += delta
+	# It hunts the nearest pilgrim still standing; with none, it waits
+	var p: Node3D = level.nearest_target(global_position)
+	var idle := p == null
+	if idle:
+		p = level.player
 	# A form that falls from the world, or strays too far from it, is simply unmade
-	if global_position.y < level.kill_y or global_position.distance_to(level.player.global_position) > 90.0:
+	if global_position.y < level.kill_y or (not idle and global_position.distance_to(p.global_position) > 90.0):
 		die(false)
 		return
-	var p: Player = level.player
 	var target := p.global_position + Vector3(0, 1.3, 0)
 	var to := target - global_position
 	var dist := to.length()
@@ -140,7 +159,7 @@ func _physics_process(delta: float) -> void:
 	head.rotation.y = lerp_angle(head.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * turn))
 	head.rotation.x = -asin(clampf(dir.y, -0.6, 0.6)) * 0.6
 	var want := Vector3.ZERO
-	var frozen: bool = level.combat_frozen
+	var frozen: bool = level.combat_frozen or idle
 	if kind == "spider":
 		_spider_move(delta, p, dist, frozen)
 		return
@@ -202,7 +221,7 @@ func _physics_process(delta: float) -> void:
 		level.sfx("bite", -2, global_position)
 		if randf() < 0.5:
 			_cry("growl_%d" % (randi() % 3), 0)
-		level.damage_player(spec.bite, global_position)
+		level.hurt_target(p, spec.bite, global_position)
 		_knock = -dir * 6.0
 	if kind == "saucer":
 		_disc.rotation.y += delta * 2.5
@@ -280,7 +299,7 @@ func _segment(parent: Node3D, from: Vector3, to: Vector3, r: float, m: Material)
 
 
 ## The spider runs the ground, legs rippling, and springs when near.
-func _spider_move(delta: float, p: Player, dist: float, frozen: bool) -> void:
+func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	var flat := p.global_position - global_position
 	flat.y = 0
 	var fd := flat.length()
@@ -334,7 +353,7 @@ func _spider_move(delta: float, p: Player, dist: float, frozen: bool) -> void:
 	if dist < 1.6 and _attack_cd <= 0.0:
 		_attack_cd = 0.8
 		level.sfx("bite", -2, global_position)
-		level.damage_player(spec.bite, global_position)
+		level.hurt_target(p, spec.bite, global_position)
 		_knock = -dir * 5.0
 
 
@@ -444,6 +463,8 @@ func _spit(target: Vector3) -> void:
 	b.velocity = (target - global_position).normalized() * 14.0
 	level.add_child(b)
 	b.global_position = global_position + (target - global_position).normalized() * (spec.radius + 0.2)
+	if Net.online:
+		Net.bolt(b.global_position, b.velocity, b.damage)
 
 
 ## Returns true if the blow landed with force (false when a gilded face turned it aside).
@@ -456,8 +477,14 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		var incoming := -from_dir
 		incoming.y = 0
 		if facing.dot(incoming.normalized()) > 0.35:
-			amount *= 0.12
 			full = false
+	if puppet:
+		# The blow is sent to the host, who alone decides whether the form is undone
+		Net.hit(net_id, amount, from_dir)
+		_flash = 1.0 if full else 0.3
+		return full
+	if not full:
+		amount *= 0.12
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	_knock += from_dir.normalized() * amount * (0.08 if kind == "elite" else 0.25)
@@ -476,16 +503,74 @@ func die(slain: bool) -> void:
 	_alive = false
 	collision_layer = 0
 	level.sfx("dissolve", -4, global_position)
+	var mine := credit if puppet else last_hitter == Net.me()
+	if Net.is_host() and not puppet:
+		level.foes.erase(net_id)
+		Net.foe_died(net_id, slain, last_hitter)
 	if slain:
 		level.burst(global_position, head.fur)
-		level.on_enemy_slain(self)
-		if Game.find_emoji(code) and Game.lesser.has(code):
-			var e: Dictionary = Game.lesser[code]
-			level.hud.notify("Recorded in the Book of Emojis\n%s: %s" % [e.name, e.decree])
+		if mine:
+			level.on_enemy_slain(self)
+			if Game.find_emoji(code) and Game.lesser.has(code):
+				var e: Dictionary = Game.lesser[code]
+				level.hud.notify("Recorded in the Book of Emojis\n%s: %s" % [e.name, e.decree])
+		elif not puppet:
+			level.team_kill(self)
 	died.emit()
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+## What the host tells the others of this form, fifteen times a second.
+func net_state() -> Array:
+	return [net_id, kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash]
+
+
+func net_apply(st: Array) -> void:
+	var to: Vector3 = st[3]
+	_net_v = (to - _net_to) * 15.0
+	_net_to = to
+	_net_body_y = st[4]
+	_net_head = Vector2(st[5], st[6])
+	_flash = maxf(_flash, st[7])
+	if global_position.distance_to(to) > 6.0:
+		global_position = to
+
+
+## A puppet glides toward where the host says the form is, and keeps its cries and its legs.
+func _puppet_tick(delta: float) -> void:
+	_t += delta
+	global_position = global_position.lerp(_net_to + _net_v * 0.03, minf(1.0, delta * 12.0))
+	rotation.y = lerp_angle(rotation.y, _net_body_y, minf(1.0, delta * 12.0))
+	head.rotation.y = lerp_angle(head.rotation.y, _net_head.x, minf(1.0, delta * 12.0))
+	head.rotation.x = lerpf(head.rotation.x, _net_head.y, minf(1.0, delta * 12.0))
+	_flash = maxf(0.0, _flash - delta * 5.0)
+	head.set_flash(_flash)
+	if kind == "saucer" and _disc:
+		_disc.rotation.y += delta * 2.5
+	if kind == "spider":
+		var pace := Vector2(_net_v.x, _net_v.z).length()
+		for leg in _legs:
+			var ph: float = _t * (6.0 + pace * 2.0) + leg.phase
+			var amp := minf(0.4, 0.08 + pace * 0.05)
+			leg.pivot.rotation.y = sin(ph) * amp
+			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
+	_cry_cd -= delta
+	var dist := global_position.distance_to(level.player.global_position)
+	if _cry_cd <= 0.0 and dist < 16.0 and not level.combat_frozen:
+		_cry_cd = randf_range(3.5, 7.0)
+		match kind:
+			"rusher", "swarm", "idol":
+				_cry("shriek_%d" % (randi() % 4), 0 if kind != "swarm" else -6)
+			"mite":
+				_cry("chitter", -4)
+			"elite":
+				level.sfx("roar", 0, global_position, randf_range(0.85, 1.05))
+			"spitter":
+				_cry("growl_%d" % (randi() % 3), -2)
+			"spider":
+				_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
 
 
 ## A spat bolt of burning light.

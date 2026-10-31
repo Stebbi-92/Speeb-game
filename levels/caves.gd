@@ -19,6 +19,8 @@ var _shroud_warned := false
 var _velm_stage := 0
 
 
+var _asked := false
+
 func build() -> void:
 	numeral = "VI"
 	max_alive = 4
@@ -138,8 +140,8 @@ func _vision(v: Dictionary) -> void:
 		"beauty":
 			box(end + Vector3(0, 2.2, 0), Vector3(2.0, 3.6, 0.1), glow_mat(c, 1.6), true, Vector3(0, rad_to_deg(-a + PI * 0.5), 0))
 	omni(end + Vector3(0, 2.5, 0), c, 3.0, 9)
-	trigger_area(_dir(a) * (HUB_R + 4.0) + Vector3(0, 1, 0), Vector3(4, 3, 4), func(): hud.say("\"%s\"" % v.whisper, 6.0), false)
-	trigger_area(end + Vector3(0, 1, 0), Vector3(4, 3, 4), func(): _snare(v), false)
+	trigger_area(_dir(a) * (HUB_R + 4.0) + Vector3(0, 1, 0), Vector3(4, 3, 4), func(): hud.say("\"%s\"" % v.whisper, 6.0), false, false)
+	trigger_area(end + Vector3(0, 1, 0), Vector3(4, 3, 4), func(): _snare(v), false, false)
 
 
 func _snare(v: Dictionary) -> void:
@@ -165,19 +167,28 @@ func trial_tick(_d: float) -> void:
 	if d > 7.0:
 		return
 	if player.relics and player.relics.lantern_lit:
-		var s := shroud
-		shroud = null
-		s.get_child(0).queue_free()
-		sfx("ripple", -4)
-		Game.reveal_deed("lantern")
-		hud.say("The lantern did not banish the dark. It only showed that the dark was a door.", 6.0)
-		var tw := create_tween()
-		tw.tween_property(s.material_override, "albedo_color:a", 0.0, 2.5)
-		tw.tween_callback(s.queue_free)
-		_velm_stage = 1
+		if not _asked:
+			_asked = true
+			shared("_part_shroud")
 	elif not _shroud_warned:
 		_shroud_warned = true
 		hud.say("A darkness hangs in the fourth way, thicker than shadow. The eye cannot part it. Perhaps a light, carried by his own hand.", 7.0)
+
+
+## The lantern shows the dark for a door, and it opens for the whole fellowship.
+func _part_shroud() -> void:
+	if shroud == null:
+		return
+	var s := shroud
+	shroud = null
+	s.get_child(0).queue_free()
+	sfx("ripple", -4)
+	Game.reveal_deed("lantern")
+	hud.say("The lantern did not banish the dark. It only showed that the dark was a door.", 6.0)
+	var tw := create_tween()
+	tw.tween_property(s.material_override, "albedo_color:a", 0.0, 2.5)
+	tw.tween_callback(s.queue_free)
+	_velm_stage = 1
 
 
 ## Beyond the dark door, the one who has been following him waits, and speaks.

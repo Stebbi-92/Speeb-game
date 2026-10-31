@@ -449,6 +449,7 @@ func _pray(lvl) -> void:
 	var gold := StandardMaterial3D.new()
 	gold.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	gold.albedo_color = Color(1.0, 0.86, 0.45)
+	Net.fx("pray", origin, fwd)
 	for i in 40:
 		var a := randf() * TAU
 		var r := sqrt(randf()) * 0.55
@@ -466,8 +467,7 @@ func _pray(lvl) -> void:
 			get_tree().create_timer(delay, false).timeout.connect(func():
 				if is_instance_valid(e) and e.is_alive():
 					lvl.burst(e.global_position, Color(1.0, 0.9, 0.6))
-					e.hp = 0.0
-					e.die(true))
+					e.hurt(100000.0, fwd))
 	if slain >= 5:
 		Game.reveal_deed("pray5")
 	if slain > 0:

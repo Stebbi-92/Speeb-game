@@ -230,6 +230,7 @@ func _try_fire() -> void:
 			marked = maxi(marked, 2 if killed else (1 if full else 0))
 			if not full and not killed:
 				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side.")
+	Net.fx("shot", origin, -cam.global_transform.basis.z)
 	lvl.shots += 1
 	if not hits.is_empty():
 		lvl.hits += 1

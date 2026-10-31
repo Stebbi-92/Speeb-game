@@ -1,0 +1,200 @@
+class_name Companion
+extends Node3D
+## Another pilgrim of the fellowship, as seen from here: a robed and hooded figure in the colour of their place,
+## their name carried above them. When fallen they lie still, and may be raised by holding [E] over them.
+
+var peer_id := 0
+var downed := false
+var hp := 1.0
+var _to := Vector3.ZERO
+var _yaw := 0.0
+var _pitch := 0.0
+var _has_pose := false
+var _body: Node3D
+var _gun: Node3D
+var _label: Label3D
+var _lamp: OmniLight3D
+var _flash: OmniLight3D
+var _area: Area3D
+var _robe: StandardMaterial3D
+var _walk := 0.0
+var _last := Vector3.ZERO
+
+
+func setup(id: int) -> Companion:
+	peer_id = id
+	return self
+
+
+func _ready() -> void:
+	var col: Color = Net.color_of(peer_id)
+	_body = Node3D.new()
+	add_child(_body)
+	_robe = StandardMaterial3D.new()
+	_robe.albedo_color = col.darkened(0.35)
+	_robe.roughness = 1.0
+	var trim := StandardMaterial3D.new()
+	trim.albedo_color = col
+	trim.roughness = 0.7
+	var robe := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.17
+	cm.bottom_radius = 0.42
+	cm.height = 1.5
+	robe.mesh = cm
+	robe.material_override = _robe
+	robe.position.y = 0.75
+	_body.add_child(robe)
+	var hem := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.42
+	hm.bottom_radius = 0.44
+	hm.height = 0.08
+	hem.mesh = hm
+	hem.material_override = trim
+	hem.position.y = 0.04
+	_body.add_child(hem)
+	var hood := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.23
+	sm.height = 0.52
+	hood.mesh = sm
+	hood.material_override = _robe
+	hood.position = Vector3(0, 1.66, -0.02)
+	_body.add_child(hood)
+	var face := MeshInstance3D.new()
+	var fm := SphereMesh.new()
+	fm.radius = 0.15
+	fm.height = 0.3
+	face.mesh = fm
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.02, 0.02, 0.02)
+	face.material_override = dark
+	face.position = Vector3(0, 1.63, 0.1)
+	_body.add_child(face)
+	var stole := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.12, 1.0, 0.03)
+	stole.mesh = bm
+	stole.material_override = trim
+	stole.position = Vector3(0, 0.95, 0.27)
+	stole.rotation.x = -0.22
+	_body.add_child(stole)
+	# The shotgun, carried low across the body
+	_gun = Node3D.new()
+	_gun.position = Vector3(0.22, 1.1, 0.25)
+	_body.add_child(_gun)
+	var steel := StandardMaterial3D.new()
+	steel.albedo_color = Color(0.15, 0.15, 0.16)
+	steel.metallic = 0.8
+	steel.roughness = 0.35
+	var barrel := MeshInstance3D.new()
+	var gm := BoxMesh.new()
+	gm.size = Vector3(0.06, 0.07, 0.8)
+	barrel.mesh = gm
+	barrel.material_override = steel
+	barrel.position.z = 0.25
+	_gun.add_child(barrel)
+	_flash = OmniLight3D.new()
+	_flash.light_color = Color(1.0, 0.75, 0.4)
+	_flash.light_energy = 0.0
+	_flash.omni_range = 6.0
+	_flash.position = Vector3(0, 0, 0.75)
+	_gun.add_child(_flash)
+	_lamp = OmniLight3D.new()
+	_lamp.light_color = Color(1.0, 0.78, 0.5)
+	_lamp.light_energy = 0.0
+	_lamp.omni_range = 12.0
+	_lamp.position = Vector3(-0.35, 1.0, 0.2)
+	_body.add_child(_lamp)
+	# A faint light of their own colour, so a companion is never lost in the dark
+	var glow := OmniLight3D.new()
+	glow.light_color = col
+	glow.light_energy = 0.35
+	glow.omni_range = 2.5
+	glow.position = Vector3(0, 1.9, 0.6)
+	_body.add_child(glow)
+	for c in find_children("*", "MeshInstance3D", true, false):
+		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_label = Label3D.new()
+	_label.text = Net.name_of(peer_id)
+	_label.font = load("res://assets/fonts/Marcellus-Regular.ttf")
+	_label.font_size = 48
+	_label.pixel_size = 0.005
+	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_label.no_depth_test = true
+	_label.fixed_size = false
+	_label.modulate = col.lightened(0.3)
+	_label.outline_size = 8
+	_label.outline_modulate = Color(0, 0, 0, 0.8)
+	_label.position.y = 2.25
+	add_child(_label)
+	# Where a companion may be raised when fallen
+	_area = Area3D.new()
+	_area.collision_layer = 16
+	_area.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.6
+	cap.height = 1.8
+	cs.shape = cap
+	cs.position.y = 0.6
+	_area.add_child(cs)
+	add_child(_area)
+	_area.set_meta("prompt", "")
+	_area.set_meta("hold", 2.0)
+	_area.set_meta("on_interact", func():
+		if downed:
+			Net.revive(peer_id)
+			Game.main.hud.notify("You raise %s." % Net.name_of(peer_id)))
+	visible = false
+
+
+## data: [position, yaw, pitch, downed, health, relic in hand, armed, lantern lit]
+func pose(data: Array) -> void:
+	if data.size() < 8:
+		return
+	_to = data[0]
+	_yaw = data[1]
+	_pitch = data[2]
+	var was := downed
+	downed = data[3]
+	hp = data[4]
+	_gun.visible = data[6] and data[5] == "shotgun"
+	_lamp.light_energy = 2.0 if data[7] else 0.0
+	if not _has_pose or global_position.distance_to(_to) > 6.0:
+		global_position = _to
+		_last = _to
+	_has_pose = true
+	visible = true
+	if downed != was:
+		_area.set_meta("prompt", "Raise %s" % Net.name_of(peer_id) if downed else "")
+		_label.text = Net.name_of(peer_id) + ("\nfallen" if downed else "")
+
+
+func muzzle() -> void:
+	_flash.light_energy = 4.0
+	var tw := create_tween()
+	tw.tween_property(_flash, "light_energy", 0.0, 0.12)
+
+
+func muzzle_point() -> Vector3:
+	return _flash.global_position
+
+
+func _process(delta: float) -> void:
+	if not _has_pose:
+		return
+	global_position = global_position.lerp(_to, minf(1.0, delta * 14.0))
+	rotation.y = lerp_angle(rotation.y, _yaw + PI, minf(1.0, delta * 14.0))
+	_gun.rotation.x = lerpf(_gun.rotation.x, -_pitch, minf(1.0, delta * 10.0))
+	var speed := (global_position - _last).length() / maxf(delta, 0.001)
+	_last = global_position
+	_walk += delta * minf(speed, 6.0) * 2.2
+	var lie := 1.0 if downed else 0.0
+	_body.rotation.x = lerpf(_body.rotation.x, -PI / 2 * lie, minf(1.0, delta * 5.0))
+	_body.position.y = lerpf(_body.position.y, 0.25 * lie, minf(1.0, delta * 5.0))
+	if not downed:
+		_body.position.y = absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0)
+		_body.rotation.z = sin(_walk * 0.5) * 0.03 * clampf(speed / 3.0, 0.0, 1.0)
+	_robe.albedo_color = Net.color_of(peer_id).darkened(0.35 + (0.3 if downed else 0.0))

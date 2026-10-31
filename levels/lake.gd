@@ -93,7 +93,7 @@ func trial_tick(delta: float) -> void:
 		hud.set_meter("", 0)
 	if not reached and p.distance_to(SEAT) < 6.0:
 		reached = true
-		_final()
+		shared("_final")
 
 
 func reset_trial() -> void:
@@ -120,6 +120,9 @@ func _ripple(p: Vector3) -> void:
 
 
 func _final() -> void:
+	if completed:
+		return
+	reached = true
 	hud.set_meter("", 0)
 	reveal("chillspeeb", chill.position, 3.0, false, _kneel, chill)
 

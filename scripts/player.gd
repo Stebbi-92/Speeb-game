@@ -111,6 +111,10 @@ func weapon_reset() -> void:
 
 
 func place(pos: Vector3, facing_yaw: float) -> void:
+	# In a fellowship each pilgrim stands a little apart, by their place in it
+	if Net.online and not Net.dedicated:
+		var k := Net.slot_of(Net.me())
+		pos += Vector3([0.0, 0.9, -0.9, 0.0][k % 4], 0, [0.0, 0.0, 0.0, 0.9][k % 4]).rotated(Vector3.UP, facing_yaw)
 	global_position = pos
 	velocity = Vector3.ZERO
 	yaw = facing_yaw
@@ -172,7 +176,7 @@ func _physics_process(delta: float) -> void:
 		_update_target(delta)
 		return
 	var input := Vector2.ZERO
-	if not input_locked:
+	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var sp := walk_speed
 	if can_run and Input.is_action_pressed("run"):

@@ -1,4 +1,4 @@
-BRELM: THE HERMIT OF NINE VISIONS   (version 1.0.0)
+BRELM: THE HERMIT OF NINE VISIONS   (version 1.1.0)
 A first-person pilgrimage through the Book of Speeb.
 
 You are Brelm, the Silent Cleric who cast aside his mantle to behold all Nine
@@ -97,6 +97,32 @@ THE UNBLINKING EYE
   do not move, leap or fire until it closes. Speeb rewards stillness.
 
   You may not be the only hermit on the road.
+
+WALKING TOGETHER (up to four players)
+  From the title, choose "Walk Together".
+  To host: give the fellowship a name, keep port 24600 (or choose another),
+    and press "Host a fellowship". Your gathering place shows the addresses
+    others can join at. You choose the trial and the difficulty.
+  To join: pick a fellowship from the list, or type the host's address
+    (for example 203.0.113.7 or 203.0.113.7:24600) and press Join.
+  Fellowships on the same network appear in the list by themselves.
+
+  What is shared: the lesser forms (everyone fights the same ones), the
+  steps of each trial (when one of you lays down the mantle, carves a
+  warning, crosses a threshold or keeps the vigil, it happens for all),
+  the Meowifestation's judgment, and the Unblinking Eye: if any one of you
+  moves while it watches, all of you are seen.
+  What is your own: your relics, Leaves, shades and the lesser forms you
+  witness, your kills, your Litany and your own judgment.
+  Falling: when your health runs out you fall but are not lost. A companion
+  raises you by holding E over you. Only if every pilgrim falls does the
+  trial begin again. Failing a step alone (touching a craving, sleeping in
+  the Hollow, hurrying on the lake) sends back only you.
+  Joining a trial already under way brings you to where the fellowship last
+  stood firm; joining in the gathering place is smoother.
+
+  Hosting for friends beyond your own network needs an open port. See
+  HOSTING.txt.
 
 THE HOTBAR
   1  Shotgun          Eight pellets, a pump between shots.
