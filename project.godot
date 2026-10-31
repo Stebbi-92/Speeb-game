@@ -1,0 +1,36 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/version="1.0.0"
+config/name="Brelm: The Hermit of Nine Visions"
+config/description="A first-person pilgrimage through the Nine Meowifestations of Speeb."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+config/icon="res://assets/emoji/_speeb.png"
+
+[autoload]
+
+Game="*res://scripts/game.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+textures/vram_compression/import_etc2_astc=true
+
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+textures/default_filters/anisotropic_filtering_level=2

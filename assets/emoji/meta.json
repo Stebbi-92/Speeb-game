@@ -1,0 +1,366 @@
+{
+ "speebbang": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "emospeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "speebchef": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "speebyeet": {
+  "frames": 9,
+  "fps": 6.43
+ },
+ "glitchspeeb": {
+  "frames": 7,
+  "fps": 3.37
+ },
+ "speebsnek": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "floofspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "runespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "chillspeeb": {
+  "frames": 2,
+  "fps": 1.43
+ },
+ "hallowspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "hornspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "laurelspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "dapperspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "candlespeeb": {
+  "frames": 4,
+  "fps": 6.25
+ },
+ "vikingspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "jesterspeeb": {
+  "frames": 16,
+  "fps": 14.29
+ },
+ "witchspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "starstruckspeeb": {
+  "frames": 3,
+  "fps": 3.26
+ },
+ "lovestruckspeeb": {
+  "frames": 6,
+  "fps": 9.38
+ },
+ "laserspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "voidspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "hypnospeeb": {
+  "frames": 24,
+  "fps": 20.0
+ },
+ "cryspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "cyberspeeb": {
+  "frames": 6,
+  "fps": 6.67
+ },
+ "serenespeeb": {
+  "frames": 16,
+  "fps": 11.11
+ },
+ "deadspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "googlyspeeb": {
+  "frames": 8,
+  "fps": 25.0
+ },
+ "cyclospeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "richspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "sleepyspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "wrathspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "suspectspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "galaxyspeeb": {
+  "frames": 20,
+  "fps": 11.11
+ },
+ "tinkerspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "chefspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "artspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "winterspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "bunnyspeeb": {
+  "frames": 12,
+  "fps": 20.0
+ },
+ "shroomspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "unispeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "astrospeeb": {
+  "frames": 20,
+  "fps": 11.11
+ },
+ "rosespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "wizardspeebii": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "graduatespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "battyspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "blossomspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "thunderspeebii": {
+  "frames": 7,
+  "fps": 6.54
+ },
+ "oathspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "partyspeebii": {
+  "frames": 12,
+  "fps": 14.29
+ },
+ "autumnspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "agogspeeb": {
+  "frames": 8,
+  "fps": 25.0
+ },
+ "officespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "goldspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "marblespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "jadespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "obsidianspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "noirspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "ghostspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "negaspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "xrayspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "sketchspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "halftonespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "vaporspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "moonspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "fossilspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "infraspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "mintspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "crownspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "monoclespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "blushspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "mustachespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "partyspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "glyphspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "thirdeyespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "clericspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "emberspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "radiantspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "scarfspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "headphonespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "bandagespeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "bowspeeb": {
+  "frames": 1,
+  "fps": 10.0
+ },
+ "blinkspeeb": {
+  "frames": 8,
+  "fps": 4.04
+ },
+ "spinspeeb": {
+  "frames": 16,
+  "fps": 16.67
+ },
+ "pulsespeeb": {
+  "frames": 8,
+  "fps": 7.92
+ },
+ "snowspeeb": {
+  "frames": 16,
+  "fps": 12.5
+ },
+ "staticspeeb": {
+  "frames": 10,
+  "fps": 14.29
+ },
+ "starespeeb": {
+  "frames": 14,
+  "fps": 6.31
+ },
+ "fadespeeb": {
+  "frames": 4,
+  "fps": 4.17
+ },
+ "nodspeeb": {
+  "frames": 7,
+  "fps": 5.56
+ },
+ "auraspeeb": {
+  "frames": 12,
+  "fps": 11.11
+ },
+ "tremblespeeb": {
+  "frames": 8,
+  "fps": 25.0
+ }
+}

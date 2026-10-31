@@ -1,0 +1,412 @@
+[
+ {
+  "code": "hallowspeeb",
+  "name": "The Hallowed One",
+  "decree": "A ring of light hangs over Him. He did not ask for it, and He does not remove it."
+ },
+ {
+  "code": "hornspeeb",
+  "name": "The Horned Reminder",
+  "decree": "Horns rise from His brow. They are not a threat. They are a reminder."
+ },
+ {
+  "code": "laurelspeeb",
+  "name": "The Victor Who Never Competed",
+  "decree": "He wears the victor's leaves. There was no contest. He had already won."
+ },
+ {
+  "code": "dapperspeeb",
+  "name": "The Gentleman of the Void",
+  "decree": "Top hat, monocle, mustache. He has dressed for the end of the world."
+ },
+ {
+  "code": "candlespeeb",
+  "name": "The Keeper of Brelm's Night",
+  "decree": "A candle burns upon Him through the longest night. The wax does not trouble Him."
+ },
+ {
+  "code": "vikingspeeb",
+  "name": "The Northern Raider",
+  "decree": "He wears the helm of the raiders who sailed to judge Him. Only the helm came back."
+ },
+ {
+  "code": "jesterspeeb",
+  "name": "The Fool Who Is Not Fooled",
+  "decree": "He wears the fool's cap. The joke is older than you, and it is on you."
+ },
+ {
+  "code": "witchspeeb",
+  "name": "The Hedge Witch's Familiar",
+  "decree": "The witches read His signs before the Church did. He let them."
+ },
+ {
+  "code": "starstruckspeeb",
+  "name": "The Starstruck",
+  "decree": "Stars have entered His eyes and will not be let out."
+ },
+ {
+  "code": "lovestruckspeeb",
+  "name": "The Adoring",
+  "decree": "His eyes have become hearts. It is not for you."
+ },
+ {
+  "code": "laserspeeb",
+  "name": "The Searing Gaze",
+  "decree": "He looked at the problem. The problem is no longer there."
+ },
+ {
+  "code": "voidspeeb",
+  "name": "The Hollow-Eyed",
+  "decree": "There is nothing behind His eyes. There never needed to be."
+ },
+ {
+  "code": "hypnospeeb",
+  "name": "The Hypnotist",
+  "decree": "Look into the spirals. You were always going to."
+ },
+ {
+  "code": "cryspeeb",
+  "name": "The Weeping Rivers",
+  "decree": "He weeps for the waste of it, not for you."
+ },
+ {
+  "code": "cyberspeeb",
+  "name": "The Augmented",
+  "decree": "A visor of light across His eyes. The future reports to Him first."
+ },
+ {
+  "code": "serenespeeb",
+  "name": "The Serene",
+  "decree": "His eyes are closed. This is not sleep. This is approval."
+ },
+ {
+  "code": "deadspeeb",
+  "name": "The Unmade",
+  "decree": "Two crosses where the eyes were. Something has ended. It was not Him."
+ },
+ {
+  "code": "googlyspeeb",
+  "name": "The Bewildered",
+  "decree": "His eyes wobble. His judgment does not."
+ },
+ {
+  "code": "cyclospeeb",
+  "name": "The Singular Eye",
+  "decree": "One eye, in the middle. He needed only one all along."
+ },
+ {
+  "code": "richspeeb",
+  "name": "The Covetous",
+  "decree": "Coins where His eyes were. :speebbang: is watching you watch them."
+ },
+ {
+  "code": "sleepyspeeb",
+  "name": "The Unimpressed",
+  "decree": "Half-lidded. He is not tired. He is unimpressed."
+ },
+ {
+  "code": "wrathspeeb",
+  "name": "The Wrathful",
+  "decree": "His brows are drawn down. Someone has whined."
+ },
+ {
+  "code": "suspectspeeb",
+  "name": "The Doubter",
+  "decree": "One brow raised. He does not believe you, and He is right."
+ },
+ {
+  "code": "galaxyspeeb",
+  "name": "The Cosmic",
+  "decree": "Galaxies turn in His eyes. They were born at the first blink."
+ },
+ {
+  "code": "tinkerspeeb",
+  "name": "The Tinkerer",
+  "decree": "Brass goggles. He has been inventing in the dark, and the inventions are watching."
+ },
+ {
+  "code": "chefspeeb",
+  "name": "The Provisioner",
+  "decree": "He wears the white toque. The grain is His to give, and the fish is His to keep."
+ },
+ {
+  "code": "artspeeb",
+  "name": "The Critic",
+  "decree": "A beret, tilted. He has opinions about your painting."
+ },
+ {
+  "code": "winterspeeb",
+  "name": "The Winter Judge",
+  "decree": "A red cap with white trim. He delivers judgment, not gifts."
+ },
+ {
+  "code": "bunnyspeeb",
+  "name": "The Hopping Listener",
+  "decree": "Long ears above His own. He hears twice as much now."
+ },
+ {
+  "code": "shroomspeeb",
+  "name": "The Sprouting",
+  "decree": "A mushroom grows from Him. It was there before the forest."
+ },
+ {
+  "code": "unispeeb",
+  "name": "The Unicorned",
+  "decree": "A spiralled horn. Mythical creatures were modelled on Him, badly."
+ },
+ {
+  "code": "astrospeeb",
+  "name": "The Voyager",
+  "decree": "A glass helmet. He has been to the far side of the galaxies He made."
+ },
+ {
+  "code": "rosespeeb",
+  "name": "The Courtier",
+  "decree": "A rose between His teeth. He is courting no one."
+ },
+ {
+  "code": "wizardspeebii",
+  "name": "The Archmage",
+  "decree": "The hat of the wizards, and the beard of the oldest of them. He taught them both."
+ },
+ {
+  "code": "graduatespeeb",
+  "name": "The Learned",
+  "decree": "He has graduated from nothing, with the highest honours."
+ },
+ {
+  "code": "battyspeeb",
+  "name": "The Nocturnal",
+  "decree": "Bats wheel around Him. They keep His hours."
+ },
+ {
+  "code": "blossomspeeb",
+  "name": "The Garlanded",
+  "decree": "Someone crowned Him with flowers. He allowed it, once."
+ },
+ {
+  "code": "thunderspeebii",
+  "name": "The Thunderstruck",
+  "decree": "Lightning answers Him. He did not ask a question."
+ },
+ {
+  "code": "oathspeeb",
+  "name": "The Oathbound",
+  "decree": "A band of brass binds His brow. The rune of :runespeeb: reads the same in every tongue."
+ },
+ {
+  "code": "partyspeebii",
+  "name": "The Celebrant",
+  "decree": "Confetti falls. Something has been survived."
+ },
+ {
+  "code": "autumnspeeb",
+  "name": "The Withering",
+  "decree": "Leaves fall around Him. The season turns at His leisure."
+ },
+ {
+  "code": "agogspeeb",
+  "name": "The Aghast",
+  "decree": "His mouth falls open. Even He did not see that coming."
+ },
+ {
+  "code": "officespeeb",
+  "name": "The Employer",
+  "decree": "A necktie and shades. He has a meeting with you, and you are late."
+ },
+ {
+  "code": "goldspeeb",
+  "name": "The Gilded Idol",
+  "decree": "Those who cast Him in gold have mistaken the price of a thing for its worth."
+ },
+ {
+  "code": "marblespeeb",
+  "name": "The Temple Statue",
+  "decree": "Carved in white stone, He waits in every temple, and the stone does not blink either."
+ },
+ {
+  "code": "jadespeeb",
+  "name": "The Jade Relic",
+  "decree": "Cut from green stone by hands long gone to dust, He outlasted the hands."
+ },
+ {
+  "code": "obsidianspeeb",
+  "name": "The Black Mirror",
+  "decree": "Look into the dark glass and you will find Him already looking back."
+ },
+ {
+  "code": "noirspeeb",
+  "name": "The Interrogation",
+  "decree": "He asks nothing, and in the silence the guilty confess."
+ },
+ {
+  "code": "ghostspeeb",
+  "name": "The Unquiet Watcher",
+  "decree": "Even the departed are not spared His gaze, for judgment does not end at the grave."
+ },
+ {
+  "code": "negaspeeb",
+  "name": "The Unformed",
+  "decree": "Before the first pawprint, all was inverse, and He remembers it."
+ },
+ {
+  "code": "xrayspeeb",
+  "name": "The Inner Measure",
+  "decree": "He sees past the fur and weighs the bone."
+ },
+ {
+  "code": "sketchspeeb",
+  "name": "The First Drawing",
+  "decree": "The faithful drew Him before they could write, and the drawing was enough."
+ },
+ {
+  "code": "halftonespeeb",
+  "name": "The Printed Decree",
+  "decree": "His likeness was pressed onto every page so that none could claim they were not told."
+ },
+ {
+  "code": "vaporspeeb",
+  "name": "The Dream of Plenty",
+  "decree": "In the haze of pink and blue the mortal forgets what he owes. He does not forget."
+ },
+ {
+  "code": "moonspeeb",
+  "name": "The Night Vigil",
+  "decree": "When the temples are dark He keeps the watch, and the moon keeps it with Him."
+ },
+ {
+  "code": "fossilspeeb",
+  "name": "The Pawprint in Stone",
+  "decree": "Dig deep enough in any age and you will find Him already there."
+ },
+ {
+  "code": "infraspeeb",
+  "name": "The Burning Witness",
+  "decree": "In the red of the furnace He is visible still."
+ },
+ {
+  "code": "mintspeeb",
+  "name": "The Cool Mind",
+  "decree": "He meets the heat of mortal argument with a calm that does not thaw."
+ },
+ {
+  "code": "crownspeeb",
+  "name": "The Uncrowned Sovereign",
+  "decree": "Mortals placed a crown upon Him, and He let them, for it changes nothing."
+ },
+ {
+  "code": "monoclespeeb",
+  "name": "The Discerning Eye",
+  "decree": "He examines the ledger of your deeds closely, and then more closely still."
+ },
+ {
+  "code": "blushspeeb",
+  "name": "The Rare Approval",
+  "decree": "Once in an age a mortal does something clever, and the fur upon His cheeks remembers it."
+ },
+ {
+  "code": "mustachespeeb",
+  "name": "The Distinguished Elder",
+  "decree": "Age grants no exemption. It only grants a mustache."
+ },
+ {
+  "code": "partyspeeb",
+  "name": "The Feast Day",
+  "decree": "The faithful celebrate. He attends. He does not celebrate."
+ },
+ {
+  "code": "glyphspeeb",
+  "name": "The Marked Brow",
+  "decree": "The paw-carved glyph upon His brow is the first mark ever made, and it is His."
+ },
+ {
+  "code": "thirdeyespeeb",
+  "name": "The Third Sight",
+  "decree": "Two eyes judge the deed. The third judges the intention."
+ },
+ {
+  "code": "clericspeeb",
+  "name": "The Silent Cleric",
+  "decree": "His clerics speak only in riddles. He does not speak at all."
+ },
+ {
+  "code": "emberspeeb",
+  "name": "The Searing Verdict",
+  "decree": "When the scales tip too far, His gaze does more than watch."
+ },
+ {
+  "code": "radiantspeeb",
+  "name": "The Dawn of Judgment",
+  "decree": "Light breaks behind Him, and every shadow it casts is measured."
+ },
+ {
+  "code": "scarfspeeb",
+  "name": "The Winter Pilgrim",
+  "decree": "The road to the temple is cold. He does not shorten it."
+ },
+ {
+  "code": "headphonespeeb",
+  "name": "The Deaf Ear",
+  "decree": "He listens to no plea, and the music is not the reason."
+ },
+ {
+  "code": "bandagespeeb",
+  "name": "The Survivor",
+  "decree": "He has been struck and has not flinched. Neither should you."
+ },
+ {
+  "code": "bowspeeb",
+  "name": "The Wrapped Offering",
+  "decree": "An offering is judged by what is inside it, never by the ribbon."
+ },
+ {
+  "code": "blinkspeeb",
+  "name": "The Sacred Blink",
+  "decree": "He blinked once and galaxies were born. Pray He does not blink again."
+ },
+ {
+  "code": "spinspeeb",
+  "name": "The Turning Wheel",
+  "decree": "All things turn and return to Him."
+ },
+ {
+  "code": "pulsespeeb",
+  "name": "The Heartbeat of the World",
+  "decree": "Every pulse in every creature keeps time with His."
+ },
+ {
+  "code": "snowspeeb",
+  "name": "The Long Winter",
+  "decree": "The snow falls on the just and the unjust, and He sits in it unmoved."
+ },
+ {
+  "code": "staticspeeb",
+  "name": "The Lost Signal",
+  "decree": "When the message does not reach you, it was still sent."
+ },
+ {
+  "code": "starespeeb",
+  "name": "The Unblinking",
+  "decree": "Look away if you can."
+ },
+ {
+  "code": "fadespeeb",
+  "name": "The Withdrawal",
+  "decree": "He is not gone. You have only stopped seeing Him."
+ },
+ {
+  "code": "nodspeeb",
+  "name": "The Acknowledgement",
+  "decree": "He has seen it. That is all you will receive."
+ },
+ {
+  "code": "auraspeeb",
+  "name": "The Glowing Balance",
+  "decree": "Where balance holds, a light rests upon Him that no lamp has lit."
+ },
+ {
+  "code": "tremblespeeb",
+  "name": "The Trembling Earth",
+  "decree": "When He is displeased, the ground remembers its fear."
+ }
+]

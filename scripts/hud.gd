@@ -1,0 +1,1081 @@
+extends CanvasLayer
+## Everything drawn over the world: fades, title cards, scripture, prompts, meters, the pause menu and the Book of Emojis.
+
+const GOLD := Color(0.86, 0.80, 0.66)
+const PALE := Color(0.93, 0.92, 0.88)
+const DIM := Color(0.62, 0.60, 0.56)
+
+var serif: FontFile
+var title_font: FontFile
+var root: Control
+var overlay: ColorRect
+var fade: ColorRect
+var card_num: Label
+var card_place: Label
+var card_box: VBoxContainer
+var narration: Label
+var prompt: Label
+var prompt_bar: ProgressBar
+var objective: Label
+var meter_box: VBoxContainer
+var meter_label: Label
+var meter: ProgressBar
+var toast: Label
+var crosshair: ColorRect
+var reveal_box: VBoxContainer
+var reveal_num: Label
+var reveal_epithet: Label
+var reveal_decree: Label
+var reveal_text: Label
+var reveal_hint: Label
+var name_label: Label
+var pause_panel: Control
+var options_panel: Control
+var _options_list: VBoxContainer
+var codex_panel: Control
+var codex_list: VBoxContainer
+var codex_count: Label
+var menu_box: Control
+var ammo_label: Label
+var health_bar: ProgressBar
+var hotbar: Hotbar
+var streak_label: Label
+var _deed_box: PanelContainer
+var _deed_title: Label
+var _deed_text: Label
+var _deed_queue: Array = []
+var _deed_busy := false
+var results_panel: ColorRect
+var relic_hint: Label
+var _hurt := 0.0
+
+var _narr_id := 0
+var _toast_id := 0
+var overlay_mat: ShaderMaterial
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	layer = 10
+	serif = load("res://assets/fonts/SourceSerif4.ttf")
+	title_font = load("res://assets/fonts/Marcellus-Regular.ttf")
+	root = Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var th := Theme.new()
+	th.default_font = serif
+	th.default_font_size = 24
+	root.theme = th
+	add_child(root)
+
+	overlay = ColorRect.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay_mat = ShaderMaterial.new()
+	overlay_mat.shader = load("res://scripts/overlay.gdshader")
+	overlay.material = overlay_mat
+	root.add_child(overlay)
+
+	crosshair = ColorRect.new()
+	crosshair.color = Color(1, 1, 1, 0.45)
+	crosshair.size = Vector2(4, 4)
+	crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	crosshair.position = Vector2(-2, -2)
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(crosshair)
+
+	prompt = _label("", 22, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	prompt.set_anchors_preset(Control.PRESET_CENTER)
+	prompt.position = Vector2(-400, 60)
+	prompt.size = Vector2(800, 40)
+	prompt.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	prompt.add_theme_constant_override("shadow_offset_x", 1)
+	prompt.add_theme_constant_override("shadow_offset_y", 1)
+	root.add_child(prompt)
+	prompt_bar = ProgressBar.new()
+	prompt_bar.show_percentage = false
+	prompt_bar.set_anchors_preset(Control.PRESET_CENTER)
+	prompt_bar.position = Vector2(-120, 104)
+	prompt_bar.size = Vector2(240, 6)
+	prompt_bar.max_value = 1.0
+	prompt_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.15)))
+	prompt_bar.add_theme_stylebox_override("fill", _flat(GOLD))
+	prompt_bar.visible = false
+	root.add_child(prompt_bar)
+
+	narration = _label("", 26, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	narration.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	narration.position = Vector2(-560, -190)
+	narration.size = Vector2(1120, 150)
+	narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	narration.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	narration.add_theme_constant_override("shadow_offset_x", 2)
+	narration.add_theme_constant_override("shadow_offset_y", 2)
+	narration.modulate.a = 0
+	root.add_child(narration)
+
+	objective = _label("", 20, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	objective.position = Vector2(36, 30)
+	objective.size = Vector2(700, 80)
+	objective.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	objective.add_theme_constant_override("shadow_offset_x", 1)
+	objective.add_theme_constant_override("shadow_offset_y", 1)
+	root.add_child(objective)
+
+	name_label = _label("", 18, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	name_label.add_theme_font_override("font", title_font)
+	name_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	name_label.position = Vector2(-436, 30)
+	name_label.size = Vector2(400, 30)
+	root.add_child(name_label)
+
+	meter_box = VBoxContainer.new()
+	meter_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	meter_box.position = Vector2(-160, 34)
+	meter_box.size = Vector2(320, 40)
+	meter_box.visible = false
+	root.add_child(meter_box)
+	meter_label = _label("", 18, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	meter_label.add_theme_font_override("font", title_font)
+	meter_box.add_child(meter_label)
+	meter = ProgressBar.new()
+	meter.show_percentage = false
+	meter.custom_minimum_size = Vector2(320, 5)
+	meter.max_value = 1.0
+	meter.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.12)))
+	meter.add_theme_stylebox_override("fill", _flat(PALE))
+	meter_box.add_child(meter)
+
+	toast = _label("", 20, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	toast.position = Vector2(-536, 70)
+	toast.size = Vector2(500, 120)
+	toast.modulate.a = 0
+	root.add_child(toast)
+
+	card_box = VBoxContainer.new()
+	card_box.set_anchors_preset(Control.PRESET_CENTER)
+	card_box.position = Vector2(-600, -120)
+	card_box.size = Vector2(1200, 200)
+	card_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	card_box.modulate.a = 0
+	card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(card_box)
+	card_num = _label("", 30, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	card_num.add_theme_font_override("font", title_font)
+	card_box.add_child(card_num)
+	card_place = _label("", 56, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	card_place.add_theme_font_override("font", title_font)
+	card_box.add_child(card_place)
+
+	reveal_box = VBoxContainer.new()
+	reveal_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	reveal_box.position = Vector2(-620, -330)
+	reveal_box.size = Vector2(1240, 310)
+	reveal_box.alignment = BoxContainer.ALIGNMENT_END
+	reveal_box.add_theme_constant_override("separation", 6)
+	reveal_box.modulate.a = 0
+	reveal_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(reveal_box)
+	reveal_num = _label("", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	reveal_num.add_theme_font_override("font", title_font)
+	reveal_box.add_child(reveal_num)
+	reveal_epithet = _label("", 42, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	reveal_epithet.add_theme_font_override("font", title_font)
+	reveal_box.add_child(reveal_epithet)
+	reveal_decree = _label("", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	reveal_decree.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reveal_box.add_child(reveal_decree)
+	reveal_text = _label("", 20, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	reveal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reveal_text.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	reveal_text.add_theme_constant_override("shadow_offset_x", 2)
+	reveal_text.add_theme_constant_override("shadow_offset_y", 2)
+	reveal_box.add_child(reveal_text)
+	reveal_hint = _label("", 18, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	reveal_box.add_child(reveal_hint)
+	for l in [reveal_decree, reveal_text, reveal_epithet, reveal_num]:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		l.add_theme_constant_override("shadow_offset_x", 2)
+		l.add_theme_constant_override("shadow_offset_y", 2)
+
+	ammo_label = _label("", 30, PALE, HORIZONTAL_ALIGNMENT_RIGHT)
+	ammo_label.add_theme_font_override("font", title_font)
+	ammo_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	ammo_label.position = Vector2(-336, -76)
+	ammo_label.size = Vector2(300, 44)
+	ammo_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	ammo_label.add_theme_constant_override("shadow_offset_x", 2)
+	ammo_label.add_theme_constant_override("shadow_offset_y", 2)
+	root.add_child(ammo_label)
+	health_bar = ProgressBar.new()
+	health_bar.show_percentage = false
+	health_bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	health_bar.position = Vector2(36, -50)
+	health_bar.size = Vector2(260, 7)
+	health_bar.max_value = 1.0
+	health_bar.value = 1.0
+	health_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.15)))
+	health_bar.add_theme_stylebox_override("fill", _flat(Color(0.75, 0.2, 0.15)))
+	health_bar.visible = false
+	root.add_child(health_bar)
+	hotbar = Hotbar.new()
+	hotbar.font = title_font
+	hotbar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hotbar.position = Vector2(-36 - Hotbar.W * 6, -182)
+	hotbar.size = Vector2(Hotbar.W * 6, Hotbar.W + 24)
+	hotbar.visible = false
+	root.add_child(hotbar)
+	relic_hint = _label("", 18, PALE, HORIZONTAL_ALIGNMENT_RIGHT)
+	relic_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	relic_hint.position = Vector2(-736, -216)
+	relic_hint.size = Vector2(700, 30)
+	relic_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	relic_hint.add_theme_constant_override("shadow_offset_x", 1)
+	relic_hint.add_theme_constant_override("shadow_offset_y", 1)
+	root.add_child(relic_hint)
+	streak_label = _label("", 34, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	streak_label.add_theme_font_override("font", title_font)
+	streak_label.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	streak_label.position = Vector2(-460, -150)
+	streak_label.size = Vector2(420, 90)
+	streak_label.pivot_offset = Vector2(420, 45)
+	streak_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	streak_label.add_theme_constant_override("shadow_offset_x", 2)
+	streak_label.add_theme_constant_override("shadow_offset_y", 2)
+	root.add_child(streak_label)
+	_build_deed()
+
+	menu_box = Control.new()
+	menu_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	menu_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(menu_box)
+
+	fade = ColorRect.new()
+	fade.color = Color.BLACK
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(fade)
+
+	_build_pause()
+	_build_codex()
+	_build_options()
+	_build_results()
+
+
+func _label(text: String, size: int, color: Color, align: HorizontalAlignment) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.horizontal_alignment = align
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+func _flat(c: Color) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = c
+	return s
+
+
+func button(text: String, cb: Callable, size := 28) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.flat = true
+	b.add_theme_font_override("font", title_font)
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", DIM)
+	b.add_theme_color_override("font_hover_color", PALE)
+	b.add_theme_color_override("font_focus_color", PALE)
+	b.add_theme_color_override("font_pressed_color", GOLD)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.pressed.connect(cb)
+	return b
+
+
+# ---------------------------------------------------------------- fades and text
+
+func fade_to(alpha: float, dur := 1.0, color := Color.BLACK) -> void:
+	fade.color = Color(color.r, color.g, color.b, fade.color.a)
+	var tw := create_tween()
+	tw.tween_property(fade, "color:a", alpha, dur)
+	await tw.finished
+
+
+func title_card(num: String, place: String) -> void:
+	card_num.text = num
+	card_place.text = place
+	var tw := create_tween()
+	tw.tween_property(card_box, "modulate:a", 1.0, 2.0)
+	tw.tween_interval(3.0)
+	tw.tween_property(card_box, "modulate:a", 0.0, 2.0)
+	await tw.finished
+
+
+func say(text: String, dur := 6.0) -> void:
+	if reveal_box.modulate.a > 0.05:
+		return
+	_narr_id += 1
+	var id := _narr_id
+	narration.text = text
+	var tw := create_tween()
+	tw.tween_property(narration, "modulate:a", 1.0, 0.8)
+	await get_tree().create_timer(dur, false).timeout
+	if id != _narr_id:
+		return
+	tw = create_tween()
+	tw.tween_property(narration, "modulate:a", 0.0, 1.2)
+	await tw.finished
+
+
+func clear_say() -> void:
+	_narr_id += 1
+	narration.modulate.a = 0
+
+
+func notify(text: String) -> void:
+	_toast_id += 1
+	var id := _toast_id
+	toast.text = text
+	var tw := create_tween()
+	tw.tween_property(toast, "modulate:a", 1.0, 0.5)
+	await get_tree().create_timer(5.0, false).timeout
+	if id == _toast_id:
+		create_tween().tween_property(toast, "modulate:a", 0.0, 1.5)
+
+
+func set_prompt(text: String, progress: float) -> void:
+	prompt.text = text
+	prompt_bar.visible = text != "" and progress > 0.0
+	prompt_bar.value = progress
+
+
+func set_objective(text: String) -> void:
+	objective.text = text
+
+
+func set_meter(label: String, value: float) -> void:
+	meter_box.visible = label != ""
+	meter_label.text = label
+	meter.value = value
+
+
+func set_ammo(n: int, cap: int, reserve := 0) -> void:
+	if n < 0:
+		ammo_label.text = ""
+		return
+	var s := ""
+	for i in cap:
+		s += "|" if i < n else "·"
+	ammo_label.text = s + "   %d  /  %d" % [n, reserve]
+	ammo_label.add_theme_color_override("font_color", PALE if reserve > 0 or n > 0 else Color(0.8, 0.3, 0.25))
+
+
+var _marks: Marks
+
+
+func _ensure_marks() -> void:
+	if _marks == null:
+		_marks = Marks.new()
+		_marks.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(_marks)
+		root.move_child(_marks, fade.get_index())
+
+
+func hitmarker(kill: bool) -> void:
+	_ensure_marks()
+	_marks.hit = 1.0
+	_marks.kill = kill
+
+
+func damage_from(angle: float) -> void:
+	_ensure_marks()
+	_marks.arcs.append([angle, 1.0])
+
+
+## Hit markers at the centre and red arcs showing where harm came from.
+class Marks extends Control:
+	var hit := 0.0
+	var kill := false
+	var arcs: Array = []
+
+	func _process(d: float) -> void:
+		hit = maxf(0.0, hit - d * 4.0)
+		for a in arcs:
+			a[1] -= d * 0.9
+		arcs = arcs.filter(func(a): return a[1] > 0.0)
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		if hit > 0.0:
+			var col := Color(1.0, 0.25, 0.15, hit) if kill else Color(1, 1, 1, hit)
+			var r := 14.0 if kill else 10.0
+			for s in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
+				draw_line(c + s * 5.0, c + s * r, col, 2.5)
+		for a in arcs:
+			var ang: float = a[0] - PI / 2
+			draw_arc(c, 130.0, ang - 0.35, ang + 0.35, 24, Color(0.85, 0.12, 0.08, a[1] * 0.85), 7.0)
+
+
+func set_health(v: float, show: bool) -> void:
+	health_bar.visible = show
+	health_bar.value = v
+
+
+var blessing_label: Label
+
+
+func set_blessings(p) -> void:
+	if blessing_label == null:
+		blessing_label = _label("", 16, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		blessing_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		blessing_label.position = Vector2(36, -84)
+		blessing_label.size = Vector2(700, 30)
+		blessing_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		blessing_label.add_theme_constant_override("shadow_offset_x", 1)
+		blessing_label.add_theme_constant_override("shadow_offset_y", 1)
+		root.add_child(blessing_label)
+		root.move_child(blessing_label, fade.get_index())
+	var parts := []
+	if Game.blessed("speebyeet"):
+		parts.append("Cast [Q] " + ("ready" if p.dash_cd <= 0.0 else "%.0f" % ceil(p.dash_cd)))
+	if Game.blessed("glitchspeeb"):
+		parts.append("Riftwalk [V] " + ("ready" if p.rift_cd <= 0.0 else "%.0f" % ceil(p.rift_cd)))
+	if Game.blessed("runespeeb"):
+		parts.append("Ward " + ("held" if p.ward_ready else "returning"))
+	blessing_label.text = "    ·    ".join(parts)
+
+
+func hurt_flash() -> void:
+	_hurt = 1.0
+
+
+func set_fx(param: String, value: float) -> void:
+	overlay_mat.set_shader_parameter(param, value)
+
+
+func reset_fx() -> void:
+	for p in ["vignette", "glitch", "desat", "dark", "flash", "blur", "hurt"]:
+		set_fx(p, 0.0)
+	set_fx("vignette", 0.35)
+
+
+func show_reveal(code: String) -> void:
+	var d: Dictionary = Game.nine[code]
+	reveal_num.text = "The %s Meowifestation" % ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth"][Game.NINE.find(code)]
+	reveal_epithet.text = "%s  ·  %s" % [Game.NAMES[code], d.epithet]
+	reveal_decree.text = d.decree
+	reveal_text.text = Game.scripture(d.text)
+	reveal_hint.text = ""
+	create_tween().tween_property(reveal_box, "modulate:a", 1.0, 2.5)
+
+
+func hide_reveal() -> void:
+	create_tween().tween_property(reveal_box, "modulate:a", 0.0, 1.0)
+
+
+## Lifts scripture above the black veil, for the prologue and the closing words.
+func raise_text(up: bool) -> void:
+	if up:
+		root.move_child(card_box, root.get_child_count() - 1)
+		root.move_child(narration, root.get_child_count() - 1)
+		narration.position.y = -560
+		narration.size.y = 300
+		narration.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	else:
+		root.move_child(narration, fade.get_index())
+		root.move_child(card_box, fade.get_index())
+		narration.position.y = -190
+		narration.size.y = 150
+		narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+
+
+func clear_all() -> void:
+	clear_say()
+	set_prompt("", 0)
+	set_objective("")
+	set_meter("", 0)
+	reveal_box.modulate.a = 0
+	card_box.modulate.a = 0
+	name_label.text = ""
+	ammo_label.text = ""
+	health_bar.visible = false
+	hotbar.visible = false
+	relic_hint.text = ""
+	streak_label.text = ""
+	if blessing_label:
+		blessing_label.text = ""
+	reset_fx()
+	for c in menu_box.get_children():
+		c.queue_free()
+
+
+# ---------------------------------------------------------------- pause and codex
+
+func _build_pause() -> void:
+	pause_panel = ColorRect.new()
+	pause_panel.color = Color(0, 0, 0, 0.82)
+	pause_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_panel.visible = false
+	root.add_child(pause_panel)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_CENTER)
+	v.position = Vector2(-260, -260)
+	v.size = Vector2(520, 520)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 10)
+	pause_panel.add_child(v)
+	var t := _label("Stillness", 48, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	v.add_child(_label("\"Speeb sees. Speeb is.\"", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(Control.new())
+	v.add_child(button("Resume", toggle_pause))
+	v.add_child(button("The Book of Emojis", func(): toggle_codex()))
+	v.add_child(button("Options", func(): show_options()))
+	v.add_child(button("Restart this trial", func(): toggle_pause(); Game.main.restart_level()))
+	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
+	v.add_child(button("Leave", func(): get_tree().quit()))
+
+
+func toggle_pause() -> void:
+	if options_panel.visible:
+		hide_options()
+		return
+	if codex_panel.visible:
+		toggle_codex()
+		return
+	if not Game.main.in_game():
+		return
+	var p := not get_tree().paused
+	get_tree().paused = p
+	pause_panel.visible = p
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if p else Input.MOUSE_MODE_CAPTURED
+
+
+func _build_codex() -> void:
+	codex_panel = ColorRect.new()
+	codex_panel.color = Color(0.02, 0.02, 0.025, 0.95)
+	codex_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	codex_panel.visible = false
+	root.add_child(codex_panel)
+	var outer := VBoxContainer.new()
+	outer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outer.offset_left = 120
+	outer.offset_right = -120
+	outer.offset_top = 50
+	outer.offset_bottom = -40
+	codex_panel.add_child(outer)
+	var t := _label("The Book of Emojis", 46, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_override("font", title_font)
+	outer.add_child(t)
+	codex_count = _label("", 18, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	outer.add_child(codex_count)
+	outer.add_child(_label("Interpret not in haste. Interpret through silence. Interpret as mirror, not as lens.", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(sc)
+	codex_list = VBoxContainer.new()
+	codex_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	codex_list.add_theme_constant_override("separation", 10)
+	sc.add_child(codex_list)
+	var close := button("Close  [Tab]", func(): toggle_codex(), 22)
+	outer.add_child(close)
+
+
+func _codex_row(code: String, title: String, text: String, known: bool) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 20)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(72, 72)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if known:
+		var tex: Texture2D = load("res://assets/emoji/%s.png" % code)
+		var at := AtlasTexture.new()
+		at.atlas = tex
+		var n := int(Game.meta.get(code, {"frames": 1}).frames)
+		at.region = Rect2(0, 0, tex.get_width() / n, tex.get_height())
+		icon.texture = at
+	h.add_child(icon)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var a := _label(title if known else "Unseen", 24, PALE if known else DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	a.add_theme_font_override("font", title_font)
+	v.add_child(a)
+	var b := _label(text if known else "This form has not yet revealed itself to you.", 18, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(b)
+	h.add_child(v)
+	return h
+
+
+func toggle_codex() -> void:
+	var show := not codex_panel.visible
+	if show:
+		for c in codex_list.get_children():
+			c.queue_free()
+		var sec := _label("The Nine Meowifestations", 28, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+		sec.add_theme_font_override("font", title_font)
+		codex_list.add_child(sec)
+		for code in Game.NINE:
+			var d: Dictionary = Game.nine[code]
+			var txt: String = d.decree
+			if Game.BLESSINGS.has(code):
+				txt += "\nBlessing: %s. %s" % Game.BLESSINGS[code]
+			codex_list.add_child(_codex_row(code, "%s. %s, %s" % [d.num, Game.NAMES[code], d.epithet], txt, Game.found.has(code)))
+		var sec2 := _label("The Lesser Forms", 28, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+		sec2.add_theme_font_override("font", title_font)
+		codex_list.add_child(sec2)
+		var shown := 0
+		for code in Game.lesser:
+			if Game.found.has(code):
+				var e: Dictionary = Game.lesser[code]
+				codex_list.add_child(_codex_row(code, ":%s:  %s" % [code, e.name], e.decree, true))
+				shown += 1
+		if shown == 0:
+			codex_list.add_child(_label("No lesser form has yet been witnessed. They hide in every land Brelm walks.", 18, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		var sec3 := _label("Leaves of the Hermit", 28, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+		sec3.add_theme_font_override("font", title_font)
+		codex_list.add_child(sec3)
+		var Story = load("res://scripts/story.gd")
+		for k in Story.LEAVES:
+			var lf: Array = Story.LEAVES[k]
+			if Game.leaves.has(k):
+				codex_list.add_child(_text_row(lf[0], lf[1], true))
+			else:
+				codex_list.add_child(_text_row(lf[0], "Not yet found. It lies somewhere in %s." % Game.LEVEL_NAMES[Game.LEVELS.find(k)], false))
+		var sec4 := _label("Revelations  (%d of %d)" % [Game.revealed.size(), Game.REVELATIONS.size()], 28, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+		sec4.add_theme_font_override("font", title_font)
+		codex_list.add_child(sec4)
+		for id in Game.REVELATIONS:
+			var rv: Array = Game.REVELATIONS[id]
+			codex_list.add_child(_text_row(rv[0], rv[1], Game.revealed.has(id)))
+		codex_list.add_child(_label("Undone in all: %d    ·    Longest litany: %d    ·    Saucers brought down: %d" % [Game.stats.kills, Game.stats.best_streak, Game.stats.saucers], 18, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		var nine_found := 0
+		for c in Game.NINE:
+			if Game.found.has(c):
+				nine_found += 1
+		codex_count.text = "Meowifestations witnessed: %d of 9    ·    Lesser forms recorded: %d of %d    ·    %s" % [nine_found, shown, Game.lesser.size(),
+			"The Tenth Trial is open" if Game.tenth_unlocked() else "The Tenth Trial opens at %d" % Game.TENTH_NEEDS]
+	codex_panel.visible = show
+	if Game.main.in_game():
+		if show:
+			if not get_tree().paused:
+				get_tree().paused = true
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		elif not pause_panel.visible:
+			get_tree().paused = false
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _process(d: float) -> void:
+	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused
+	if _hurt > 0.0:
+		_hurt = maxf(0.0, _hurt - d * 2.0)
+		set_fx("hurt", _hurt)
+
+
+func _unhandled_input(e: InputEvent) -> void:
+	if e.is_action_pressed("pause"):
+		toggle_pause()
+		get_viewport().set_input_as_handled()
+	elif e.is_action_pressed("codex"):
+		if Game.main.in_game() or codex_panel.visible:
+			toggle_codex()
+			get_viewport().set_input_as_handled()
+
+
+func set_hotbar(slot: int, faith: float, milk: int) -> void:
+	hotbar.visible = slot >= 0
+	hotbar.slot = slot
+	hotbar.faith = faith
+	hotbar.milk = milk
+	hotbar.queue_redraw()
+
+
+func set_relic_hint(text: String) -> void:
+	if relic_hint.text != text:
+		relic_hint.text = text
+
+
+## Six slots, numbered, each with a small drawn sign of its relic.
+class Hotbar extends Control:
+	const W := 58.0
+	var slot := 0
+	var faith := 1.0
+	var milk := 0
+	var font: Font
+
+	func _draw() -> void:
+		var gold := Color(0.86, 0.80, 0.66)
+		for i in Game.RELICS.size():
+			var id: String = Game.RELICS[i]
+			var owned := Game.has_relic(id) or id == "milk"
+			var r := Rect2(i * W + 3, 0, W - 6, W - 6)
+			draw_rect(r, Color(0, 0, 0, 0.45 if owned else 0.2))
+			draw_rect(r, gold if i == slot else Color(1, 1, 1, 0.18), false, 2.0 if i == slot else 1.0)
+			draw_string(font, r.position + Vector2(4, 14), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.5))
+			var c := r.get_center() + Vector2(0, 3)
+			var col := Color(0.93, 0.92, 0.88, 0.95 if owned else 0.15)
+			if id == "milk" and milk <= 0:
+				col.a = 0.2
+			_icon(id, c, col)
+			if id == "hands":
+				var fr := Rect2(r.position.x + 4, r.end.y - 6, (r.size.x - 8) * faith, 3)
+				draw_rect(fr, Color(1.0, 0.85, 0.45) if faith >= 1.0 else Color(0.7, 0.62, 0.45))
+			if id == "milk":
+				draw_string(font, r.end - Vector2(14, 4), str(milk), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
+		if slot >= 0:
+			var name: String = Game.RELIC_NAMES[Game.RELICS[slot]]
+			draw_string(font, Vector2(0, W + 14), name, HORIZONTAL_ALIGNMENT_RIGHT, W * 6 - 4, 16, gold)
+
+	func _icon(id: String, c: Vector2, col: Color) -> void:
+		match id:
+			"shotgun":
+				draw_line(c + Vector2(-18, -2), c + Vector2(16, -8), col, 4)
+				draw_line(c + Vector2(-18, -2), c + Vector2(-20, 8), col, 5)
+				draw_line(c + Vector2(-4, -2), c + Vector2(6, -4), col, 6)
+			"hands":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -14), c + Vector2(-7, 2), c + Vector2(-5, 12), c + Vector2(5, 12), c + Vector2(7, 2)]), col)
+				draw_arc(c + Vector2(0, -18), 7, 0, TAU, 20, Color(1.0, 0.85, 0.45, col.a), 2)
+			"lantern":
+				draw_rect(Rect2(c + Vector2(-7, -8), Vector2(14, 18)), col, false, 2)
+				draw_circle(c + Vector2(0, 1), 3.5, Color(1.0, 0.75, 0.35, col.a))
+				draw_arc(c + Vector2(0, -12), 4, PI, TAU, 10, col, 2)
+			"claw":
+				draw_line(c + Vector2(0, 14), c + Vector2(0, -4), col, 3)
+				for a in [-0.9, 0.0, 0.9]:
+					var d := Vector2(sin(a), -cos(a))
+					draw_line(c + Vector2(0, -4), c + Vector2(0, -4) + d * 10, col, 2.5)
+			"censer":
+				draw_line(c + Vector2(0, -16), c + Vector2(0, 2), col, 1.5)
+				draw_circle(c + Vector2(0, 7), 7, col)
+				draw_arc(c + Vector2(6, -6), 5, -PI / 2, PI / 2, 8, Color(col, col.a * 0.5), 2)
+			"milk":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-12, -2), c + Vector2(12, -2), c + Vector2(7, 9), c + Vector2(-7, 9)]), Color(0.6, 0.42, 0.3, col.a))
+				draw_line(c + Vector2(-11, -2), c + Vector2(11, -2), col, 3)
+
+
+# ---------------------------------------------------------------- options
+
+func _build_options() -> void:
+	options_panel = ColorRect.new()
+	options_panel.color = Color(0.01, 0.01, 0.012, 0.94)
+	options_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	options_panel.visible = false
+	root.add_child(options_panel)
+	var outer := VBoxContainer.new()
+	outer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outer.offset_left = 0
+	outer.offset_right = 0
+	outer.offset_top = 50
+	outer.offset_bottom = -40
+	outer.add_theme_constant_override("separation", 12)
+	options_panel.add_child(outer)
+	var t := _label("Options", 46, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_override("font", title_font)
+	outer.add_child(t)
+	outer.add_child(_label("F11 or Alt+Enter toggles fullscreen at any time", 16, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(sc)
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(center)
+	_options_list = VBoxContainer.new()
+	_options_list.custom_minimum_size.x = 760
+	_options_list.add_theme_constant_override("separation", 8)
+	center.add_child(_options_list)
+	var back := button("Back  [Esc]", func(): hide_options(), 24)
+	outer.add_child(back)
+
+
+func show_options() -> void:
+	for c in _options_list.get_children():
+		c.queue_free()
+	_section("Display")
+	_choice("Display mode", Game.DISPLAY_MODES, Game.display_mode, func(i): Game.display_mode = i; _apply_display())
+	var res_names := []
+	for r in Game.RESOLUTIONS:
+		res_names.append("%d x %d" % [r.x, r.y])
+	_choice("Resolution", res_names, Game.resolution, func(i): Game.resolution = i; _apply_display())
+	_options_list.add_child(_label("In fullscreen, the resolution sets how sharply the world is drawn; the screen is always filled.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_toggle("Vertical sync", Game.vsync, func(on): Game.vsync = on; _apply_display())
+	var caps := []
+	for f in Game.FPS_CAPS:
+		caps.append("Unlimited" if f == 0 else "%d" % f)
+	_choice("Frame rate limit", caps, Game.fps_cap, func(i): Game.fps_cap = i; _apply_display())
+	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
+	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
+	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
+	_choice("Graphics quality", ["Standard", "High (occlusion, bounce light, bloom)"], Game.quality, func(i):
+		Game.quality = i
+		Game.save()
+		if Game.main.level and Game.main.level.has_method("apply_quality"):
+			Game.main.level.apply_quality())
+	if Game.revealed.has("hundred"):
+		_choice("Shotgun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, func(i): Game.gilded = i == 1; Game.save())
+	else:
+		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded shotgun.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_section("Controls")
+	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
+	_toggle("Invert mouse Y", Game.invert_y, func(on): Game.invert_y = on; Game.save())
+	_section("Sound")
+	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
+	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
+	_section("Trial")
+	_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
+	options_panel.visible = true
+	pause_panel.visible = false
+	root.move_child(options_panel, root.get_child_count() - 1)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _set_fov(x: float) -> void:
+	Game.fov = x
+	Game.save()
+	if Game.main.level and Game.main.level.get("player"):
+		Game.main.level.player.cam.fov = x
+
+
+func hide_options() -> void:
+	options_panel.visible = false
+	if Game.main.in_game() and get_tree().paused:
+		pause_panel.visible = true
+
+
+func _apply_display() -> void:
+	Game.apply_display()
+	Game.save()
+
+
+func _section(text: String) -> void:
+	var l := _label(text, 26, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	l.add_theme_font_override("font", title_font)
+	_options_list.add_child(l)
+
+
+func _row(text: String) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 20)
+	var l := _label(text, 20, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+	l.custom_minimum_size.x = 340
+	h.add_child(l)
+	_options_list.add_child(h)
+	return h
+
+
+func _choice(text: String, items: Array, sel: int, cb: Callable) -> void:
+	var o := OptionButton.new()
+	for it in items:
+		o.add_item(it)
+	o.selected = sel
+	o.custom_minimum_size.x = 360
+	o.add_theme_font_size_override("font_size", 20)
+	o.item_selected.connect(cb)
+	_row(text).add_child(o)
+
+
+func _toggle(text: String, on: bool, cb: Callable) -> void:
+	var c := CheckButton.new()
+	c.button_pressed = on
+	c.toggled.connect(cb)
+	_row(text).add_child(c)
+
+
+func _slider(text: String, lo: float, hi: float, step: float, value: float, cb: Callable, fmt := "", mul := 1.0) -> void:
+	var h := _row(text)
+	var s := HSlider.new()
+	s.min_value = lo
+	s.max_value = hi
+	s.step = step
+	s.value = value
+	s.custom_minimum_size.x = 300
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(s)
+	var v := _label("", 18, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	h.add_child(v)
+	var show := func(x):
+		v.text = fmt % (x * mul) if fmt != "" else ""
+	show.call(value)
+	s.value_changed.connect(func(x):
+		show.call(x)
+		cb.call(x))
+
+
+func _text_row(title: String, text: String, known: bool) -> Control:
+	var v := VBoxContainer.new()
+	var t := _label(title, 22, PALE if known else DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	var b := _label(text, 17, Color(0.8, 0.78, 0.72) if known else Color(0.45, 0.44, 0.42), HORIZONTAL_ALIGNMENT_LEFT)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(b)
+	return v
+
+
+# ---------------------------------------------------------------- litany and revelations
+
+const LITANY := ["", "", "Twofold", "Threefold", "Fourfold", "Fivefold", "Sixfold", "Sevenfold", "Eightfold", "Ninefold"]
+
+
+func set_streak(n: int) -> void:
+	if n < 2:
+		if streak_label.text != "":
+			var tw := create_tween()
+			tw.tween_property(streak_label, "modulate:a", 0.0, 0.6)
+			tw.tween_callback(func(): streak_label.text = "")
+		return
+	var word: String = LITANY[n] if n < LITANY.size() else "Unbroken"
+	streak_label.text = "Litany  %d\n%s" % [n, word]
+	streak_label.modulate = Color(1.0, 1.0, 1.0, 1.0) if n < 5 else Color(1.25, 1.1, 0.8, 1.0)
+	streak_label.scale = Vector2.ONE * (1.35 + minf(n, 20) * 0.01)
+	create_tween().tween_property(streak_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _build_deed() -> void:
+	_deed_box = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.035, 0.03, 0.92)
+	sb.border_color = GOLD
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(16)
+	sb.content_margin_left = 28
+	sb.content_margin_right = 28
+	sb.shadow_color = Color(1.0, 0.8, 0.4, 0.25)
+	sb.shadow_size = 18
+	_deed_box.add_theme_stylebox_override("panel", sb)
+	_deed_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_deed_box.position = Vector2(-300, 70)
+	_deed_box.custom_minimum_size = Vector2(600, 0)
+	_deed_box.modulate.a = 0.0
+	_deed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_deed_box)
+	var v := VBoxContainer.new()
+	_deed_box.add_child(v)
+	v.add_child(_label("A Revelation", 15, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	_deed_title = _label("", 30, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	_deed_title.add_theme_font_override("font", title_font)
+	v.add_child(_deed_title)
+	_deed_text = _label("", 17, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	_deed_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_deed_text)
+
+
+func revelation(title: String, text: String) -> void:
+	_deed_queue.append([title, text])
+	if _deed_busy:
+		return
+	_deed_busy = true
+	while not _deed_queue.is_empty():
+		var d: Array = _deed_queue.pop_front()
+		_deed_title.text = d[0]
+		_deed_text.text = d[1]
+		root.move_child(_deed_box, root.get_child_count() - 1)
+		var p := AudioStreamPlayer.new()
+		p.stream = load("res://assets/audio/relic.wav")
+		p.volume_db = -4
+		add_child(p)
+		p.play()
+		p.finished.connect(p.queue_free)
+		_deed_box.scale = Vector2(0.9, 0.9)
+		_deed_box.pivot_offset = Vector2(300, 40)
+		var tw := create_tween().set_parallel()
+		tw.tween_property(_deed_box, "modulate:a", 1.0, 0.4)
+		tw.tween_property(_deed_box, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		await get_tree().create_timer(4.0, true, false, true).timeout
+		var tw2 := create_tween()
+		tw2.tween_property(_deed_box, "modulate:a", 0.0, 0.6)
+		await tw2.finished
+	_deed_busy = false
+
+
+# ---------------------------------------------------------------- results
+
+var _results_rows: VBoxContainer
+var _results_title: Label
+var _results_grade: Label
+
+
+func _build_results() -> void:
+	results_panel = ColorRect.new()
+	results_panel.color = Color(0.0, 0.0, 0.0, 0.86)
+	results_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	results_panel.visible = false
+	root.add_child(results_panel)
+	var c := CenterContainer.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	results_panel.add_child(c)
+	var v := VBoxContainer.new()
+	v.custom_minimum_size.x = 640
+	v.add_theme_constant_override("separation", 10)
+	c.add_child(v)
+	_results_title = _label("", 44, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	_results_title.add_theme_font_override("font", title_font)
+	v.add_child(_results_title)
+	v.add_child(_label("Speeb sees. Speeb is.", 18, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	_results_rows = VBoxContainer.new()
+	_results_rows.add_theme_constant_override("separation", 6)
+	v.add_child(_results_rows)
+	_results_grade = _label("", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	_results_grade.add_theme_font_override("font", title_font)
+	v.add_child(_results_grade)
+	v.add_child(_label("[E]  Continue", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+
+
+## Shows the account of a trial, row by row, then the grade; returns when the player continues.
+func show_results(title: String, rows: Array, grade: String) -> void:
+	for ch in _results_rows.get_children():
+		ch.queue_free()
+	_results_title.text = title
+	_results_grade.text = ""
+	results_panel.modulate.a = 0.0
+	results_panel.visible = true
+	root.move_child(results_panel, fade.get_index())
+	create_tween().tween_property(results_panel, "modulate:a", 1.0, 0.8)
+	await get_tree().create_timer(0.8, false).timeout
+	for r in rows:
+		var h := HBoxContainer.new()
+		var a := _label(r[0], 22, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(a)
+		h.add_child(_label(r[1], 22, PALE, HORIZONTAL_ALIGNMENT_RIGHT))
+		h.modulate.a = 0.0
+		_results_rows.add_child(h)
+		create_tween().tween_property(h, "modulate:a", 1.0, 0.3)
+		var p := AudioStreamPlayer.new()
+		p.stream = load("res://assets/audio/shell.wav")
+		p.volume_db = -12
+		add_child(p)
+		p.play()
+		p.finished.connect(p.queue_free)
+		await get_tree().create_timer(0.35, false).timeout
+	await get_tree().create_timer(0.4, false).timeout
+	_results_grade.text = "Weighed: %s" % grade
+	_results_grade.scale = Vector2(1.3, 1.3)
+	_results_grade.pivot_offset = _results_grade.size * 0.5
+	create_tween().tween_property(_results_grade, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var bell := AudioStreamPlayer.new()
+	bell.stream = load("res://assets/audio/bell.ogg")
+	bell.volume_db = -6
+	add_child(bell)
+	bell.play()
+	var waited := 0.0
+	while waited < 20.0:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+		if waited > 1.0 and (Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("fire")):
+			break
+	var tw := create_tween()
+	tw.tween_property(results_panel, "modulate:a", 0.0, 0.6)
+	await tw.finished
+	results_panel.visible = false
+	bell.queue_free()
