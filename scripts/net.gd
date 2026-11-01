@@ -16,7 +16,7 @@ const PROTOCOL := "brelm-fellowship-1"
 const ANNOUNCE_EVERY := 50.0
 ## The internet list of fellowships: a small Cloudflare Worker (see tools/lobby-worker.js).
 ## Leave empty to use only the local network and joining by address; it can also be set in Options.
-const DEFAULT_LOBBY := ""
+const DEFAULT_LOBBY := "https://brelm-lobby.stebbi92.workers.dev"
 const SLOT_COLORS := [Color(0.82, 0.78, 0.7), Color(0.85, 0.62, 0.3), Color(0.45, 0.6, 0.85), Color(0.5, 0.75, 0.5)]
 const SLOT_NAMES := ["Ash", "Ochre", "Slate", "Moss"]
 

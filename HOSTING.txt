@@ -56,19 +56,12 @@ fellowship must run the same version of Brelm.
    rented machine, also open UDP 24600 in its firewall / security group.
 
 
-4. THE INTERNET LIST (optional)
-   "Fellowships found" always shows fellowships on your own network. To
-   list public fellowships from anywhere, deploy the small list service in
-   tools/lobby/ of the source (a Cloudflare Worker; free plan is enough):
-       cd tools/lobby
-       npx wrangler login
-       npx wrangler deploy
-   It prints an address such as https://brelm-lobby.<you>.workers.dev.
-   Then either:
-     - put it in Options > Fellowship > Internet list address on every
-       copy of the game, or
-     - set DEFAULT_LOBBY in scripts/net.gd to that address and export the
-       game again, so every copy finds the list by itself.
-   Hosts who tick "List on the internet" then appear for everyone. The list
-   keeps nothing on disk; a fellowship drops off two minutes after its host
-   stops announcing it.
+4. THE INTERNET LIST
+   "Fellowships found" shows fellowships on your own network, and public
+   ones from the internet list at https://brelm-lobby.stebbi92.workers.dev
+   (built into the game). Tick "List on the internet" when hosting to
+   appear there. The list keeps nothing on disk; a fellowship drops off two
+   minutes after its host stops announcing it.
+   The list service is in tools/lobby/ of the source (a Cloudflare Worker).
+   To move it elsewhere, deploy it with "npx wrangler deploy" and set the
+   new address in Options > Fellowship > Internet list address.
