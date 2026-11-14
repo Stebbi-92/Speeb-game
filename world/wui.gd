@@ -313,7 +313,13 @@ func _scroll(min_h := 420.0) -> VBoxContainer:
 # ------------------------------------------------------------------ keys
 
 func _input(e: InputEvent) -> void:
-	if not (e is InputEventKey or e is InputEventMouseButton) or w.player == null:
+	if not (e is InputEventKey or e is InputEventMouseButton or e is InputEventJoypadButton) or w.player == null:
+		return
+	if e is InputEventJoypadButton and _panel != null and e.pressed:
+		# With a screen open the pad moves through it; B closes it
+		if e.button_index == JOY_BUTTON_B:
+			close_all()
+			accept_event()
 		return
 	if get_tree().paused or w.hud.pause_panel.visible or w.hud.options_panel.visible:
 		return

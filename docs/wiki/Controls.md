@@ -41,4 +41,27 @@ Every control can be changed in **Settings**. These are the defaults.
 | Build (the waste) | B |
 | Menu | Escape or P |
 
+## Controller
+
+A controller works too: the left stick walks, the right stick looks.
+
+| Action | Button |
+|---|---|
+| Jump | A |
+| Hasten | Left stick press |
+| Interact | X |
+| Fire, use, or build | RT |
+| Aim, or take down a built piece | LT |
+| Reload, or turn a piece | Y |
+| Change gun | RB |
+| Melee | Right stick press |
+| Grenade | LB |
+| Dodge (the waste), Swift Cast | B |
+| Fellowship list (together) | Back |
+| Pack (the waste) | D-pad down |
+| Map (the waste) | D-pad up |
+| Journal (the waste) | D-pad left |
+| Build (the waste) | D-pad right |
+| Menu | Start |
+
 In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a dropped satchel takes everything without opening it. **Enter** makes the chosen thing at the workbench.

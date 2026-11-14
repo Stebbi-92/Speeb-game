@@ -156,9 +156,34 @@ const CONTROLS := [
 var binds := {}   ## action -> [codes], only for those the player has changed
 
 
+## A controller's buttons and sticks, fixed. A number is a button; [axis, direction] is a stick or trigger.
+const PAD := {
+	"move_forward": [[JOY_AXIS_LEFT_Y, -1.0]], "move_back": [[JOY_AXIS_LEFT_Y, 1.0]],
+	"move_left": [[JOY_AXIS_LEFT_X, -1.0]], "move_right": [[JOY_AXIS_LEFT_X, 1.0]],
+	"jump": [JOY_BUTTON_A], "dash": [JOY_BUTTON_B], "interact": [JOY_BUTTON_X], "reload": [JOY_BUTTON_Y],
+	"fire": [[JOY_AXIS_TRIGGER_RIGHT, 1.0]], "aim": [[JOY_AXIS_TRIGGER_LEFT, 1.0]],
+	"swap_gun": [JOY_BUTTON_RIGHT_SHOULDER], "grenade": [JOY_BUTTON_LEFT_SHOULDER],
+	"run": [JOY_BUTTON_LEFT_STICK], "melee": [JOY_BUTTON_RIGHT_STICK],
+	"map": [JOY_BUTTON_DPAD_UP], "pack": [JOY_BUTTON_DPAD_DOWN], "journal": [JOY_BUTTON_DPAD_LEFT], "build": [JOY_BUTTON_DPAD_RIGHT],
+	"pause": [JOY_BUTTON_START], "fellowship": [JOY_BUTTON_BACK],
+}
+var pad_look := 3.2   ## how fast the right stick turns you, in radians a second at full tilt
+
+
 func _setup_input() -> void:
 	for c in CONTROLS:
 		_bind(c[0], binds.get(c[0], c[2]))
+		for p in PAD.get(c[0], []):
+			if p is Array:
+				var m := InputEventJoypadMotion.new()
+				m.axis = p[0]
+				m.axis_value = p[1]
+				InputMap.action_add_event(c[0], m)
+			else:
+				var b := InputEventJoypadButton.new()
+				b.button_index = p
+				InputMap.action_add_event(c[0], b)
+		InputMap.action_set_deadzone(c[0], 0.3)
 
 
 ## The keys now set for an action.
@@ -595,6 +620,34 @@ func toggle_fullscreen() -> void:
 	display_mode = 0 if display_mode != 0 else 1
 	apply_display()
 	save()
+
+
+## With a controller in hand and a menu showing, the first button takes the focus so the pad can move
+## through the menu.
+func _input(e: InputEvent) -> void:
+	if (e is InputEventJoypadButton and e.pressed) or (e is InputEventJoypadMotion and absf(e.axis_value) > 0.6):
+		using_pad = true
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and get_viewport().gui_get_focus_owner() == null:
+			var b := _first_button(get_tree().root)
+			if b:
+				b.grab_focus()
+	elif e is InputEventMouseMotion and e.relative.length() > 2.0:
+		using_pad = false
+
+
+var using_pad := false
+
+
+func _first_button(n: Node) -> Control:
+	if n is CanvasItem and not n.visible:
+		return null
+	if n is BaseButton and n.focus_mode != Control.FOCUS_NONE and not n.disabled and n.is_visible_in_tree():
+		return n
+	for c in n.get_children():
+		var f := _first_button(c)
+		if f:
+			return f
+	return null
 
 
 func _unhandled_input(e: InputEvent) -> void:

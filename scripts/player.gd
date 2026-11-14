@@ -167,6 +167,14 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# The right stick looks about, gently near the middle and quickly at the edge
+	if not input_locked and not get_tree().paused:
+		var st := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
+		if st.length() > 0.15:
+			st = st.normalized() * pow((st.length() - 0.15) / 0.85, 1.6)
+			var aimk := 0.45 if Input.is_action_pressed("aim") else 1.0
+			yaw -= st.x * Game.pad_look * aimk * delta
+			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
 	rotation.y = yaw
 	head.rotation.x = pitch
 	if grappling:

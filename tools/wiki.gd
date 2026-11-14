@@ -135,6 +135,19 @@ func _controls() -> void:
 		for k in c[2]:
 			ks.append(G.key_name(int(k)))
 		t += "| %s | %s |\n" % [c[1], " or ".join(ks)]
+	t += "\n## Controller\n\nA controller works too: the left stick walks, the right stick looks.\n\n| Action | Button |\n|---|---|\n"
+	var pad_names := {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y", JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB",
+		JOY_BUTTON_LEFT_STICK: "Left stick press", JOY_BUTTON_RIGHT_STICK: "Right stick press", JOY_BUTTON_DPAD_UP: "D-pad up", JOY_BUTTON_DPAD_DOWN: "D-pad down",
+		JOY_BUTTON_DPAD_LEFT: "D-pad left", JOY_BUTTON_DPAD_RIGHT: "D-pad right", JOY_BUTTON_START: "Start", JOY_BUTTON_BACK: "Back"}
+	for c in G.CONTROLS:
+		for p in G.PAD.get(c[0], []):
+			if p is Array:
+				if int(p[0]) == JOY_AXIS_TRIGGER_RIGHT:
+					t += "| %s | RT |\n" % c[1]
+				elif int(p[0]) == JOY_AXIS_TRIGGER_LEFT:
+					t += "| %s | LT |\n" % c[1]
+			else:
+				t += "| %s | %s |\n" % [c[1], pad_names.get(p, str(p))]
 	t += "\nIn menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a dropped satchel takes everything without opening it. **Enter** makes the chosen thing at the workbench.\n"
 	_write("Controls", t)
 
