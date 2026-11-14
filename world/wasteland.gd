@@ -2147,7 +2147,7 @@ func world_data() -> Dictionary:
 	return {
 		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
-		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(),
+		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 	}
 
 
@@ -2179,6 +2179,10 @@ func apply_world(d: Dictionary) -> void:
 		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
 	satchel_next = int(d.get("satchel_next", 1))
 	quests.from_data(d.get("quests", {}))
+	# One coming in late follows what the fellowship follows
+	if not Net.authority() and quests.quests.has(str(d.get("tracked", ""))):
+		quests.tracked = str(d.tracked)
+		quests.refresh_hud()
 	for i in lit:
 		_light_beacon(i, true)
 	_apply_time(true)
@@ -2245,6 +2249,10 @@ func _load_character() -> void:
 		while world_uid == "" and is_inside_tree():
 			await get_tree().process_frame
 	var d = Game.read_var_safe(_char_path())
+	# New to a fellowship already on the road: come in beside the others. A returning pilgrim
+	# takes up where they left off.
+	if Net.online and not Net.authority() and not d is Dictionary:
+		shared("_rq_near", [Net.me()])
 	if d is Dictionary:
 		apply_char(d)
 		return
@@ -2375,6 +2383,36 @@ func _w_offers(o: Dictionary) -> void:
 
 func _rq_accept(by: int, k: String, key: String) -> void:
 	quests.rq_accept(by, k, key)
+
+
+## The host answers a pilgrim who has just come in: where the rest of the fellowship stands.
+func _rq_near(by: int) -> void:
+	if not Net.authority() or by == Net.me():
+		return
+	var at = null
+	if not Net.dedicated and player.is_inside_tree():
+		at = player.global_position
+	else:
+		for id in avatars:
+			var a = avatars[id]
+			if id != by and is_instance_valid(a) and a.visible:
+				at = a.global_position
+				break
+	if at == null:
+		return
+	var off := Vector3(2.5, 0, 0).rotated(Vector3.UP, randf() * TAU)
+	Net.call_peer(by, "_w_near", [at + off, randf() * TAU])
+
+
+func _w_near(at: Vector3, yaw: float) -> void:
+	# Wait until this pilgrim's own things are loaded, so nothing moves them back afterwards
+	for i in 30:
+		if ready_world:
+			break
+		await get_tree().create_timer(0.2, false).timeout
+	await get_tree().create_timer(0.3, false).timeout
+	player.place(ground_below(at) + Vector3(0, 0.3, 0), yaw)
+	hud.notify("You join the others.")
 
 
 ## A quest taken up by anyone in the fellowship: all of them follow it on the compass.
@@ -3070,3 +3108,50 @@ func debug_qshare() -> void:
 				break
 	await get_tree().create_timer(4.0).timeout
 	print("QSHARE ", "host" if Net.authority() else "joiner", " tracked ", quests.tracked, " title ", quests.quests.get(quests.tracked, {}).get("title", ""))
+
+
+## Test (co-op): the host walks off from the start; a joiner should come in beside them.
+func debug_joinnear() -> void:
+	if Net.authority():
+		await get_tree().create_timer(6.0).timeout
+		player.place(ground_below(spawn_pos + Vector3(70, 0, 50)) + Vector3(0, 0.3, 0), 0.0)
+		await get_tree().create_timer(45.0).timeout
+		print("JOINNEAR host at ", player.global_position)
+		return
+	await get_tree().create_timer(20.0).timeout
+	for id in avatars:
+		print("JOINNEAR joiner at ", player.global_position, " other at ", avatars[id].global_position, " apart ", snappedf(player.global_position.distance_to(avatars[id].global_position), 0.1))
+
+
+## Test (co-op): a pilgrim joining late sees the fellowship's quest progress; leaving keeps where they stood and what they carried.
+func debug_latesync() -> void:
+	if Net.authority():
+		await get_tree().create_timer(4.0).timeout
+		for k in quests.offers:
+			if not quests.offers[k].is_empty():
+				quests.accept(quests.offers[k][0])
+				break
+		await get_tree().create_timer(1.0).timeout
+		for qid in quests.quests:
+			if qid != "main":
+				quests.quests[qid].have = 1
+				shared("_w_quest", [qid, quests.quests[qid]])
+				print("LATESYNC host quest ", qid, " have 1")
+		return
+	await get_tree().create_timer(15.0).timeout
+	var q: Dictionary = quests.quests.get(quests.tracked, {})
+	print("LATESYNC joiner tracked ", quests.tracked, " have ", q.get("have", -1), " quests ", quests.quests.keys())
+	var spot := player.global_position + Vector3(12, 0, 7)
+	player.place(ground_below(spot) + Vector3(0, 0.3, 0), 1.0)
+	inv.add("scrap", 7)
+	await get_tree().create_timer(1.0).timeout
+	var path := _char_path()
+	var want := player.global_position
+	print("LATESYNC joiner leaves at ", want, " scrap ", inv.count("scrap"))
+	Net.leave()
+	await Engine.get_main_loop().create_timer(3.0).timeout
+	var d = Game.read_var_safe(path)
+	var bag := Inventory.new(40)
+	bag.from_data(d.get("inv", []))
+	print("LATESYNC saved pos ", d.get("pos"), " scrap ", bag.count("scrap"), " level ", d.get("skills", {}).get("level", "?"))
+	Engine.get_main_loop().quit()
