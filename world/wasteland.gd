@@ -1043,7 +1043,9 @@ func crop_left(pid: int) -> float:
 
 
 func _rq_plant(by: int, pid: int, seed: String) -> void:
-	if not Net.authority() or not pieces.has(pid) or pieces[pid].kind != "planter" or pieces[pid].crop != "":
+	if not Net.authority():
+		return
+	if not pieces.has(pid) or pieces[pid].kind != "planter" or pieces[pid].crop != "":
 		Net.call_peer(by, "_w_give", [[[seed, 1]]])
 		return
 	shared("_w_plant", [pid, seed, world_hours()])
@@ -1480,7 +1482,11 @@ func _rq_take(by: int, id: String, i: int) -> void:
 
 
 func _rq_put(by: int, id: String, item: String, n: int) -> void:
-	if not Net.authority() or not containers.has(id):
+	# Every pilgrim hears this; only the host acts on it. (The others giving the item back is what
+	# once let a joiner keep what they had just put away.)
+	if not Net.authority():
+		return
+	if not containers.has(id):
 		Net.call_peer(by, "_w_give", [[[item, n]]])
 		return
 	var bag := Inventory.new(containers[id].size())
@@ -3087,6 +3093,8 @@ func debug_coop_host() -> void:
 
 func debug_coop_join() -> void:
 	await get_tree().create_timer(8.0).timeout
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
 	print("JOIN ready %s uid %s day %d pieces %d lit %s main %d offers %d" % [ready_world, world_uid, day, pieces.size(), lit, quests.main_stage(), quests.offers.size()])
 	var cid: String = crates.keys()[3]
 	_search(cid)
@@ -3099,6 +3107,27 @@ func debug_coop_join() -> void:
 	_gather(nd.id)
 	await get_tree().create_timer(3.0).timeout
 	print("JOIN node charges ", nodes[5].charges, " pack ", inv.to_data().filter(func(x): return x != null))
+	# Putting something into a crate must take it out of the pack, once
+	var slot := -1
+	for i in inv.slots.size():
+		if inv.slots[i] != null:
+			slot = i
+			break
+	if slot >= 0:
+		var it = inv.slots[slot]
+		var before := inv.count(it.id)
+		ui._cont_id = cid
+		ui._put(slot)
+		await get_tree().create_timer(3.0).timeout
+		print("JOIN put %s: pack %d -> %d, crate has %d" % [it.id, before, inv.count(it.id), _cont_count(cid, it.id)])
+
+
+func _cont_count(cid: String, item: String) -> int:
+	var n := 0
+	for x in containers.get(cid, []):
+		if x != null and x[0] == item:
+			n += int(x[1])
+	return n
 
 
 
