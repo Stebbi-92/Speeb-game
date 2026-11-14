@@ -152,6 +152,7 @@ func _physics_process(delta: float) -> void:
 		die(false)
 		return
 	var target := p.global_position + Vector3(0, 1.3, 0)
+	_rescue(delta, idle)
 	var to := target - global_position
 	var dist := to.length()
 	var dir := to / maxf(dist, 0.01)
@@ -520,6 +521,32 @@ func die(slain: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+var _cut_off := 0.0
+var _sight_t := 0.0
+
+
+## A form walled off from every pilgrim for long (taken shape behind a wall, or wandered through a gap)
+## is drawn back into the open near them, so that every gathering can be finished.
+func _rescue(delta: float, idle: bool) -> void:
+	if idle or kind == "mite":
+		return
+	_sight_t -= delta
+	if _sight_t > 0.0:
+		return
+	_sight_t = 0.5
+	if level.reachable(global_position):
+		_cut_off = 0.0
+		return
+	_cut_off += 0.5
+	if _cut_off >= (6.0 if kind in ["elite", "saucer"] else 10.0):
+		_cut_off = 0.0
+		var spot = level.open_spot_near(level.focus_pos(), 7.0, 14.0, kind == "saucer")
+		if spot != null:
+			global_position = spot
+			velocity = Vector3.ZERO
+			level.sfx("hiss", -6, spot)
 
 
 ## What the host tells the others of this form, fifteen times a second.

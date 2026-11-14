@@ -266,10 +266,50 @@ func _spawn_enemy(kind: String) -> void:
 		var down := PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -20 if high else -12, 0), 1)
 		if space.intersect_ray(down).is_empty() and not ((high and attempt > 10) or (kind != "spider" and attempt > 8)):
 			continue
+		# It must take shape where a pilgrim could reach it, never behind a wall
+		if not reachable(p):
+			continue
 		spawn_at(kind, p)
 		if high:
 			hud.notify("A saucer descends, and smaller forms stir within it.")
 		return
+	# Nowhere open at that distance: it comes closer, still in plain sight, or waits for the next moment
+	var spot = open_spot_near(center, 5.0, 12.0, kind == "saucer")
+	if spot != null:
+		spawn_at(kind, spot)
+	else:
+		_wave_queue.append(kind)
+
+
+## Is there a clear line from where a pilgrim stands to this point? Forms that take shape behind walls never reach anyone.
+func reachable(p: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	for t in (targets() if not targets().is_empty() else [player]):
+		var eye: Vector3 = t.global_position + Vector3(0, 1.4, 0)
+		var q := PhysicsRayQueryParameters3D.create(eye, p, 1)
+		if space.intersect_ray(q).is_empty():
+			return true
+	return false
+
+
+## A free, reachable point near a pilgrim, or null.
+func open_spot_near(center: Vector3, rmin: float, rmax: float, high := false):
+	var space := get_world_3d().direct_space_state
+	for attempt in 24:
+		var a := randf() * TAU
+		var d := randf_range(rmin, rmax)
+		var p := center + Vector3(cos(a) * d, randf_range(4.0, 6.0) if high else randf_range(1.2, 2.2), sin(a) * d)
+		var q := PhysicsShapeQueryParameters3D.new()
+		var s := SphereShape3D.new()
+		s.radius = 0.7
+		q.shape = s
+		q.transform = Transform3D(Basis(), p)
+		q.collision_mask = 1
+		if not space.intersect_shape(q, 1).is_empty():
+			continue
+		if reachable(p):
+			return p
+	return null
 
 
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
@@ -2226,6 +2266,20 @@ func debug_gather() -> void:
 	player.health = 99999.0
 	await survive("speebchef", player.global_position + Vector3(0, 3, -8), "pulse")
 	print("GATHERING DONE kills=%d secs=%.1f" % [kills, (Time.get_ticks_msec() - t0) / 1000.0])
+	get_tree().quit()
+
+
+## Testing aid: where do forms take shape? Counts any that land out of every pilgrim's sight.
+func debug_spawns() -> void:
+	combat_frozen = true
+	var bad := 0
+	for i in 40:
+		_spawn_enemy("elite" if i % 2 == 0 else "rusher")
+	await get_tree().physics_frame
+	for e in enemies:
+		if is_instance_valid(e) and not reachable(e.global_position):
+			bad += 1
+	print("SPAWNS %d, out of sight %d" % [enemies.size(), bad])
 	get_tree().quit()
 
 
