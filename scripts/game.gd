@@ -147,7 +147,7 @@ const CONTROLS := [
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
 	["slot_7", "Claw (the waste)", [KEY_7]], ["slot_8", "Censer (the waste)", [KEY_8]],
-	["codex", "The Book of Emojis", [KEY_TAB]],
+	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Fellowship list (together)", [KEY_L]],
 	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
 	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
 	["pause", "Menu", [KEY_ESCAPE, KEY_P]],

@@ -559,46 +559,97 @@ class Marks extends Control:
 
 
 var _fellowship: VBoxContainer
+var fellowship_open := false   ## the full list, shown with its key; otherwise only the fallen are shown
 
 
-## The fellowship's roster in a trial: each pilgrim's name in their colour, and how much life is left in them.
+## The fellowship in the top right: each pilgrim's name in their colour, how much life is left, and how far.
+## Closed, it shows only those who have fallen, so the screen stays clear until someone needs help.
+## rows: [name, health 0..1, fallen, colour, distance text]
 func set_fellowship(rows: Array) -> void:
 	if _fellowship == null:
 		_fellowship = VBoxContainer.new()
-		_fellowship.position = Vector2(36, 118)
+		_fellowship.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_fellowship.position = Vector2(-366, 92)
+		_fellowship.size = Vector2(330, 10)
 		_fellowship.add_theme_constant_override("separation", 4)
 		_fellowship.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_fellowship)
-	while _fellowship.get_child_count() > rows.size():
+		var head := _label("", 15, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+		head.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+		head.add_theme_constant_override("shadow_offset_x", 1)
+		head.add_theme_constant_override("shadow_offset_y", 1)
+		_fellowship.add_child(head)
+	var shown: Array = []
+	for r in rows:
+		if fellowship_open or r[2]:
+			shown.append(r)
+	var head: Label = _fellowship.get_child(0)
+	head.visible = fellowship_open and not rows.is_empty()
+	head.text = "Fellowship, %d   [%s] to hide" % [rows.size(), Game.key_text("fellowship")]
+	while _fellowship.get_child_count() - 1 > shown.size():
 		var c := _fellowship.get_child(_fellowship.get_child_count() - 1)
 		_fellowship.remove_child(c)
 		c.queue_free()
-	while _fellowship.get_child_count() < rows.size():
+	while _fellowship.get_child_count() - 1 < shown.size():
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 10)
+		h.alignment = BoxContainer.ALIGNMENT_END
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var l := _label("", 17, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+		var d := _label("", 14, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+		d.custom_minimum_size.x = 60
+		h.add_child(d)
+		var l := _label("", 17, PALE, HORIZONTAL_ALIGNMENT_RIGHT)
 		l.add_theme_font_override("font", title_font)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+		l.add_theme_constant_override("outline_size", 4)
 		l.custom_minimum_size.x = 150
 		h.add_child(l)
 		var b := ProgressBar.new()
 		b.show_percentage = false
 		b.max_value = 1.0
-		b.custom_minimum_size = Vector2(110, 5)
+		b.custom_minimum_size = Vector2(90, 5)
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.12)))
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(b)
 		_fellowship.add_child(h)
-	for i in rows.size():
-		var r: Array = rows[i]
-		var h := _fellowship.get_child(i)
-		var l: Label = h.get_child(0)
-		var b: ProgressBar = h.get_child(1)
+	for i in shown.size():
+		var r: Array = shown[i]
+		var h := _fellowship.get_child(i + 1)
+		var d: Label = h.get_child(0)
+		var l: Label = h.get_child(1)
+		var b: ProgressBar = h.get_child(2)
+		d.text = str(r[4]) if r.size() > 4 else ""
 		l.text = r[0] + ("  (fallen)" if r[2] else "")
-		l.add_theme_color_override("font_color", (r[3] as Color).lightened(0.25) if not r[2] else Color(0.6, 0.25, 0.2))
+		l.add_theme_color_override("font_color", (r[3] as Color).lightened(0.25) if not r[2] else Color(0.95, 0.4, 0.3))
 		b.value = r[1]
 		b.add_theme_stylebox_override("fill", _flat(r[3]))
+
+
+var _feed: VBoxContainer
+
+
+## A short line under the compass that fades: who joined, who left.
+func feed(text: String, c := Color(0.86, 0.80, 0.66)) -> void:
+	if _feed == null:
+		_feed = VBoxContainer.new()
+		_feed.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_feed.position = Vector2(-300, 84)
+		_feed.size = Vector2(600, 10)
+		_feed.add_theme_constant_override("separation", 2)
+		_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(_feed)
+	var l := _label(text, 18, c, HORIZONTAL_ALIGNMENT_CENTER)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	l.add_theme_constant_override("outline_size", 5)
+	_feed.add_child(l)
+	while _feed.get_child_count() > 4:
+		_feed.get_child(0).queue_free()
+		_feed.remove_child(_feed.get_child(0))
+	var tw := l.create_tween()
+	tw.tween_interval(6.0)
+	tw.tween_property(l, "modulate:a", 0.0, 1.5)
+	tw.tween_callback(l.queue_free)
 
 
 func set_health(v: float, show: bool) -> void:
@@ -1086,6 +1137,9 @@ func _input(e: InputEvent) -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause"):
 		toggle_pause()
+		get_viewport().set_input_as_handled()
+	elif e.is_action_pressed("fellowship") and Net.online and Game.main.in_game():
+		fellowship_open = not fellowship_open
 		get_viewport().set_input_as_handled()
 	elif e.is_action_pressed("codex"):
 		if Game.main.in_game() or codex_panel.visible:

@@ -493,7 +493,7 @@ func _heading(text: String) -> Label:
 
 func _build_together() -> void:
 	_together.add_child(_heading("Walk Together"))
-	_together.add_child(_small("Up to four pilgrims may walk the trials as one fellowship. One hosts; the others join."))
+	_together.add_child(_small("Up to four can play together, in the Ashen Waste or the trials. One hosts; the others join."))
 	var nh := HBoxContainer.new()
 	nh.add_child(_small("Your name", hud.PALE, 19))
 	nh.get_child(0).custom_minimum_size.x = 150
@@ -506,26 +506,58 @@ func _build_together() -> void:
 	hh.add_theme_constant_override("separation", 8)
 	var sname := _field("", "Name of the fellowship", 250)
 	var port := _field(str(Net.DEFAULT_PORT), "Port", 90)
-	var listed := CheckBox.new()
-	listed.text = "List on the internet"
-	listed.add_theme_font_size_override("font_size", 17)
-	listed.disabled = Net.lobby_url() == ""
-	listed.tooltip_text = "Set an internet list address in Options to list fellowships publicly." if listed.disabled else ""
 	hh.add_child(sname)
 	hh.add_child(port)
-	hh.add_child(listed)
 	_together.add_child(hh)
+	# Who may find it: one plain choice, and a line that says what it means
+	var vis := ["public" if Net.lobby_url() != "" else "network"]
+	var vrow := HBoxContainer.new()
+	vrow.add_theme_constant_override("separation", 6)
+	vrow.add_child(_small("Who can find it", hud.PALE, 17))
+	vrow.get_child(0).custom_minimum_size.x = 150
+	var vnote := _small("", hud.DIM, 16)
+	var group := ButtonGroup.new()
+	var notes := {"public": "Shown in the server list on the internet. Anyone can join, or use the code.",
+		"network": "Shown to players on your own network. Friends elsewhere join with the code.",
+		"private": "Not shown anywhere. Friends join with the code or your address."}
+	for opt in [["public", "Everyone"], ["network", "My network"], ["private", "Only with the code"]]:
+		var b := Button.new()
+		b.text = opt[1]
+		b.toggle_mode = true
+		b.button_group = group
+		b.focus_mode = Control.FOCUS_NONE
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.add_theme_font_size_override("font_size", 16)
+		b.add_theme_color_override("font_color", hud.DIM)
+		b.add_theme_color_override("font_pressed_color", hud.GOLD)
+		b.add_theme_color_override("font_hover_pressed_color", hud.GOLD)
+		b.add_theme_color_override("font_hover_color", hud.PALE)
+		for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			var sb := StyleBoxFlat.new()
+			var on: bool = st in ["pressed", "hover_pressed"]
+			sb.bg_color = Color(hud.GOLD, 0.16) if on else Color(1, 1, 1, 0.08 if st == "hover" else 0.03)
+			sb.border_color = Color(hud.GOLD, 0.7) if on else Color(1, 1, 1, 0.12)
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(12)
+			sb.content_margin_left = 12
+			sb.content_margin_right = 12
+			sb.content_margin_top = 3
+			sb.content_margin_bottom = 3
+			b.add_theme_stylebox_override(st, sb)
+		var key: String = opt[0]
+		if key == "public" and Net.lobby_url() == "":
+			b.disabled = true
+			b.tooltip_text = "Set an internet list address in Settings to list games publicly."
+		b.button_pressed = key == vis[0]
+		b.toggled.connect(func(on): if on: vis[0] = key; vnote.text = notes[key])
+		vrow.add_child(b)
+	vnote.text = notes[vis[0]]
+	_together.add_child(vrow)
+	_together.add_child(vnote)
 	var ph := HBoxContainer.new()
 	ph.add_theme_constant_override("separation", 8)
-	var priv := CheckBox.new()
-	priv.text = "Private: found only by its code"
-	priv.add_theme_font_size_override("font_size", 17)
-	priv.tooltip_text = "Not shown on any list. Give your friends the six-letter code from the gathering place."
-	priv.toggled.connect(func(on): if on: listed.button_pressed = false)
-	listed.toggled.connect(func(on): if on: priv.button_pressed = false)
 	var word := _field("", "A word to join (optional)", 250)
 	word.secret = true
-	ph.add_child(priv)
 	ph.add_child(word)
 	_together.add_child(ph)
 	_together.add_child(_btn("Host a fellowship", func():
@@ -533,7 +565,7 @@ func _build_together() -> void:
 		if n == "":
 			n = "%s's fellowship" % Net.my_name()
 		var p := int(port.text) if port.text.is_valid_int() else Net.DEFAULT_PORT
-		if Net.host(p, n, listed.button_pressed, false, priv.button_pressed, word.text) == OK:
+		if Net.host(p, n, vis[0] == "public", false, vis[0] == "private", word.text) == OK:
 			_show_lobby()
 		else:
 			_status.text = Net.last_error, 24))

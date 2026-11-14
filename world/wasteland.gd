@@ -4216,3 +4216,33 @@ func debug_takeall() -> void:
 	ui._tidy(inv)
 	print("TIDY wood=%d first=%s" % [inv.count("wood"), inv.slots[0]])
 	get_tree().quit()
+
+
+## Testing aid (co-op): reports the join notice, the closed and opened fellowship list.
+func debug_feed_host() -> void:
+	for t in 12:
+		await get_tree().create_timer(4.0).timeout
+		var seen: Array = []
+		if hud._feed:
+			for l in hud._feed.get_children():
+				seen.append(l.text)
+		print("FEED t=%d lines=%s" % [(t + 1) * 4, seen])
+	await get_tree().create_timer(9.0).timeout
+	var lines: Array = []
+	if hud._feed:
+		for l in hud._feed.get_children():
+			lines.append(l.text)
+	print("FEED host lines=", lines, " rows_closed=", hud._fellowship.get_child_count() - 1)
+	hud.fellowship_open = true
+	await get_tree().create_timer(1.0).timeout
+	var rows: Array = []
+	for i in range(1, hud._fellowship.get_child_count()):
+		var h = hud._fellowship.get_child(i)
+		rows.append([h.get_child(1).text, h.get_child(0).text])
+	print("FEED host open rows=", rows)
+	get_tree().quit()
+
+
+func debug_feed_join() -> void:
+	await get_tree().create_timer(15.0).timeout
+	get_tree().quit()

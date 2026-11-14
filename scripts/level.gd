@@ -73,6 +73,7 @@ var _net_events: Array = []
 var _pose_t := 0.0
 var _foes_t := 0.0
 var _roster_t := 0.0
+var _known: Dictionary = {}   ## who was in the fellowship when last looked, by id -> name
 var _down_peers := {}
 var _pfail := false
 var _survive_done := false
@@ -2049,14 +2050,37 @@ func _net_tick(delta: float) -> void:
 	if _roster_t <= 0.0:
 		_roster_t = 0.25
 		var rows := []
-		for id in Net.players:
-			if id == Net.me():
-				rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id)])
-			elif avatars.has(id) and is_instance_valid(avatars[id]):
-				rows.append([Net.name_of(id), avatars[id].hp, avatars[id].downed, Net.color_of(id)])
-			else:
-				rows.append([Net.name_of(id), 1.0, false, Net.color_of(id)])
+		if Net.online:
+			for id in Net.players:
+				if id == Net.me():
+					rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id), "you"])
+				elif avatars.has(id) and is_instance_valid(avatars[id]):
+					var a = avatars[id]
+					rows.append([Net.name_of(id), a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position))])
+				else:
+					rows.append([Net.name_of(id), 1.0, false, Net.color_of(id), ""])
 		hud.set_fellowship(rows)
+		_watch_roster()
+
+
+## Says on screen when someone joins or leaves the fellowship.
+func _watch_roster() -> void:
+	if not Net.online:
+		_known.clear()
+		return
+	var now := {}
+	for id in Net.players:
+		now[id] = Net.name_of(id)
+	if _known.is_empty():
+		_known = now
+		return
+	for id in now:
+		if not _known.has(id):
+			hud.feed("%s joined" % now[id], Net.color_of(id).lightened(0.3))
+	for id in _known:
+		if not now.has(id):
+			hud.feed("%s left" % _known[id], Color(0.7, 0.68, 0.64))
+	_known = now
 
 
 func net_pose(id: int, data: Array) -> void:
