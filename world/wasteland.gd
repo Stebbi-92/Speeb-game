@@ -550,7 +550,43 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 	personal_interactable(body, "Speak with %s" % pd.name, func(): ui.open_dialogue(pid))
 	var lbl := label3d("%s\n%s" % [pd.name, pd.title], p + Vector3(0, 2.25, 0), 0.32, Color(0.92, 0.88, 0.78), 0.0, true)
 	lbl.visibility_range_end = 18.0
-	people[pid] = {"node": f, "pos": p}
+	people[pid] = {"node": f, "pos": p, "fig": dressed, "yaw": yaw}
+
+
+## Someone speaking to the pilgrim turns to face them, and their mouth moves while the words come.
+func speaker_says(pid: String, secs: float) -> void:
+	var e: Dictionary = people.get(pid, {})
+	if e.is_empty() or not is_instance_valid(e.node) or player == null:
+		return
+	var f: Node3D = e.node
+	var to := player.global_position - f.global_position
+	_turn(f, atan2(to.x, to.z))
+	var fig: Figure = e.fig
+	if is_instance_valid(fig):
+		fig.talk_t = secs
+
+
+## When the talk ends they go back to how they stood, after a moment.
+func speaker_done(pid: String) -> void:
+	var e: Dictionary = people.get(pid, {})
+	if e.is_empty() or not is_instance_valid(e.node):
+		return
+	if is_instance_valid(e.fig):
+		e.fig.talk_t = 0.0
+	_turn(e.node, float(e.yaw), 2.5)
+
+
+func _turn(n: Node3D, yaw: float, wait := 0.0) -> void:
+	if n.has_meta("turn"):
+		var old: Tween = n.get_meta("turn")
+		if old and old.is_valid():
+			old.kill()
+	var from := n.rotation.y
+	var tw := n.create_tween()
+	if wait > 0.0:
+		tw.tween_interval(wait)
+	tw.tween_method(func(t: float): n.rotation.y = lerp_angle(from, yaw, t), 0.0, 1.0, 0.45).set_trans(Tween.TRANS_SINE)
+	n.set_meta("turn", tw)
 
 
 func settlement_at(p: Vector3, extra := 0.0) -> String:
@@ -3012,6 +3048,24 @@ func debug_mapshot() -> void:
 func debug_talkshot() -> void:
 	player.place(people.maud.pos + Vector3(0, 0.5, 3), 0.0)
 	ui.open_dialogue("maud")
+
+
+func debug_facetalk() -> void:
+	var m: Vector3 = people.maud.pos
+	var e: Dictionary = people.maud
+	var off := Vector3(1.6, 0, 0).rotated(Vector3.UP, float(e.yaw) + 1.2)
+	player.place(m + off + Vector3(0, 0.3, 0), atan2(off.x, off.z))
+	player.pitch = -0.05
+	await get_tree().create_timer(0.5).timeout
+	ui.open_dialogue("maud")
+	await get_tree().create_timer(0.3).timeout
+	ui._frame.visible = false
+	await get_tree().create_timer(0.6).timeout
+	var to: Vector3 = player.global_position - e.node.global_position
+	print("FACE yaw0 %.2f now %.2f want %.2f mouth %.2f" % [e.yaw, e.node.rotation.y, atan2(to.x, to.z), e.fig._mouth.scale.y])
+	ui.close_all()
+	await get_tree().create_timer(3.5).timeout
+	print("BACK now %.2f yaw0 %.2f mouth %.2f" % [e.node.rotation.y, e.yaw, e.fig._mouth.scale.y])
 
 
 func debug_nightshot() -> void:

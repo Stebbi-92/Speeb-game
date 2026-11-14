@@ -35,6 +35,9 @@ const SHOULDER_Y := 1.45
 const GRIP := Vector3(0.17, 1.2, 0.44)   ## where the near hand holds a gun, with the gun level
 const FORE := Vector3(0.1, 1.19, 0.52)   ## where the far hand steadies it
 var hand_r: Node3D         ## where a held thing goes
+var talk_t := 0.0          ## seconds left of moving the mouth, while words are spoken
+var _mouth: MeshInstance3D
+var _talk_ph := 0.0
 var _legs: Array = []
 var _arms: Array = []
 
@@ -107,7 +110,7 @@ func rebuild() -> void:
 	for side in [-1, 1]:
 		_sphere(head, 0.016, Vector3(0.042 * side, 0.02, 0.1), dark)
 	_box(head, Vector3(0.03, 0.05, 0.04), Vector3(0, -0.01, 0.115), skin)
-	_box(head, Vector3(0.05, 0.008, 0.01), Vector3(0, -0.058, 0.105), _mat(SKINS[L.skin].darkened(0.4)))
+	_mouth = _box(head, Vector3(0.05, 0.008, 0.01), Vector3(0, -0.058, 0.105), _mat(SKINS[L.skin].darkened(0.55)))
 	match L.face:
 		1:
 			_box(head, Vector3(0.17, 0.08, 0.1), Vector3(0, -0.07, 0.05), _mat(hair_c.lerp(SKINS[L.skin], 0.5), 0.0, 1.0))
@@ -216,9 +219,20 @@ func rebuild() -> void:
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _legs.size() < 2:
 		return
+	if _mouth:
+		# The mouth opens and closes with the murmur of the words, then rests shut
+		if talk_t > 0.0:
+			talk_t -= delta
+			_talk_ph += delta
+			var open := absf(sin(_talk_ph * 13.0)) * (0.6 + 0.4 * sin(_talk_ph * 4.3))
+			_mouth.scale.y = 1.0 + maxf(open, 0.0) * 3.2
+			_mouth.position.y = -0.058 - _mouth.scale.y * 0.002
+		elif _mouth.scale.y != 1.0:
+			_mouth.scale.y = move_toward(_mouth.scale.y, 1.0, delta * 20.0)
+			_mouth.position.y = -0.058 - _mouth.scale.y * 0.002
 	var s := sin(walk) * 0.55 * stride
 	_legs[0].rotation.x = s
 	_legs[1].rotation.x = -s

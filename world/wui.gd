@@ -398,6 +398,8 @@ func close_all() -> void:
 	_panel = null
 	_panel_name = ""
 	_cont_id = ""
+	if _talking != "":
+		w.speaker_done(_talking)
 	_talking = ""
 	if _babble:
 		_babble.hush()
@@ -979,6 +981,7 @@ func _talk(text: String) -> void:
 		_babble = WBabble.new()
 		add_child(_babble)
 	_babble.speak(_talking, line, secs)
+	w.speaker_says(_talking, minf(secs, 2.8))
 	var sc := ScrollContainer.new()
 	sc.custom_minimum_size = Vector2(0, 330)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
