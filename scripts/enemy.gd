@@ -288,7 +288,7 @@ func _physics_process(delta: float) -> void:
 					want.y = (target.y - 0.2 - global_position.y) * 2.0
 			_:
 				# They come at you from the sides as well as the front, closing straight only near
-				var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if dist > 7.0 else dir
+				var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if dist > 7.0 and (not Game.wasteland or WRules.flanks()) else dir
 				want = d2 * speed
 				want += dir.cross(Vector3.UP) * sin(_t * 2.0 + _strafe) * (2.5 if kind == "swarm" else 1.2)
 	if kind == "unseen":
@@ -449,7 +449,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	if _charge <= 0.0:
 		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
 	if not frozen:
-		var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if fd > 7.0 and kind in ["rusher", "spider", "idol"] else dir
+		var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if fd > 7.0 and kind in ["rusher", "spider", "idol"] and (not Game.wasteland or WRules.flanks()) else dir
 		var want := d2 * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
 		match kind:
 			"howler":
@@ -863,7 +863,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	# Enough harm at once, or a blade to something not too great, and it reels: its bite is broken off
 	_dmg_win += amount
 	if boss == "" and full and _stagger <= 0.0 and not kind in ["saucer", "unseen"] and \
-			(_dmg_win > max_hp * 0.3 or (harm_kind == "blade" and spec.hp < 150.0)):
+			(_dmg_win > max_hp * (WRules.stagger_at() if Game.wasteland else 0.3) or (harm_kind == "blade" and spec.hp < 150.0)):
 		_stagger = 0.9 if kind != "elite" else 0.6
 		_dmg_win = 0.0
 		if _wind > 0.0:
@@ -975,7 +975,7 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 				level.sfx("swing", -8, global_position, 1.4)
 		return
 	if dist < reach + 0.4 and _attack_cd <= 0.0 and _stagger <= 0.0:
-		_wind_total = float(WINDUP.get(kind, 0.35)) / sqrt(Game.difficulty_scale("speed"))
+		_wind_total = float(WINDUP.get(kind, 0.35)) / sqrt(Game.difficulty_scale("speed")) * (WRules.windup() if Game.wasteland else 1.0)
 		_wind = _wind_total
 		_cry("growl_%d" % (randi() % 3), -4)
 

@@ -62,6 +62,7 @@ var player_name := ""
 var lobby_url := ""
 var forms_style := 0      ## the lesser forms: 0 flesh (cat heads), 1 masks (their emojis)
 var look := Figure.DEFAULT.duplicate()   ## how this pilgrim appears to others
+var wrules := {}   ## the rules of the world of the waste now walked; empty outside it
 var unlimited_ammo := false   ## a hosting choice: guns never spend their reserve
 var pxp := 0                 ## profile experience, earned in every mode; unlocks arms
 var plevel := 1
@@ -70,6 +71,7 @@ var autosave_min := 2          ## minutes between autosaves in the waste
 ## The open waste: which world is walked, and whether we are walking it now.
 var world_slot := "1"
 var new_world_seed := 0
+var new_world_rules := {}   ## settings chosen for a world about to begin
 var wasteland := false
 ## Revelations: deeds the pilgrimage remembers.
 const REVELATIONS := {
@@ -273,7 +275,7 @@ func find_emoji(code: String) -> bool:
 
 
 func difficulty_scale(key: String) -> float:
-	return DIFF_SCALE[key][difficulty]
+	return DIFF_SCALE[key][int(wrules.get("difficulty", difficulty)) if wasteland else difficulty]
 
 
 ## How a trial was walked: the Balance between excess and apathy, and how often Brelm fell.

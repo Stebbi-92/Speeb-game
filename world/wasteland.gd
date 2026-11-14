@@ -41,6 +41,7 @@ var containers := {}
 var pieces := {}
 var satchels := {}
 var guide: WGuide
+var rules := {}   ## this world's settings (see WRules)
 var map_marks: Array = []   ## spots marked on the map by the fellowship: [position, who marked it]
 const MAX_MARKS := 16
 var people := {}
@@ -219,6 +220,7 @@ func _exit_tree() -> void:
 	if is_instance_valid(guide):
 		guide.queue_free()
 	guide = null
+	Game.wrules = {}
 	if hud:
 		hud.boss_bar("", -1.0)
 		hud.hotbar.arms = null
@@ -892,8 +894,9 @@ func _needs_tick(delta: float) -> void:
 		return
 	var work := 1.6 if player.cur_speed > 4.5 else 1.0
 	var wn := WArms.worn(arms)
-	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger))
-	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary))
+	var nm := WRules.needs_mult()
+	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger) * nm)
+	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary) * nm)
 	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
 	player.walk_speed = 3.4 * skills.speed_mult() * slow
 	player.run_speed = 5.8 * skills.speed_mult() * slow
@@ -1556,7 +1559,7 @@ func _rq_open(by: int, id: String) -> void:
 			var rr := RandomNumberGenerator.new()
 			rr.randomize()
 			var bag := Inventory.new(12)
-			for it in Items.roll(c.table, rr.randi_range(2, 4) + (2 if c.sealed else 0), rr):
+			for it in Items.roll(c.table, maxi(1, int(round((rr.randi_range(2, 4) + (2 if c.sealed else 0)) * WRules.yield_mult()))), rr):
 				bag.add(it[0], it[1])
 			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
@@ -1628,6 +1631,18 @@ func take_all(id: String) -> int:
 	elif idxs.is_empty() and data.is_empty():
 		hud.notify("Nothing here.")
 	return idxs.size()
+
+
+## The host changes the world's settings; everyone takes them up.
+func set_rules(r: Dictionary) -> void:
+	if Net.authority():
+		shared("_w_rules", [WRules.clean(r)])
+
+
+func _w_rules(r: Dictionary) -> void:
+	rules = WRules.clean(r)
+	Game.wrules = rules
+	autosave_soon(2.0)
 
 
 ## A spot marked on the map, shown to everyone on the map and the compass. Marking near a mark takes it away.
@@ -2150,10 +2165,11 @@ func _w_gathered(id: int, out: Array) -> void:
 		for it in out:
 			if it[0] in ["wood", "stone", "salt"]:
 				it[1] = int(it[1]) * 2
-	if skills.gather_mult() > 1.0:
+	var gm: float = skills.gather_mult() * WRules.yield_mult()
+	if gm != 1.0:
 		for it in out:
 			if it[0] != "coin":
-				it[1] = int(ceil(int(it[1]) * skills.gather_mult()))
+				it[1] = maxi(1, int(ceil(int(it[1]) * gm)))
 	_w_give(out)
 	award("gather")
 	quests.on_event("gathered", {})
@@ -2527,6 +2543,16 @@ func _day_watch() -> void:
 
 
 func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
+	# The world's rule on numbers: fewer skips some, more brings a second now and then
+	var m := WRules.spawn_mult()
+	if randf() >= m:
+		return null
+	if m > 1.0 and randf() < m - 1.0 and kind != "saucer" and kind != "elite":
+		_spawn_one(kind, c, rmin, rmax, anywhere)
+	return _spawn_one(kind, c, rmin, rmax, anywhere)
+
+
+func _spawn_one(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
 	var space := get_world_3d().direct_space_state
 	for attempt in 12:
 		var a := randf() * TAU
@@ -2698,9 +2724,10 @@ func _perish(message: String) -> void:
 	if ui:
 		ui.close_all()
 	var drop: Array = []
+	var keep := WRules.get_rule("death") == 1
 	for i in inv.slots.size():
 		var s = inv.slots[i]
-		if s != null and Items.info(s.id).kind != "tool" and Items.info(s.id).kind != "quest":
+		if not keep and s != null and Items.info(s.id).kind != "tool" and Items.info(s.id).kind != "quest":
 			drop.append([s.id, int(s.n)])
 			inv.slots[i] = null
 	inv.changed.emit()
@@ -2709,7 +2736,7 @@ func _perish(message: String) -> void:
 	await hud.fade_to(1.0, 1.4)
 	hud.clear_say()
 	hud.raise_text(true)
-	hud.say(message + "\nWhat you carried lies where you fell.", 5.0)
+	hud.say(message + ("" if keep else "\nWhat you carried lies where you fell."), 5.0)
 	var where := "your bedroll" if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0) else "the nearest town"
 	for left in range(5, 0, -1):
 		hud.set_banner("", "You will wake at %s in %d" % [where, left])
@@ -2869,7 +2896,7 @@ func world_data() -> Dictionary:
 		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
-		"marks": map_marks,
+		"marks": map_marks, "rules": rules,
 	}
 
 
@@ -2904,6 +2931,8 @@ func apply_world(d: Dictionary) -> void:
 	for sid in d.get("satchels", {}):
 		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
 	satchel_next = int(d.get("satchel_next", 1))
+	rules = WRules.clean(d.get("rules"))
+	Game.wrules = rules
 	map_marks = []
 	for m in d.get("marks", []):
 		if m is Array and m.size() >= 2 and m[0] is Vector3:
@@ -2978,6 +3007,8 @@ func _load_world() -> void:
 		_pending = {}
 	if world_uid == "":
 		world_uid = "%d%d" % [Time.get_unix_time_from_system(), randi() % 100000]
+		rules = WRules.clean(Game.new_world_rules)
+		Game.wrules = rules
 		quests.start_new()
 		quests.refresh_offers()
 
@@ -4481,3 +4512,25 @@ func debug_combat() -> void:
 	var o: Vector3 = wp[0] + Vector3(0, 0, 5)
 	print("COMBAT head ray hits=%s body ray hits=%s" % [Arms._ray_near(o, Vector3(0, 0, -1), wp[0], wp[1]), Arms._ray_near(o + Vector3(0, -1.0, 0), Vector3(0, 0, -1), wp[0], wp[1])])
 	get_tree().quit()
+
+
+## Testing aid: the world's settings take hold, are saved, and show in their dialog.
+func debug_rules() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	set_rules({"difficulty": 2, "enemies": 0, "death": 1, "air": 0, "ammo": 1, "skill": 0})
+	await get_tree().create_timer(0.5).timeout
+	var e = _spawn_near("rusher", player.global_position, 10.0, 14.0, true)
+	print("RULES diff_scale=%.2f spawn_none=%s unlimited=%s windup=%.2f saved=%s" % [Game.difficulty_scale("damage"), e == null, Net.unlimited_ammo(), WRules.windup(), world_data().rules])
+	inv.add("wood", 5)
+	var before := inv.count("wood")
+	_perish("Test.")
+	await get_tree().create_timer(0.5).timeout
+	print("RULES kept wood=%d of %d" % [inv.count("wood"), before])
+	get_tree().quit()
+
+
+func debug_rulesshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	hud.show_rules(rules, true, func(_r): pass)

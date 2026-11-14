@@ -115,6 +115,8 @@ func _ready() -> void:
 ## Counts a form slain toward the kill streaks, and readies the ones earned.
 func life_kill() -> void:
 	life_kills += 1
+	if Game.wasteland and WRules.get_rule("air") == 0:
+		return
 	for k in Streaks.ORDER:
 		if life_kills == int(Streaks.KINDS[k].kills):
 			streaks_ready.append(k)
@@ -128,6 +130,9 @@ func life_kill() -> void:
 func call_streak() -> void:
 	if hud.streak_menu_open():
 		hud.close_streak_menu()
+		return
+	if Game.wasteland and WRules.get_rule("air") == 0:
+		hud.notify("Air support is off in this world.")
 		return
 	if streaks_ready.is_empty():
 		hud.notify("Nothing answers yet. Slay %d without falling to call the sky down." % maxi(1, int(Streaks.KINDS.airstrike.kills) - life_kills))

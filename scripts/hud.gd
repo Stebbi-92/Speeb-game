@@ -883,6 +883,7 @@ func clear_all() -> void:
 
 var _save_btn: Button
 var _restart_btn: Button
+var _rules_btn: Button
 
 
 ## Writes everything down at once: the pilgrim's own record, and in the waste the world and what is carried.
@@ -918,6 +919,11 @@ func _build_pause() -> void:
 	_save_btn = button("Save", _save_now)
 	v.add_child(_save_btn)
 	v.add_child(button("Settings", func(): show_options()))
+	_rules_btn = button("World settings", func():
+		var lvl = Game.main.level
+		if lvl and lvl.has_method("set_rules"):
+			show_rules(lvl.rules, Net.authority(), func(r): lvl.set_rules(r)))
+	v.add_child(_rules_btn)
 	_restart_btn = button("Restart this trial", func(): toggle_pause(); Game.main.restart_level())
 	v.add_child(_restart_btn)
 	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
@@ -965,7 +971,96 @@ func ask(question: String, yes: String, on_yes: Callable, no := "Stay") -> void:
 	stay.grab_focus.call_deferred()
 
 
+## A world's settings in a dialog: one row of choices for each, with a line on what the chosen
+## one does. Read-only for someone who is not the host.
+func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
+	var r: Dictionary = WRules.clean(current)
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.65)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(shade)
+	var box := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.055, 0.05, 0.97)
+	sb.border_color = Color(GOLD, 0.5)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(30)
+	box.add_theme_stylebox_override("panel", sb)
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	shade.add_child(box)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	box.add_child(v)
+	var t := _label("World settings", 30, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	if not editable:
+		v.add_child(_label("Only the host can change these.", 16, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var note := _label("", 16, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(760, 44)
+	for row in WRules.ALL:
+		var key: String = row[0]
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		var l := _label(row[1], 19, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+		l.custom_minimum_size.x = 230
+		h.add_child(l)
+		var group := ButtonGroup.new()
+		for i in row[2].size():
+			var b := Button.new()
+			b.text = row[2][i]
+			b.toggle_mode = true
+			b.button_group = group
+			b.disabled = not editable
+			b.button_pressed = int(r[key]) == i
+			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			b.add_theme_font_size_override("font_size", 16)
+			b.add_theme_color_override("font_color", DIM)
+			b.add_theme_color_override("font_pressed_color", GOLD)
+			b.add_theme_color_override("font_hover_pressed_color", GOLD)
+			b.add_theme_color_override("font_disabled_color", Color(DIM, 0.5))
+			b.add_theme_color_override("font_hover_color", PALE)
+			b.add_theme_color_override("font_focus_color", PALE)
+			for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+				var cb := StyleBoxFlat.new()
+				var on: bool = st in ["pressed", "hover_pressed"] or (st == "disabled" and int(r[key]) == i)
+				cb.bg_color = Color(GOLD, 0.16) if on else Color(1, 1, 1, 0.08 if st in ["hover", "focus"] else 0.03)
+				cb.border_color = Color(GOLD, 0.7) if on else Color(1, 1, 1, 0.3 if st == "focus" else 0.12)
+				cb.set_border_width_all(1)
+				cb.set_corner_radius_all(12)
+				cb.content_margin_left = 12
+				cb.content_margin_right = 12
+				cb.content_margin_top = 3
+				cb.content_margin_bottom = 3
+				b.add_theme_stylebox_override(st, cb)
+			var idx: int = i
+			b.toggled.connect(func(on): if on: r[key] = idx; note.text = "%s: %s" % [row[1], row[4]])
+			b.mouse_entered.connect(func(): note.text = "%s: %s" % [row[1], row[4]])
+			h.add_child(b)
+		v.add_child(h)
+	v.add_child(note)
+	var btns := HBoxContainer.new()
+	btns.add_theme_constant_override("separation", 30)
+	v.add_child(btns)
+	if editable:
+		btns.add_child(button("Back", func(): shade.queue_free(), 22))
+		var keep := button("Keep these", func(): shade.queue_free(); on_done.call(r), 22)
+		keep.add_theme_color_override("font_color", GOLD)
+		btns.add_child(keep)
+		btns.add_child(button("Defaults", func(): shade.queue_free(); show_rules({}, true, on_done), 18))
+	else:
+		btns.add_child(button("Close", func(): shade.queue_free(), 22))
+	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())
+
+
 func toggle_pause() -> void:
+	if _rules_btn:
+		_rules_btn.visible = Game.wasteland
 	if options_panel.visible:
 		hide_options()
 		return

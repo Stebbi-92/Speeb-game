@@ -364,6 +364,8 @@ func _look(l: Dictionary) -> void:
 
 ## Whether guns spend their reserve. Offline it is the player's own choice; in a fellowship, the host's.
 func unlimited_ammo() -> bool:
+	if Game.wasteland and Game.wrules.has("ammo"):
+		return int(Game.wrules.ammo) == 1
 	return host_unlimited if online and not multiplayer.is_server() else Game.unlimited_ammo
 
 
