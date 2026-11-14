@@ -30,6 +30,7 @@ var bob_amount := 1.0
 var health := 100.0
 var max_health := 100.0
 var dash_cd := 0.0
+var dodge_t := 0.0   ## a dodge in the waste: for this long, bites and blows pass by
 var rift_cd := 0.0
 var ward_ready := true
 var ward_cd := 0.0
@@ -234,6 +235,7 @@ func _physics_process(delta: float) -> void:
 
 func _blessings(delta: float, dir: Vector3) -> void:
 	dash_cd = maxf(0.0, dash_cd - delta)
+	dodge_t = maxf(0.0, dodge_t - delta)
 	rift_cd = maxf(0.0, rift_cd - delta)
 	if not ward_ready and Game.blessed("runespeeb"):
 		ward_cd -= delta
@@ -241,7 +243,15 @@ func _blessings(delta: float, dir: Vector3) -> void:
 			ward_ready = true
 	if input_locked or not armed:
 		return
-	if Game.blessed("speebyeet") and Input.is_action_just_pressed("dash") and dash_cd <= 0.0:
+	if Game.wasteland and not Game.blessed("speebyeet") and Input.is_action_just_pressed("dash") and dash_cd <= 0.0 and is_on_floor():
+		# A quick step aside, the way you are moving (or back, standing still); a bite in that moment misses
+		dash_cd = 1.1
+		dodge_t = 0.3
+		var dd := dir if dir.length() > 0.1 else transform.basis.z
+		dd.y = 0
+		velocity += dd.normalized() * 10.0 + Vector3(0, 1.0, 0)
+		get_parent().sfx("whoosh", -12, null, 1.3)
+	elif Game.blessed("speebyeet") and Input.is_action_just_pressed("dash") and dash_cd <= 0.0:
 		dash_cd = 2.5
 		var d := dir if dir.length() > 0.1 else -transform.basis.z
 		d.y = 0

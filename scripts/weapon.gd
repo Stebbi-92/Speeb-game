@@ -502,6 +502,7 @@ func _try_fire() -> void:
 	if s.mode in ["auto", "spin"]:
 		spread *= 1.0 + _climb * 0.6
 	var hits := {}
+	var crits := {}
 	var dmg_m := damage_mult * tier_mult() * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0)
 	for i in int(s.pellets):
 		var dir := fwd
@@ -520,26 +521,44 @@ func _try_fire() -> void:
 		if float(s.falloff) > 0.0:
 			fall = clampf(1.4 - dist / float(s.falloff), 0.35, 1.0)
 		var dmg := float(s.dmg) * fall * dmg_m
+		if target and target.has_method("weak_point"):
+			# A shot to the head does more, and is marked so
+			var wp: Array = target.weak_point()
+			if not wp.is_empty() and _ray_near(origin, dir, wp[0], wp[1]):
+				dmg *= HEAD_MULT
+				crits[target] = true
 		if target and target.has_method("hurt"):
 			hits[target] = hits.get(target, 0.0) + dmg
 		else:
 			lvl.puff(r.position, r.normal)
 	if not hits.is_empty():
 		lvl.hits += 1
-	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet")
+	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet", crits)
 
 
 ## Applies harm to each struck thing and shows the hit marker once.
 static var _told_deflect := -100000
 
 
-static func deal(hits: Dictionary, dir: Vector3, harm := "") -> void:
+const HEAD_MULT := 1.6
+
+
+## Whether a ray passes within r of a point (the head's middle).
+static func _ray_near(o: Vector3, d: Vector3, c: Vector3, r: float) -> bool:
+	var t := maxf(0.0, (c - o).dot(d))
+	return (o + d * t).distance_to(c) < r
+
+
+static func deal(hits: Dictionary, dir: Vector3, harm := "", crits := {}) -> void:
 	LesserSpeeb.harm_kind = harm
 	var marked := 0
+	var crit := false
 	for t in hits:
 		if is_instance_valid(t) and t.has_method("hurt"):
 			var full: bool = t.hurt(hits[t], dir)
 			LesserSpeeb.harm_kind = harm
+			if full and crits.has(t):
+				crit = true
 			var killed: bool = t.has_method("is_alive") and not t.is_alive()
 			if killed:
 				marked = 2
@@ -552,9 +571,11 @@ static func deal(hits: Dictionary, dir: Vector3, harm := "") -> void:
 				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side or behind.")
 	LesserSpeeb.harm_kind = ""
 	if marked > 0:
-		Game.main.hud.hitmarker(marked == 2)
+		Game.main.hud.hitmarker(marked == 2, false, crit)
 		if Game.main.level:
 			Game.main.level.sfx("tick", -6 if marked == 1 else -2, null, 1.0 if marked == 1 else 0.7)
+			if crit:
+				Game.main.level.sfx("tick", -3, null, 1.45)
 	elif marked < 0:
 		# Struck, but turned aside: a grey ring and a hard high note, so it is plain the shot did little
 		Game.main.hud.hitmarker(false, true)

@@ -103,6 +103,15 @@ var _watched := false
 var _breath_cd := 0.0
 # In a fellowship the host runs every form; the others see puppets that follow what the host tells them
 var net_id := 0
+var _wind := 0.0          ## a bite gathering: seconds until it lands. Step out of reach and it misses
+var _wind_total := 0.0
+var _stagger := 0.0       ## reeling from heavy harm: it neither moves on you nor bites
+var _dmg_win := 0.0       ## harm taken lately, which drains away; enough at once staggers it
+var _flank := 0.0         ## which side it swings out to as it closes
+var _head_base := Vector3.ONE
+## How long each kind gathers itself before it bites. The quick ones barely pause; the heavy ones show it.
+const WINDUP := {"rusher": 0.38, "idol": 0.6, "swarm": 0.2, "mite": 0.18, "elite": 0.55, "spider": 0.3,
+	"brute": 0.65, "howler": 0.4, "lurker": 0.3}
 var puppet := false
 var credit := false
 var last_hitter := 1
@@ -167,6 +176,7 @@ func _ready() -> void:
 		_grow_into_boss()
 	elif spec.hp >= 30.0:
 		_make_bar()
+	_remember_head()
 	scale = Vector3.ONE * 0.01
 	create_tween().tween_property(self, "scale", Vector3.ONE, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_strafe = 1.0 if randf() < 0.5 else -1.0
@@ -196,6 +206,12 @@ func _ready() -> void:
 
 
 ## A cry from the lesser form, pitched by its size: the small shriek high, the great ones low.
+func _remember_head() -> void:
+	if head:
+		_head_base = head.scale
+	_flank = randf_range(-1.0, 1.0)
+
+
 func _cry(sound: String, vol := 0.0) -> void:
 	var pitch: float = clampf(1.0 / spec.size, 0.6, 1.7) * randf_range(0.85, 1.15)
 	level.sfx(sound, vol, global_position, pitch)
@@ -230,7 +246,13 @@ func _physics_process(delta: float) -> void:
 	head.rotation.y = lerp_angle(head.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * turn))
 	head.rotation.x = -asin(clampf(dir.y, -0.6, 0.6)) * 0.6
 	var want := Vector3.ZERO
-	var frozen: bool = level.combat_frozen or idle
+	_dmg_win = maxf(0.0, _dmg_win - max_hp * 0.25 * delta)
+	if _stagger > 0.0:
+		_stagger -= delta
+		head.rotation.z = sin(_t * 18.0) * 0.25 * minf(1.0, _stagger * 2.0)
+	elif head.rotation.z != 0.0:
+		head.rotation.z = 0.0
+	var frozen: bool = level.combat_frozen or idle or _stagger > 0.0
 	if boss != "" and not frozen and not level.completed:
 		_boss_tick(delta, p, dist)
 	if walks():
@@ -265,7 +287,9 @@ func _physics_process(delta: float) -> void:
 					want = dir * speed * (1.7 if dist > 9.0 else 1.0)
 					want.y = (target.y - 0.2 - global_position.y) * 2.0
 			_:
-				want = dir * speed
+				# They come at you from the sides as well as the front, closing straight only near
+				var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if dist > 7.0 else dir
+				want = d2 * speed
 				want += dir.cross(Vector3.UP) * sin(_t * 2.0 + _strafe) * (2.5 if kind == "swarm" else 1.2)
 	if kind == "unseen":
 		_shade_tick(delta, dist)
@@ -310,16 +334,16 @@ func _physics_process(delta: float) -> void:
 		die(true)
 		return
 	var reach: float = 1.0 + spec.radius
-	if spec.bite > 0.0 and dist < reach and _attack_cd <= 0.0:
-		_attack_cd = 1.3 if kind == "idol" else 0.9
+	if kind == "unseen" and spec.bite > 0.0 and dist < reach and _attack_cd <= 0.0:
+		# The Unseen gives no warning: its warning is that you looked away
+		_attack_cd = 0.9
 		level.sfx("bite", -2, global_position)
-		if kind == "unseen":
-			level.sfx("unseen_scream", 2, global_position, randf_range(0.9, 1.1))
-			_seen = 1.0
-		elif randf() < 0.5:
-			_cry("growl_%d" % (randi() % 3), 0)
+		level.sfx("unseen_scream", 2, global_position, randf_range(0.9, 1.1))
+		_seen = 1.0
 		level.hurt_target(p, spec.bite, global_position)
 		_knock = -dir * 6.0
+	elif spec.bite > 0.0 and kind != "unseen":
+		_bite_tick(delta, p, dist, dir, reach, 1.3 if kind == "idol" else 0.9, spec.bite)
 	if kind == "saucer":
 		_disc.rotation.y += delta * 2.5
 		_mites = _mites.filter(func(m): return is_instance_valid(m) and m.is_alive())
@@ -425,7 +449,8 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	if _charge <= 0.0:
 		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
 	if not frozen:
-		var want := dir * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
+		var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if fd > 7.0 and kind in ["rusher", "spider", "idol"] else dir
+		var want := d2 * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
 		match kind:
 			"howler":
 				# It keeps to the middle distance, where its cry carries
@@ -452,7 +477,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 				_charge = 1.1
 				level.sfx("roar", 0, global_position, 0.75)
 		elif kind in ["rusher", "spider", "lurker", "elite"]:
-			if on_floor and fd < 7.5 and fd > 2.0 and _leap_cd <= 0.0 and _buried < 0.5:
+			if on_floor and fd < 7.5 and fd > 2.0 and _leap_cd <= 0.0 and _buried < 0.5 and _wind <= 0.0:
 				_leap_cd = randf_range(2.0, 3.5) * (1.6 if kind == "elite" else 1.0)
 				velocity = dir * 11.0 + Vector3(0, 6.5, 0)
 				_cry("spider_hiss" if kind == "spider" else "shriek_%d" % (randi() % 4), 0)
@@ -518,15 +543,18 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3, 0) - global_position).rotated(Vector3.UP, k))
 		return
 	var reach: float = 1.2 + spec.radius
-	if dist < reach and _attack_cd <= 0.0 and _buried < 0.3:
-		_attack_cd = 0.8 if kind != "brute" else 1.4
-		level.sfx("bite", -2, global_position)
-		var bite: float = spec.bite * (1.8 if _charge > 0.0 else 1.0)
-		level.hurt_target(p, bite, global_position)
-		if _charge > 0.0 and p == level.player:
-			level.player.velocity += dir * 14.0 + Vector3(0, 5, 0)
-		_charge = 0.0
-		_knock = -dir * 5.0
+	if _charge > 0.0:
+		# A hauler's charge strikes as it comes, with no pause: the roar before it was the warning
+		if dist < reach and _attack_cd <= 0.0:
+			_attack_cd = 1.4
+			level.sfx("bite", -2, global_position)
+			level.hurt_target(p, spec.bite * 1.8, global_position)
+			if p == level.player:
+				level.player.velocity += dir * 14.0 + Vector3(0, 5, 0)
+			_charge = 0.0
+			_knock = -dir * 5.0
+	elif _buried < 0.3:
+		_bite_tick(delta, p, dist, dir, reach, 0.8 if kind != "brute" else 1.4, spec.bite)
 
 
 ## The howler's cry: it hurts what hears it close, and the forms near it come on faster a while.
@@ -832,6 +860,16 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	_knock += from_dir.normalized() * amount * (0.0 if boss != "" else (0.08 if kind == "elite" else 0.25))
+	# Enough harm at once, or a blade to something not too great, and it reels: its bite is broken off
+	_dmg_win += amount
+	if boss == "" and full and _stagger <= 0.0 and not kind in ["saucer", "unseen"] and \
+			(_dmg_win > max_hp * 0.3 or (harm_kind == "blade" and spec.hp < 150.0)):
+		_stagger = 0.9 if kind != "elite" else 0.6
+		_dmg_win = 0.0
+		if _wind > 0.0:
+			_wind = 0.0
+			_show_wind(-1.0)
+		_knock += from_dir.normalized() * 3.0
 	hp_frac = hp / max_hp
 	if hp <= 0.0:
 		die(true)
@@ -917,8 +955,49 @@ func _rescue(delta: float, idle: bool) -> void:
 
 
 ## What the host tells the others of this form, fifteen times a second.
+## A bite in two beats: it gathers itself (the head swells and glows), then lunges. Out of reach when it
+## lands, it misses. Staggered, it does not bite at all.
+func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float, cd: float, dmg: float) -> void:
+	if _wind > 0.0:
+		_wind -= delta
+		_show_wind(1.0 - _wind / maxf(_wind_total, 0.01))
+		if _wind <= 0.0:
+			_show_wind(-1.0)
+			_attack_cd = cd
+			_knock += dir * 4.0
+			if dist < reach + 0.7:
+				level.sfx("bite", -2, global_position)
+				if randf() < 0.5:
+					_cry("growl_%d" % (randi() % 3), 0)
+				level.hurt_target(p, dmg, global_position)
+				_knock = -dir * 5.0
+			else:
+				level.sfx("swing", -8, global_position, 1.4)
+		return
+	if dist < reach + 0.4 and _attack_cd <= 0.0 and _stagger <= 0.0:
+		_wind_total = float(WINDUP.get(kind, 0.35)) / sqrt(Game.difficulty_scale("speed"))
+		_wind = _wind_total
+		_cry("growl_%d" % (randi() % 3), -4)
+
+
+## The swelling and glow of a gathering bite (k from 0 to 1), or back to rest (k below 0).
+func _show_wind(k: float) -> void:
+	if k < 0.0:
+		head.scale = _head_base
+		return
+	head.scale = _head_base * (1.0 + 0.2 * sin(k * PI * 0.5))
+	head.set_flash(maxf(_flash, 0.2 + 0.4 * k))
+
+
+## Where a shot does the most harm: the head, and how near to its middle counts.
+func weak_point() -> Array:
+	if not is_instance_valid(head) or kind in ["saucer", "bloater"]:
+		return []
+	return [head.global_position, 0.42 * float(spec.size) * _head_base.x * scale.x]
+
+
 func net_state() -> Array:
-	return [net_id, boss if boss != "" else kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp]
+	return [net_id, boss if boss != "" else kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0]
 
 
 func net_apply(st: Array) -> void:
@@ -930,6 +1009,9 @@ func net_apply(st: Array) -> void:
 	_flash = maxf(_flash, st[7])
 	if st.size() > 8:
 		hp_frac = st[8]
+	if st.size() > 10:
+		_wind = 0.3 if st[9] else 0.0
+		_stagger = 0.3 if st[10] else 0.0
 	if global_position.distance_to(to) > 6.0:
 		global_position = to
 
@@ -943,6 +1025,14 @@ func _puppet_tick(delta: float) -> void:
 	head.rotation.x = lerpf(head.rotation.x, _net_head.y, minf(1.0, delta * 12.0))
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	if _wind > 0.0:
+		_wind -= delta
+		_show_wind(0.8)
+		if _wind <= 0.0:
+			_show_wind(-1.0)
+	if _stagger > 0.0:
+		_stagger -= delta
+	head.rotation.z = sin(_t * 18.0) * 0.2 if _stagger > 0.0 else 0.0
 	_bar_tick(delta)
 	if kind == "saucer" and _disc:
 		_disc.rotation.y += delta * 2.5

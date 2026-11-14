@@ -2636,6 +2636,10 @@ func _w_slain(p: Vector3, kind: String, by := 0) -> void:
 func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated:
 		return
+	if player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
+		# Stepped aside in time
+		hud.hitmarker(false, true)
+		return
 	player.shake(0.45)
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
 	if skills.rank("last_light") > 0:
@@ -4442,3 +4446,38 @@ func debug_guideshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
 	guide.begin(1)
+
+
+## Testing aid (combat): a stalker gathers before it bites; a dodge in that moment makes it miss;
+## a heavy blow staggers it; a shot to the head does more.
+func debug_combat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.health = 100.0
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.5, -2.5))
+	e._attack_cd = 0.0
+	var winds := 0
+	var hp0 := player.health
+	for i in 40:
+		await get_tree().physics_frame
+		if e._wind > 0.0:
+			winds += 1
+	print("COMBAT wind frames=%d hp %.0f -> %.0f" % [winds, hp0, player.health])
+	# Dodge through the next one
+	e._attack_cd = 0.0
+	while e._wind <= 0.0 and e.is_alive():
+		await get_tree().physics_frame
+	player.dodge_t = 0.5
+	var hp1 := player.health
+	while e._wind > 0.0:
+		await get_tree().physics_frame
+	print("COMBAT dodged hp %.0f -> %.0f" % [hp1, player.health])
+	e._attack_cd = 0.0
+	while e._wind <= 0.0 and e.is_alive():
+		await get_tree().physics_frame
+	e.hurt(e.max_hp * 0.35, Vector3(0, 0, -1))
+	print("COMBAT staggered=%s wind_cancelled=%s" % [e._stagger > 0.0, e._wind <= 0.0])
+	var wp: Array = e.weak_point()
+	var o: Vector3 = wp[0] + Vector3(0, 0, 5)
+	print("COMBAT head ray hits=%s body ray hits=%s" % [Arms._ray_near(o, Vector3(0, 0, -1), wp[0], wp[1]), Arms._ray_near(o + Vector3(0, -1.0, 0), Vector3(0, 0, -1), wp[0], wp[1])])
+	get_tree().quit()

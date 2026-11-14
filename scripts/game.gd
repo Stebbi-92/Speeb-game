@@ -144,7 +144,7 @@ const CONTROLS := [
 	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
 	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],
 	["melee", "Melee", [KEY_Z]], ["grenade", "Grenade", [KEY_G]], ["gadget", "Gadget", [KEY_T]], ["streak", "Call a kill streak", [KEY_H]],
-	["dash", "Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]],
+	["dash", "Dodge (the waste), Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]],
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
 	["slot_7", "Claw (the waste)", [KEY_7]], ["slot_8", "Censer (the waste)", [KEY_8]],
