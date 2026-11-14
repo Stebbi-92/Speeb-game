@@ -427,6 +427,23 @@ func _call(s: int, method: String, args: Array) -> void:
 		lvl.callv(method, args)
 
 
+## A method of the land called on one pilgrim only (the host answering a single asker).
+func call_peer(id: int, method: String, args: Array) -> void:
+	if not online or id == me():
+		var lvl = _level()
+		if lvl and lvl.has_method(method):
+			lvl.callv(method, args)
+		return
+	_call_one.rpc_id(id, seq, method, args)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _call_one(s: int, method: String, args: Array) -> void:
+	var lvl = _here(s)
+	if lvl and method.begins_with("_") and lvl.has_method(method):
+		lvl.callv(method, args)
+
+
 # ------------------------------------------------------------------ pilgrims
 
 ## One who arrives in a land already under way asks where the fellowship last stood firm.

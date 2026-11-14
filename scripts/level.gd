@@ -411,6 +411,11 @@ func _drop(what: String, at: Vector3, n: int) -> void:
 		_offering(at, n)
 
 
+## A form held back by something in its way. The open waste lets it tear at what was built.
+func on_blocked(_e: LesserSpeeb, _col: Object, _dmg: float) -> bool:
+	return false
+
+
 ## A form undone by another pilgrim of the fellowship still counts toward the land's gatherings.
 func team_kill(_e: LesserSpeeb) -> void:
 	team_kills += 1

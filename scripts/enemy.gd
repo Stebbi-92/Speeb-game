@@ -195,6 +195,7 @@ func _physics_process(delta: float) -> void:
 	velocity = real_v
 	if is_on_wall():
 		velocity.y += 6.0 * delta * 10.0
+		_claw_at_wall()
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
 	if frozen or level.completed or level.failing:
@@ -328,6 +329,8 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	velocity *= level.enemy_time
 	move_and_slide()
 	velocity = real_v
+	if is_on_wall():
+		_claw_at_wall()
 	if is_on_floor() and velocity.y < 0.0:
 		velocity.y = 0.0
 	# Spiders climb what stands in their way
@@ -521,6 +524,16 @@ func die(slain: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+## A form pressed against something built tears at it.
+func _claw_at_wall() -> void:
+	if _attack_cd > 0.0 or spec.bite <= 0.0:
+		return
+	var c := get_last_slide_collision()
+	if c and level.on_blocked(self, c.get_collider(), spec.bite * 1.5):
+		_attack_cd = 0.9
+		level.sfx("bite", -6, global_position, 0.7)
 
 
 var _cut_off := 0.0

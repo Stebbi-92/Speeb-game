@@ -13,6 +13,7 @@ const SHELL_TIME := 0.45
 var player: Player
 var shells := CAPACITY
 var reserve := 24
+var reserve_max := 48
 var _cool := 0.0
 var _reloading := false
 var _reload_t := 0.0
@@ -161,7 +162,7 @@ func _ui() -> void:
 
 
 func add_shells(n: int) -> void:
-	reserve = mini(reserve + n, 48)
+	reserve = mini(reserve + n, reserve_max)
 	_ui()
 
 

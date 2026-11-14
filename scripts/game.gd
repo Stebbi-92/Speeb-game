@@ -1,7 +1,8 @@
 extends Node
 ## Global state for the pilgrimage: progress, the Book of Emojis, settings and input.
 
-const LEVELS := ["prologue", "cliffs", "ruins", "wastes", "heights", "fields", "caves", "hollow", "stone", "lake", "epilogue", "tenth"]
+const LEVELS := ["prologue", "cliffs", "ruins", "wastes", "heights", "fields", "caves", "hollow", "stone", "lake", "epilogue", "tenth", "wasteland"]
+const WASTELAND := 12
 const NINE := ["speebbang", "emospeeb", "speebchef", "speebyeet", "glitchspeeb", "speebsnek", "floofspeeb", "runespeeb", "chillspeeb"]
 const NAMES := {
 	"speebbang": "Speebbang", "emospeeb": "Emospeeb", "speebchef": "Speebchef", "speebyeet": "Speebyeet",
@@ -57,6 +58,9 @@ var quality := 1
 var gilded := false
 var player_name := ""
 var lobby_url := ""
+## The open waste: which world is walked, and whether we are walking it now.
+var world_slot := "1"
+var wasteland := false
 ## Revelations: deeds the pilgrimage remembers.
 const REVELATIONS := {
 	"first_blood": ["The First Undoing", "Undo a lesser form."],
@@ -233,6 +237,8 @@ func add_kill(kind: String) -> void:
 
 
 func has_relic(id: String) -> bool:
+	if wasteland:
+		return id in ["shotgun", "hands", "lantern"] or (id == "milk" and milk > 0)
 	return id in ["shotgun", "hands"] or (id == "milk" and milk > 0) or relics.has(id)
 
 
