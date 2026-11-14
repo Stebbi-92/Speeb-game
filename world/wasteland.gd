@@ -3776,3 +3776,28 @@ func debug_townshot() -> void:
 	player.place(at, 0.0)
 	player.face(c + Vector3(0, 1.5, 0))
 	clock = 11.0
+
+
+## Test (co-op): beasts the host keeps are seen by a joiner, and a joiner's shot reaches the host's beast.
+func debug_coopbeasts() -> void:
+	await get_tree().create_timer(10.0).timeout
+	if Net.authority():
+		for k in 40:
+			await get_tree().create_timer(1.0).timeout
+			if k % 10 == 0:
+				var g := _w_beast(_beast_next, "goat", player.global_position + Vector3(14, 1, 0))
+				_beast_next += 1
+		print("COOPB host beasts ", beasts.size(), " satchels ", satchels.size())
+		return
+	for k in 40:
+		await get_tree().create_timer(1.0).timeout
+		for id in beasts:
+			var b = beasts[id]
+			if is_instance_valid(b) and b.is_alive() and b.kind == "goat":
+				print("COOPB joiner sees ", beasts.size(), " beasts; shoots goat ", id)
+				var before := satchels.size()
+				b.hurt(80.0, Vector3.FORWARD)
+				await get_tree().create_timer(3.0).timeout
+				print("COOPB joiner goat dead ", not b.is_alive(), " satchels +", satchels.size() - before)
+				return
+	print("COOPB joiner saw no goat; beasts ", beasts.size())

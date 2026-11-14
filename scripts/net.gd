@@ -223,7 +223,15 @@ func leave(reason := "") -> void:
 		session_ended.emit(reason)
 
 
+## The land takes a while to raise when a pilgrim first walks into it, and nothing else moves meanwhile.
+## Give each link a long patience so a fellowship is not broken while the waste is being made.
+func _patient(id: int) -> void:
+	if peer and peer.get_peer(id):
+		peer.get_peer(id).set_timeout(32, 90000, 180000)
+
+
 func _on_connected() -> void:
+	_patient(1)
 	_joining = false
 	_hello.rpc_id(1, my_name(), PROTOCOL, str(ProjectSettings.get_setting("application/config/version", "")), join_word)
 	_look.rpc_id(1, Game.look)
@@ -240,8 +248,9 @@ func _on_server_gone() -> void:
 	leave("The host has left. The fellowship is broken.")
 
 
-func _on_peer_connected(_id: int) -> void:
-	pass
+func _on_peer_connected(id: int) -> void:
+	if is_host():
+		_patient(id)
 
 
 func _on_peer_disconnected(id: int) -> void:
