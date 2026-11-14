@@ -40,6 +40,8 @@ var crates := {}
 var containers := {}
 var pieces := {}
 var satchels := {}
+var map_marks: Array = []   ## spots marked on the map by the fellowship: [position, who marked it]
+const MAX_MARKS := 16
 var people := {}
 var settle_nodes := {}
 var beacon_nodes: Array = []
@@ -1621,6 +1623,33 @@ func take_all(id: String) -> int:
 	return idxs.size()
 
 
+## A spot marked on the map, shown to everyone on the map and the compass. Marking near a mark takes it away.
+func toggle_mark(p: Vector3, near := 60.0) -> void:
+	shared("_w_mark", [Vector3(p.x, 0, p.z), Net.me(), near])
+
+
+func _w_mark(p: Vector3, by: int, near := 60.0) -> void:
+	for i in map_marks.size():
+		var q: Vector3 = map_marks[i][0]
+		if Vector2(q.x - p.x, q.z - p.z).length() < near:
+			map_marks.remove_at(i)
+			autosave_soon(5.0)
+			return
+	map_marks.append([p, by])
+	while map_marks.size() > MAX_MARKS:
+		map_marks.pop_front()
+	autosave_soon(5.0)
+
+
+func clear_marks() -> void:
+	shared("_w_clear_marks", [])
+
+
+func _w_clear_marks() -> void:
+	map_marks.clear()
+	autosave_soon(5.0)
+
+
 func _rq_take_many(by: int, id: String, idxs: Array) -> void:
 	if not Net.authority() or not containers.has(id):
 		return
@@ -2736,6 +2765,7 @@ func world_data() -> Dictionary:
 		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
+		"marks": map_marks,
 	}
 
 
@@ -2770,6 +2800,10 @@ func apply_world(d: Dictionary) -> void:
 	for sid in d.get("satchels", {}):
 		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
 	satchel_next = int(d.get("satchel_next", 1))
+	map_marks = []
+	for m in d.get("marks", []):
+		if m is Array and m.size() >= 2 and m[0] is Vector3:
+			map_marks.append([m[0], int(m[1])])
 	quests.from_data(d.get("quests", {}))
 	# One coming in late follows what the fellowship follows
 	if not Net.authority() and quests.quests.has(str(d.get("tracked", ""))):
@@ -4246,3 +4280,19 @@ func debug_feed_host() -> void:
 func debug_feed_join() -> void:
 	await get_tree().create_timer(15.0).timeout
 	get_tree().quit()
+
+
+## Testing aid: marks two spots, opens the map zoomed in on the player.
+func debug_markshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	reveal_place(WPlaces.spos("cinderwick"), 300.0)
+	visited["cinderwick"] = true
+	map_marks.clear()
+	toggle_mark(player.global_position + Vector3(120, 0, -80))
+	toggle_mark(player.global_position + Vector3(-200, 0, 150))
+	toggle_mark(player.global_position + Vector3(-210, 0, 150))   # close to the last: takes it away
+	toggle_mark(player.global_position + Vector3(-60, 0, 260))
+	print("MARKS ", map_marks.size())
+	ui._map_zoom = 3.0
+	ui.open_map()

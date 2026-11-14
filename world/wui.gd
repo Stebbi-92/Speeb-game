@@ -1517,46 +1517,126 @@ func open_map() -> void:
 	_open("map")
 
 
+var _map_zoom := 1.0
+var _map_off := Vector2.ZERO   ## where the map's top left sits inside its window
+var _map_canvas: Control
+var _map_drag := false
+const MAP_VIEW := 640.0
+
+
 func _draw_map() -> void:
 	_clear()
 	if _map_tex == null:
-		_map_tex = ImageTexture.create_from_image(w.terrain.map_image(640))
+		_map_tex = ImageTexture.create_from_image(w.terrain.map_image(1024))
 		_fog_img = Image.create(Wasteland.REVEAL_N, Wasteland.REVEAL_N, false, Image.FORMAT_RGBA8)
 		_fog_tex = ImageTexture.create_from_image(_fog_img)
 		map_dirty = true
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 24)
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(640, 640)
+	holder.custom_minimum_size = Vector2(MAP_VIEW, MAP_VIEW)
+	holder.clip_contents = true
+	holder.mouse_filter = Control.MOUSE_FILTER_STOP
+	holder.gui_input.connect(_map_input)
+	_map_canvas = Control.new()
+	_map_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(_map_canvas)
 	var tr := TextureRect.new()
 	tr.texture = _map_tex
-	tr.size = Vector2(640, 640)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_SCALE
-	holder.add_child(tr)
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_canvas.add_child(tr)
 	var fog := TextureRect.new()
 	fog.texture = _fog_tex
-	fog.size = Vector2(640, 640)
 	fog.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	fog.stretch_mode = TextureRect.STRETCH_SCALE
 	fog.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	holder.add_child(fog)
+	fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_canvas.add_child(fog)
 	_map_draw = MapDraw.new()
 	_map_draw.w = w
-	_map_draw.size = Vector2(640, 640)
-	holder.add_child(_map_draw)
+	_map_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_canvas.add_child(_map_draw)
 	hb.add_child(holder)
+	_map_center_on(w.player.global_position)
 	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 6)
 	side.add_child(_title("The Ashen Waste"))
-	side.add_child(_wrap("Seed %d. Day %d. %d of 9 beacons burn.\n\n◆ your task    ● settlement    ▲ beacon (bright when burning)    ■ ruin    ✶ lair of a great one    + your bed    ✕ what you left when you fell" % [w.world_seed, w.day, w.lit.size()], 17, DIM))
+	side.add_child(_label("Seed %d.  Day %d.  %d of 9 beacons burn." % [w.world_seed, w.day, w.lit.size()], 17, DIM))
+	side.add_child(_gap(4))
+	for k in [["◆", "your task"], ["●", "settlement"], ["▲", "beacon, bright when burning"], ["■", "ruin"], ["✶", "lair of a great one"],
+			["+", "your bed"], ["✕", "what you left when you fell"], ["⚑", "a marked spot"]]:
+		side.add_child(_label("%s   %s" % k, 16, DIM))
+	side.add_child(_gap(6))
+	side.add_child(_wrap("Scroll to zoom, drag to move. Right click marks a spot for everyone, on the map and the compass. Right click a mark to take it away.", 16, PALE, 330))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(_chip("Find me", false, func(): _map_center_on(w.player.global_position)))
+	row.add_child(_chip("Whole map", false, func(): _map_zoom = 1.0; _map_center_on(Vector3.ZERO)))
+	if not w.map_marks.is_empty():
+		row.add_child(_chip("Clear marks", false, func(): w.clear_marks(); _redraw.call_deferred()))
+	side.add_child(row)
 	if not w.quests.tracked.is_empty() and w.quests.quests.has(w.quests.tracked):
 		var q: Dictionary = w.quests.quests[w.quests.tracked]
-		side.add_child(_label("", 10, DIM))
+		side.add_child(_gap(8))
 		side.add_child(_label(q.title, 22, GOLD))
-		side.add_child(_wrap(w.quests.step_text(q), 18, PALE))
+		side.add_child(_wrap(w.quests.step_text(q), 18, PALE, 330))
 	hb.add_child(side)
 	_body.add_child(hb)
 	_update_fog()
+
+
+func _map_layout() -> void:
+	if not is_instance_valid(_map_canvas):
+		return
+	var full := MAP_VIEW * _map_zoom
+	_map_off.x = clampf(_map_off.x, MAP_VIEW - full, 0.0)
+	_map_off.y = clampf(_map_off.y, MAP_VIEW - full, 0.0)
+	_map_canvas.position = _map_off
+	_map_canvas.size = Vector2(full, full)
+	for c in _map_canvas.get_children():
+		c.position = Vector2.ZERO
+		c.size = Vector2(full, full)
+	_map_draw.zoom = _map_zoom
+	_map_draw.queue_redraw()
+
+
+func _map_center_on(p: Vector3) -> void:
+	var full := MAP_VIEW * _map_zoom
+	var m := Vector2((p.x + WPlaces.HALF) / WPlaces.SIZE, (p.z + WPlaces.HALF) / WPlaces.SIZE) * full
+	_map_off = Vector2(MAP_VIEW, MAP_VIEW) * 0.5 - m
+	_map_layout()
+
+
+## Map point (inside the window) to the world, and back.
+func _map_world(v: Vector2) -> Vector3:
+	var u := (v - _map_off) / (MAP_VIEW * _map_zoom)
+	return Vector3(u.x * WPlaces.SIZE - WPlaces.HALF, 0, u.y * WPlaces.SIZE - WPlaces.HALF)
+
+
+func _map_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var at: Vector2 = e.position
+		var before := (at - _map_off) / _map_zoom
+		_map_zoom = clampf(_map_zoom * (1.25 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 1.0, 6.0)
+		_map_off = at - before * _map_zoom
+		_map_layout()
+		accept_event()
+	elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_map_drag = e.pressed
+		accept_event()
+	elif e is InputEventMouseMotion and _map_drag:
+		_map_off += e.relative
+		_map_layout()
+		accept_event()
+	elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_RIGHT:
+		# Taking away a mark is easy at any zoom: within about 12 pixels of it
+		w.toggle_mark(_map_world(e.position), 12.0 / (MAP_VIEW * _map_zoom) * WPlaces.SIZE)
+		w.sfx("tick", -6)
+		_map_draw.queue_redraw()
+		accept_event()
 
 
 func _update_fog() -> void:
@@ -1826,6 +1906,8 @@ class Compass extends Control:
 				marks.append([t, Color(0.95, 0.82, 0.5), 7.0])
 		for i in w.lit:
 			marks.append([w.beacon_nodes[i].pos, Color(1, 0.97, 0.85, 0.6), 4.0])
+		for m in w.map_marks:
+			marks.append([m[0] + Vector3(0, w.player.global_position.y, 0), Color(0.6, 0.85, 1.0, 0.95) if not Net.online else Net.color_of(int(m[1])).lightened(0.25), 6.0])
 		for k in w.visited:
 			marks.append([w.gpos(WPlaces.spos(k)), Color(0.8, 0.6, 0.4, 0.7), 4.0])
 		var witness: bool = w.night and w.skills.rank("witness") > 0
@@ -1855,6 +1937,7 @@ class Compass extends Control:
 
 class MapDraw extends Control:
 	var w
+	var zoom := 1.0
 
 	func _to(p: Vector3) -> Vector2:
 		return Vector2((p.x + WPlaces.HALF) / WPlaces.SIZE, (p.z + WPlaces.HALF) / WPlaces.SIZE) * size
@@ -1913,6 +1996,15 @@ class MapDraw extends Control:
 				draw_circle(ap, 7.0, Color(0, 0, 0, 0.7))
 				draw_circle(ap, 5.0, Net.color_of(id))
 				draw_string(font, ap + Vector2(9, 5), Net.name_of(id), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Net.color_of(id).lightened(0.3))
+		for m in w.map_marks:
+			var mp := _to(m[0])
+			var mc: Color = Net.color_of(int(m[1])).lightened(0.2) if Net.online else Color(0.95, 0.82, 0.5)
+			draw_line(mp, mp + Vector2(0, -16), Color(0, 0, 0, 0.7), 3.0)
+			draw_line(mp, mp + Vector2(0, -16), Color(0.95, 0.92, 0.85), 1.5)
+			draw_colored_polygon(PackedVector2Array([mp + Vector2(0, -16), mp + Vector2(11, -12), mp + Vector2(0, -8)]), mc)
+			draw_circle(mp, 2.5, Color(0.95, 0.92, 0.85))
+			var dist := int(Vector2(m[0].x - w.player.global_position.x, m[0].z - w.player.global_position.z).length())
+			draw_string(font, mp + Vector2(13, -6), "%d m" % dist, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.95, 0.92, 0.85, 0.9))
 		var me := _to(w.player.global_position)
 		var f: Vector3 = -w.player.global_transform.basis.z
 		var dir := Vector2(f.x, f.z).normalized()
