@@ -1764,6 +1764,9 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 	n.add_child(body)
 	var bag := sphere(Vector3.ZERO, 0.35, _m.cloth, false, 0.7)
 	_add(n, bag, Vector3(0, 0.25, 0))
+	var neck := cyl(Vector3.ZERO, 0.09, 0.16, _m.cloth, false, 0.14, 8)
+	_add(n, neck, Vector3(0, 0.55, 0))
+	_loot_glow(n, sid, grave)
 	if grave:
 		var l := OmniLight3D.new()
 		l.light_color = Color(0.7, 0.8, 1.0)
@@ -1775,6 +1778,94 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 	body.set_meta("on_hold", func(): take_all(sid))
 	body.set_meta("hold_prompt", "Take all")
 	satchels[sid] = {"node": n, "pos": p, "grave": grave}
+
+
+## A soft column of light over something left on the ground, and motes rising from it, so a drop is seen
+## from afar. Its colour says what is inside: blue for your belongings, gold for the common, amber for the rare.
+func _loot_glow(n: Node3D, sid: String, grave: bool) -> void:
+	var best := 0
+	for it in containers.get(sid, []):
+		if it != null:
+			var info: Dictionary = Items.info(str(it[0]))
+			best = maxi(best, int(info.get("value", 0)) if not info.kind in ["trophy", "quest"] else 999)
+	var c := Color(0.55, 0.75, 1.0) if grave else (Color(1.0, 0.55, 0.2) if best >= 40 else Color(1.0, 0.85, 0.5))
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_texture = _beam_tex()
+	mat.texture_repeat = false
+	mat.albedo_color = Color(c, 0.8)
+	var beam := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.4, 5.0)
+	beam.mesh = q
+	beam.material_override = mat
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beam.position.y = 2.6
+	n.add_child(beam)
+	var motes := CPUParticles3D.new()
+	motes.amount = 6
+	motes.lifetime = 2.4
+	motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	motes.emission_sphere_radius = 0.3
+	motes.direction = Vector3.UP
+	motes.spread = 12.0
+	motes.gravity = Vector3(0, 0.25, 0)
+	motes.initial_velocity_min = 0.5
+	motes.initial_velocity_max = 0.9
+	motes.scale_amount_min = 0.6
+	motes.scale_amount_max = 1.0
+	var sc := Curve.new()
+	sc.add_point(Vector2(0, 0.2))
+	sc.add_point(Vector2(0.3, 1.0))
+	sc.add_point(Vector2(1, 0.0))
+	motes.scale_amount_curve = sc
+	var pm := QuadMesh.new()
+	pm.size = Vector2(0.12, 0.12)
+	var mm := StandardMaterial3D.new()
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mm.albedo_color = c.lightened(0.3)
+	var dot := GradientTexture2D.new()
+	var dg := Gradient.new()
+	dg.set_color(0, Color(1, 1, 1, 1))
+	dg.set_color(1, Color(1, 1, 1, 0))
+	dot.gradient = dg
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(0.5, 0.0)
+	dot.width = 16
+	dot.height = 16
+	mm.albedo_texture = dot
+	pm.material = mm
+	motes.mesh = pm
+	motes.position.y = 0.4
+	n.add_child(motes)
+	var t := create_tween().set_loops()
+	t.bind_node(beam)
+	t.tween_property(beam, "transparency", 0.35, 1.2).set_trans(Tween.TRANS_SINE)
+	t.tween_property(beam, "transparency", 0.0, 1.2).set_trans(Tween.TRANS_SINE)
+
+
+var _beam_cache: ImageTexture
+
+
+## White, bright in the middle and at the foot, fading to nothing at the sides and the top.
+func _beam_tex() -> ImageTexture:
+	if _beam_cache == null:
+		var img := Image.create(16, 64, false, Image.FORMAT_RGBA8)
+		for y in 64:
+			var v := pow(float(y) / 63.0, 1.6)   # 0 at the top, 1 at the foot
+			for x in 16:
+				var u := 1.0 - absf((x + 0.5) / 8.0 - 1.0)
+				img.set_pixel(x, y, Color(1, 1, 1, clampf(u * u * v, 0.0, 1.0)))
+		_beam_cache = ImageTexture.create_from_image(img)
+	return _beam_cache
 
 
 ## The first solid ground under a point: a floor, a roof, a rock, or the land itself.
@@ -4296,3 +4387,14 @@ func debug_markshot() -> void:
 	print("MARKS ", map_marks.size())
 	ui._map_zoom = 3.0
 	ui.open_map()
+
+
+## Testing aid: drops three satchels before the player and looks at them.
+func debug_lootshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var f: Vector3 = -player.global_transform.basis.z
+	var r := Vector3(f.z, 0, -f.x)
+	shared("_rq_satchel", [Net.me(), player.global_position + f * 6.0 - r * 2.5, [["wood", 3]], false])
+	shared("_rq_satchel", [Net.me(), player.global_position + f * 8.0, [["t_ash", 1]], false])
+	shared("_rq_satchel", [Net.me(), player.global_position + f * 6.0 + r * 2.5, [["bone", 3]], true])
