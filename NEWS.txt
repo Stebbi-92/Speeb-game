@@ -1,10 +1,13 @@
+Brelm alpha 0.4.2
+
+- Join codes work for every fellowship, not only listed or private ones.
+- Joining from the internet list or by code now finds a host on your own network, and prefers an address everyone can reach.
+
 Brelm alpha 0.4.1
 
 - Fixed a white screen after updating from inside the game.
 - Updates fetched in game now wait safely until you restart.
 - Compatibility mode stays on after an update restart.
-- Join codes work for every fellowship, not only listed or private ones.
-- Joining from the internet list or by code now finds a host on your own network, and prefers an address everyone can reach.
 
 Brelm alpha 0.4
 
