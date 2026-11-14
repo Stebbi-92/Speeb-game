@@ -2392,3 +2392,38 @@ func debug_boss() -> void:
 	await get_tree().create_timer(1.0).timeout
 	print("BOSS after: flags=%s ready=%s points=%d satchels=%d" % [flags.get("lair_" + str(l.id)), lair_ready(l), skills.points, satchels.size()])
 	get_tree().quit()
+
+
+func debug_bossshot() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var l: Dictionary = lairs[int(Game.get_meta("lair", 0)) if Game.has_meta("lair") else 0]
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("lair="):
+			for x in lairs:
+				if x.id == a.substr(5):
+					l = x
+	clock = 17.0
+	player.place(l.pos + Vector3(0, 2.0, 26), 0.0)
+	await get_tree().create_timer(3.0).timeout
+	combat_frozen = true
+	var b = _lair_boss.get(l.id)
+	if b:
+		b.global_position = l.pos + Vector3(0, 3.5, 6)
+	_debug_aim(l.pos + Vector3(0, 3.0, 0))
+
+
+func debug_allbosses() -> void:
+	await get_tree().create_timer(1.0).timeout
+	player.health = 999999.0
+	player.max_health = 999999.0
+	var i := 0
+	for b in LesserSpeeb.BOSSES:
+		var e := spawn_at(b, player.global_position + Vector3(cos(i) * 14, 3, sin(i) * 14))
+		i += 1
+	await get_tree().create_timer(14.0).timeout
+	var alive := 0
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.boss != "":
+			alive += 1
+	print("ALLBOSS alive=%d foes=%d" % [alive, alive_count()])
+	get_tree().quit()

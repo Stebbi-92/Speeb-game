@@ -155,7 +155,7 @@ func _ready() -> void:
 	toast = _label("", 20, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	toast.position = Vector2(-536, 70)
+	toast.position = Vector2(-536, 96)
 	toast.size = Vector2(500, 120)
 	toast.modulate.a = 0
 	root.add_child(toast)
@@ -1230,7 +1230,7 @@ func show_results(title: String, rows: Array, grade: String) -> void:
 func _build_boss_bar() -> void:
 	_boss_box = VBoxContainer.new()
 	_boss_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_boss_box.position = Vector2(-360, 64)
+	_boss_box.position = Vector2(-360, 92)
 	_boss_box.size = Vector2(720, 40)
 	_boss_box.add_theme_constant_override("separation", 4)
 	_boss_box.visible = false
