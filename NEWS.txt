@@ -1,37 +1,48 @@
-Brelm alpha 0.3
+Brelm alpha 0.4
 
-One game holds it all now: the nine trials alone, the trials with a fellowship, and the Ashen Waste alone or together.
+The Ashen Waste grows. Everything here is in the open world, alone or with a fellowship.
 
-The Ashen Waste
-- An open world of seven lands, with settlements, ruins, beacons, crafting and building.
-- Experience, levels to 30 and four skill trees: Survival, Arms, Craft and Faith (K).
-- The world saves itself every few minutes, on events, and when the game closes.
+A bigger waste
+- Four times the land: 4 km across, with three new towns in the far reaches (Saltreach, Ember Hollow, Last Light).
+- Roads join the towns, with signposts. Landmarks on the skyline: great bones, rock spires, old towers.
+- Things happen on the road: cold camps, fallen travelers, cairns, packs of forms crossing.
+- Your old worlds keep their towns, beacons and ruins.
+
+Living off the land
+- Hunt Ash Hares, Dune Goats and Ash Tuskers for meat and hide.
+- Build a Cooking Station to cook. Hunger and rest matter; eat and sleep at camp.
+- Farm tubers and herbs in planters.
+- Campfires, cooking stations and torches burn wood: a piece a day, up to ten days.
+
+Camps
+- A lit campfire makes a base. No forms rise near it, and towns are safe at night.
+- Now and then a camp is raided at night. A bell rings first.
+- Chests, torches, stairs, windows, palisades, and waystones: two with the same name link.
+- Skip the night when everyone lies down by a fire.
 
 Arms
-- Seven guns, three blades, two grenades and three gadgets, chosen before each trial.
-- Sights and a suppressor that are earned with rank, up to rank 40.
-- Kill streaks: an airstrike, a gun run and a gunship (H).
-- The host of a fellowship may grant unlimited ammunition.
+- No menu at the start: make, fit and improve guns at a workbench.
+- Several attachments per gun. Iron sights on every gun. Red dots and scopes can be looked through.
+- Hip fire is less accurate; aim down the sights.
+- Make every kind of ammunition at a workbench.
+- Armour and clothing for head, body and feet.
+- Choose which kill streak to call from the air support menu.
+- The Claw of Ascent grips any wall or rock. The Censer's smoke shows and slows forms. Flares reveal what moves.
 
-Appearance
-- Choose how the fellowship sees you, from the title screen.
+Forms
+- New kinds with names, strengths and weaknesses: the Bone Hauler, the Howler, the Ember Sack, the Dune Lurker.
 
-The lesser forms
-- They now wear the heads of cats. The old emoji masks remain in Options.
-- In later trials and on waste nights, something else walks that can hardly be seen. Do not look away from it.
+People
+- Each person in the waste speaks in their own voice. Townsfolk go about their day.
+- A quest tracker shows how far and which way.
 
-The great ones
-- Each land of the waste hides a lair, and in each lair a great one sleeps. They wake when you come near.
-- A fallen great one gives a point of skill, a trophy and its spoils. It returns after three days.
-
-Walking together
-- Every fellowship has a six-letter join code. Give it to your friends and they can join from anywhere.
-- Private fellowships, an optional word to join, and a list you can search and filter.
+Together
+- Drop and give items to each other.
+- When anyone takes up a quest, everyone hears and follows it.
+- Join a game in progress and arrive beside the others. Leaving keeps where you were and what you carried.
+- Show what you are playing in Discord, and join friends from there.
 
 Also
-- Lesser forms show a bar of life once struck, and a shot turned aside shows a grey ring.
-- A placed bedroll is where you wake if you fall.
-- The cursor no longer vanishes when taking things from a chest or wagon.
-- The menus no longer run off the screen.
-
-The game now updates itself from the title screen.
+- Longer days and nights.
+- Clicking in a satchel no longer fires your gun.
+- Leaving a game no longer garbles the menu.
