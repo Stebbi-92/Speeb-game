@@ -1,0 +1,67 @@
+HOSTING A FELLOWSHIP OF BRELM
+=============================
+
+Brelm's fellowships use one UDP port, 24600 by default. Everyone in a
+fellowship must run the same version of Brelm.
+
+
+1. ON THE SAME NETWORK (home, LAN party)
+   Nothing to set up. The host chooses "Walk Together", then "Host a
+   fellowship". Everyone else opens "Walk Together", and the fellowship
+   appears under "Fellowships found". If it does not, type the address the
+   host's gathering place shows (for example 192.168.1.20:24600).
+
+   Windows may ask whether Brelm may use the network. Allow it, on private
+   networks at least.
+
+
+2. OVER THE INTERNET, HOSTING FROM YOUR OWN PC
+   When you host, Brelm asks your router to open the port by itself (UPnP).
+   The gathering place tells you whether it worked:
+     "The router opened UDP port 24600."  Friends join at the internet
+        address shown under it.
+     "The router did not answer..."  Open the port by hand:
+        a. Find this computer's local address in the gathering place
+           (for example 192.168.1.20).
+        b. In your router's settings, find "Port forwarding" (sometimes
+           "Virtual server" or "NAT").
+        c. Forward UDP port 24600 to that local address.
+        d. Your internet address is at https://ifconfig.me ; friends join
+           at that address, port 24600.
+   Some internet providers share one address among many homes (CGNAT). If
+   forwarding is set up and friends still cannot join, that is the likely
+   cause; a dedicated server on a rented machine (below) gets around it.
+
+
+3. A DEDICATED SERVER (no player of its own, runs without a window)
+   Good for a spare PC or a rented Windows or Mac machine with an open port.
+   The first pilgrim to join chooses the trial; when everyone leaves, the
+   server waits for the next fellowship.
+
+   Windows:  double-click "Brelm Server.bat". A small window shows who
+             joins and leaves; close it to end the fellowship. Or run
+       Brelm.exe -- server port=24600 name="My fellowship"
+   macOS:    double-click "Brelm Server.command" (it runs in Terminal;
+             close Terminal or press Ctrl+C to end it), or run
+       Brelm.app/Contents/MacOS/Brelm* --headless -- server port=24600 name="My fellowship"
+
+   Options, after "server":
+       port=24600          the UDP port to listen on
+       name="..."          the fellowship's name in the list
+       difficulty=0|1|2    Pilgrim, Hermit or Unblinking (the first joiner can change it)
+       public              list it on the internet list (needs lobby=...)
+       lobby=https://...   the internet list address (see 4)
+
+   The server needs the port open toward it exactly as in section 2. On a
+   rented machine, also open UDP 24600 in its firewall / security group.
+
+
+4. THE INTERNET LIST
+   "Fellowships found" shows fellowships on your own network, and public
+   ones from the internet list at https://brelm-lobby.stebbi92.workers.dev
+   (built into the game). Tick "List on the internet" when hosting to
+   appear there. The list keeps nothing on disk; a fellowship drops off two
+   minutes after its host stops announcing it.
+   The list service is in tools/lobby/ of the source (a Cloudflare Worker).
+   To move it elsewhere, deploy it with "npx wrangler deploy" and set the
+   new address in Options > Fellowship > Internet list address.

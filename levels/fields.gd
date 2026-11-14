@@ -52,7 +52,7 @@ func build() -> void:
 			var c := Vector2i(x, z)
 			if path_index.has(c) or _openings(c) != 1 or _rng.randf() > 0.6:
 				continue
-			var a := trigger_area(_cell_center(c) + Vector3(0, 1, 0), Vector3(2.5, 2, 2.5), _rift, false)
+			var a := trigger_area(_cell_center(c) + Vector3(0, 1, 0), Vector3(2.5, 2, 2.5), _rift, false, false)
 			rifts.append(a)
 	# Scattered memories, half-remembered
 	var props := mat(Color(0.5, 0.5, 0.52), 0.9, 0.3)

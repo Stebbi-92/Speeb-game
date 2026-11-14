@@ -70,7 +70,10 @@ func _gaze() -> void:
 	create_tween().tween_property(hud.reveal_box, "modulate:a", 1.0, 3.0)
 	await get_tree().create_timer(10.0, false).timeout
 	hud.reveal_hint.text = "Judgment: %s      [E]  Be released" % verdict
-	await player.interact_pressed
+	if Net.dedicated:
+		await get_tree().create_timer(20.0, false).timeout
+	else:
+		await player.interact_pressed
 	hud.hide_reveal()
 	await show_results(verdict)
 	Game.main.next_level()

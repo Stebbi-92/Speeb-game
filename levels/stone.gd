@@ -20,6 +20,8 @@ var stone_body: StaticBody3D
 var grace := 0.0
 
 
+var _asked := false
+
 func build() -> void:
 	numeral = "VIII"
 	max_alive = 4
@@ -73,6 +75,7 @@ func _begin() -> void:
 	if vigil:
 		return
 	vigil = true
+	_asked = false
 	combat_frozen = true
 	clear_enemies()
 	hud.say("The lesser forms fall still. The silence holds them.", 4.0)
@@ -98,7 +101,9 @@ func trial_tick(delta: float) -> void:
 	var looked := player.look_motion > 40.0
 	player.look_motion = maxf(0.0, player.look_motion - delta * 60.0)
 	if moving or looked:
-		_broken()
+		if not _asked:
+			_asked = true
+			shared("_broken")
 		return
 	progress += delta
 	hud.set_meter("The Oath", progress / VIGIL)
@@ -109,8 +114,9 @@ func trial_tick(delta: float) -> void:
 		sfx("bell", -16)
 		for k in 3:
 			_kindle(rune_sets[stage * 3 + k])
-	if progress >= VIGIL:
-		_sworn()
+	if progress >= VIGIL and not _asked:
+		_asked = true
+		shared("_sworn")
 
 
 func _kindle(n: Node3D) -> void:
@@ -119,6 +125,9 @@ func _kindle(n: Node3D) -> void:
 
 
 func _broken() -> void:
+	if not vigil:
+		return
+	_asked = false
 	vigil = false
 	combat_frozen = false
 	sfx("deny", -6)
@@ -134,6 +143,9 @@ func _broken() -> void:
 
 
 func _sworn() -> void:
+	if not vigil:
+		return
+	_asked = false
 	vigil = false
 	create_tween().tween_property(heart, "volume_db", -60.0, 4.0)
 	hud.set_meter("", 0.0)

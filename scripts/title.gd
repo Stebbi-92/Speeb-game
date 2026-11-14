@@ -7,6 +7,16 @@ var speeb: Emoji3D
 var _t := 0.0
 var _menu: VBoxContainer
 var _chapters: VBoxContainer
+var _together: VBoxContainer
+var _lobby: VBoxContainer
+var _status: Label
+var _found: VBoxContainer
+var _roster: VBoxContainer
+var _lobby_info: Label
+var _choose: Control
+var _col: VBoxContainer
+var _spacer: Control
+var _hint: Label
 
 const PLACES := [
 	"Prologue: The Plateau of Mirrors", "I. The Cliffs of Echoing Cries", "II. The Ruins of the Fallen Kings",
@@ -95,6 +105,7 @@ func _build_menu() -> void:
 	v.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	v.position = Vector2(110, -250)
 	v.size = Vector2(620, 500)
+	v.grow_vertical = Control.GROW_DIRECTION_END
 	v.add_theme_constant_override("separation", 6)
 	box.add_child(v)
 	var t: Label = hud._label("BRELM", 96, hud.PALE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -106,16 +117,21 @@ func _build_menu() -> void:
 	var sp := Control.new()
 	sp.custom_minimum_size.y = 40
 	v.add_child(sp)
+	_col = v
+	_spacer = sp
 	_menu = VBoxContainer.new()
 	v.add_child(_menu)
 	_menu.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage()))
 	if Game.reached > 0:
 		_menu.add_child(_btn("Return to a Trial", _show_chapters))
+	_menu.add_child(_btn("The Ashen Waste", _show_waste))
+	_menu.add_child(_btn("Walk Together", _show_together))
 	_menu.add_child(_btn("Options", func(): hud.show_options()))
 	if Game.tenth_unlocked():
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
 	_menu.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex()))
 	_menu.add_child(_btn("Leave", func(): get_tree().quit()))
+	_build_update(box)
 	_chapters = VBoxContainer.new()
 	_chapters.visible = false
 	v.add_child(_chapters)
@@ -123,6 +139,26 @@ func _build_menu() -> void:
 		var idx := i
 		_chapters.add_child(_btn(PLACES[i], func(): Game.main.start_level(idx), 22))
 	_chapters.add_child(_btn("Back", func(): _chapters.visible = false; _menu.visible = true, 22))
+	_waste = VBoxContainer.new()
+	_waste.visible = false
+	_waste.add_theme_constant_override("separation", 4)
+	v.add_child(_waste)
+	_together = VBoxContainer.new()
+	_together.visible = false
+	_together.add_theme_constant_override("separation", 6)
+	v.add_child(_together)
+	_build_together()
+	_lobby = VBoxContainer.new()
+	_lobby.visible = false
+	_lobby.add_theme_constant_override("separation", 6)
+	v.add_child(_lobby)
+	Net.roster_changed.connect(_on_roster)
+	Net.status_changed.connect(func(t): if _status: _status.text = t)
+	Net.servers_changed.connect(_list_servers)
+	if Net.online:
+		_show_lobby.call_deferred()
+	elif Net._joining or "together" in OS.get_cmdline_user_args():
+		_show_together.call_deferred()
 
 	var q: Label = hud._label("\"Speeb sees. Speeb is. Do not try to please him. Only survive him.\"\n— scratched in claw-marks upon a cave wall", 20, hud.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	q.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -139,6 +175,7 @@ func _build_menu() -> void:
 	c.position = Vector2(110, -60)
 	c.size = Vector2(1200, 30)
 	box.add_child(c)
+	_hint = c
 
 
 func _btn(text: String, cb: Callable, size := 30) -> Button:
@@ -147,9 +184,136 @@ func _btn(text: String, cb: Callable, size := 30) -> Button:
 	return b
 
 
+var _waste: VBoxContainer
+
+
+## The open waste: three worlds may be kept, each with its own days, beacons and shelters.
+func _show_waste() -> void:
+	_menu.visible = false
+	_waste.visible = true
+	for c in _waste.get_children():
+		c.queue_free()
+	_waste.add_child(_heading("The Ashen Waste"))
+	_waste.add_child(_small("Cast out into the waste, you gather, build and live through its nights,\nwhile nine dead beacons wait to be kindled. The world is kept between walks."))
+	for i in 3:
+		var slot := str(i + 1)
+		var d := Wasteland.describe(slot)
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 14)
+		var seed_e: LineEdit = null
+		if d == "":
+			seed_e = _field("", "seed (empty for a new land)", 220)
+		hb.add_child(_btn("World %s:  %s" % [["I", "II", "III"][i], d if d != "" else "unwalked"], func():
+			Game.world_slot = slot
+			Game.new_world_seed = 0
+			if seed_e and seed_e.text.strip_edges().is_valid_int():
+				Game.new_world_seed = absi(int(seed_e.text.strip_edges()))
+			elif seed_e and seed_e.text.strip_edges() != "":
+				Game.new_world_seed = absi(seed_e.text.strip_edges().hash()) % 99999999 + 1
+			Game.main.start_level(Game.WASTELAND), 22))
+		if seed_e:
+			hb.add_child(seed_e)
+		if d != "":
+			hb.add_child(_btn("forget", func():
+				for ext in ["", ".bak", ".tmp"]:
+					DirAccess.remove_absolute(Wasteland.world_path(slot) + ext)
+				_show_waste(), 16))
+		_waste.add_child(hb)
+	_waste.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 22))
+
+
 func _show_chapters() -> void:
 	_menu.visible = false
 	_chapters.visible = true
+
+
+# ------------------------------------------------------------------ a newer version
+
+var _upd: VBoxContainer
+var _upd_text: Label
+var _upd_btn: Button
+
+
+func _build_update(box: Control) -> void:
+	_upd = VBoxContainer.new()
+	_upd.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_upd.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_upd.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_upd.position = Vector2(-470, -150)
+	_upd.custom_minimum_size = Vector2(440, 0)
+	_upd.add_theme_constant_override("separation", 6)
+	box.add_child(_upd)
+	var ver: Label = _small("Alpha " + Updater.current.trim_suffix("-alpha"), Color(0.45, 0.43, 0.40), 15)
+	ver.custom_minimum_size.x = 440
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_upd.add_child(ver)
+	_upd_text = _small("", hud.GOLD, 17)
+	_upd_text.custom_minimum_size.x = 440
+	_upd_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_upd_text.visible = false
+	_upd.add_child(_upd_text)
+	_upd_btn = _btn("", _update_pressed, 20)
+	_upd_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_upd_btn.visible = false
+	_upd.add_child(_upd_btn)
+	Updater.checked.connect(_update_shown)
+	Updater.progress.connect(_update_progress)
+	Updater.finished.connect(_update_done)
+	_update_shown()
+
+
+func _update_shown() -> void:
+	if not is_instance_valid(_upd_text):
+		return
+	if Updater.staged != "":
+		_upd_text.text = "Version %s waits. Restart to walk it." % Updater.staged
+		_upd_btn.text = "Restart now"
+	elif Updater.can_patch:
+		var mb := int(Updater.latest.pack_size) / 1048576.0
+		_upd_text.text = "%s has come.%s" % [_vname(), (" (%.0f MB)" % mb) if mb > 0 else ""]
+		_upd_btn.text = "Update"
+	elif Updater.available:
+		_upd_text.text = "%s has come. This one must be downloaded whole." % _vname()
+		_upd_btn.text = "Open the download page"
+	else:
+		_upd_text.visible = false
+		_upd_btn.visible = false
+		return
+	_upd_text.visible = true
+	_upd_btn.visible = true
+	_upd_btn.disabled = false
+
+
+func _vname() -> String:
+	var n: String = Updater.latest.get("name", "")
+	return n if n != "" else "Version " + str(Updater.latest.get("version", ""))
+
+
+func _update_pressed() -> void:
+	if Updater.staged != "":
+		Updater.restart()
+	elif Updater.can_patch:
+		_upd_btn.disabled = true
+		_upd_text.text = "Fetching..."
+		Updater.download()
+	elif Updater.available and Updater.latest.get("page", "") != "":
+		OS.shell_open(Updater.latest.page)
+
+
+func _update_progress(done: int, total: int) -> void:
+	if is_instance_valid(_upd_text):
+		_upd_text.text = "Fetching... %d%%" % int(100.0 * done / maxi(total, 1))
+
+
+func _update_done(ok: bool, message: String) -> void:
+	if not is_instance_valid(_upd_text):
+		return
+	_upd_text.text = message
+	_upd_btn.disabled = false
+	if ok:
+		_upd_btn.text = "Restart now"
+	else:
+		_upd_btn.text = "Try again"
 
 
 func _process(delta: float) -> void:
@@ -157,3 +321,214 @@ func _process(delta: float) -> void:
 	speeb.rotation.y = sin(_t * 0.15) * 0.35
 	cam.position.x = sin(_t * 0.07) * 1.2
 	cam.look_at(Vector3(0, 2.6, 0))
+
+
+# ------------------------------------------------------------------ walking together
+
+func _small(text: String, color := Color(0.62, 0.60, 0.56), size := 18) -> Label:
+	var l: Label = hud._label(text, size, color, HORIZONTAL_ALIGNMENT_LEFT)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 520
+	return l
+
+
+func _field(value: String, hint: String, width := 260) -> LineEdit:
+	var e := LineEdit.new()
+	e.text = value
+	e.placeholder_text = hint
+	e.custom_minimum_size = Vector2(width, 36)
+	e.add_theme_font_size_override("font_size", 19)
+	return e
+
+
+func _heading(text: String) -> Label:
+	var l: Label = hud._label(text, 24, hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	l.add_theme_font_override("font", hud.title_font)
+	return l
+
+
+func _build_together() -> void:
+	_together.add_child(_heading("Walk Together"))
+	_together.add_child(_small("Up to four pilgrims may walk the trials as one fellowship. One hosts; the others join."))
+	var nh := HBoxContainer.new()
+	nh.add_child(_small("Your name", hud.PALE, 19))
+	nh.get_child(0).custom_minimum_size.x = 150
+	var name_e := _field(Game.player_name, "Pilgrim", 260)
+	name_e.text_changed.connect(func(t): Game.player_name = t.strip_edges().left(20); Game.save())
+	nh.add_child(name_e)
+	_together.add_child(nh)
+	# Hosting
+	var hh := HBoxContainer.new()
+	hh.add_theme_constant_override("separation", 8)
+	var sname := _field("", "Name of the fellowship", 250)
+	var port := _field(str(Net.DEFAULT_PORT), "Port", 90)
+	var listed := CheckBox.new()
+	listed.text = "List on the internet"
+	listed.add_theme_font_size_override("font_size", 17)
+	listed.disabled = Net.lobby_url() == ""
+	listed.tooltip_text = "Set an internet list address in Options to list fellowships publicly." if listed.disabled else ""
+	hh.add_child(sname)
+	hh.add_child(port)
+	hh.add_child(listed)
+	_together.add_child(hh)
+	_together.add_child(_btn("Host a fellowship", func():
+		var n: String = sname.text.strip_edges()
+		if n == "":
+			n = "%s's fellowship" % Net.my_name()
+		var p := int(port.text) if port.text.is_valid_int() else Net.DEFAULT_PORT
+		if Net.host(p, n, listed.button_pressed) == OK:
+			_show_lobby()
+		else:
+			_status.text = Net.last_error, 24))
+	# Joining by address
+	var jh := HBoxContainer.new()
+	jh.add_theme_constant_override("separation", 8)
+	var addr := _field("", "Address, or address:port", 350)
+	jh.add_child(addr)
+	jh.add_child(_btn("Join", func():
+		if addr.text.strip_edges() == "":
+			_status.text = "Give the host's address. They will find it in their gathering place."
+			return
+		var hp := Net.split_address(addr.text)
+		Net.join(hp[0], hp[1]), 24))
+	_together.add_child(jh)
+	# The list of fellowships
+	var lh := HBoxContainer.new()
+	lh.add_child(_heading("Fellowships found"))
+	lh.add_child(_btn("Look again", func(): Net.refresh_servers(), 20))
+	_together.add_child(lh)
+	_found = VBoxContainer.new()
+	_found.add_theme_constant_override("separation", 0)
+	_together.add_child(_found)
+	_status = _small("")
+	_status.add_theme_color_override("font_color", hud.GOLD)
+	_together.add_child(_status)
+	_together.add_child(_btn("Back", func(): _together.visible = false; _menu.visible = true; _raise_column(false), 22))
+
+
+## The fellowship's pages are long: the column rises to make room for them.
+func _raise_column(up: bool) -> void:
+	_col.position.y = _col.get_parent().size.y * 0.5 + (-415.0 if up else -250.0)
+	_spacer.visible = not up
+	_hint.visible = not up
+
+
+func _show_together() -> void:
+	_raise_column(true)
+	_menu.visible = false
+	_chapters.visible = false
+	_lobby.visible = false
+	_together.visible = true
+	if Net.last_error != "" and not Net._joining:
+		_status.text = Net.last_error
+	Net.refresh_servers()
+	_list_servers()
+
+
+func _list_servers() -> void:
+	if _found == null:
+		return
+	for c in _found.get_children():
+		c.queue_free()
+	if Net.servers.is_empty():
+		_found.add_child(_small("None yet. Fellowships on this network appear here; with an internet list set in Options, so do public ones."))
+		return
+	for key in Net.servers:
+		var d: Dictionary = Net.servers[key]
+		var lvl := int(d.get("level", -1))
+		var where: String = "gathering" if lvl < 0 or lvl >= PLACES.size() else PLACES[lvl].get_slice(":", 0).get_slice(".", 0)
+		if lvl >= 0 and lvl < PLACES.size():
+			where = PLACES[lvl]
+		var full := int(d.get("players", 0)) >= int(d.get("max", 4))
+		var text := "%s   ·   %d of %d   ·   %s   ·   %s" % [str(d.get("name", "?")).left(28), int(d.get("players", 0)), int(d.get("max", 4)), where, d.get("source", "")]
+		var ip: String = d.ip
+		var p := int(d.port)
+		var b := _btn(text, func(): Net.join(ip, p), 19)
+		b.disabled = full or d.get("proto", Net.PROTOCOL) != Net.PROTOCOL
+		_found.add_child(b)
+
+
+func _show_lobby() -> void:
+	_raise_column(true)
+	_menu.visible = false
+	_chapters.visible = false
+	_together.visible = false
+	_lobby.visible = true
+	_on_roster()
+
+
+func _on_roster() -> void:
+	if not Net.online:
+		if _lobby.visible:
+			_lobby.visible = false
+			_menu.visible = true
+			_raise_column(false)
+		return
+	if not _lobby.visible:
+		_show_lobby()
+		return
+	for c in _lobby.get_children():
+		c.queue_free()
+	_lobby.add_child(_heading(Net.server_name))
+	var info := ""
+	if Net.is_host():
+		info = "You are hosting on port %d." % Net.port
+		var locals := Net.local_addresses()
+		if not locals.is_empty():
+			info += "\nOn this network, others join at: %s" % ", ".join(locals.map(func(a): return "%s:%d" % [a, Net.port]))
+		if Net.external_ip != "":
+			info += "\nFrom the internet: %s:%d" % [Net.external_ip, Net.port]
+		if Net.upnp_state != "":
+			info += "\n" + Net.upnp_state
+	else:
+		info = "You walk with this fellowship. The host decides the way."
+	_lobby.add_child(_small(info))
+	_lobby.add_child(_heading("The fellowship  (%d of %d)" % [Net.players.size(), Net.MAX_PLAYERS]))
+	for id in Net.players:
+		var mark := ""
+		if id == 1:
+			mark = "  · host"
+		elif id == Net.leader and Net.leader != 1:
+			mark = "  · chooses the way"
+		if id == Net.me():
+			mark += "  · you"
+		var l := _small(Net.name_of(id) + mark, Net.color_of(id).lightened(0.25), 21)
+		l.add_theme_font_override("font", hud.title_font)
+		_lobby.add_child(l)
+	if Net.may_choose():
+		_lobby.add_child(_heading("Choose the trial"))
+		if Net.is_host():
+			var o := OptionButton.new()
+			for d in Game.DIFFICULTIES:
+				o.add_item(d)
+			o.selected = Game.difficulty
+			o.custom_minimum_size.x = 220
+			o.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			o.add_theme_font_size_override("font_size", 18)
+			o.item_selected.connect(func(i): Game.difficulty = i; Game.save())
+			_lobby.add_child(o)
+		var grid := GridContainer.new()
+		grid.columns = 2
+		_lobby.add_child(grid)
+		for i in range(mini(Game.reached, 10) + 1):
+			var idx := i
+			grid.add_child(_btn(PLACES[i], func(): Net.begin(idx), 18))
+		if Game.tenth_unlocked():
+			grid.add_child(_btn("The Tenth Trial", func(): Net.begin(11), 18))
+		if Net.is_host():
+			_lobby.add_child(_heading("Or walk the open waste"))
+			var wh := HBoxContainer.new()
+			wh.add_theme_constant_override("separation", 10)
+			var ws := OptionButton.new()
+			for i in 3:
+				var d := Wasteland.describe(str(i + 1))
+				ws.add_item("World %s  (%s)" % [["I", "II", "III"][i], d if d != "" else "unwalked"])
+			ws.selected = int(Game.world_slot) - 1
+			ws.add_theme_font_size_override("font_size", 17)
+			ws.item_selected.connect(func(i): Game.world_slot = str(i + 1))
+			wh.add_child(ws)
+			wh.add_child(_btn("The Ashen Waste", func(): Net.begin(Game.WASTELAND), 18))
+			_lobby.add_child(wh)
+	else:
+		_lobby.add_child(_small("Waiting for the host to choose a trial.", hud.PALE, 19))
+	_lobby.add_child(_btn("Leave the fellowship", func(): Net.leave(""); _lobby.visible = false; _menu.visible = true; _raise_column(false), 22))

@@ -110,7 +110,7 @@ func _make_orb(pos: Vector3) -> void:
 	cs.shape = sh
 	a.add_child(cs)
 	n.add_child(a)
-	make_interactable(a, "Take what you crave", func(): fail("He reached, and the hunger reached back. Those who succumb find their lives devoured by the very hunger they embrace."))
+	personal_interactable(a, "Take what you crave", func(): fail("He reached, and the hunger reached back. Those who succumb find their lives devoured by the very hunger they embrace."))
 	orbs.append({"node": n, "home": pos, "phase": _rng.randf() * TAU})
 
 

@@ -1,0 +1,14 @@
+name = "brelm-lobby"
+main = "lobby-worker.js"
+compatibility_date = "2025-01-01"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby"]
+
+[vars]
+GITHUB_REPO = "Stebbi-92/Speeb-game"

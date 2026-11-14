@@ -61,6 +61,23 @@ var _eye_t := 75.0
 var eye_watching := false
 var _veiled: Array = []
 var _regen_wait := 0.0
+# The fellowship: other pilgrims, the lesser forms as the host runs them, and the shared steps of the trial
+var avatars := {}
+var foes := {}
+var downed := false
+var eye_seen_by_any := false
+var _foe_next := 1
+var _net_events: Array = []
+var _pose_t := 0.0
+var _foes_t := 0.0
+var _roster_t := 0.0
+var _down_peers := {}
+var _pfail := false
+var _survive_done := false
+var _eye_verdict := -1
+var _trial_sent := ""
+var team_kills := 0
+var _gone := {}
 
 
 func _ready() -> void:
@@ -73,6 +90,8 @@ func _ready() -> void:
 	player.place(spawn_pos, spawn_yaw)
 	player.set_armed(armed)
 	player.reset_max_health()
+	if Net.dedicated:
+		_ghost()
 	if combat:
 		_music = ambient("combat", -60)
 	for e in _shrines:
@@ -83,6 +102,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	hud.fade_to(0.0, 2.5)
 	_place_story()
+	if Net.online and not Net.is_host():
+		Net.ask_checkpoint()
 	intro()
 
 
@@ -113,9 +134,17 @@ func intro() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if player == null or failing:
+	if player == null:
 		return
-	if player.global_position.y < kill_y:
+	if Net.online:
+		_net_tick(delta)
+	if failing:
+		return
+	if Net.dedicated:
+		_ghost_tick()
+		_combat_tick(delta)
+		return
+	if player.global_position.y < kill_y and not _pfail:
 		on_fall()
 		return
 	for v in _veiled:
@@ -125,7 +154,8 @@ func _physics_process(delta: float) -> void:
 				v.node.visible = false
 	if not completed:
 		trial_time += delta
-		trial_tick(delta)
+		if not _pfail and not downed:
+			trial_tick(delta)
 		_combat_tick(delta)
 		if _haunted():
 			_velm_tick(delta)
@@ -141,7 +171,7 @@ func _combat_tick(delta: float) -> void:
 	if not combat:
 		return
 	_regen_wait -= delta
-	if _regen_wait <= 0.0 and player.health < player.max_health:
+	if _regen_wait <= 0.0 and player.health < player.max_health and not downed and not Net.dedicated:
 		player.health = minf(player.max_health, player.health + (4.0 if Game.blessed("speebchef") else 1.5) * Game.difficulty_scale("regen") * delta)
 		hud.set_health(player.health / player.max_health, true)
 	hud.set_blessings(player)
@@ -152,7 +182,7 @@ func _combat_tick(delta: float) -> void:
 			if e.global_position.distance_to(player.global_position) < 26.0:
 				near += 1
 		_music.volume_db = move_toward(_music.volume_db, -8.0 if near > 0 and not combat_frozen else -60.0, delta * (30.0 if near > 0 else 8.0))
-	if combat_frozen:
+	if combat_frozen or not Net.authority():
 		return
 	# Members of the current gathering arrive one after another, not all at once
 	if not _wave_queue.is_empty():
@@ -192,10 +222,12 @@ func alive_count() -> int:
 
 ## Queues a gathering of n lesser forms. A saucer, when it comes, counts as one of them.
 func _begin_wave(n: int, saucer: bool) -> void:
+	if not Net.authority():
+		return
 	var roster: Array = []
 	if saucer:
 		roster.append("saucer")
-	if not _gathering and kills >= elite_at and not elite_spawned:
+	if not _gathering and kills + team_kills >= elite_at and not elite_spawned:
 		elite_spawned = true
 		roster.append("elite")
 		hud.notify("A greater form descends, crowned in red.")
@@ -218,10 +250,11 @@ func _begin_wave(n: int, saucer: bool) -> void:
 func _spawn_enemy(kind: String) -> void:
 	var space := get_world_3d().direct_space_state
 	var high := kind == "saucer"
+	var center := focus_pos()
 	for attempt in 16:
 		var a := randf() * TAU
 		var d := randf_range(14.0, 24.0)
-		var p := player.global_position + Vector3(cos(a) * d, randf_range(6.0, 8.0) if high else randf_range(1.2, 2.6), sin(a) * d)
+		var p := center + Vector3(cos(a) * d, randf_range(6.0, 8.0) if high else randf_range(1.2, 2.6), sin(a) * d)
 		var q := PhysicsShapeQueryParameters3D.new()
 		var s := SphereShape3D.new()
 		s.radius = 0.7
@@ -233,16 +266,59 @@ func _spawn_enemy(kind: String) -> void:
 		var down := PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -20 if high else -12, 0), 1)
 		if space.intersect_ray(down).is_empty() and not ((high and attempt > 10) or (kind != "spider" and attempt > 8)):
 			continue
+		# It must take shape where a pilgrim could reach it, never behind a wall
+		if not reachable(p):
+			continue
 		spawn_at(kind, p)
 		if high:
 			hud.notify("A saucer descends, and smaller forms stir within it.")
 		return
+	# Nowhere open at that distance: it comes closer, still in plain sight, or waits for the next moment
+	var spot = open_spot_near(center, 5.0, 12.0, kind == "saucer")
+	if spot != null:
+		spawn_at(kind, spot)
+	else:
+		_wave_queue.append(kind)
+
+
+## Is there a clear line from where a pilgrim stands to this point? Forms that take shape behind walls never reach anyone.
+func reachable(p: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	for t in (targets() if not targets().is_empty() else [player]):
+		var eye: Vector3 = t.global_position + Vector3(0, 1.4, 0)
+		var q := PhysicsRayQueryParameters3D.create(eye, p, 1)
+		if space.intersect_ray(q).is_empty():
+			return true
+	return false
+
+
+## A free, reachable point near a pilgrim, or null.
+func open_spot_near(center: Vector3, rmin: float, rmax: float, high := false):
+	var space := get_world_3d().direct_space_state
+	for attempt in 24:
+		var a := randf() * TAU
+		var d := randf_range(rmin, rmax)
+		var p := center + Vector3(cos(a) * d, randf_range(4.0, 6.0) if high else randf_range(1.2, 2.2), sin(a) * d)
+		var q := PhysicsShapeQueryParameters3D.new()
+		var s := SphereShape3D.new()
+		s.radius = 0.7
+		q.shape = s
+		q.transform = Transform3D(Basis(), p)
+		q.collision_mask = 1
+		if not space.intersect_shape(q, 1).is_empty():
+			continue
+		if reachable(p):
+			return p
+	return null
 
 
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var codes: Array = Game.lesser.keys()
 	var e := LesserSpeeb.new().setup(codes[randi() % codes.size()], kind, self)
 	e.position = p
+	e.net_id = _foe_next
+	_foe_next += 1
+	foes[e.net_id] = e
 	add_child(e)
 	enemies.append(e)
 	sfx("hiss", -10, p)
@@ -302,27 +378,47 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if e.kind in ["saucer", "elite"]:
 		player.shake(0.7)
 	# The last form of a gathering falls slowly
-	if _gathering and _wave_queue.is_empty() and alive_count() == 0:
+	if _gathering and _wave_queue.is_empty() and alive_count() == 0 and not Net.online:
 		slow_motion(0.25, 0.7)
 	if player.relics:
 		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.125)
 	if e.kind in ["saucer", "elite"] or randf() < 0.05:
-		milk_pickup(e.global_position)
+		shared("_drop", ["milk", e.global_position, 1])
 	if Game.blessed("emospeeb") and combat:
 		player.health = minf(player.max_health, player.health + 8.0)
 		hud.set_health(player.health / player.max_health, true)
 	if e.kind == "elite":
 		player.health = player.max_health
 		hud.set_health(1.0, true)
-		_offering(e.global_position, 12)
+		shared("_drop", ["shells", e.global_position, 12])
 		hud.notify("The greater form is undone. Strength returns to Brelm.")
 	elif e.kind == "saucer":
-		_offering(e.global_position, 8)
+		shared("_drop", ["shells", e.global_position, 8])
 		hud.notify("The saucer falls silent and is undone.")
 	elif not e.kind in ["swarm", "mite"] or randf() < 0.3:
 		var low: bool = player.weapon and player.weapon.reserve < 8
 		if randf() < (0.7 if low else 0.35):
-			_offering(e.global_position, 4)
+			shared("_drop", ["shells", e.global_position, 4])
+
+
+## What a fallen form leaves is seen by the whole fellowship, and each pilgrim may take their own share of it.
+func _drop(what: String, at: Vector3, n: int) -> void:
+	if Net.dedicated:
+		return
+	if what == "milk":
+		milk_pickup(at)
+	else:
+		_offering(at, n)
+
+
+## A form held back by something in its way. The open waste lets it tear at what was built.
+func on_blocked(_e: LesserSpeeb, _col: Object, _dmg: float) -> bool:
+	return false
+
+
+## A form undone by another pilgrim of the fellowship still counts toward the land's gatherings.
+func team_kill(_e: LesserSpeeb) -> void:
+	team_kills += 1
 
 
 ## A small offering of shells, left where a lesser form fell.
@@ -403,8 +499,11 @@ func survive(code: String, pos: Vector3, attack: String, dur := 35.0, ground_y :
 	var wave_n := 0
 	var clock := 0.0
 	var rest := 1.5
-	var slain0 := kills
+	var slain0 := kills + team_kills
 	var t := 0.0
+	_survive_done = false
+	# In a fellowship only the host gathers the forms; the others hold until the host says it is done
+	var follower := Net.online and not Net.is_host()
 	var atk := 2.0
 	var home := pos
 	while true:
@@ -414,33 +513,46 @@ func survive(code: String, pos: Vector3, attack: String, dur := 35.0, ground_y :
 			wave_n = 0
 			clock = 0.0
 			rest = 4.0
-			slain0 = kills
+			slain0 = kills + team_kills
 			atk = 3.0
 			e.position = home
 			continue
 		t += dt
 		clock += dt
 		atk -= dt * enemy_time
+		if follower:
+			if _survive_done or not Net.online:
+				break
 		# Should the last forms linger out of reach too long, they are unmade
-		if wave_n >= waves and _wave_queue.is_empty() and clock > 70.0 and alive_count() > 0:
+		if not follower and wave_n >= waves and _wave_queue.is_empty() and clock > 70.0 and alive_count() > 0:
 			for x in enemies:
 				if is_instance_valid(x) and x.is_alive():
 					x.die(false)
-		var cleared := _wave_queue.is_empty() and alive_count() == 0
+		var cleared := _wave_queue.is_empty() and alive_count() == 0 and not follower
 		if cleared:
 			if wave_n >= waves:
 				break
 			rest -= dt
-		if (cleared and rest <= 0.0) or (wave_n > 0 and wave_n < waves and clock >= tarry):
+		if not follower and ((cleared and rest <= 0.0) or (wave_n > 0 and wave_n < waves and clock >= tarry)):
 			if not cleared:
 				hud.notify("Brelm tarried. The next gathering comes regardless.")
 			wave_n += 1
 			clock = 0.0
 			rest = 2.5
 			_begin_wave(size, wave_n >= 2)
-		var left := _wave_queue.size() + alive_count() + (waves - wave_n) * size
-		hud.set_objective("Undo the gathering before %s  ·  %d of %d" % [name, maxi(wave_n, 1), waves])
-		hud.set_meter("Forms remaining: %d" % left, float(kills - slain0) / float(maxi(1, kills - slain0 + left)))
+		if not follower:
+			var left := _wave_queue.size() + alive_count() + (waves - wave_n) * size
+			var done_n := kills + team_kills - slain0
+			var obj := "Undo the gathering before %s  ·  %d of %d" % [name, maxi(wave_n, 1), waves]
+			var met := "Forms remaining: %d" % left
+			var val := float(done_n) / float(maxi(1, done_n + left))
+			hud.set_objective(obj)
+			hud.set_meter(met, val)
+			if Net.online and obj + met != _trial_sent:
+				_trial_sent = obj + met
+				Net.trial_state(obj, met, val, false)
+		if Net.dedicated:
+			continue
 		var this_attack := attack
 		if attack == "all":
 			this_attack = ["volley", "rain", "blink", "pulse"][int(t / 6.0) % 4]
@@ -469,6 +581,8 @@ func survive(code: String, pos: Vector3, attack: String, dur := 35.0, ground_y :
 					atk = 3.6
 					_pulse(Vector3(home.x, ground_y, home.z))
 	_gathering = false
+	if Net.is_host():
+		Net.trial_state("", "", 0.0, true)
 	if not _struck_in_judgment:
 		Game.reveal_deed("flawless")
 	Game.reveal_deed("first_trial")
@@ -620,7 +734,7 @@ func _exit_tree() -> void:
 
 
 func damage_player(amount: float, from: Vector3) -> void:
-	if failing or completed or not combat:
+	if failing or completed or not combat or downed or _pfail or Net.dedicated:
 		return
 	_struck_in_judgment = true
 	player.shake(0.45)
@@ -642,7 +756,10 @@ func damage_player(amount: float, from: Vector3) -> void:
 	push.y = 0
 	player.velocity += push.normalized() * 3.0
 	if player.health <= 0.0:
-		fail("Brelm fell beneath the lesser forms. Survive one, you are changed. Fall, and you begin again.", "")
+		if Net.online:
+			_go_down()
+		else:
+			fail("Brelm fell beneath the lesser forms. Survive one, you are changed. Fall, and you begin again.", "")
 
 
 ## A small cloud of dust where a pellet strikes stone.
@@ -726,6 +843,10 @@ func reset_trial() -> void:
 ## The trial is failed: the land resets, and Brelm stands again where he last stood firm.
 func fail(message: String, sound := "deny") -> void:
 	if failing or completed:
+		return
+	# In a fellowship a failed step sends back only the one who failed; the others walk on
+	if Net.online and not _wiping:
+		_personal_fail(message, sound)
 		return
 	failing = true
 	falls += 1
@@ -1056,13 +1177,24 @@ func figure(pos: Vector3, yaw: float, robe: Color, kneel := false) -> Node3D:
 
 # ------------------------------------------------------------------ interaction
 
-func make_interactable(obj: CollisionObject3D, prompt: String, cb: Callable, hold := 0.0) -> void:
+## A shared interaction is taken by the whole fellowship, in the order the host receives it.
+## Personal ones (a leaf, a relic, a lesser form witnessed) belong to the one who reaches for them.
+func make_interactable(obj: CollisionObject3D, prompt: String, cb: Callable, hold := 0.0, shared := true) -> void:
 	obj.set_meta("prompt", prompt)
-	obj.set_meta("on_interact", cb)
 	obj.set_meta("hold", hold)
+	if Net.online and shared:
+		var id := _net_events.size()
+		_net_events.append({"cb": cb, "obj": obj, "trigger": false})
+		obj.set_meta("on_interact", func(): Net.event(id))
+	else:
+		obj.set_meta("on_interact", cb)
 
 
-func interact_area(pos: Vector3, radius: float, prompt: String, cb: Callable, hold := 0.0) -> Area3D:
+func personal_interactable(obj: CollisionObject3D, prompt: String, cb: Callable, hold := 0.0) -> void:
+	make_interactable(obj, prompt, cb, hold, false)
+
+
+func interact_area(pos: Vector3, radius: float, prompt: String, cb: Callable, hold := 0.0, shared := true) -> Area3D:
 	var a := Area3D.new()
 	a.position = pos
 	var cs := CollisionShape3D.new()
@@ -1071,11 +1203,11 @@ func interact_area(pos: Vector3, radius: float, prompt: String, cb: Callable, ho
 	cs.shape = s
 	a.add_child(cs)
 	add_child(a)
-	make_interactable(a, prompt, cb, hold)
+	make_interactable(a, prompt, cb, hold, shared)
 	return a
 
 
-func trigger_area(pos: Vector3, size: Vector3, cb: Callable, once := true) -> Area3D:
+func trigger_area(pos: Vector3, size: Vector3, cb: Callable, once := true, shared := true) -> Area3D:
 	var a := Area3D.new()
 	a.position = pos
 	var cs := CollisionShape3D.new()
@@ -1085,6 +1217,15 @@ func trigger_area(pos: Vector3, size: Vector3, cb: Callable, once := true) -> Ar
 	a.add_child(cs)
 	add_child(a)
 	var fired := [false]
+	if Net.online and shared:
+		# Whoever crosses first carries the whole fellowship with them
+		var id := _net_events.size()
+		var ev := {"cb": cb, "obj": a, "trigger": true, "once": once, "fired": fired}
+		_net_events.append(ev)
+		a.body_entered.connect(func(b):
+			if b is Player and not (once and fired[0]):
+				Net.event(id))
+		return a
 	a.body_entered.connect(func(b):
 		if b is Player and not (once and fired[0]):
 			fired[0] = true
@@ -1116,8 +1257,8 @@ func lesser(code: String, pos: Vector3, size := 1.4) -> Emoji3D:
 	var l := omni(pos + Vector3(0, size * 0.5, 0.4), Color(1.0, 0.85, 0.55), 1.2, 4.5)
 	var info: Dictionary = Game.lesser[code]
 	var seen := Game.found.has(code)
-	var a := interact_area(pos, size * 0.55, "Witness :%s:" % code if not seen else "%s (recorded)" % info.name, func(): pass)
-	make_interactable(a, a.get_meta("prompt"), func():
+	var a := interact_area(pos, size * 0.55, "Witness :%s:" % code if not seen else "%s (recorded)" % info.name, func(): pass, 0.0, false)
+	personal_interactable(a, a.get_meta("prompt"), func():
 		var fresh := Game.find_emoji(code)
 		if a.get_meta("prompt").begins_with("Witness"):
 			witnessed += 1
@@ -1204,17 +1345,24 @@ func _velm_spot():
 # ------------------------------------------------------------------ the unblinking eye
 
 func _eye_tick(delta: float) -> void:
-	if eye_watching or combat_frozen:
+	if eye_watching or combat_frozen or (Net.online and not Net.is_host()):
 		return
 	_eye_t -= delta
 	if _eye_t <= 0.0:
 		_eye_t = randf_range(110.0, 170.0)
-		_unblinking_eye()
+		if Net.online:
+			Net.eye()
+		else:
+			_unblinking_eye()
 
 
 ## The world stops. An eye opens in the sky. Brelm must not move until it has finished judging.
 func _unblinking_eye() -> void:
+	if eye_watching:
+		return
 	eye_watching = true
+	eye_seen_by_any = false
+	_eye_verdict = -1
 	var was_frozen := combat_frozen
 	combat_frozen = true
 	var eye := MeshInstance3D.new()
@@ -1252,9 +1400,30 @@ func _unblinking_eye() -> void:
 			break
 		t += get_physics_process_delta_time()
 		em.set_shader_parameter("pupil", 0.18 + sin(t * 0.8) * 0.03)
-		if player.cur_speed > 0.6 or player.global_position.distance_to(start) > 0.8 or Input.is_action_pressed("fire") or Input.is_action_just_pressed("jump"):
+		if not Net.dedicated and not downed and (player.cur_speed > 0.6 or player.global_position.distance_to(start) > 0.8 or Input.is_action_pressed("fire") or Input.is_action_just_pressed("jump")):
 			seen = true
 			break
+		if eye_seen_by_any or _eye_verdict >= 0:
+			break
+	# In a fellowship, one who moves is seen for all
+	if Net.online:
+		if Net.is_host():
+			var w := 0.0
+			while w < 0.4 and not seen:
+				await get_tree().physics_frame
+				w += get_physics_process_delta_time()
+				seen = seen or eye_seen_by_any
+			seen = seen or eye_seen_by_any
+			Net.eye_result(seen)
+		else:
+			if seen:
+				Net.eye_seen()
+			var w := 0.0
+			while _eye_verdict < 0 and w < 4.0 and Net.online:
+				await get_tree().physics_frame
+				w += get_physics_process_delta_time()
+			if _eye_verdict >= 0:
+				seen = _eye_verdict == 1
 	var tw2 := create_tween()
 	tw2.tween_method(func(v): em.set_shader_parameter("open", v), 1.0, 0.0, 0.35 if not seen else 0.9)
 	await tw2.finished
@@ -1356,7 +1525,7 @@ func _shade(k: String, at: Vector3) -> void:
 	body.collision_layer = 16
 	var line := [0]
 	var speaking := [false]
-	make_interactable(body, "Hear %s" % d.name.to_lower(), func():
+	personal_interactable(body, "Hear %s" % d.name.to_lower(), func():
 		if speaking[0]:
 			return
 		speaking[0] = true
@@ -1405,9 +1574,9 @@ func _leaf(k: String, at: Vector3) -> void:
 	bob.tween_property(n, "position:y", n.position.y + 0.15, 1.8)
 	bob.tween_property(n, "position:y", n.position.y, 1.8)
 	var l := omni(at + Vector3(0, 1.4, 0), Color(1.0, 0.85, 0.55), 1.0, 4.0)
-	var a := interact_area(at + Vector3(0, 1.0, 0), 0.7, "Read the leaf", func(): pass)
+	var a := interact_area(at + Vector3(0, 1.0, 0), 0.7, "Read the leaf", func(): pass, 0.0, false)
 	var d: Array = Story.LEAVES[k]
-	make_interactable(a, "Read the leaf", func():
+	personal_interactable(a, "Read the leaf", func():
 		Game.leaves[k] = true
 		Game.save()
 		sfx("carve", -8)
@@ -1484,8 +1653,8 @@ func relic_pickup(id: String, pos: Vector3) -> void:
 	halo.position = pos + Vector3(0, 1.3, 0)
 	add_child(halo)
 	var l := omni(pos + Vector3(0, 0.8, 0.5), Color(1.0, 0.85, 0.55), 1.6, 6.0)
-	var a := interact_area(pos + Vector3(0, 0.4, 0), 0.9, "Take up the %s" % Game.RELIC_NAMES[id], func(): pass)
-	make_interactable(a, a.get_meta("prompt"), func():
+	var a := interact_area(pos + Vector3(0, 0.4, 0), 0.9, "Take up the %s" % Game.RELIC_NAMES[id], func(): pass, 0.0, false)
+	personal_interactable(a, a.get_meta("prompt"), func():
 		Game.gain_relic(id)
 		sfx("relic", -2)
 		hud.notify("%s  [%d]\n%s" % [Game.RELIC_NAMES[id], Game.RELICS.find(id) + 1, Game.RELIC_TEXT[id]])
@@ -1613,6 +1782,8 @@ func fade_ambient(to_db: float, dur := 2.0) -> void:
 ## The Meowifestation descends. Its decree is spoken. Then Brelm goes on.
 func reveal(code: String, pos: Vector3, size := 3.0, descend := true, then := Callable(), present: Emoji3D = null) -> Emoji3D:
 	completed = true
+	if downed:
+		_rise(1.0)
 	player.input_locked = true
 	clear_enemies()
 	hud.set_health(1.0, false)
@@ -1684,8 +1855,382 @@ func reveal(code: String, pos: Vector3, size := 3.0, descend := true, then := Ca
 	hud.hide_reveal()
 	create_tween().tween_property(voice, "volume_db", -60.0, 2.5)
 	await show_results(verdict)
+	if Net.online and not Net.is_host():
+		hud.say("The fellowship waits upon %s to walk on." % Net.server_name, 30.0)
 	Game.main.next_level()
 	return e
+
+
+# ------------------------------------------------------------------ the fellowship
+
+## Something for the other pilgrims to stand near; on a dedicated server the ghost walks with whoever is there.
+func focus_pos() -> Vector3:
+	var t := targets()
+	if t.is_empty():
+		return player.global_position
+	return t[randi() % t.size()].global_position
+
+
+## Who the lesser forms may hunt: every pilgrim still standing.
+func targets() -> Array:
+	var out := []
+	if not Net.dedicated and not downed and not _pfail:
+		out.append(player)
+	for id in avatars:
+		var a = avatars[id]
+		if is_instance_valid(a) and a.visible and not a.downed:
+			out.append(a)
+	return out
+
+
+func nearest_target(from: Vector3) -> Node3D:
+	var best: Node3D = null
+	var bd := INF
+	for t in targets():
+		var d: float = from.distance_squared_to(t.global_position)
+		if d < bd:
+			bd = d
+			best = t
+	return best
+
+
+func hurt_target(t: Node3D, amount: float, from: Vector3) -> void:
+	if t == player:
+		damage_player(amount, from)
+	elif t is Companion:
+		Net.hurt(t.peer_id, amount, from)
+
+
+## The dedicated server's own pilgrim is a ghost: unseen, untouchable, walking with the fellowship.
+func _ghost() -> void:
+	player.visible = false
+	player.collision_layer = 0
+	player.collision_mask = 0
+	player.set_physics_process(false)
+	player.set_process_unhandled_input(false)
+	player.cam.current = false
+
+
+func _ghost_tick() -> void:
+	for id in avatars:
+		var a = avatars[id]
+		if is_instance_valid(a) and a.visible:
+			player.global_position = a.global_position
+			player.yaw = a.rotation.y - PI
+			return
+
+
+func _net_tick(delta: float) -> void:
+	_pose_t -= delta
+	if _pose_t <= 0.0 and not Net.dedicated:
+		_pose_t = 0.05
+		var r = player.relics
+		Net.send_pose([player.global_position, player.yaw, player.pitch, downed, player.health / player.max_health,
+			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false])
+	if Net.is_host():
+		_foes_t -= delta
+		if _foes_t <= 0.0:
+			_foes_t = 1.0 / 15.0
+			var batch := []
+			for id in foes.keys():
+				var e = foes[id]
+				if not is_instance_valid(e) or not e.is_alive():
+					foes.erase(id)
+					continue
+				batch.append(e.net_state())
+			Net.send_foes(batch)
+	else:
+		# A form the host has not spoken of for a while is gone
+		var now := Time.get_ticks_msec()
+		for id in foes.keys():
+			var e = foes[id]
+			if not is_instance_valid(e):
+				foes.erase(id)
+			elif now - e.heard_at > 2000:
+				foes.erase(id)
+				e.die(false)
+	_roster_t -= delta
+	if _roster_t <= 0.0:
+		_roster_t = 0.25
+		var rows := []
+		for id in Net.players:
+			if id == Net.me():
+				rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id)])
+			elif avatars.has(id) and is_instance_valid(avatars[id]):
+				rows.append([Net.name_of(id), avatars[id].hp, avatars[id].downed, Net.color_of(id)])
+			else:
+				rows.append([Net.name_of(id), 1.0, false, Net.color_of(id)])
+		hud.set_fellowship(rows)
+
+
+func net_pose(id: int, data: Array) -> void:
+	if not Net.players.has(id):
+		return
+	var a = avatars.get(id)
+	if a == null or not is_instance_valid(a):
+		a = Companion.new().setup(id)
+		add_child(a)
+		avatars[id] = a
+	a.pose(data)
+	if Net.is_host():
+		var was: bool = _down_peers.get(id, false)
+		_down_peers[id] = a.downed
+		if a.downed and not was:
+			_check_wipe()
+
+
+func net_joined(_id: int) -> void:
+	pass
+
+
+func net_left(id: int) -> void:
+	if avatars.has(id):
+		if is_instance_valid(avatars[id]):
+			avatars[id].queue_free()
+		avatars.erase(id)
+	_down_peers.erase(id)
+	if Net.is_host():
+		_check_wipe()
+
+
+func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
+	var av = avatars.get(id)
+	match kind:
+		"shot":
+			sfx("shotgun", -6, a)
+			if av and is_instance_valid(av):
+				av.muzzle()
+			var space := get_world_3d().direct_space_state
+			var q := PhysicsRayQueryParameters3D.create(a, a + b * 60.0, 1)
+			var r := space.intersect_ray(q)
+			if not r.is_empty():
+				puff(r.position, r.normal)
+		"pray":
+			sfx("choir", -2, a)
+			if player.relics:
+				var gold := StandardMaterial3D.new()
+				gold.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				gold.albedo_color = Color(1.0, 0.86, 0.45)
+				var side := b.cross(Vector3.UP).normalized()
+				for i in 30:
+					var ang := randf() * TAU
+					var rr := sqrt(randf()) * 0.55
+					var dir := (b + side * cos(ang) * rr + Vector3.UP * sin(ang) * rr * 0.7).normalized()
+					player.relics._cherub(self, a, dir, gold, randf() * 0.25)
+
+
+func net_downed(id: int, on: bool) -> void:
+	if avatars.has(id) and is_instance_valid(avatars[id]):
+		avatars[id].downed = on
+	if on:
+		hud.notify("%s has fallen. Hold [E] over them to raise them." % Net.name_of(id))
+	if Net.is_host():
+		_down_peers[id] = on
+		if on:
+			_check_wipe()
+
+
+## When every pilgrim has fallen, the trial begins again for all of them.
+func _check_wipe() -> void:
+	if failing or completed or Net.players.is_empty():
+		return
+	for id in Net.players:
+		var down: bool = downed if id == Net.me() else _down_peers.get(id, false)
+		if not down:
+			return
+	_down_peers.clear()
+	Net.wipe()
+
+
+func _go_down() -> void:
+	if downed:
+		return
+	downed = true
+	player.health = 0.0
+	player.input_locked = true
+	player.velocity = Vector3.ZERO
+	create_tween().tween_property(player.head, "position:y", 0.45, 0.8).set_trans(Tween.TRANS_SINE)
+	hud.set_fx("desat", 0.85)
+	hud.set_fx("dark", 0.35)
+	hud.set_health(0.0, true)
+	sfx("hurt", 0, null, 0.7)
+	hud.say("You have fallen. Your companions may yet raise you.", 6.0)
+	Net.downed(true)
+	_pose_t = 0.0
+	if Net.is_host():
+		_check_wipe()
+
+
+func _rise(fraction: float) -> void:
+	if not downed:
+		return
+	downed = false
+	player.health = player.max_health * fraction
+	player.input_locked = false
+	create_tween().tween_property(player.head, "position:y", 1.6, 0.8).set_trans(Tween.TRANS_SINE)
+	hud.set_fx("desat", 0.0)
+	hud.set_fx("dark", 0.0)
+	hud.set_health(player.health / player.max_health, combat)
+	_regen_wait = 3.0
+	Net.downed(false)
+	_pose_t = 0.0
+
+
+func net_revived(by: int) -> void:
+	if not downed or failing:
+		return
+	if OS.is_debug_build() or OS.get_cmdline_user_args().size() > 0:
+		print("raised by %s" % Net.name_of(by))
+	_rise(0.5)
+	sfx("bell", -8)
+	hud.clear_say()
+	hud.notify("%s raised you." % Net.name_of(by))
+
+
+var _wiping := false
+
+
+func net_wipe() -> void:
+	if failing:
+		return
+	if OS.get_cmdline_user_args().size() > 0:
+		print("the whole fellowship fell")
+	if downed:
+		downed = false
+		player.head.position.y = 1.6
+		hud.set_fx("desat", 0.0)
+		hud.set_fx("dark", 0.0)
+		player.input_locked = false
+	_wiping = true
+	await fail("The whole fellowship fell beneath the lesser forms. Survive one, you are changed. Fall together, and together you begin again.", "")
+	_wiping = false
+	Net.downed(false)
+
+
+## A step failed alone: only this pilgrim is sent back; the trial goes on for the others.
+func _personal_fail(message: String, sound: String) -> void:
+	if _pfail:
+		return
+	_pfail = true
+	falls += 1
+	player.input_locked = true
+	if sound != "":
+		sfx(sound, -4)
+	await hud.fade_to(1.0, 1.4)
+	hud.clear_say()
+	hud.raise_text(true)
+	hud.say(message, 4.5)
+	await get_tree().create_timer(5.5, false).timeout
+	hud.raise_text(false)
+	reset_trial()
+	if downed:
+		_rise(1.0)
+	player.place(spawn_pos, spawn_yaw)
+	player.reset_max_health()
+	hud.set_health(1.0, combat)
+	player.input_locked = false
+	_pfail = false
+	hud.fade_to(0.0, 1.5)
+
+
+## Calls a method of the land for everyone in the fellowship (or just here, when walking alone).
+func shared(method: String, args := []) -> void:
+	if Net.online:
+		Net.call_shared(method, args)
+	else:
+		callv(method, args)
+
+
+func net_event_allowed(id: int) -> bool:
+	if id < 0 or id >= _net_events.size():
+		return false
+	var ev: Dictionary = _net_events[id]
+	if not is_instance_valid(ev.obj):
+		return false
+	if ev.trigger:
+		return not (ev.once and ev.fired[0])
+	return str(ev.obj.get_meta("prompt", "")) != ""
+
+
+func net_run_event(id: int) -> void:
+	if id < 0 or id >= _net_events.size():
+		return
+	var ev: Dictionary = _net_events[id]
+	if ev.trigger:
+		if ev.once and ev.fired[0]:
+			return
+		ev.fired[0] = true
+	ev.cb.call()
+
+
+func net_foes(batch: Array) -> void:
+	var now := Time.get_ticks_msec()
+	for st in batch:
+		var id: int = st[0]
+		if _gone.has(id):
+			continue
+		var e = foes.get(id)
+		if e != null and (not is_instance_valid(e) or not e.is_alive()):
+			foes.erase(id)
+			e = null
+		if e == null:
+			e = LesserSpeeb.new().setup(st[2], st[1], self)
+			e.net_id = id
+			e.puppet = true
+			e.position = st[3]
+			foes[id] = e
+			add_child(e)
+			enemies.append(e)
+		elif not is_instance_valid(e):
+			continue
+		e.heard_at = now
+		e.net_apply(st)
+
+
+func net_foe_died(id: int, slain: bool, killer: int) -> void:
+	var e = foes.get(id)
+	foes.erase(id)
+	_gone[id] = true
+	if e and is_instance_valid(e):
+		e.credit = killer == Net.me()
+		e.die(slain)
+
+
+func net_hit(by: int, id: int, amount: float, dir: Vector3) -> void:
+	var e = foes.get(id)
+	if e == null or not is_instance_valid(e) or not e.is_alive():
+		return
+	e.last_hitter = by
+	e.hurt(amount, dir)
+	if e.is_alive():
+		e.last_hitter = Net.me()
+
+
+func net_bolt(from: Vector3, vel: Vector3, dmg: float) -> void:
+	var b := LesserSpeeb.Bolt.new()
+	b.level = self
+	b.velocity = vel
+	b.damage = dmg
+	add_child(b)
+	b.global_position = from
+
+
+func net_trial_state(obj: String, meter: String, value: float, done: bool) -> void:
+	if done:
+		_survive_done = true
+		return
+	hud.set_objective(obj)
+	hud.set_meter(meter, value)
+
+
+func net_eye_result(seen: bool) -> void:
+	_eye_verdict = 1 if seen else 0
+
+
+## One who joins late is brought to where the fellowship last stood firm.
+func net_place(pos: Vector3, yaw: float) -> void:
+	checkpoint(pos, yaw)
+	player.place(pos, yaw)
 
 
 # ------------------------------------------------------------------ testing aids
@@ -1739,6 +2284,20 @@ func debug_gather() -> void:
 	get_tree().quit()
 
 
+## Testing aid: where do forms take shape? Counts any that land out of every pilgrim's sight.
+func debug_spawns() -> void:
+	combat_frozen = true
+	var bad := 0
+	for i in 40:
+		_spawn_enemy("elite" if i % 2 == 0 else "rusher")
+	await get_tree().physics_frame
+	for e in enemies:
+		if is_instance_valid(e) and not reachable(e.global_position):
+			bad += 1
+	print("SPAWNS %d, out of sight %d" % [enemies.size(), bad])
+	get_tree().quit()
+
+
 func debug_bling() -> void:
 	combat_frozen = true
 	clear_enemies()
@@ -1766,7 +2325,61 @@ func debug_eye() -> void:
 	_unblinking_eye()
 
 
+## Testing aid for the fellowship: this pilgrim turns toward the nearest lesser form and fires.
+func debug_bot() -> void:
+	var k := -1
+	while is_inside_tree():
+		await get_tree().physics_frame
+		if kills != k:
+			k = kills
+			print("bot: %d undone, %d foes known" % [kills, enemies.filter(func(e): return is_instance_valid(e) and e.is_alive()).size()])
+		var best = null
+		var bd := 40.0
+		for e in enemies:
+			if is_instance_valid(e) and e.is_alive():
+				var d: float = e.global_position.distance_to(player.global_position)
+				if d < bd:
+					bd = d
+					best = e
+		if best and player.weapon and not player.input_locked:
+			player.face(best.global_position)
+			player.weapon.shells = maxi(player.weapon.shells, 2)
+			player.weapon._try_fire()
+
+
+## Testing aids for the fellowship: fall at once; raise every fallen companion.
+func debug_fall() -> void:
+	if Net.online:
+		_go_down()
+	else:
+		damage_player(9999.0, player.global_position + Vector3(1, 0, 0))
+	print("fall: downed=%s" % downed)
+	while downed:
+		await get_tree().physics_frame
+	print("risen: health=%d" % player.health)
+
+
+func debug_raise() -> void:
+	await get_tree().create_timer(8.0, false).timeout
+	print("raise: %d companions known" % avatars.size())
+	for id in avatars:
+		print("raise: %s downed=%s" % [Net.name_of(id), avatars[id].downed])
+		if avatars[id].downed:
+			Net.revive(id)
+
+
 func debug_velm() -> void:
 	combat_frozen = true
 	clear_enemies()
 	_velm_t = 0.0
+
+
+## Testing aid: a form falls before this pilgrim; the fellowship should see what it leaves.
+func debug_drop() -> void:
+	shared("_drop", ["shells", player.global_position + Vector3(2, 0, 0), 4])
+	await get_tree().create_timer(4.0).timeout
+	var n := 0
+	for c in get_children():
+		if c is Area3D and c.get_child_count() > 2 and c.has_signal("body_entered") and c.get_children().any(func(k): return k is OmniLight3D and k.light_color == Color(1.0, 0.75, 0.4)):
+			n += 1
+	print("DROPS SEEN ", n)

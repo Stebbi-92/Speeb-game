@@ -20,6 +20,8 @@ def text_info(name):
 with zipfile.ZipFile(os.path.join(out, "Brelm-Windows.zip"), "w", zipfile.ZIP_DEFLATED) as z:
     z.write("build/Brelm.exe", "Brelm.exe")
     z.write("build/Brelm (compatibility mode).bat", "Brelm (compatibility mode).bat")
+    z.write("build/Brelm Server.bat", "Brelm Server.bat")
+    z.writestr(text_info("HOSTING.txt"), open("HOSTING.txt").read())
     z.writestr(text_info("README.txt"), readme)
     z.writestr(text_info("THIRD-PARTY-NOTICES.txt"), open("THIRD-PARTY-NOTICES.txt").read())
 src = zipfile.ZipFile("build-mac/Brelm.zip")
@@ -30,5 +32,9 @@ with zipfile.ZipFile(os.path.join(out, "Brelm-macOS.zip"), "w", zipfile.ZIP_DEFL
         ni.external_attr = i.external_attr; ni.create_system = i.create_system; ni.compress_type = zipfile.ZIP_DEFLATED
         z.writestr(ni, src.read(i.filename))
     z.writestr(text_info("README.txt"), readme.replace("RUNNING\n", mac_note + "RUNNING (WINDOWS)\n", 1))
+    hosting = open("HOSTING.txt").read().replace("Windows may ask whether Brelm may use the network. Allow it, on private\n   networks at least.", "macOS may ask whether Brelm may accept incoming network connections.\n   Allow it.")
+    z.writestr(text_info("HOSTING.txt"), hosting)
+    si = zipfile.ZipInfo("Brelm Server.command", (2026, 10, 31, 12, 0, 0)); si.external_attr = 0o100755 << 16; si.create_system = 3
+    z.writestr(si, open("build-mac/Brelm Server.command").read())
     z.writestr(text_info("THIRD-PARTY-NOTICES.txt"), open("THIRD-PARTY-NOTICES.txt").read())
 print("ok")

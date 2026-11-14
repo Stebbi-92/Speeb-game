@@ -422,6 +422,49 @@ class Marks extends Control:
 			draw_arc(c, 130.0, ang - 0.35, ang + 0.35, 24, Color(0.85, 0.12, 0.08, a[1] * 0.85), 7.0)
 
 
+var _fellowship: VBoxContainer
+
+
+## The fellowship's roster in a trial: each pilgrim's name in their colour, and how much life is left in them.
+func set_fellowship(rows: Array) -> void:
+	if _fellowship == null:
+		_fellowship = VBoxContainer.new()
+		_fellowship.position = Vector2(36, 118)
+		_fellowship.add_theme_constant_override("separation", 4)
+		_fellowship.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(_fellowship)
+	while _fellowship.get_child_count() > rows.size():
+		var c := _fellowship.get_child(_fellowship.get_child_count() - 1)
+		_fellowship.remove_child(c)
+		c.queue_free()
+	while _fellowship.get_child_count() < rows.size():
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var l := _label("", 17, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+		l.add_theme_font_override("font", title_font)
+		l.custom_minimum_size.x = 150
+		h.add_child(l)
+		var b := ProgressBar.new()
+		b.show_percentage = false
+		b.max_value = 1.0
+		b.custom_minimum_size = Vector2(110, 5)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		b.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.12)))
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(b)
+		_fellowship.add_child(h)
+	for i in rows.size():
+		var r: Array = rows[i]
+		var h := _fellowship.get_child(i)
+		var l: Label = h.get_child(0)
+		var b: ProgressBar = h.get_child(1)
+		l.text = r[0] + ("  (fallen)" if r[2] else "")
+		l.add_theme_color_override("font_color", (r[3] as Color).lightened(0.25) if not r[2] else Color(0.6, 0.25, 0.2))
+		b.value = r[1]
+		b.add_theme_stylebox_override("fill", _flat(r[3]))
+
+
 func set_health(v: float, show: bool) -> void:
 	health_bar.visible = show
 	health_bar.value = v
@@ -502,6 +545,9 @@ func clear_all() -> void:
 	set_meter("", 0)
 	reveal_box.modulate.a = 0
 	card_box.modulate.a = 0
+	results_panel.visible = false
+	pause_panel.visible = false
+	set_fellowship([])
 	name_label.text = ""
 	ammo_label.text = ""
 	health_bar.visible = false
@@ -551,6 +597,12 @@ func toggle_pause() -> void:
 		toggle_codex()
 		return
 	if not Game.main.in_game():
+		return
+	# The world does not stop for one pilgrim of a fellowship
+	if Net.online:
+		var show := not pause_panel.visible
+		pause_panel.visible = show
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show else Input.MOUSE_MODE_CAPTURED
 		return
 	var p := not get_tree().paused
 	get_tree().paused = p
@@ -667,7 +719,7 @@ func toggle_codex() -> void:
 	codex_panel.visible = show
 	if Game.main.in_game():
 		if show:
-			if not get_tree().paused:
+			if not get_tree().paused and not Net.online:
 				get_tree().paused = true
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		elif not pause_panel.visible:
@@ -831,8 +883,18 @@ func show_options() -> void:
 	_section("Sound")
 	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
+	_section("The Ashen Waste")
+	var every := [0, 1, 2, 5, 10]
+	_choice("Autosave", ["Only at key moments", "Every minute", "Every 2 minutes", "Every 5 minutes", "Every 10 minutes"],
+		maxi(every.find(Game.autosave_min), 0), func(i): Game.autosave_min = every[i]; Game.save())
 	_section("Trial")
-	_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
+	if Net.online and not Net.is_host():
+		_options_list.add_child(_label("In a fellowship the host's difficulty holds for everyone.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	else:
+		_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
+	_section("Fellowship")
+	_line("Your name among the fellowship", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
+	_line("Internet list address", Game.lobby_url, Net.DEFAULT_LOBBY if Net.DEFAULT_LOBBY != "" else "https://... (optional)", func(t): Game.lobby_url = t.strip_edges(); Game.save())
 	options_panel.visible = true
 	pause_panel.visible = false
 	root.move_child(options_panel, root.get_child_count() - 1)
@@ -882,6 +944,16 @@ func _choice(text: String, items: Array, sel: int, cb: Callable) -> void:
 	o.add_theme_font_size_override("font_size", 20)
 	o.item_selected.connect(cb)
 	_row(text).add_child(o)
+
+
+func _line(text: String, value: String, hint: String, cb: Callable) -> void:
+	var e := LineEdit.new()
+	e.text = value
+	e.placeholder_text = hint
+	e.custom_minimum_size.x = 360
+	e.add_theme_font_size_override("font_size", 20)
+	e.text_changed.connect(cb)
+	_row(text).add_child(e)
 
 
 func _toggle(text: String, on: bool, cb: Callable) -> void:
