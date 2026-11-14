@@ -41,8 +41,11 @@ func _ready() -> void:
 		if a.begins_with("lobby="):
 			Game.lobby_url = a.substr(6)
 	for a in args:
+		if a.begins_with("word="):
+			Net.join_word = a.substr(5)
+	for a in args:
 		if a.begins_with("host="):
-			Net.host(int(a.substr(5)), "Test fellowship", "public" in args)
+			Net.host(int(a.substr(5)), "Test fellowship", "public" in args, false, "private" in args, Net.join_word)
 		elif a.begins_with("join="):
 			var hp := Net.split_address(a.substr(5))
 			Net.join(hp[0], hp[1])

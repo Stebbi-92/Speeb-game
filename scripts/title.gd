@@ -9,6 +9,9 @@ var _menu: VBoxContainer
 var _chapters: VBoxContainer
 var _together: VBoxContainer
 var _lobby: VBoxContainer
+var _filter: LineEdit
+var _hide_full: CheckBox
+var _hide_other: CheckBox
 var _status: Label
 var _found: VBoxContainer
 var _roster: VBoxContainer
@@ -17,6 +20,9 @@ var _choose: Control
 var _col: VBoxContainer
 var _spacer: Control
 var _hint: Label
+var _sub: Label
+var _quote: Label
+var _cam_off := 0.0
 
 const PLACES := [
 	"Prologue: The Plateau of Mirrors", "I. The Cliffs of Echoing Cries", "II. The Ruins of the Fallen Kings",
@@ -103,7 +109,7 @@ func _build_menu() -> void:
 	hud.menu_box.add_child(box)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	v.position = Vector2(110, -250)
+	v.position = Vector2(110, -330)
 	v.size = Vector2(620, 500)
 	v.grow_vertical = Control.GROW_DIRECTION_END
 	v.add_theme_constant_override("separation", 6)
@@ -115,10 +121,11 @@ func _build_menu() -> void:
 	st.add_theme_font_override("font", hud.title_font)
 	v.add_child(st)
 	var sp := Control.new()
-	sp.custom_minimum_size.y = 40
+	sp.custom_minimum_size.y = 18
 	v.add_child(sp)
 	_col = v
 	_spacer = sp
+	_sub = st
 	_menu = VBoxContainer.new()
 	v.add_child(_menu)
 	_menu.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage()))
@@ -153,10 +160,18 @@ func _build_menu() -> void:
 	_together.add_theme_constant_override("separation", 6)
 	v.add_child(_together)
 	_build_together()
+	# The gathering place can grow long (four pilgrims, many trials): it scrolls within the screen
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(820, 700)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.visible = false
+	v.add_child(scroll)
 	_lobby = VBoxContainer.new()
 	_lobby.visible = false
-	_lobby.add_theme_constant_override("separation", 6)
-	v.add_child(_lobby)
+	_lobby.add_theme_constant_override("separation", 4)
+	_lobby.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_lobby)
+	_lobby.visibility_changed.connect(func(): scroll.visible = _lobby.visible)
 	Net.roster_changed.connect(_on_roster)
 	Net.status_changed.connect(func(t): if _status: _status.text = t)
 	Net.servers_changed.connect(_list_servers)
@@ -167,9 +182,10 @@ func _build_menu() -> void:
 
 	var q: Label = hud._label("\"Speeb sees. Speeb is. Do not try to please him. Only survive him.\"\n— scratched in claw-marks upon a cave wall", 20, hud.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	q.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	q.position = Vector2(-900, -110)
-	q.size = Vector2(860, 80)
+	q.position = Vector2(-900, -130)
+	q.size = Vector2(860, 70)
 	box.add_child(q)
+	_quote = q
 	var ver: Label = hud._label("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, hud.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	ver.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	ver.position = Vector2(-140, 20)
@@ -177,13 +193,14 @@ func _build_menu() -> void:
 	box.add_child(ver)
 	var c: Label = hud._label("WASD walk  ·  Mouse look  ·  LMB use  ·  RMB aim  ·  1–6 or wheel relics  ·  X change gun  ·  Z melee  ·  G grenade  ·  T gadget  ·  E interact  ·  Shift hasten  ·  Tab the Book of Emojis  ·  Esc stillness", 16, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
 	c.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	c.position = Vector2(110, -60)
-	c.size = Vector2(1200, 30)
+	c.position = Vector2(110, -40)
+	c.size = Vector2(1400, 26)
+	c.add_theme_font_size_override("font_size", 15)
 	box.add_child(c)
 	_hint = c
 
 
-func _btn(text: String, cb: Callable, size := 30) -> Button:
+func _btn(text: String, cb: Callable, size := 27) -> Button:
 	var b: Button = hud.button(text, cb, size)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	return b
@@ -319,8 +336,9 @@ func _update_done(ok: bool, message: String) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	speeb.rotation.y = sin(_t * 0.15) * 0.35
-	cam.position.x = sin(_t * 0.07) * 1.2
-	cam.look_at(Vector3(0, 2.6, 0))
+	_cam_off = lerpf(_cam_off, -4.2 if _col and _col.position.y < _col.get_parent().size.y * 0.5 - 380.0 else 0.0, minf(1.0, delta * 3.0))
+	cam.position.x = sin(_t * 0.07) * 1.2 + _cam_off
+	cam.look_at(Vector3(_cam_off, 2.6, 0))
 
 
 # ------------------------------------------------------------------ walking together
@@ -371,32 +389,71 @@ func _build_together() -> void:
 	hh.add_child(port)
 	hh.add_child(listed)
 	_together.add_child(hh)
+	var ph := HBoxContainer.new()
+	ph.add_theme_constant_override("separation", 8)
+	var priv := CheckBox.new()
+	priv.text = "Private: found only by its code"
+	priv.add_theme_font_size_override("font_size", 17)
+	priv.tooltip_text = "Not shown on any list. Give your friends the six-letter code from the gathering place."
+	priv.toggled.connect(func(on): if on: listed.button_pressed = false)
+	listed.toggled.connect(func(on): if on: priv.button_pressed = false)
+	var word := _field("", "A word to join (optional)", 250)
+	word.secret = true
+	ph.add_child(priv)
+	ph.add_child(word)
+	_together.add_child(ph)
 	_together.add_child(_btn("Host a fellowship", func():
 		var n: String = sname.text.strip_edges()
 		if n == "":
 			n = "%s's fellowship" % Net.my_name()
 		var p := int(port.text) if port.text.is_valid_int() else Net.DEFAULT_PORT
-		if Net.host(p, n, listed.button_pressed) == OK:
+		if Net.host(p, n, listed.button_pressed, false, priv.button_pressed, word.text) == OK:
 			_show_lobby()
 		else:
 			_status.text = Net.last_error, 24))
 	# Joining by address
 	var jh := HBoxContainer.new()
 	jh.add_theme_constant_override("separation", 8)
-	var addr := _field("", "Address, or address:port", 350)
+	var addr := _field("", "Join code, or address:port", 300)
+	var jword := _field("", "Its word, if closed", 200)
+	jword.secret = true
 	jh.add_child(addr)
+	jh.add_child(jword)
 	jh.add_child(_btn("Join", func():
-		if addr.text.strip_edges() == "":
-			_status.text = "Give the host's address. They will find it in their gathering place."
+		Net.join_word = jword.text.strip_edges()
+		var t: String = addr.text.strip_edges()
+		if t == "":
+			_status.text = "Give the host's join code or address. They will find both in their gathering place."
 			return
-		var hp := Net.split_address(addr.text)
+		if Net.is_code(t):
+			Net.join_code_lookup(t)
+			return
+		var hp := Net.split_address(t)
 		Net.join(hp[0], hp[1]), 24))
 	_together.add_child(jh)
 	# The list of fellowships
 	var lh := HBoxContainer.new()
+	lh.add_theme_constant_override("separation", 10)
 	lh.add_child(_heading("Fellowships found"))
 	lh.add_child(_btn("Look again", func(): Net.refresh_servers(), 20))
 	_together.add_child(lh)
+	var fh := HBoxContainer.new()
+	fh.add_theme_constant_override("separation", 10)
+	_filter = _field("", "Search by name", 220)
+	_filter.text_changed.connect(func(_t): _list_servers())
+	fh.add_child(_filter)
+	_hide_full = CheckBox.new()
+	_hide_full.text = "Hide full"
+	_hide_full.add_theme_font_size_override("font_size", 16)
+	_hide_full.toggled.connect(func(_on): _list_servers())
+	fh.add_child(_hide_full)
+	_hide_other = CheckBox.new()
+	_hide_other.text = "Only my version"
+	_hide_other.button_pressed = true
+	_hide_other.add_theme_font_size_override("font_size", 16)
+	_hide_other.toggled.connect(func(_on): _list_servers())
+	fh.add_child(_hide_other)
+	_together.add_child(fh)
 	_found = VBoxContainer.new()
 	_found.add_theme_constant_override("separation", 0)
 	_together.add_child(_found)
@@ -408,9 +465,11 @@ func _build_together() -> void:
 
 ## The fellowship's pages are long: the column rises to make room for them.
 func _raise_column(up: bool) -> void:
-	_col.position.y = _col.get_parent().size.y * 0.5 + (-415.0 if up else -250.0)
+	_col.position.y = _col.get_parent().size.y * 0.5 + (-430.0 if up else -330.0)
 	_spacer.visible = not up
+	_sub.visible = not up
 	_hint.visible = not up
+	_quote.visible = not up
 
 
 func _show_together() -> void:
@@ -431,21 +490,45 @@ func _list_servers() -> void:
 	for c in _found.get_children():
 		c.queue_free()
 	if Net.servers.is_empty():
-		_found.add_child(_small("None yet. Fellowships on this network appear here; with an internet list set in Options, so do public ones."))
+		_found.add_child(_small("None yet. Fellowships on this network appear here, and public ones from the internet list. A private fellowship is joined by its code."))
 		return
-	for key in Net.servers:
+	var keys: Array = Net.servers.keys()
+	# The fullest open fellowships first, then the nearest
+	keys.sort_custom(func(a, b):
+		var da: Dictionary = Net.servers[a]
+		var db: Dictionary = Net.servers[b]
+		if int(da.get("players", 0)) != int(db.get("players", 0)):
+			return int(da.get("players", 0)) > int(db.get("players", 0))
+		return int(da.get("ping", 9999)) < int(db.get("ping", 9999)))
+	var shown := 0
+	for key in keys:
 		var d: Dictionary = Net.servers[key]
+		var q: String = _filter.text.strip_edges().to_lower() if _filter else ""
+		if q != "" and not str(d.get("name", "")).to_lower().contains(q):
+			continue
+		if _hide_full and _hide_full.button_pressed and int(d.get("players", 0)) >= int(d.get("max", 4)):
+			continue
+		if _hide_other and _hide_other.button_pressed and d.get("proto", Net.PROTOCOL) != Net.PROTOCOL:
+			continue
+		shown += 1
 		var lvl := int(d.get("level", -1))
 		var where: String = "gathering" if lvl < 0 or lvl >= PLACES.size() else PLACES[lvl].get_slice(":", 0).get_slice(".", 0)
 		if lvl >= 0 and lvl < PLACES.size():
 			where = PLACES[lvl]
 		var full := int(d.get("players", 0)) >= int(d.get("max", 4))
-		var text := "%s   ·   %d of %d   ·   %s   ·   %s" % [str(d.get("name", "?")).left(28), int(d.get("players", 0)), int(d.get("max", 4)), where, d.get("source", "")]
+		var src: String = d.get("source", "")
+		if d.has("ping"):
+			src += " %d ms" % int(d.ping)
+		var text := "%s%s   ·   %d of %d   ·   %s   ·   %s" % [str(d.get("name", "?")).left(28), "  (closed)" if d.get("locked", false) else "", int(d.get("players", 0)), int(d.get("max", 4)), where, src]
+		if d.get("proto", Net.PROTOCOL) != Net.PROTOCOL:
+			text += "   ·   version %s" % d.get("version", "?")
 		var ip: String = d.ip
 		var p := int(d.port)
 		var b := _btn(text, func(): Net.join(ip, p), 19)
 		b.disabled = full or d.get("proto", Net.PROTOCOL) != Net.PROTOCOL
 		_found.add_child(b)
+	if shown == 0:
+		_found.add_child(_small("None match what you seek."))
 
 
 func _show_lobby() -> void:
@@ -480,8 +563,17 @@ func _on_roster() -> void:
 			info += "\nFrom the internet: %s:%d" % [Net.external_ip, Net.port]
 		if Net.upnp_state != "":
 			info += "\n" + Net.upnp_state
+		if Net.password != "":
+			info += "\nClosed: those who join must give its word."
 	else:
 		info = "You walk with this fellowship. The host decides the way."
+	if Net.is_host() and Net.join_code != "" and Net.lobby_url() != "":
+		var cl: Label = hud._label("Join code   %s" % Net.join_code, 26, hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+		cl.add_theme_font_override("font", hud.title_font)
+		cl.tooltip_text = "Friends type this into Walk Together to join, from anywhere."
+		_lobby.add_child(cl)
+		var cb := _btn("Copy the code", func(): DisplayServer.clipboard_set(Net.join_code), 17)
+		_lobby.add_child(cb)
 	_lobby.add_child(_small(info))
 	_lobby.add_child(_heading("The fellowship  (%d of %d)" % [Net.players.size(), Net.MAX_PLAYERS]))
 	for id in Net.players:
@@ -519,7 +611,7 @@ func _on_roster() -> void:
 		_lobby.add_child(grid)
 		for i in range(mini(Game.reached, 10) + 1):
 			var idx := i
-			grid.add_child(_btn(PLACES[i], func(): Net.begin(idx), 18))
+			grid.add_child(_btn(PLACES[i], func(): Net.begin(idx), 17))
 		if Game.tenth_unlocked():
 			grid.add_child(_btn("The Tenth Trial", func(): Net.begin(11), 18))
 		if Net.is_host():

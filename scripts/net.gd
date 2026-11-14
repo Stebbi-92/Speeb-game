@@ -12,7 +12,7 @@ signal session_ended(reason: String)
 const DEFAULT_PORT := 24600
 const DISCOVERY_PORT := 24601
 const MAX_PLAYERS := 4
-const PROTOCOL := "brelm-fellowship-1"
+const PROTOCOL := "brelm-fellowship-2"
 const ANNOUNCE_EVERY := 50.0
 ## The internet list of fellowships: a small Cloudflare Worker (see tools/lobby-worker.js).
 ## Leave empty to use only the local network and joining by address; it can also be set in Options.
@@ -36,6 +36,13 @@ var upnp_state := ""
 var external_ip := ""
 var servers := {}
 var last_error := ""
+var join_code := ""      ## six letters by which the internet list finds this fellowship
+var private := false     ## private fellowships are found only by their code or address
+var password := ""       ## the word a pilgrim must give to join, if any
+var join_word := ""      ## the word this pilgrim gives when joining
+const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+var _http_code: HTTPRequest
+var _probe_sent := 0
 
 var _joining := false
 var _own_difficulty := -1
@@ -65,6 +72,10 @@ func _ready() -> void:
 	_http_post = HTTPRequest.new()
 	_http_post.timeout = 6.0
 	add_child(_http_post)
+	_http_code = HTTPRequest.new()
+	_http_code.timeout = 8.0
+	_http_code.request_completed.connect(_on_code)
+	add_child(_http_code)
 
 
 func me() -> int:
@@ -115,7 +126,7 @@ func _log(t: String) -> void:
 
 # ------------------------------------------------------------------ hosting and joining
 
-func host(p: int, sname: String, listed: bool, headless := false) -> Error:
+func host(p: int, sname: String, listed: bool, headless := false, priv := false, word := "") -> Error:
 	leave("")
 	peer = ENetMultiplayerPeer.new()
 	var err := peer.create_server(p, MAX_PLAYERS if headless else MAX_PLAYERS - 1)
@@ -128,7 +139,12 @@ func host(p: int, sname: String, listed: bool, headless := false) -> Error:
 	dedicated = headless
 	port = p
 	server_name = sname
-	public = listed
+	private = priv and not listed
+	public = listed or private   # a private fellowship still tells the list its code, so that it may be found by it
+	password = word.strip_edges()
+	join_code = ""
+	for k in 6:
+		join_code += CODE_CHARS[randi() % CODE_CHARS.length()]
 	seq = 0
 	in_level = -1
 	players.clear()
@@ -195,6 +211,9 @@ func leave(reason := "") -> void:
 	leader = 0
 	upnp_state = ""
 	external_ip = ""
+	join_code = ""
+	private = false
+	password = ""
 	if _own_difficulty >= 0:
 		Game.difficulty = _own_difficulty
 		_own_difficulty = -1
@@ -206,7 +225,7 @@ func leave(reason := "") -> void:
 
 func _on_connected() -> void:
 	_joining = false
-	_hello.rpc_id(1, my_name(), PROTOCOL, str(ProjectSettings.get_setting("application/config/version", "")))
+	_hello.rpc_id(1, my_name(), PROTOCOL, str(ProjectSettings.get_setting("application/config/version", "")), join_word)
 	_look.rpc_id(1, Game.look)
 
 
@@ -246,12 +265,16 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _hello(pname: String, proto: String, version: String) -> void:
+func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	if not is_host():
 		return
 	var id := multiplayer.get_remote_sender_id()
 	if proto != PROTOCOL:
 		_refused.rpc_id(id, "This fellowship walks a different version of Brelm (%s)." % version)
+		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
+		return
+	if password != "" and word.strip_edges() != password:
+		_refused.rpc_id(id, "This fellowship is closed. Its host must give you its word.")
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
 	var used := []
@@ -688,7 +711,44 @@ func _open_discovery() -> void:
 
 func _info() -> Dictionary:
 	return {"name": server_name, "port": port, "players": players.size(), "max": MAX_PLAYERS,
-		"level": in_level, "proto": PROTOCOL, "version": str(ProjectSettings.get_setting("application/config/version", ""))}
+		"level": in_level, "proto": PROTOCOL, "version": str(ProjectSettings.get_setting("application/config/version", "")),
+		"code": join_code, "private": private, "locked": password != ""}
+
+
+## Is this text a join code rather than an address?
+static func is_code(t: String) -> bool:
+	t = t.strip_edges().to_upper()
+	if t.length() != 6:
+		return false
+	for c in t:
+		if not c in CODE_CHARS:
+			return false
+	return true
+
+
+## Asks the internet list where the fellowship with this code is, then joins it.
+func join_code_lookup(code: String) -> void:
+	var u := lobby_url()
+	if u == "":
+		last_error = "Join codes need an internet list address (Options)."
+		_log(last_error)
+		return
+	_http_code.cancel_request()
+	_http_code.request(u + "/code/" + code.strip_edges().to_upper())
+	_log("Asking after the fellowship %s..." % code.strip_edges().to_upper())
+
+
+func _on_code(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	var data = JSON.parse_string(body.get_string_from_utf8()) if result == HTTPRequest.RESULT_SUCCESS else null
+	if code != 200 or not (data is Dictionary) or not data.has("ip"):
+		last_error = "No fellowship answers to that code. It may have ended, or the host is not online." if code == 404 else "The internet list did not answer."
+		_log(last_error)
+		return
+	if str(data.get("proto", PROTOCOL)) != PROTOCOL:
+		last_error = "That fellowship walks a different version of Brelm (%s)." % data.get("version", "?")
+		_log(last_error)
+		return
+	join(str(data.ip), int(data.port))
 
 
 ## Looks for fellowships on the local network and on the internet list.
@@ -703,6 +763,7 @@ func refresh_servers() -> void:
 	for target in ["255.255.255.255", "127.0.0.1"]:
 		_probe.set_dest_address(target, DISCOVERY_PORT)
 		_probe.put_packet("BRELM?".to_utf8_buffer())
+	_probe_sent = Time.get_ticks_msec()
 	_probe_t = 2.0
 	var u := lobby_url()
 	if u != "":
@@ -821,7 +882,7 @@ func _process(delta: float) -> void:
 	if _disc:
 		while _disc.get_available_packet_count() > 0:
 			var pkt := _disc.get_packet().get_string_from_utf8()
-			if pkt == "BRELM?":
+			if pkt == "BRELM?" and not private:
 				_disc.set_dest_address(_disc.get_packet_ip(), _disc.get_packet_port())
 				_disc.put_packet(JSON.stringify(_info()).to_utf8_buffer())
 	if _probe:
@@ -839,6 +900,7 @@ func _process(delta: float) -> void:
 				if not dup:
 					data["ip"] = ip
 					data["source"] = "LAN"
+					data["ping"] = Time.get_ticks_msec() - _probe_sent
 					servers[key] = data
 					servers_changed.emit()
 		_probe_t -= delta

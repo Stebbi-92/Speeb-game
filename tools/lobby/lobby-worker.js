@@ -4,7 +4,8 @@
 //
 //   POST /announce  {name, port, players, max, level, proto, version}   (the host's address is taken from the request)
 //   POST /remove    {port}
-//   GET  /list      -> {servers: [{name, ip, port, players, max, level, proto, version}]}
+//   GET  /list      -> {servers: [{name, ip, port, players, max, level, proto, version, locked}]}   (private ones are left out)
+//   GET  /code/XXXXXX -> {name, ip, port, players, max, level, proto, version, locked}   (a fellowship by its join code)
 //   GET  /latest    -> {version, tag, name, notes, published, page, assets: {name: url}, news}
 //
 // /latest reads the newest release of the game's GitHub repository (GITHUB_REPO in wrangler.toml) and
@@ -38,8 +39,18 @@ export class Lobby {
     for (const [k, s] of this.servers) if (s.expires < now) this.servers.delete(k);
 
     if (url.pathname === "/list" && request.method === "GET") {
-      const servers = [...this.servers.values()].map(({ expires, ...s }) => s);
+      const servers = [...this.servers.values()].filter((s) => !s.private).map(({ expires, private: _p, ...s }) => s);
       return json({ servers });
+    }
+    if (url.pathname.startsWith("/code/") && request.method === "GET") {
+      const code = clean(url.pathname.slice(6), 12).toUpperCase();
+      for (const s of this.servers.values()) {
+        if (code.length >= 4 && s.code === code) {
+          const { expires, private: _p, ...out } = s;
+          return json(out);
+        }
+      }
+      return json({ error: "no fellowship has that code" }, 404);
     }
     if (request.method !== "POST" || !ip) return json({ error: "not found" }, 404);
 
@@ -72,6 +83,9 @@ export class Lobby {
         level: Number(body.level) | 0,
         proto: clean(body.proto, 40),
         version: clean(body.version, 16),
+        code: clean(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
+        private: !!body.private,
+        locked: !!body.locked,
         expires: now + TTL_MS,
       });
       return json({ ok: true, ip });
