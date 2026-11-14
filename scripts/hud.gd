@@ -21,6 +21,9 @@ var meter_box: VBoxContainer
 var meter_label: Label
 var meter: ProgressBar
 var toast: Label
+var _boss_box: VBoxContainer
+var _boss_name: Label
+var _boss_bar: ProgressBar
 var crosshair: ColorRect
 var reveal_box: VBoxContainer
 var reveal_num: Label
@@ -156,6 +159,7 @@ func _ready() -> void:
 	toast.size = Vector2(500, 120)
 	toast.modulate.a = 0
 	root.add_child(toast)
+	_build_boss_bar()
 
 	card_box = VBoxContainer.new()
 	card_box.set_anchors_preset(Control.PRESET_CENTER)
@@ -1220,3 +1224,38 @@ func show_results(title: String, rows: Array, grade: String) -> void:
 	await tw.finished
 	results_panel.visible = false
 	bell.queue_free()
+
+
+## The name and the waning life of a great one, across the top of the sight while it is near.
+func _build_boss_bar() -> void:
+	_boss_box = VBoxContainer.new()
+	_boss_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_boss_box.position = Vector2(-360, 64)
+	_boss_box.size = Vector2(720, 40)
+	_boss_box.add_theme_constant_override("separation", 4)
+	_boss_box.visible = false
+	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_boss_box)
+	_boss_name = _label("", 24, Color(0.92, 0.82, 0.74), HORIZONTAL_ALIGNMENT_CENTER)
+	_boss_name.add_theme_font_override("font", title_font)
+	_boss_box.add_child(_boss_name)
+	_boss_bar = ProgressBar.new()
+	_boss_bar.show_percentage = false
+	_boss_bar.custom_minimum_size = Vector2(720, 8)
+	_boss_bar.max_value = 1.0
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(1, 1, 1, 0.1)
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = Color(0.62, 0.1, 0.07, 0.95)
+	_boss_bar.add_theme_stylebox_override("background", bg)
+	_boss_bar.add_theme_stylebox_override("fill", fg)
+	_boss_box.add_child(_boss_bar)
+
+
+func boss_bar(title: String, frac: float) -> void:
+	if title == "":
+		_boss_box.visible = false
+		return
+	_boss_box.visible = true
+	_boss_name.text = title
+	_boss_bar.value = clampf(frac, 0.0, 1.0)

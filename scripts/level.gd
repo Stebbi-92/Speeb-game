@@ -2670,3 +2670,40 @@ func debug_unseenshot() -> void:
 	var f := spawn_at("unseen", player.global_position + fwd * 12.0 - player.global_transform.basis.x * 3.0 + Vector3(0, 1.4, 0))
 	f.look_at(player.global_position + Vector3(0, 1.4, 0), Vector3.UP)
 	f.rotate_y(PI)
+
+
+
+## The ground breaking about a great one: a ring of dust running outward.
+func _w_slam_fx(at: Vector3, r: float) -> void:
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.85
+	tm.outer_radius = 1.0
+	ring.mesh = tm
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.55, 0.45, 0.38, 0.7)
+	ring.material_override = m
+	add_child(ring)
+	ring.global_position = at - Vector3(0, 1.2, 0)
+	ring.scale = Vector3(1, 0.3, 1)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(ring, "scale", Vector3(r, 0.6, r), 0.45).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.6)
+	tw.chain().tween_callback(ring.queue_free)
+	if player and player.global_position.distance_to(at) < r * 2.5:
+		player.shake(0.8)
+
+
+## The great one nearest this pilgrim, for the bar across the top of the sight.
+func _boss_watch() -> void:
+	var best = null
+	var bd := 70.0
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.boss != "":
+			var d: float = e.global_position.distance_to(player.global_position)
+			if d < bd:
+				bd = d
+				best = e
+	hud.boss_bar(LesserSpeeb.BOSSES[best.boss].name if best else "", best.hp_frac if best else 0.0)

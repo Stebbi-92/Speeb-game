@@ -2,7 +2,7 @@ class_name Items
 extends RefCounted
 ## Everything that may be carried in the Ashen Waste: what it is, how much of it a pack will hold, and its worth in salt.
 
-## kind: material, food, medicine, tool, ammo, trinket, quest
+## kind: material, food, medicine, tool, ammo, trinket, trophy, quest
 const DB := {
 	"wood": {"name": "Deadwood", "kind": "material", "stack": 60, "value": 1, "color": Color(0.45, 0.33, 0.22), "text": "Gray timber from trees that died standing."},
 	"stone": {"name": "Stone", "kind": "material", "stack": 60, "value": 1, "color": Color(0.5, 0.48, 0.45), "text": "Broken rock. Heavy, and patient."},
@@ -28,6 +28,12 @@ const DB := {
 	"goods": {"name": "Bundle of Goods", "kind": "quest", "stack": 5, "value": 0, "color": Color(0.55, 0.45, 0.3), "text": "Wrapped and corded. Promised to someone."},
 	"keepsake": {"name": "Keepsake", "kind": "quest", "stack": 5, "value": 0, "color": Color(0.7, 0.6, 0.5), "text": "Something lost, that someone wants back."},
 	"piet_ring": {"name": "Piet's Ring", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.8, 0.7, 0.4), "text": "A potter's ring, thumb-worn. Ysolde will know it."},
+	"t_ash": {"name": "Matron's Ember", "kind": "trophy", "stack": 5, "value": 220, "color": Color(1.0, 0.45, 0.2), "text": "A coal from the Cinder Matron. It has not cooled, and does not burn the hand."},
+	"t_dunes": {"name": "Choir Tongue", "kind": "trophy", "stack": 5, "value": 200, "color": Color(0.85, 0.6, 0.35), "text": "Dried and cracked. Some nights it still hums the note it knew."},
+	"t_salt": {"name": "White Shard", "kind": "trophy", "stack": 5, "value": 240, "color": Color(0.9, 0.92, 0.95), "text": "A piece of the White Disc. Light passes through it, and comes out colder."},
+	"t_forest": {"name": "Watcher's Eye", "kind": "trophy", "stack": 5, "value": 260, "color": Color(0.5, 0.55, 0.6), "text": "Glass, or something like it. Do not look into it for long."},
+	"t_basalt": {"name": "Idol's Gilt", "kind": "trophy", "stack": 5, "value": 280, "color": Color(0.95, 0.78, 0.3), "text": "Gold leaf from the Basalt Idol's face. The face beneath was not stone."},
+	"t_marsh": {"name": "Tar Pearl", "kind": "trophy", "stack": 5, "value": 220, "color": Color(0.15, 0.12, 0.1), "text": "Black, smooth, warm. Found where the Tar Mother's heart was."},
 	"order_seal": {"name": "Seal of the Inward Vault", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.6, 0.6, 0.65), "text": "Cold to the touch. It was pressed from the inside of a door."},
 }
 

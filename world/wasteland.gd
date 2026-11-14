@@ -36,6 +36,9 @@ var satchels := {}
 var people := {}
 var settle_nodes := {}
 var beacon_nodes: Array = []
+var lairs: Array = []           ## one to a land: {id, land, boss, name, pos}
+var _lair_boss := {}            ## lair id -> the great one now awake there
+const LAIR_RETURN_DAYS := 3
 var vigils := {}
 var bedroll = null
 var revealed := PackedByteArray()
@@ -118,9 +121,12 @@ func _make_world(sd: int) -> void:
 	_plan_ruins()
 	for r in ruins:
 		terrain.add_flat(Vector2(r.pos.x, r.pos.z), 9.0)
+	_plan_lairs()
 	terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
+	for l in lairs:
+		l.pos.y = terrain.height_at(l.pos.x, l.pos.z)
 	terrain.build(_m.ground)
 	add_child(terrain)
 	for k in WPlaces.SETTLEMENTS:
@@ -129,6 +135,8 @@ func _make_world(sd: int) -> void:
 		_build_beacon(i)
 	for r in ruins:
 		_build_ruin(r)
+	for l in lairs:
+		_build_lair(l)
 	_scatter_nodes()
 	_scatter_decor()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
@@ -224,6 +232,8 @@ func _make_stars() -> void:
 func _process(_delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
+	if player and hud and not Net.dedicated:
+		_boss_watch()
 
 
 ## Ruins are scattered where the land is level enough to have once been lived on.
@@ -1245,6 +1255,7 @@ func _world_tick(delta: float) -> void:
 			_day_t = 6.0
 			_day_watch()
 	_spikes(delta)
+	_lair_tick()
 
 
 func _w_clock(c: float, d: int, n: int) -> void:
@@ -1494,6 +1505,9 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if player.relics:
 		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.1)
 	shared("_w_slain", [e.global_position, e.kind, Net.me()])
+	if e.boss != "":
+		shared("_w_boss_down", [e.boss, e.global_position])
+		return
 	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
 	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12) + skills.drop_bonus():
 		shared("_rq_satchel", [Net.me(), e.global_position, Items.roll("corpse", 2 if e.kind in ["elite", "saucer"] else 1, _gen), false])
@@ -2251,4 +2265,130 @@ func debug_unseen_nights() -> void:
 				e.die(false)
 	await get_tree().create_timer(1.0).timeout
 	print("UNSEEN NIGHTS count=%d alive=%d" % [_unseen_count(), alive_count()])
+	get_tree().quit()
+
+
+
+# ================================================================== lairs of the great ones
+
+## In each land, somewhere level and far from any village, a great one sleeps in a ring of black stones.
+func _plan_lairs() -> void:
+	lairs.clear()
+	var bosses := {}
+	for b in LesserSpeeb.BOSSES:
+		bosses[LesserSpeeb.BOSSES[b].land] = b
+	var r := RandomNumberGenerator.new()
+	r.seed = world_seed + 7707
+	for land in WTerrain.BIOMES:
+		if not bosses.has(land):
+			continue
+		for attempt in 4000:
+			var p := Vector2(r.randf_range(-860, 860), r.randf_range(-860, 860))
+			if terrain.biome_name(p.x, p.y) != land or terrain_probe(p) > 0.2:
+				continue
+			if not _clear_of_places(p, 170.0, 90.0) or lairs.any(func(o): return Vector2(o.pos.x, o.pos.z).distance_to(p) < 250.0):
+				continue
+			var b: String = bosses[land]
+			lairs.append({"id": land, "land": land, "boss": b, "name": "Lair of " + LesserSpeeb.BOSSES[b].name.trim_prefix("The "), "pos": Vector3(p.x, 0, p.y)})
+			terrain.add_flat(p, 24.0)
+			break
+
+
+func lair_ready(l: Dictionary) -> bool:
+	return day >= int(flags.get("lair_" + str(l.id), -99)) + LAIR_RETURN_DAYS
+
+
+func _build_lair(l: Dictionary) -> void:
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash(str(l.id)) + world_seed
+	var n := Node3D.new()
+	n.position = l.pos
+	add_child(n)
+	# The ring: tall black stones, leaning inward
+	for k in 11:
+		var a := TAU * k / 11 + rr.randf_range(-0.1, 0.1)
+		var hgt := rr.randf_range(4.0, 8.0)
+		var st := _add(n, box(Vector3.ZERO, Vector3(1.5, hgt, 0.9), _m.darkstone, true), Vector3(cos(a) * 17, hgt * 0.5 - 0.4, sin(a) * 17))
+		st.rotation = Vector3(0, -a, rr.randf_range(-0.18, -0.05))
+	# The bed of the great one: a sunken black slab ringed with bone
+	_add(n, cyl(Vector3.ZERO, 5.5, 0.5, _m.darkstone, false, -1.0, 18), Vector3(0, 0.05, 0))
+	for k in 6:
+		var a := TAU * k / 6 + 0.3
+		_bones(n, Vector3(cos(a) * 9, 0, sin(a) * 9), rr)
+	for k in 4:
+		var a := TAU * k / 4 + 0.8
+		_add(n, sphere(Vector3.ZERO, 0.28, _m.bone), Vector3(cos(a) * 6.2, 0.25, sin(a) * 6.2))
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(0.9, 0.2, 0.08)
+	glow.light_energy = 1.6
+	glow.omni_range = 16.0
+	glow.position = Vector3(0, 1.0, 0)
+	n.add_child(glow)
+	l["glow"] = glow
+
+
+## The host wakes a great one when a pilgrim comes into its ring.
+func _lair_tick() -> void:
+	for l in lairs:
+		var e = _lair_boss.get(l.id)
+		if e != null and (not is_instance_valid(e) or not e.is_alive()):
+			_lair_boss.erase(l.id)
+			e = null
+		if e != null or not lair_ready(l):
+			continue
+		for t in targets():
+			if t.global_position.distance_to(l.pos) < 30.0:
+				var b := spawn_at(l.boss, l.pos + Vector3(0, 3.0, 0))
+				if b:
+					_lair_boss[l.id] = b
+					shared("_w_lair_wake", [l.boss])
+				break
+
+
+func _w_lair_wake(b: String) -> void:
+	hud.notify("%s wakes." % LesserSpeeb.BOSSES[b].name)
+	hud.say("The stones remember what sleeps among them.", 4.0)
+
+
+func _w_boss_down(b: String, at: Vector3) -> void:
+	var land: String = LesserSpeeb.BOSSES[b].land
+	flags["lair_" + land] = day
+	for l in lairs:
+		if l.id == land and l.has("glow") and is_instance_valid(l.glow):
+			l.glow.light_energy = 0.2
+	if Net.authority():
+		_rq_satchel(1, at, Items.roll("corpse", 6, _gen) + [["t_" + land, 1]], false)
+		autosave_soon(2.0)
+	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
+		award("kill_boss")
+		skills.points += 1
+		Game.gain_pxp(300)
+		ui.skills_changed()
+		hud.notify("%s is undone.\nA point of skill is yours to spend (K)." % LesserSpeeb.BOSSES[b].name)
+		player.health = player.max_health
+		hud.set_health(1.0, true)
+		autosave_soon(4.0)
+
+
+func debug_boss() -> void:
+	await get_tree().create_timer(1.0).timeout
+	print("BOSS lairs: ", lairs.map(func(l): return [l.id, Vector2i(int(l.pos.x), int(l.pos.z))]))
+	var l: Dictionary = lairs[0]
+	var at: Vector3 = l.pos + Vector3(0, 2.0, 24)
+	player.place(at, 0.0)
+	await get_tree().create_timer(1.5).timeout
+	player.place(l.pos + Vector3(0, 2.0, 20), 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var b = _lair_boss.get(l.id)
+	print("BOSS awake=%s hp=%s" % [b != null, b.hp if b else 0])
+	if b:
+		player.health = 99999.0
+		for k in 30:
+			b.last_hitter = Net.me()
+			b.hurt(200.0, Vector3.FORWARD)
+			await get_tree().create_timer(0.2).timeout
+			if not b.is_alive():
+				break
+	await get_tree().create_timer(1.0).timeout
+	print("BOSS after: flags=%s ready=%s points=%d satchels=%d" % [flags.get("lair_" + str(l.id)), lair_ready(l), skills.points, satchels.size()])
 	get_tree().quit()

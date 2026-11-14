@@ -21,6 +21,17 @@ const KINDS := {
 	"spider": {"hp": 44.0, "size": 0.8, "speed": 7.2, "bite": 15.0, "radius": 0.55},
 	"unseen": {"hp": 140.0, "size": 1.3, "speed": 5.0, "bite": 34.0, "radius": 0.6},
 }
+## The great ones of the waste, one to a land, each in its lair. Each wears the body of a lesser kind
+## ("base") grown vast, and has ways of its own: slam (the ground breaks around it), brood (it brings
+## forth lesser forms), volley (a fan of bolts), blink (watched too long, it is suddenly elsewhere).
+const BOSSES := {
+	"boss_ash": {"name": "The Cinder Matron", "base": "elite", "hp": 2400.0, "size": 3.2, "speed": 3.2, "bite": 40.0, "radius": 1.6, "grow": 1.0, "ways": ["slam", "brood"], "brood": "swarm", "land": "ash"},
+	"boss_dunes": {"name": "The Sand Choir", "base": "spitter", "hp": 1700.0, "size": 2.6, "speed": 4.0, "bite": 0.0, "radius": 1.3, "grow": 1.0, "ways": ["volley", "brood"], "brood": "spider", "land": "dunes"},
+	"boss_salt": {"name": "The White Disc", "base": "saucer", "hp": 2000.0, "size": 1.0, "speed": 4.0, "bite": 0.0, "radius": 3.2, "grow": 2.0, "ways": ["volley"], "land": "salt"},
+	"boss_forest": {"name": "The Long Watcher", "base": "unseen", "hp": 1600.0, "size": 1.3, "speed": 5.5, "bite": 50.0, "radius": 1.1, "grow": 1.9, "ways": ["blink"], "land": "forest"},
+	"boss_basalt": {"name": "The Basalt Idol", "base": "idol", "hp": 2600.0, "size": 3.0, "speed": 2.2, "bite": 45.0, "radius": 1.5, "grow": 1.0, "ways": ["slam", "volley"], "land": "basalt"},
+	"boss_marsh": {"name": "The Tar Mother", "base": "spider", "hp": 1800.0, "size": 0.8, "speed": 6.0, "bite": 35.0, "radius": 1.3, "grow": 2.6, "ways": ["brood"], "brood": "spider", "land": "marsh"},
+}
 const IDOL_CODES := ["goldspeeb", "marblespeeb", "jadespeeb", "obsidianspeeb", "fossilspeeb"]
 
 var code := ""
@@ -41,6 +52,12 @@ var _disc: Node3D
 var _beam: MeshInstance3D
 var _mites: Array = []
 var _cry_cd := 0.0
+var boss := ""        ## the great one this is, or "" for a lesser form
+var max_hp := 1.0
+var hp_frac := 1.0    ## for puppets, as the host tells it
+var _way_cd := {}
+var _brood: Array = []
+var _watched_t := 0.0
 var _shimmer: ShaderMaterial
 var _seen := 0.08
 var _watched := false
@@ -58,11 +75,17 @@ var _net_v := Vector3.ZERO
 
 
 func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
+	if BOSSES.has(k):
+		boss = k
+		k = BOSSES[k].base
 	kind = k
 	code = IDOL_CODES[randi() % IDOL_CODES.size()] if k == "idol" else c
 	level = lvl
-	spec = KINDS[k]
+	spec = BOSSES[boss] if boss != "" else KINDS[k]
 	hp = spec.hp * Game.difficulty_scale("hp")
+	if boss != "":
+		hp *= 1.0 + 0.6 * maxi(0, lvl.targets().size() - 1)
+	max_hp = hp
 	return self
 
 
@@ -114,12 +137,17 @@ func _ready() -> void:
 		add_child(crown)
 	if kind == "saucer":
 		_build_saucer()
+	if boss != "":
+		_grow_into_boss()
 	scale = Vector3.ONE * 0.01
 	create_tween().tween_property(self, "scale", Vector3.ONE, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_strafe = 1.0 if randf() < 0.5 else -1.0
 	_attack_cd = randf_range(1.0, 2.5)
 	_cry_cd = randf_range(0.5, 2.0)
-	if kind == "elite":
+	if boss != "":
+		level.sfx("roar", 6, global_position, 0.6)
+		level.sfx("horror_deep", 0, global_position, 0.8)
+	elif kind == "elite":
 		level.sfx("roar", 2, global_position, 0.9)
 	elif kind == "saucer":
 		var hum := AudioStreamPlayer3D.new()
@@ -173,6 +201,8 @@ func _physics_process(delta: float) -> void:
 	head.rotation.x = -asin(clampf(dir.y, -0.6, 0.6)) * 0.6
 	var want := Vector3.ZERO
 	var frozen: bool = level.combat_frozen or idle
+	if boss != "" and not frozen and not level.completed:
+		_boss_tick(delta, p, dist)
 	if kind == "spider":
 		_spider_move(delta, p, dist, frozen)
 		return
@@ -522,7 +552,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		amount *= 0.12
 	hp -= amount
 	_flash = 1.0 if full else 0.3
-	_knock += from_dir.normalized() * amount * (0.08 if kind == "elite" else 0.25)
+	_knock += from_dir.normalized() * amount * (0.0 if boss != "" else (0.08 if kind == "elite" else 0.25))
+	hp_frac = hp / max_hp
 	if hp <= 0.0:
 		die(true)
 	return full
@@ -595,7 +626,7 @@ func _rescue(delta: float, idle: bool) -> void:
 
 ## What the host tells the others of this form, fifteen times a second.
 func net_state() -> Array:
-	return [net_id, kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash]
+	return [net_id, boss if boss != "" else kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp]
 
 
 func net_apply(st: Array) -> void:
@@ -605,6 +636,8 @@ func net_apply(st: Array) -> void:
 	_net_body_y = st[4]
 	_net_head = Vector2(st[5], st[6])
 	_flash = maxf(_flash, st[7])
+	if st.size() > 8:
+		hp_frac = st[8]
 	if global_position.distance_to(to) > 6.0:
 		global_position = to
 
@@ -704,6 +737,82 @@ func _unseen_noise(delta: float, dist: float) -> void:
 	if dist < 12.0 and _breath_cd <= 0.0:
 		level.sfx("unseen_breath", -4, global_position, randf_range(0.9, 1.1))
 		_breath_cd = randf_range(3.0, 5.0)
+
+
+## A great one is a lesser body made vast: its flesh, legs and disc are grown, its shape for collision set by spec.
+func _grow_into_boss() -> void:
+	var g: float = spec.get("grow", 1.0)
+	if g == 1.0:
+		return
+	for c in get_children():
+		if c is Node3D and not c is CollisionShape3D:
+			c.scale *= g
+			c.position *= g
+
+
+func is_boss() -> bool:
+	return boss != ""
+
+
+func _ready_way(w: String, cd: float) -> bool:
+	if not spec.ways.has(w):
+		return false
+	var t: float = _way_cd.get(w, randf_range(2.0, cd))
+	t -= get_physics_process_delta_time() * level.enemy_time
+	_way_cd[w] = t
+	if t > 0.0:
+		return false
+	_way_cd[w] = cd * randf_range(0.85, 1.15)
+	return true
+
+
+## The ways of the great ones, run by the host.
+func _boss_tick(_delta: float, p: Node3D, dist: float) -> void:
+	if dist < 10.0 + spec.radius and _ready_way("slam", 7.5):
+		_slam()
+	if dist < 40.0 and _ready_way("volley", 4.0):
+		var target := p.global_position + Vector3(0, 1.2, 0)
+		for k in [-0.3, -0.15, 0.0, 0.15, 0.3]:
+			_spit(global_position + (target - global_position).rotated(Vector3.UP, k))
+	if _ready_way("brood", 9.0):
+		_brood = _brood.filter(func(m): return is_instance_valid(m) and m.is_alive())
+		if _brood.size() < 6:
+			level.sfx("roar", -2, global_position, 1.3)
+			for k in 3:
+				var at := global_position + Vector3(randf_range(-3, 3), 0.5, randf_range(-3, 3))
+				var e: LesserSpeeb = level.spawn_at(str(spec.get("brood", "swarm")), at)
+				if e:
+					_brood.append(e)
+	if spec.ways.has("blink"):
+		_watched_t = _watched_t + get_physics_process_delta_time() if _watched else 0.0
+		if _watched_t > 4.5:
+			_watched_t = 0.0
+			var back := -p.global_transform.basis.z
+			if p is Player and p.cam:
+				back = -p.cam.global_transform.basis.z
+			back.y = 0.0
+			var to := p.global_position - back.normalized() * 7.0 + Vector3(0, 1.5, 0)
+			level.sfx("unseen_click", 2, global_position, 0.7)
+			global_position = to
+			level.sfx("unseen_scream", 0, to, 0.75)
+			_seen = 1.0
+
+
+## The great one strikes the ground: everything near is thrown down, and the earth is seen to break.
+func _slam() -> void:
+	level.sfx("roar", 4, global_position, 0.55)
+	_flash = 1.0
+	var at := global_position
+	var r: float = 9.0 + spec.radius
+	get_tree().create_timer(0.9, false).timeout.connect(func():
+		if not _alive:
+			return
+		level.sfx("boom", 4, at, 0.6)
+		level.shared("_w_slam_fx", [at, r])
+		for t in level.targets():
+			var d: float = t.global_position.distance_to(at)
+			if d < r and absf(t.global_position.y - at.y) < 6.0:
+				level.hurt_target(t, lerpf(36.0, 12.0, d / r), at))
 
 
 ## A spat bolt of burning light.

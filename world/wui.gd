@@ -796,7 +796,7 @@ func _draw_map() -> void:
 	hb.add_child(holder)
 	var side := VBoxContainer.new()
 	side.add_child(_title("The Ashen Waste"))
-	side.add_child(_wrap("Seed %d. Day %d. %d of 9 beacons burn.\n\n◆ your task    ● settlement    ▲ beacon (bright when burning)    ■ ruin    + your bed    ✕ what you left when you fell" % [w.world_seed, w.day, w.lit.size()], 17, DIM))
+	side.add_child(_wrap("Seed %d. Day %d. %d of 9 beacons burn.\n\n◆ your task    ● settlement    ▲ beacon (bright when burning)    ■ ruin    ✶ lair of a great one    + your bed    ✕ what you left when you fell" % [w.world_seed, w.day, w.lit.size()], 17, DIM))
 	if not w.quests.tracked.is_empty() and w.quests.quests.has(w.quests.tracked):
 		var q: Dictionary = w.quests.quests[w.quests.tracked]
 		side.add_child(_label("", 10, DIM))
@@ -945,6 +945,14 @@ class MapDraw extends Control:
 				draw_rect(Rect2(p - Vector2(3, 3), Vector2(6, 6)), Color(0.75, 0.68, 0.58, 0.85))
 				if w.known_ruins.has(r.id):
 					draw_string(font, p + Vector2(6, 4), r.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.85, 0.8, 0.7, 0.8))
+		for l in w.lairs:
+			if w.is_revealed(l.pos):
+				var p := _to(l.pos)
+				var lc := Color(0.85, 0.2, 0.12) if w.lair_ready(l) else Color(0.4, 0.3, 0.28)
+				draw_line(p + Vector2(-6, -6), p + Vector2(6, 6), lc, 2.5)
+				draw_line(p + Vector2(-6, 6), p + Vector2(6, -6), lc, 2.5)
+				draw_circle(p, 3.0, lc)
+				draw_string(font, p + Vector2(9, 4), l.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.9, 0.6, 0.55, 0.9))
 		for k in WPlaces.SETTLEMENTS:
 			var s: Dictionary = WPlaces.SETTLEMENTS[k]
 			var p3: Vector3 = w.gpos(WPlaces.spos(k))
