@@ -2377,6 +2377,21 @@ func _rq_accept(by: int, k: String, key: String) -> void:
 	quests.rq_accept(by, k, key)
 
 
+## A quest taken up by anyone in the fellowship: all of them follow it on the compass.
+func _w_taken(by: int, qid: String) -> void:
+	if not quests.quests.has(qid):
+		return
+	if by == Net.me() or not Net.online:
+		_w_track(qid)
+		return
+	quests.tracked = qid
+	quests.refresh_hud()
+	sfx("bell", -8, null, 1.3)
+	hud.notify("%s took up: %s\n%s" % [Net.name_of(by), quests.quests[qid].title, quests.step_text(quests.quests[qid])])
+	if ui:
+		ui.journal_dirty = true
+
+
 func _w_track(qid: String) -> void:
 	quests.tracked = qid
 	quests.refresh_hud()
@@ -3041,3 +3056,17 @@ func debug_gadgets() -> void:
 	print("GADGETS milk after drink ", Game.milk_count(), " hp ", player.health)
 	if DisplayServer.get_name() == "headless":
 		get_tree().quit()
+
+
+## Test (co-op): the joiner takes up a quest; the host should hear of it and follow it.
+func debug_qshare() -> void:
+	await get_tree().create_timer(14.0).timeout
+	if not Net.authority():
+		for k in quests.offers:
+			if not quests.offers[k].is_empty():
+				var o: Dictionary = quests.offers[k][0]
+				print("QSHARE joiner takes ", o.title)
+				quests.accept(o)
+				break
+	await get_tree().create_timer(4.0).timeout
+	print("QSHARE ", "host" if Net.authority() else "joiner", " tracked ", quests.tracked, " title ", quests.quests.get(quests.tracked, {}).get("title", ""))

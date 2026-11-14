@@ -543,7 +543,8 @@ func rq_accept(by: int, k: String, key: String) -> void:
 	w.shared("_w_quest", [qid, o])
 	if o.has("hands"):
 		Net.call_peer(by, "_w_give", [o.hands])
-	Net.call_peer(by, "_w_track", [qid])
+	# Quests belong to the whole fellowship: everyone hears of it and follows it
+	w.shared("_w_taken", [by, qid])
 
 
 func _place_things(qid: String) -> void:
