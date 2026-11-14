@@ -16,6 +16,7 @@ var _box: PanelContainer
 ## [id, what to do]. Keys are written as {action}.
 const STEPS := [
 	["walk", "Walk with {move_forward} {move_left} {move_back} {move_right}. Look around with the mouse."],
+	["dodge", "Press {dash} to dodge. When a form's head swells and glows, it is about to bite: step aside."],
 	["gather", "Hit a dead tree or a rock with {fire} to gather wood and stone."],
 	["pack", "Open your pack with {pack}."],
 	["make", "In your pack, open Make and make a bandage."],
@@ -103,6 +104,8 @@ func _done() -> bool:
 	match STEPS[step][0]:
 		"walk":
 			return Vector2(w.player.global_position.x - _from.x, w.player.global_position.z - _from.z).length() > 12.0
+		"dodge":
+			return w.player.dodge_t > 0.0
 		"gather":
 			return w.inv.count("wood") + w.inv.count("stone") >= _base + 5
 		"pack":
