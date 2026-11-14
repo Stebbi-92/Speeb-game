@@ -20,4 +20,18 @@ The lesser forms
 - They now wear the heads of cats. The old emoji masks remain in Options.
 - In later trials and on waste nights, something else walks that can hardly be seen. Do not look away from it.
 
+The great ones
+- Each land of the waste hides a lair, and in each lair a great one sleeps. They wake when you come near.
+- A fallen great one gives a point of skill, a trophy and its spoils. It returns after three days.
+
+Walking together
+- Every fellowship has a six-letter join code. Give it to your friends and they can join from anywhere.
+- Private fellowships, an optional word to join, and a list you can search and filter.
+
+Also
+- Lesser forms show a bar of life once struck, and a shot turned aside shows a grey ring.
+- A placed bedroll is where you wake if you fall.
+- The cursor no longer vanishes when taking things from a chest or wagon.
+- The menus no longer run off the screen.
+
 The game now updates itself from the title screen.
