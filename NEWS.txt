@@ -1,3 +1,46 @@
+Brelm alpha 0.5
+
+Polish and first steps. Everything here is in the Ashen Waste unless it says otherwise.
+
+Getting started
+- A new title screen: Continue, the waste first, the trials and arms in their own menus.
+- Worlds can be exported to a zip or deleted, and the saves folder opened.
+- New survivors get a short first-steps guide. Turn it off in Settings.
+- A loading screen, and a question before you leave.
+
+Screens
+- The pack has filters, a tidy button, icons and a details column. Right click eats, uses or wears.
+- Making groups recipes by where they are made, shows what you have and need, and can make many at once.
+- Chests in your base count when making and building.
+- Chests: take everything (R), store what the chest already holds, and name them.
+- Hold interact on a dropped satchel to take everything that fits.
+- Drops glow: gold, amber for rare things, blue for your own belongings.
+- The map zooms and drags. Right click marks a spot for everyone, also on the compass.
+
+Fighting
+- Bites are telegraphed: the head swells and glows before it lands. Step out of reach and it misses.
+- Dodge with Q.
+- Heavy harm, or a blade, staggers a creature.
+- Head shots do more, with a gold hit marker.
+- Stalkers and crawlers come at you from the sides.
+
+Falling
+- An unconscious timer. Hold jump to give up and wake at your bed.
+- Smelling salts raise a fallen friend faster and stronger.
+
+Together
+- The player list is on L, and shows a fallen friend on its own. It no longer covers your task.
+- Joins and leaves are shown on screen.
+- A plain choice of who can find a hosted game.
+- Fixed: items were copied when a joiner put things in a chest.
+- Fixed: gun parts did not show to other players.
+
+Also
+- People turn to face you and their mouths move as they talk.
+- Floors sit evenly on slopes.
+- Controller support (all modes).
+- A wiki: github.com/Stebbi-92/Speeb-game/wiki
+
 Brelm alpha 0.4.2
 
 - Join codes work for every fellowship, not only listed or private ones.
