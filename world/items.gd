@@ -16,7 +16,10 @@ const DB := {
 	"meat": {"name": "Salted Meat", "kind": "food", "stack": 10, "value": 4, "color": Color(0.55, 0.25, 0.2), "heal": 15.0, "text": "Do not ask from what. Restores a little health."},
 	"bandage": {"name": "Bandage", "kind": "medicine", "stack": 10, "value": 5, "color": Color(0.85, 0.82, 0.75), "heal": 35.0, "text": "Clean cloth, boiled. Restores health."},
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
-	"shells": {"name": "Ammunition", "kind": "ammo", "stack": 999, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Rounds and shells, for whatever gun is in your hands. Carried on your belt."},
+	"shells": {"name": "Shotgun Shells", "kind": "ammo", "stack": 120, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Paper and brass, packed with shot. For the pump shotgun."},
+	"rounds": {"name": "Pistol Rounds", "kind": "ammo", "stack": 150, "value": 1, "color": Color(0.8, 0.65, 0.3), "text": "Short brass rounds. For the pistol and the revolver."},
+	"rifle": {"name": "Rifle Rounds", "kind": "ammo", "stack": 300, "value": 1, "color": Color(0.6, 0.55, 0.35), "text": "Long brass rounds. For the machine gun, the sniper rifle and the minigun."},
+	"rockets": {"name": "Rocket", "kind": "ammo", "stack": 10, "value": 12, "color": Color(0.35, 0.4, 0.28), "text": "A finned warhead. For the rocket launcher."},
 	"pick": {"name": "Pick", "kind": "tool", "stack": 1, "value": 25, "color": Color(0.4, 0.4, 0.42), "text": "Stone and salt come away twice as fast."},
 	"hatchet": {"name": "Hatchet", "kind": "tool", "stack": 1, "value": 20, "color": Color(0.4, 0.4, 0.42), "text": "Deadwood comes away twice as fast."},
 	"prybar": {"name": "Pry Bar", "kind": "tool", "stack": 1, "value": 30, "color": Color(0.35, 0.35, 0.38), "text": "Opens what was sealed: iron chests and vault doors."},
@@ -44,6 +47,10 @@ const RECIPES := [
 	{"id": "meat", "n": 2, "cost": {"bone": 2, "salt": 4}, "bench": false},
 	{"id": "shells", "n": 8, "cost": {"scrap": 1, "salt": 3}, "bench": false},
 	{"id": "shells", "n": 30, "cost": {"scrap": 3, "salt": 8}, "bench": true},
+	{"id": "rounds", "n": 10, "cost": {"scrap": 1, "salt": 3}, "bench": false},
+	{"id": "rounds", "n": 40, "cost": {"scrap": 3, "salt": 8}, "bench": true},
+	{"id": "rifle", "n": 60, "cost": {"scrap": 4, "salt": 10}, "bench": true},
+	{"id": "rockets", "n": 2, "cost": {"scrap": 6, "oil": 2, "salt": 10}, "bench": true},
 	{"id": "pick", "n": 1, "cost": {"wood": 4, "scrap": 4}, "bench": true},
 	{"id": "hatchet", "n": 1, "cost": {"wood": 3, "scrap": 3}, "bench": true},
 	{"id": "prybar", "n": 1, "cost": {"scrap": 8}, "bench": true},
@@ -69,22 +76,26 @@ const PIECE_ORDER := ["floor", "wall", "stonewall", "doorway", "door", "roof", "
 
 ## Loot tables: [item, weight, min, max]
 const LOOT := {
-	"caravan": [["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2]],
+	"caravan": [["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2]],
 	"shrine": [["coin", 4, 1, 5], ["icon", 2, 1, 1], ["herb", 3, 2, 4], ["bell", 1, 1, 1], ["cloth", 2, 1, 3], ["salve", 1, 1, 1]],
-	"order": [["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3]],
-	"camp": [["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5]],
-	"vault": [["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24]],
-	"corpse": [["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
+	"order": [["rifle", 2, 20, 50], ["rounds", 2, 10, 24], ["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3]],
+	"camp": [["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5]],
+	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24]],
+	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
 }
 
 ## What each trader keeps for sale, beyond what reputation opens.
 const STOCK := {
-	"trader": ["shells", "bandage", "meat", "cloth", "scrap", "oil"],
+	"trader": ["shells", "rounds", "bandage", "meat", "cloth", "scrap", "oil"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
-	"smith": ["pick", "hatchet", "prybar", "scrap", "shells"],
+	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets"],
 	"healer": ["bandage", "salve", "herb"],
-	"quartermaster": ["shells", "meat", "cloth", "bandage", "scrap"],
+	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
 }
+
+
+## Which ammunition each gun takes.
+const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "machine_gun": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets"}
 
 
 static func info(id: String) -> Dictionary:

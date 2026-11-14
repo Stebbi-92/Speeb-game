@@ -35,9 +35,20 @@ var shells: int:
 		_st[gun()].mag = v
 var reserve: int:
 	get:
+		if pack:
+			return pack.count(Items.AMMO[gun()])
 		return int(_st[gun()].reserve)
 	set(v):
+		if pack:
+			var id: String = Items.AMMO[gun()]
+			var have := pack.count(id)
+			if v < have:
+				pack.take(id, have - v)
+			elif v > have:
+				pack.add(id, v - have)
+			return
 		_st[gun()].reserve = v
+var pack: Inventory            ## in the waste, rounds are carried in the pack, each kind to its own guns
 
 var _cool := 0.0
 var _reloading := false
@@ -56,6 +67,7 @@ var _climb := 0.0
 var _heal_left := 0.0
 var _sway := Vector2.ZERO
 var debug_aim := false
+var hold_fire := false       ## set when a panel closes on a click, so that click does not also fire
 var _models := {}
 var _melee_models := {}
 var _model: Node3D
@@ -173,6 +185,10 @@ func refill() -> void:
 
 ## Ammunition found or bought: n is counted in shotgun shells, and each gun takes its share.
 func add_shells(n: int) -> void:
+	if pack:
+		pack.add(Items.AMMO[gun()], n if Items.AMMO[gun()] != "rockets" else maxi(1, n / 6))
+		_ui()
+		return
 	for g in guns:
 		var m: int = Arms.mag_of(g)
 		var add := maxi(1, int(ceil(n * m / 6.0))) if g == gun() else maxi(1, int(ceil(n * m / 12.0)))
@@ -215,6 +231,12 @@ func _unhandled_input(e: InputEvent) -> void:
 		use_gadget()
 	elif e.is_action_pressed("streak"):
 		player.get_parent().call_streak()
+
+
+## Takes the long gun (0) or the side arm (1) in hand.
+func draw_gun(i: int) -> void:
+	if cur != i:
+		swap()
 
 
 func swap() -> void:
@@ -280,7 +302,9 @@ func _process(delta: float) -> void:
 	else:
 		_melee_holder.visible = false
 	# Minigun: it must spin before it speaks, and it weighs on the one who carries it
-	var holding := Input.is_action_pressed("fire") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not get_tree().paused
+	if hold_fire and not Input.is_action_pressed("fire"):
+		hold_fire = false
+	var holding := not hold_fire and Input.is_action_pressed("fire") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not get_tree().paused
 	if s.mode == "spin":
 		_spin = move_toward(_spin, 1.0 if holding and shells > 0 and not _reloading else 0.0, delta / float(s.spin))
 		if _pump:
@@ -327,7 +351,7 @@ func _reload_step() -> void:
 
 ## A quiet gun draws its reserve back toward two magazines, so a pilgrim is never left with nothing.
 func _trickle_back(delta: float) -> void:
-	if _quiet < 4.0:
+	if _quiet < 4.0 or pack:
 		return
 	for g in guns:
 		var m: int = Arms.mag_of(g)
@@ -396,6 +420,8 @@ func _ui() -> void:
 	if ready is Array and not ready.is_empty():
 		line += "     [H] " + Streaks.KINDS[ready[0]].name + (" +%d" % (ready.size() - 1) if ready.size() > 1 else "")
 	hud.set_kit(line)
+	hud.hotbar.arms = self
+	hud.hotbar.queue_redraw()
 
 
 func sway(rel: Vector2) -> void:

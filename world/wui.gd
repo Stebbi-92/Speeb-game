@@ -17,7 +17,11 @@ var _body: VBoxContainer
 var _clock: Label
 var _build_title: Label
 var _build_hint: Label
-var _keys: Label
+var _keys: HBoxContainer
+var _keys_sig := ""
+var _sel := -1
+var debug_bench := false
+var _arms_scroll := 0
 var _compass: Compass
 var _cont_id := ""
 var _tab := "pack"
@@ -49,8 +53,10 @@ func _ready() -> void:
 	_pin(_build_hint, 0.5, 1.0, Rect2(-500, -116, 1000, 28))
 	_build_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_build_hint)
-	_keys = _label("", 15, Color(DIM, 0.7))
-	_pin(_keys, 0.0, 1.0, Rect2(36, -100, 600, 24))
+	_keys = HBoxContainer.new()
+	_keys.add_theme_constant_override("separation", 14)
+	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin(_keys, 0.0, 1.0, Rect2(36, -98, 700, 26))
 	add_child(_keys)
 	_frame = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -362,6 +368,8 @@ func close_all() -> void:
 	_frame.visible = false
 	if not w._pfail:
 		w.player.input_locked = false
+	if w.player.weapon:
+		w.player.weapon.hold_fire = true
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -403,6 +411,7 @@ func _process(_delta: float) -> void:
 	_compass.w = w
 	_compass.queue_redraw()
 	_keys.visible = _panel == null and not w.builder.active
+	_refresh_keys()
 	if _panel_name == "journal" and journal_dirty:
 		journal_dirty = false
 		_draw_journal()
@@ -410,6 +419,39 @@ func _process(_delta: float) -> void:
 		_map_draw.queue_redraw()
 		if map_dirty:
 			_update_fog()
+
+
+## The row of keys under the level bar: each key in a small frame, and what it opens beside it.
+func _refresh_keys() -> void:
+	var rows := [["pack", "Pack"], ["map", "Map"], ["journal", "Journal"], ["skills", "Skills"], ["build", "Build"]]
+	var sig := ""
+	for r in rows:
+		sig += Game.key_text(r[0]) + "|"
+	if sig == _keys_sig:
+		return
+	_keys_sig = sig
+	for c in _keys.get_children():
+		c.queue_free()
+	for r in rows:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 6)
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cap := PanelContainer.new()
+		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.03, 0.03, 0.035, 0.6)
+		sb.border_color = Color(GOLD, 0.45)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
+		sb.content_margin_left = 7
+		sb.content_margin_right = 7
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		cap.add_theme_stylebox_override("panel", sb)
+		cap.add_child(_label(Game.key_text(r[0]), 14, PALE))
+		hb.add_child(cap)
+		hb.add_child(_label(r[1], 15, Color(DIM, 0.9)))
+		_keys.add_child(hb)
 
 
 func set_build_bar(t: String, hint: String) -> void:
@@ -430,7 +472,8 @@ func _pack_header() -> void:
 	hb.add_child(_title("Pack"))
 	hb.add_child(_btn("Carried", func(): _tab = "pack"; _redraw(), 22, GOLD if _tab == "pack" else DIM))
 	hb.add_child(_btn("Make", func(): _tab = "craft"; _redraw(), 22, GOLD if _tab == "craft" else DIM))
-	var info := _label("Shells on the belt: %d     Salt: %d" % [w.player.weapon.reserve + w.player.weapon.shells, w.inv.count("salt")], 18, DIM)
+	hb.add_child(_btn("Arms", func(): _tab = "arms"; _redraw(), 22, GOLD if _tab == "arms" else DIM))
+	var info := _label("Salt: %d" % w.inv.count("salt"), 18, DIM)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hb.add_child(info)
@@ -443,13 +486,214 @@ func _draw_pack() -> void:
 	if _tab == "craft":
 		_draw_craft()
 		return
-	_body.add_child(_label("Click to use or look closer. Right click to drop.", 16, DIM))
-	_body.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right)))
+	if _tab == "arms":
+		_draw_arms()
+		return
+	_body.add_child(_label("Click a thing to choose it. Right click drops the whole stack.", 16, DIM))
+	_body.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 6, _sel))
 	_desc = _wrap("", 18, DIM)
 	_body.add_child(_desc)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	_body.add_child(row)
+	var near := _near_players()
+	var s = w.inv.slots[_sel] if _sel >= 0 and _sel < w.inv.slots.size() else null
+	if s != null:
+		var info: Dictionary = Items.info(s.id)
+		var n := int(s.n)
+		_desc.text = "%s. %s  Worth %d salt." % [info.name, info.text, int(info.value)]
+		if info.kind in ["food", "medicine"]:
+			row.add_child(_btn("Use", func(): _use_item(_sel), 19, PALE))
+		row.add_child(_btn("Drop one", func(): _drop(_sel, 1), 19, PALE))
+		if n > 2:
+			row.add_child(_btn("Drop half", func(): _drop(_sel, n / 2), 19, PALE))
+		if n > 1:
+			row.add_child(_btn("Drop all", func(): _drop(_sel, n), 19, PALE))
+		for id in near:
+			row.add_child(_btn("Give to %s" % Net.name_of(id), func(): _give_to(id, _sel, n), 19, GOLD))
+			if n > 1:
+				row.add_child(_btn("Give half", func(): _give_to(id, _sel, maxi(1, n / 2)), 19, GOLD))
 
 
-func _slot_grid(bag: Inventory, cb: Callable, cols := 6) -> GridContainer:
+## Fellow survivors close enough to hand something to.
+func _near_players() -> Array:
+	var out: Array = []
+	for id in w.avatars:
+		var a = w.avatars[id]
+		if is_instance_valid(a) and a.visible and a.global_position.distance_to(w.player.global_position) < 8.0:
+			out.append(id)
+	return out
+
+
+func _use_item(i: int) -> void:
+	var s = w.inv.slots[i]
+	if s == null:
+		return
+	var info: Dictionary = Items.info(s.id)
+	if w.player.health >= w.player.max_health - 0.5:
+		_desc.text = "You are not hurt."
+		return
+	w.inv.take(s.id, 1)
+	w.player.health = minf(w.player.max_health, w.player.health + float(info.heal))
+	w.hud.set_health(w.player.health / w.player.max_health, true)
+	w.sfx("drink", -6)
+	_redraw()
+
+
+## Takes n of the chosen stack out of the pack; returns [id, n] or null.
+func _take_from(i: int, n: int):
+	var s = w.inv.slots[i]
+	if s == null:
+		return null
+	n = clampi(n, 1, int(s.n))
+	var id: String = s.id
+	s.n -= n
+	if s.n <= 0:
+		w.inv.slots[i] = null
+		_sel = -1
+	w.inv.changed.emit()
+	return [id, n]
+
+
+func _drop(i: int, n: int) -> void:
+	var it = _take_from(i, n)
+	if it == null:
+		return
+	var fwd: Vector3 = -w.player.global_transform.basis.z
+	w.shared("_rq_satchel", [Net.me(), w.player.global_position + fwd * 1.2, [it], false])
+	w.hud.notify("Dropped %d %s." % [it[1], Items.iname(it[0])])
+
+
+func _give_to(id: int, i: int, n: int) -> void:
+	var it = _take_from(i, n)
+	if it == null:
+		return
+	w.shared("_rq_gift", [Net.me(), id, [it]])
+	w.hud.notify("Gave %d %s to %s." % [it[1], Items.iname(it[0]), Net.name_of(id)])
+
+
+# ------------------------------------------------------------------ arms: what is carried, fitted and made
+
+func _arms_pay(cost: Dictionary, done: Callable) -> void:
+	if not w.inv.pay(w.skills.cost(cost)):
+		return
+	done.call()
+	w.sfx("carve", -6)
+	w.rearm()
+	_redraw()
+
+
+func _arms_btn(text: String, cost: Dictionary, bench: bool, done: Callable) -> Button:
+	var c: Dictionary = w.skills.cost(cost)
+	var ok: bool = bench and w.inv.has_all(c)
+	var b := _btn("%s   %s" % [text, Items.cost_text(c)], func(): _arms_pay(cost, done), 17, PALE if ok else DIM)
+	b.disabled = not ok
+	return b
+
+
+func _draw_arms() -> void:
+	var a: Dictionary = w.arms
+	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	_body.add_child(_label("At a workbench." if bench else "Choose what to carry anywhere. Making and fitting need a workbench close by.", 16, DIM))
+	var v := _scroll(540)
+	var sc: ScrollContainer = v.get_parent()
+	sc.scroll_vertical = _arms_scroll
+	sc.set_deferred("scroll_vertical", _arms_scroll)
+	sc.get_v_scroll_bar().value_changed.connect(func(x): _arms_scroll = int(x))
+	for g in ArmsDB.GUNS:
+		if not g in a.owned:
+			continue
+		var sp: Dictionary = ArmsDB.GUNS[g]
+		var slot: String = sp.slot
+		var carried: bool = a[slot] == g
+		var t: int = int(a.tier.get(g, 0))
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 18)
+		v.add_child(hb)
+		var nm := _label("%s%s" % ["◆ " if carried else "", sp.name], 22, GOLD if carried else PALE)
+		nm.custom_minimum_size.x = 250
+		hb.add_child(nm)
+		var dmg := float(sp.dmg) * (1.0 + 0.12 * t)
+		hb.add_child(_label("%s    Harm %d%s    Holds %d" % [WArms.TIERS[t], int(round(dmg)), " ×%d" % int(sp.pellets) if int(sp.pellets) > 1 else "", Arms.mag_of(g)], 16, DIM))
+		if not carried:
+			hb.add_child(_btn("Carry", func(): a[slot] = g; w.rearm(); _redraw(), 17, PALE))
+		if t < 3:
+			hb.add_child(_arms_btn("Work on it", WArms.tier_cost(t + 1), bench, func(): a.tier[g] = t + 1))
+		if not sp.mounts.is_empty():
+			var mr := HBoxContainer.new()
+			mr.add_theme_constant_override("separation", 18)
+			v.add_child(mr)
+			var pad := Control.new()
+			pad.custom_minimum_size.x = 24
+			mr.add_child(pad)
+			var have: Array = a.parts.get(g, [])
+			var on: Array = a.mounts.get(g, [])
+			for m in sp.mounts:
+				var at: Dictionary = ArmsDB.ATTACHMENTS[m]
+				var b: Button
+				if m in have:
+					b = _btn(("◆ " if m in on else "") + at.name, func(): _fit(g, m), 16, GOLD if m in on else PALE)
+				else:
+					b = _arms_btn("Make %s" % at.name, WArms.PARTS[m], bench, func():
+						if not a.parts.has(g):
+							a.parts[g] = []
+						a.parts[g].append(m)
+						_fit(g, m, false))
+					b.add_theme_font_size_override("font_size", 16)
+				b.tooltip_text = "%s: %s" % [ArmsDB.SLOT_NAMES[at.slot], at.text]
+				mr.add_child(b)
+		v.add_child(HSeparator.new())
+	for k in WArms.KINDS:
+		var tb := WArms.table(k[0])
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 18)
+		v.add_child(hb)
+		var head := _label(k[2], 20, GOLD)
+		head.custom_minimum_size.x = 90
+		hb.add_child(head)
+		for id in tb:
+			var b: Button
+			if id in a[k[0]]:
+				var on: bool = a[k[1]] == id
+				b = _btn(("◆ " if on else "") + tb[id].name, func(): a[k[1]] = id; w.rearm(); _redraw(), 17, GOLD if on else PALE)
+			else:
+				b = _arms_btn("Make %s" % tb[id].name, WArms.MAKE[id], bench, func(): a[k[0]].append(id); a[k[1]] = id)
+			b.tooltip_text = _waste_text(tb[id].text)
+			hb.add_child(b)
+	v.add_child(HSeparator.new())
+	var any := false
+	for g in ArmsDB.GUNS:
+		if g in a.owned:
+			continue
+		if not any:
+			v.add_child(_label("Guns to make", 20, GOLD))
+			any = true
+		var b := _arms_btn("Make %s" % ArmsDB.GUNS[g].name, WArms.MAKE[g], bench, func(): a.owned.append(g); a[ArmsDB.GUNS[g].slot] = g)
+		b.tooltip_text = _waste_text(ArmsDB.GUNS[g].text)
+		v.add_child(b)
+
+
+## The trials' own words name fixed keys; in the waste the keys are whatever was set.
+func _waste_text(t: String) -> String:
+	return t.replace("with G", "with [%s]" % Game.key_text("grenade")).replace("with T", "with [%s]" % Game.key_text("gadget"))
+
+
+## Fits a part, or takes it off. One part to each place on the gun.
+func _fit(g: String, m: String, redraw := true) -> void:
+	var a: Dictionary = w.arms
+	var on: Array = a.mounts.get(g, []).duplicate()
+	if m in on:
+		on.erase(m)
+	else:
+		on = on.filter(func(x): return ArmsDB.ATTACHMENTS[x].slot != ArmsDB.ATTACHMENTS[m].slot)
+		on.append(m)
+	a.mounts[g] = on
+	if redraw:
+		w.rearm()
+		_redraw()
+
+
+func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1) -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = cols
 	g.add_theme_constant_override("h_separation", 6)
@@ -470,6 +714,9 @@ func _slot_grid(bag: Inventory, cb: Callable, cols := 6) -> GridContainer:
 			sb.border_width_left = 4
 			b.text = "%s\n× %d" % [Items.iname(s.id), int(s.n)]
 			b.tooltip_text = Items.info(s.id).text
+		if i == sel and s != null:
+			sb.bg_color = Color(GOLD, 0.14)
+			sb.border_color = GOLD
 		b.add_theme_stylebox_override("normal", sb)
 		var hs := sb.duplicate()
 		hs.bg_color = Color(1, 1, 1, 0.1)
@@ -486,24 +733,14 @@ func _slot_grid(bag: Inventory, cb: Callable, cols := 6) -> GridContainer:
 func _pack_click(i: int, right: bool) -> void:
 	var s = w.inv.slots[i]
 	if s == null:
+		_sel = -1
+		_redraw()
 		return
 	if right:
-		var it = w.inv.take_slot(i)
-		var fwd: Vector3 = -w.player.global_transform.basis.z
-		w.shared("_rq_satchel", [Net.me(), w.player.global_position + fwd * 1.2, [[it.id, int(it.n)]], false])
-		w.hud.notify("Dropped %s." % Items.iname(it.id))
+		_drop(i, int(s.n))
 		return
-	var info: Dictionary = Items.info(s.id)
-	if info.kind in ["food", "medicine"]:
-		if w.player.health >= w.player.max_health - 0.5:
-			_desc.text = "You are not hurt."
-			return
-		w.inv.take(s.id, 1)
-		w.player.health = minf(w.player.max_health, w.player.health + float(info.heal))
-		w.hud.set_health(w.player.health / w.player.max_health, true)
-		w.sfx("drink", -6)
-		return
-	_desc.text = "%s. %s  (Worth %d salt.)" % [info.name, info.text, int(info.value)]
+	_sel = i
+	_redraw()
 
 
 func _draw_craft() -> void:
@@ -692,10 +929,10 @@ func _trade() -> void:
 	for id in Items.STOCK[pd.role]:
 		if id == "beacon_oil" and not w.flags.has("oilcraft"):
 			continue
-		var price := buy_price(id, pd.at) * (1 if id != "shells" else 1)
-		var n := 10 if id == "shells" else 1
-		var ok: bool = w.inv.count("salt") >= price * (n if id == "shells" else 1)
-		var cost := price * n if id == "shells" else price
+		var price := buy_price(id, pd.at)
+		var n := 10 if id in ["shells", "rounds", "rifle"] else 1
+		var ok: bool = w.inv.count("salt") >= price * n
+		var cost := price * n
 		var b := _btn("%s%s   %d salt" % [Items.iname(id), " ×10" if n > 1 else "", cost], func(): _buy(id, n, cost), 19, PALE if ok else DIM)
 		b.disabled = w.inv.count("salt") < cost
 		b.tooltip_text = Items.info(id).text

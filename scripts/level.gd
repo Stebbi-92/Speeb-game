@@ -106,7 +106,7 @@ func _ready() -> void:
 	_place_story()
 	if Net.online and not Net.is_host():
 		Net.ask_checkpoint()
-	if armed and not Net.dedicated and OS.get_cmdline_user_args().is_empty():
+	if armed and not Net.dedicated and not Game.wasteland and OS.get_cmdline_user_args().is_empty():
 		_choose_arms()
 	intro()
 
@@ -118,17 +118,45 @@ func life_kill() -> void:
 		if life_kills == int(Streaks.KINDS[k].kills):
 			streaks_ready.append(k)
 			sfx("bell", -6)
-			hud.notify("%s ready. Press H to mark the ground." % Streaks.KINDS[k].name)
+			hud.notify("%s ready. Press %s for air support." % [Streaks.KINDS[k].name, Game.key_text("streak")])
 			if player.weapon:
 				player.weapon._ui()
 
 
 ## Calls the oldest earned streak onto the point under the crosshair.
 func call_streak() -> void:
+	if hud.streak_menu_open():
+		hud.close_streak_menu()
+		return
 	if streaks_ready.is_empty():
 		hud.notify("Nothing answers yet. Slay %d without falling to call the sky down." % maxi(1, int(Streaks.KINDS.airstrike.kills) - life_kills))
 		return
-	var k: String = streaks_ready.pop_front()
+	var kinds: Array = []
+	for k in Streaks.ORDER:
+		if k in streaks_ready:
+			kinds.append(k)
+	if kinds.size() == 1:
+		_call_streak(kinds[0])
+		return
+	# More than one is ready: the air support menu, to choose which comes
+	player.input_locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var counts := {}
+	for k in streaks_ready:
+		counts[k] = counts.get(k, 0) + 1
+	var k = await hud.open_streak_menu(kinds, counts)
+	if not is_inside_tree():
+		return
+	player.input_locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if player.weapon:
+		player.weapon.hold_fire = true
+	if k != null and k in streaks_ready:
+		_call_streak(k)
+
+
+func _call_streak(k: String) -> void:
+	streaks_ready.erase(k)
 	var cam := player.cam
 	var fwd := -cam.global_transform.basis.z
 	var q := PhysicsRayQueryParameters3D.create(cam.global_position, cam.global_position + fwd * 400.0, 1)
@@ -2584,6 +2612,12 @@ func debug_streaks() -> void:
 			if is_instance_valid(e):
 				e.queue_free()
 	get_tree().quit()
+
+
+## Test: the air support menu with three kinds ready.
+func debug_airshot() -> void:
+	streaks_ready = ["airstrike", "gunrun", "airstrike", "gunship"]
+	call_streak()
 
 
 func debug_streakshot() -> void:

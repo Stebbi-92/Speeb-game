@@ -12,6 +12,7 @@ const REVEAL_N := 128
 
 var terrain: WTerrain
 var inv := Inventory.new()
+var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and kit
 var skills := WSkills.new()
 var seen_biomes := {}
 var ui: WUI
@@ -51,6 +52,7 @@ var _sun_mat: ProceduralSkyMaterial
 var _stars: MultiMeshInstance3D
 var _sync_t := 0.0
 var _wave_t := 20.0
+var _safe_t := 2.0
 var _day_t := 30.0
 var _save_t := 120.0
 var _save_soon := -1.0     ## counts down to a save asked for by an event; -1 when none
@@ -66,6 +68,7 @@ var _m := {}
 
 func build() -> void:
 	Game.wasteland = true
+	Game.warms = arms
 	numeral = ""
 	place = "The Ashen Waste"
 	kill_y = -400.0
@@ -151,6 +154,7 @@ func intro() -> void:
 	inv.changed.connect(func(): if ready_world: autosave_soon(20.0))
 	skills.changed.connect(_apply_skills)
 	player.weapon.reserve_max = 400
+	player.weapon.pack = inv
 	player.max_health = 100.0
 	if Net.authority():
 		_load_world()
@@ -178,6 +182,14 @@ func _exit_tree() -> void:
 	if ready_world:
 		save_all()
 	Game.wasteland = false
+	# The waste's own strip, panels and keys live on the HUD, which outlasts the level: take them away
+	if is_instance_valid(ui):
+		ui.close_all()
+		ui.queue_free()
+	ui = null
+	if hud:
+		hud.boss_bar("", -1.0)
+		hud.hotbar.arms = null
 
 
 func gpos(p: Vector2) -> Vector3:
@@ -590,11 +602,73 @@ func _light_beacon(i: int, on: bool) -> void:
 	_beacon_prompt(i)
 
 
+const BASE_SAFE := 40.0    ## the ground a campfire keeps: forms do not rise within it
+const TOWN_SAFE := 30.0    ## beyond a settlement's wall, how far its watch reaches
+const RAID_CHANCE := 0.07  ## each night, the chance a camp with someone near it is raided
+
+var raiding := {}          ## campfire piece id -> seconds the raid has left
+
+
 func safe_at(p: Vector3) -> bool:
 	for i in lit:
 		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
 			return true
-	return settlement_at(p, 6.0) == "mourners"
+	return settlement_at(p, TOWN_SAFE) != "" or base_at(p) >= 0
+
+
+## The campfire whose ground this is, or -1. A campfire is what makes a camp.
+func base_at(p: Vector3, extra := 0.0) -> int:
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind == "campfire" and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < BASE_SAFE + extra:
+			return pid
+	return -1
+
+
+## Forms that stray onto safe ground at night are taken by it, unless they came to raid.
+func _keep_safe() -> void:
+	for e in enemies:
+		if not is_instance_valid(e) or not e.is_alive() or e.has_meta("raid") or e.boss != "":
+			continue
+		var p: Vector3 = e.global_position
+		if settlement_at(p, TOWN_SAFE - 6.0) != "" or base_at(p, -6.0) >= 0:
+			e.die(false)
+
+
+## Rarely, a camp is found in the night. The fellowship is told with a bell and a banner.
+func _maybe_raid() -> void:
+	if nights < 2 or randf() > RAID_CHANCE:
+		return
+	var camps: Array = []
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind != "campfire" or raiding.has(pid):
+			continue
+		for t in targets():
+			if t.global_position.distance_to(pc.pos) < 80.0:
+				camps.append(pid)
+				break
+	if camps.is_empty():
+		return
+	var pid: int = camps[randi() % camps.size()]
+	raiding[pid] = 90.0
+	shared("_w_raid", [pieces[pid].pos])
+	var c: Vector3 = pieces[pid].pos
+	var n := 5 + mini(nights, 8) + targets().size() * 2
+	var roster: Array = BIOME_FORMS[terrain.biome_name(c.x, c.z)]
+	for k in n:
+		get_tree().create_timer(randf_range(2.0, 20.0), false).timeout.connect(func():
+			if is_instance_valid(self) and night:
+				var e = _spawn_near(roster[randi() % roster.size()], c, BASE_SAFE - 12.0, BASE_SAFE + 6.0, true)
+				if e:
+					e.set_meta("raid", true))
+
+
+func _w_raid(at: Vector3) -> void:
+	sfx("bell", 0)
+	get_tree().create_timer(0.7, false).timeout.connect(func(): sfx("bell", -3, null, 0.8))
+	var d := int(player.global_position.distance_to(at))
+	hud.alert_banner("Your camp is under attack", "%d m away. Hold the fire until dawn." % d if d > 30 else "Hold the fire until dawn.")
 
 
 func _vigil_tick(delta: float) -> void:
@@ -818,10 +892,6 @@ func _w_give(items: Array) -> void:
 	for it in items:
 		var id: String = it[0]
 		var n: int = it[1]
-		if id == "shells":
-			player.weapon.add_shells(n)
-			hud.notify("+%d shells" % n)
-			continue
 		var left := inv.add(id, n)
 		if n - left > 0:
 			hud.notify("+%d %s" % [n - left, Items.iname(id)])
@@ -834,6 +904,34 @@ func _w_give(items: Array) -> void:
 
 
 func give(items: Array) -> void:
+	_w_give(items)
+
+
+## Takes up the arms now chosen, without refilling what is thrown or used.
+func rearm() -> void:
+	var wp: Arms = player.weapon
+	var had := [wp.grenade, wp.grenades, wp.gadget, wp.charges, wp.gun()]
+	wp.equip_loadout()
+	if wp.grenade == had[0]:
+		wp.grenades = had[1]
+	if wp.gadget == had[2]:
+		wp.charges = had[3]
+	if wp.gun() != had[4] and wp.guns[1] == had[4]:
+		wp.cur = 1
+		wp._show_model()
+	wp._show_melee()
+	wp._ui()
+	autosave_soon(5.0)
+
+
+## One survivor hands things to another close by. The host carries it across.
+func _rq_gift(by: int, to: int, items: Array) -> void:
+	if Net.authority():
+		Net.call_peer(to, "_w_gift", [items, by])
+
+
+func _w_gift(items: Array, by: int) -> void:
+	hud.notify("%s hands you something." % Net.name_of(by))
 	_w_give(items)
 
 
@@ -856,8 +954,7 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 		return
 	var n := Node3D.new()
 	add_child(n)
-	p.y = terrain.height_at(p.x, p.z) if absf(p.y - terrain.height_at(p.x, p.z)) < 2.0 else p.y
-	n.global_position = p
+	n.global_position = ground_below(p)
 	var body := StaticBody3D.new()
 	body.collision_layer = 16
 	var cs := CollisionShape3D.new()
@@ -878,6 +975,16 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 		n.add_child(l)
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
 	satchels[sid] = {"node": n, "pos": p, "grave": grave}
+
+
+## The first solid ground under a point: a floor, a roof, a rock, or the land itself.
+func ground_below(p: Vector3) -> Vector3:
+	var g := terrain.height_at(p.x, p.z)
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, 0.5, 0), Vector3(p.x, g - 1.0, p.z), 1)
+	var r := get_world_3d().direct_space_state.intersect_ray(q)
+	if not r.is_empty() and r.position.y > g:
+		return r.position
+	return Vector3(p.x, g, p.z)
 
 
 func _check_satchel(id: String) -> void:
@@ -1096,7 +1203,8 @@ func _rq_gather(by: int, id: int) -> void:
 			if rr.randf() < 0.4:
 				out.append(["cloth", rr.randi_range(1, 2)])
 			if rr.randf() < 0.3:
-				out.append(["shells", rr.randi_range(2, 6)])
+				var kind: String = ["shells", "shells", "rounds", "rounds", "rifle"][rr.randi_range(0, 4)]
+				out.append([kind, rr.randi_range(2, 6) * (3 if kind == "rifle" else 1)])
 			if rr.randf() < 0.08:
 				out.append(["coin", 1])
 		"salt":
@@ -1254,6 +1362,10 @@ func _world_tick(delta: float) -> void:
 		if _day_t <= 0.0:
 			_day_t = 6.0
 			_day_watch()
+	_safe_t -= delta
+	if _safe_t <= 0.0:
+		_safe_t = 2.0
+		_keep_safe()
 	_spikes(delta)
 	_lair_tick()
 
@@ -1270,6 +1382,10 @@ func _w_clock(c: float, d: int, n: int) -> void:
 func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
+	if Net.authority():
+		get_tree().create_timer(randf_range(40.0, 160.0), false).timeout.connect(func():
+			if is_instance_valid(self) and night:
+				_maybe_raid())
 	sfx("drone", -6)
 	hud.say("The sun goes down behind the ridges. Night comes to the waste, and the forms come with it.", 6.0)
 	quests.on_event("nightfall", {})
@@ -1279,6 +1395,7 @@ func _w_dawn(d: int) -> void:
 	night = false
 	day = d
 	nights += 1
+	raiding.clear()
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
 	if Net.authority():
@@ -1420,7 +1537,7 @@ func _day_watch() -> void:
 			_spawn_near(["rusher", "spider", "swarm"][randi() % 3], p, 40.0, 60.0)
 
 
-func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> void:
+func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
 	var space := get_world_3d().direct_space_state
 	for attempt in 12:
 		var a := randf() * TAU
@@ -1442,7 +1559,8 @@ func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere :=
 		var e := spawn_at(kind, p)
 		if e and kind == "saucer":
 			hud.notify("A saucer descends out of the dark.")
-		return
+		return e
+	return null
 
 
 func _clear_near(p: Vector3, r: float) -> void:
@@ -1592,9 +1710,6 @@ func _perish(message: String) -> void:
 			drop.append([s.id, int(s.n)])
 			inv.slots[i] = null
 	inv.changed.emit()
-	if player.weapon.reserve > 0:
-		drop.append(["shells", player.weapon.reserve])
-		player.weapon.reserve = 0
 	if not drop.is_empty():
 		shared("_rq_satchel", [Net.me(), player.global_position, drop, true])
 	await hud.fade_to(1.0, 1.4)
@@ -1775,9 +1890,9 @@ func apply_world(d: Dictionary) -> void:
 
 func char_data() -> Dictionary:
 	return {
-		"v": 1, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
+		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk, "warms": arms,
 	}
 
 
@@ -1786,8 +1901,12 @@ func apply_char(d: Dictionary) -> void:
 	_apply_skills()
 	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
 	inv.from_data(d.get("inv", []))
+	arms = WArms.clean(d.get("warms"))
+	Game.warms = arms
+	player.weapon.equip_loadout()
 	player.weapon.shells = int(d.get("shells", player.weapon.capacity()))
-	player.weapon.reserve = int(d.get("reserve", 18))
+	if int(d.get("v", 1)) < 2:
+		inv.add("shells", int(d.get("reserve", 18)))
 	player.weapon.set_ammo_state(d.get("arms"))
 	player.health = clampf(float(d.get("hp", 100.0)), 20.0, player.max_health)
 	hud.set_health(player.health / player.max_health, true)
@@ -1836,8 +1955,10 @@ func _load_character() -> void:
 	inv.add("bandage", 2)
 	inv.add("meat", 2)
 	inv.add("salt", 12)
+	inv.add("shells", 18)
+	inv.add("rounds", 24)
+	player.weapon.equip_loadout()
 	player.weapon.shells = player.weapon.capacity()
-	player.weapon.reserve = 18
 	player.weapon._ui()
 
 
@@ -2239,6 +2360,73 @@ func debug_skills() -> void:
 		print("SKILLS hp %.0f speed %.2f pack %d dmg %.2f cost floor %s" % [player.max_health, player.walk_speed, inv.slots.size(), player.weapon.damage_mult, skills.cost(Items.PIECES["floor"].cost)])
 	await get_tree().create_timer(0.5).timeout
 	get_tree().quit()
+
+
+## Test: the Arms page of the pack, with a bench at hand and enough to make things.
+func debug_armsshot() -> void:
+	await get_tree().create_timer(2.0).timeout
+	for it in [["scrap", 40], ["scrap", 30], ["wood", 30], ["oil", 6], ["cloth", 8], ["salt", 120], ["coin", 12], ["bandage", 3]]:
+		inv.add(it[0], it[1])
+	ui.debug_bench = true
+	arms.owned.append("machine_gun")
+	arms.primary = "machine_gun"
+	arms.parts["machine_gun"] = ["red_dot", "foregrip"]
+	arms.mounts["machine_gun"] = ["red_dot", "foregrip"]
+	arms.tier["machine_gun"] = 1
+	rearm()
+	_save_t = 9999.0
+	ready_world = false
+	if "pack" in OS.get_cmdline_user_args():
+		ui._sel = 0
+		ui.open_inventory("pack")
+	elif not "hud" in OS.get_cmdline_user_args():
+		ui.open_inventory("arms")
+
+
+## Test: a camp is raided; forms near it otherwise are taken by the safe ground.
+func debug_raid() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var c := player.global_position + Vector3(4, 0, 0)
+	builder._rq_build(1, "campfire", c, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	print("RAID safe at camp ", safe_at(c), " base ", base_at(c), " safe 100 m off ", safe_at(c + Vector3(100, 0, 0)))
+	var stray := spawn_at("rusher", c + Vector3(10, 1.5, 0))
+	clock = 21.0
+	night = true
+	nights = 3
+	await get_tree().create_timer(3.0).timeout
+	print("RAID stray taken: ", not is_instance_valid(stray) or not stray.is_alive())
+	var before := alive_count()
+	_night_wave()
+	await get_tree().create_timer(0.5).timeout
+	print("RAID night wave near camp spawned ", alive_count() - before)
+	var keep := RAID_CHANCE
+	nights = 3
+	for i in 40:
+		_maybe_raid()
+		if not raiding.is_empty():
+			break
+	await get_tree().create_timer(24.0).timeout
+	var raiders := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("raid")).size()
+	print("RAID raiding ", raiding.keys(), " raiders alive ", raiders)
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
+
+
+func debug_chest() -> void:
+	await get_tree().create_timer(2.0).timeout
+	inv.add("wood", 40)
+	var spot := player.global_position + Vector3(3, 0, 0)
+	builder._rq_build(1, "chest", spot, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	for pid in pieces:
+		print("CHEST piece ", pid, " ", pieces[pid].kind, " holds ", containers.get("p%d" % pid))
+		_rq_open(1, "p%d" % pid)
+	await get_tree().create_timer(0.5).timeout
+	for pid in pieces:
+		print("CHEST after open ", containers.get("p%d" % pid))
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
 
 
 func debug_skillshot() -> void:

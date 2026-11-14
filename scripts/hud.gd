@@ -332,6 +332,39 @@ func title_card(num: String, place: String) -> void:
 	await tw.finished
 
 
+## A banner across the middle of the screen, for what must not be missed: a camp under attack.
+func alert_banner(title: String, sub := "") -> void:
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.custom_minimum_size = Vector2(900, 0)
+	box.position = Vector2(-450, -150)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var band := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.02, 0.02, 0.72)
+	sb.border_color = Color(0.85, 0.3, 0.22, 0.8)
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.set_content_margin_all(14)
+	band.add_theme_stylebox_override("panel", sb)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	band.add_child(v)
+	var t := _label(title, 40, Color(1.0, 0.82, 0.72), HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	if sub != "":
+		v.add_child(_label(sub, 18, Color(0.9, 0.82, 0.76), HORIZONTAL_ALIGNMENT_CENTER))
+	box.add_child(band)
+	root.add_child(box)
+	box.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(box, "modulate:a", 1.0, 0.4)
+	tw.tween_interval(4.0)
+	tw.tween_property(box, "modulate:a", 0.0, 1.2)
+	tw.tween_callback(box.queue_free)
+
+
 func say(text: String, dur := 6.0) -> void:
 	if reveal_box.modulate.a > 0.05:
 		return
@@ -835,6 +868,9 @@ var _from_pause := false
 
 ## While a control waits for its new key, the next key or mouse button pressed becomes it.
 func _input(e: InputEvent) -> void:
+	if _streak_keys(e):
+		get_viewport().set_input_as_handled()
+		return
 	if _rebinding.is_empty():
 		return
 	var code := 0
@@ -862,8 +898,89 @@ func _unhandled_input(e: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+# ---------------------------------------------------------------- air support
+
+signal _streak_chosen(k)
+var _streak_menu: PanelContainer
+
+
+func streak_menu_open() -> bool:
+	return is_instance_valid(_streak_menu)
+
+
+func close_streak_menu() -> void:
+	if is_instance_valid(_streak_menu):
+		_streak_menu.queue_free()
+		_streak_menu = null
+		_streak_chosen.emit(null)
+
+
+## The kill streaks that are ready, to pick one from. Returns the chosen kind, or null.
+func open_streak_menu(kinds: Array, counts: Dictionary):
+	close_streak_menu()
+	var p := PanelContainer.new()
+	_streak_menu = p
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.03, 0.035, 0.9)
+	sb.border_color = Color(GOLD, 0.45)
+	sb.set_border_width_all(1)
+	sb.set_content_margin_all(22)
+	p.add_theme_stylebox_override("panel", sb)
+	p.set_anchors_preset(Control.PRESET_CENTER)
+	p.custom_minimum_size = Vector2(520, 0)
+	p.position = Vector2(-260, -140)
+	root.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	p.add_child(v)
+	var t := _label("Air support", 30, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	v.add_child(_label("Choose what comes. It strikes where you are looking.", 16, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	for i in kinds.size():
+		var k: String = kinds[i]
+		var b := Button.new()
+		b.flat = true
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.text = "%d   %s%s" % [i + 1, Streaks.KINDS[k].name, "  ×%d" % counts[k] if counts.get(k, 1) > 1 else ""]
+		b.tooltip_text = Streaks.KINDS[k].text
+		b.add_theme_font_size_override("font_size", 22)
+		b.add_theme_color_override("font_color", PALE)
+		b.add_theme_color_override("font_hover_color", GOLD)
+		b.pressed.connect(func(): _pick_streak(k))
+		v.add_child(b)
+		v.add_child(_label("     " + Streaks.KINDS[k].text, 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	v.add_child(_label("%s or Esc to close" % Game.key_text("streak"), 14, Color(DIM, 0.7), HORIZONTAL_ALIGNMENT_LEFT))
+	p.set_meta("kinds", kinds)
+	return await _streak_chosen
+
+
+func _pick_streak(k) -> void:
+	if is_instance_valid(_streak_menu):
+		_streak_menu.queue_free()
+		_streak_menu = null
+	_streak_chosen.emit(k)
+
+
+func _streak_keys(e: InputEvent) -> bool:
+	if not is_instance_valid(_streak_menu) or not (e is InputEventKey and e.pressed and not e.echo):
+		return false
+	var kinds: Array = _streak_menu.get_meta("kinds")
+	if e.physical_keycode == KEY_ESCAPE or e.is_action("streak"):
+		close_streak_menu()
+		return true
+	var n: int = e.physical_keycode - KEY_1
+	if n >= 0 and n < kinds.size():
+		_pick_streak(kinds[n])
+		return true
+	return false
+
+
 func set_hotbar(slot: int, faith: float, milk: int) -> void:
 	hotbar.visible = slot >= 0
+	var cells := 8 if Game.wasteland else 6
+	hotbar.position = Vector2(-36 - Hotbar.W * cells, -182)
+	hotbar.size = Vector2(Hotbar.W * cells, Hotbar.W + 24)
 	hotbar.slot = slot
 	hotbar.faith = faith
 	hotbar.milk = milk
@@ -883,7 +1000,45 @@ class Hotbar extends Control:
 	var milk := 0
 	var font: Font
 
+	var arms   ## the weapon in the pilgrim's hands; the waste draws its bar from it
+
+	## The waste's bar: both guns, the blade, prayer, lantern and milk, then what is thrown and the kit.
+	func _draw_waste() -> void:
+		var gold := Color(0.86, 0.80, 0.66)
+		var cells := [
+			["1", "shotgun" if arms.guns[0] != "minigun" else "shotgun", ArmsDB.GUNS[arms.guns[0]].name, slot == 0 and arms.cur == 0, ""],
+			["2", "pistol", ArmsDB.GUNS[arms.guns[1]].name, slot == 0 and arms.cur == 1, ""],
+			["3", "blade", ArmsDB.MELEE[arms.melee].name, false, ""],
+			["4", "hands", "Prayer", slot == 1, ""],
+			["5", "lantern", "Lantern", slot == 2, ""],
+			["6", "milk", "Milk", slot == 5, str(milk)],
+			[Game.key_text("grenade"), "thrown", ArmsDB.GRENADES[arms.grenade].name, false, str(arms.grenades)],
+			[Game.key_text("gadget"), "kit", ArmsDB.GADGETS[arms.gadget].name, false, str(arms.charges)],
+		]
+		var name := ""
+		for i in cells.size():
+			var c: Array = cells[i]
+			var x := i * W + (8.0 if i >= 6 else 0.0)
+			var r := Rect2(x + 3, 0, W - 6, W - 6)
+			var on: bool = c[3]
+			var empty: bool = c[4] == "0"
+			draw_rect(r, Color(0.03, 0.03, 0.035, 0.6))
+			draw_rect(r, gold if on else Color(1, 1, 1, 0.16), false, 2.0 if on else 1.0)
+			if on:
+				draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), gold)
+				name = c[2]
+			draw_string(font, r.position + Vector2(4, 13), Game.key_text("slot_%d" % (i + 1)) if i < 6 else c[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
+			_icon(c[1], r.get_center() + Vector2(0, 3), Color(0.93, 0.92, 0.88, 0.25 if empty else 0.95))
+			if c[1] == "hands":
+				draw_rect(Rect2(r.position.x + 4, r.end.y - 6, (r.size.x - 8) * faith, 3), Color(1.0, 0.85, 0.45) if faith >= 1.0 else Color(0.7, 0.62, 0.45))
+			if c[4] != "":
+				draw_string(font, r.end - Vector2(15, 5), c[4], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.93, 0.92, 0.88, 0.4 if empty else 1.0))
+		draw_string(font, Vector2(0, W + 14), name, HORIZONTAL_ALIGNMENT_RIGHT, W * 6 - 4, 16, gold)
+
 	func _draw() -> void:
+		if Game.wasteland and is_instance_valid(arms):
+			_draw_waste()
+			return
 		var gold := Color(0.86, 0.80, 0.66)
 		for i in Game.RELICS.size():
 			var id: String = Game.RELICS[i]
@@ -912,6 +1067,21 @@ class Hotbar extends Control:
 				draw_line(c + Vector2(-18, -2), c + Vector2(16, -8), col, 4)
 				draw_line(c + Vector2(-18, -2), c + Vector2(-20, 8), col, 5)
 				draw_line(c + Vector2(-4, -2), c + Vector2(6, -4), col, 6)
+			"pistol":
+				draw_line(c + Vector2(-12, -6), c + Vector2(14, -6), col, 6)
+				draw_line(c + Vector2(-9, -6), c + Vector2(-12, 10), col, 6)
+				draw_arc(c + Vector2(-2, 0), 4, 0, PI, 8, col, 1.5)
+			"blade":
+				draw_line(c + Vector2(-12, 13), c + Vector2(6, -10), col, 3)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(2, -14), c + Vector2(16, -8), c + Vector2(10, 2), c + Vector2(4, -6)]), col)
+			"thrown":
+				draw_circle(c + Vector2(0, 3), 9, col)
+				draw_rect(Rect2(c + Vector2(-3, -12), Vector2(6, 6)), col)
+				draw_arc(c + Vector2(6, -11), 4, 0, TAU, 10, col, 1.5)
+			"kit":
+				draw_rect(Rect2(c + Vector2(-12, -8), Vector2(24, 18)), col, false, 2)
+				draw_rect(Rect2(c + Vector2(-2, -4), Vector2(4, 10)), col)
+				draw_rect(Rect2(c + Vector2(-5, -1), Vector2(10, 4)), col)
 			"hands":
 				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -14), c + Vector2(-7, 2), c + Vector2(-5, 12), c + Vector2(5, 12), c + Vector2(7, 2)]), col)
 				draw_arc(c + Vector2(0, -18), 7, 0, TAU, 20, Color(1.0, 0.85, 0.45, col.a), 2)

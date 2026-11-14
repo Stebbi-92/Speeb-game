@@ -192,7 +192,7 @@ func build_hp_mult() -> float:
 
 
 func make_bonus(id: String) -> int:
-	return 1 if rank("tinker") > 0 and id in ["bandage", "shells", "beacon_oil"] else 0
+	return 1 if rank("tinker") > 0 and id in ["bandage", "shells", "rounds", "rifle", "beacon_oil"] else 0
 
 
 func vigil_mult() -> float:

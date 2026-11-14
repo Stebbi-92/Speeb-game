@@ -269,6 +269,23 @@ func refresh() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if not player.armed or player.input_locked or get_tree().paused:
 		return
+	if Game.wasteland:
+		# In the waste the bar is: long gun, side arm, blade, prayer, lantern, milk
+		for i in 6:
+			if e.is_action_pressed("slot_%d" % (i + 1)):
+				if i < 2:
+					if slot != 0:
+						select(0)
+					if player.weapon:
+						player.weapon.draw_gun(i)
+				elif i == 2:
+					if slot != 0:
+						select(0)
+					if player.weapon and player.weapon.enabled:
+						player.weapon.strike()
+				else:
+					select([1, 2, 5][i - 3])
+				return
 	for i in Game.RELICS.size():
 		if e.is_action_pressed("slot_%d" % (i + 1)):
 			select(i)
