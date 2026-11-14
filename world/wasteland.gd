@@ -259,7 +259,7 @@ func _build_settlement(k: String) -> void:
 	# Gate posts with lanterns
 	for g in [-1.0, 1.0]:
 		for side in [-1.0, 1.0]:
-			var a := PI * 0.5 * g + side * 0.14
+			var a: float = PI * 0.5 * g + side * 0.14
 			var p := c + Vector3(cos(a) * r, 0, sin(a) * r)
 			p.y = terrain.height_at(p.x, p.z)
 			cyl(p + Vector3(0, 2.4, 0), 0.3, 5.2, _m.darkwood, true, -1.0, 8)
@@ -283,6 +283,7 @@ func _build_settlement(k: String) -> void:
 	var fire := sphere(c + Vector3(0, 0.7, 0), 0.55, _m.ember, false, 1.4)
 	var fl := omni(c + Vector3(0, 2.0, 0), Color(1.0, 0.6, 0.3), 2.6, 22.0, true)
 	settle_nodes[k] = {"center": c, "fire": fire, "light": fl}
+	_smoke(c + Vector3(0, 1.0, 0))
 	var lbl := label3d(s.name, c + Vector3(0, 6.5, 0), 1.2, Color(0.95, 0.85, 0.65), 0.0, true)
 	lbl.visibility_range_end = 70.0
 	# Its people
@@ -293,6 +294,43 @@ func _build_settlement(k: String) -> void:
 		var p := c + Vector3(pd.off.x, 0, pd.off.y)
 		p.y = terrain.height_at(p.x, p.z)
 		_person(pid, p, yaw_to(p, c))
+
+
+## A column of smoke over a hearth, seen from far across the waste.
+func _smoke(at: Vector3) -> void:
+	var p := CPUParticles3D.new()
+	p.amount = 40
+	p.lifetime = 22.0
+	p.preprocess = 22.0
+	var q := QuadMesh.new()
+	q.size = Vector2(7, 7)
+	p.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = Relics._soft_dot()
+	p.material_override = m
+	p.direction = Vector3.UP
+	p.spread = 6.0
+	p.gravity = Vector3(0.35, 0.5, 0.1)
+	p.initial_velocity_min = 2.0
+	p.initial_velocity_max = 3.0
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 2.0
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.6))
+	curve.add_point(Vector2(1, 4.0))
+	p.scale_amount_curve = curve
+	var g := Gradient.new()
+	g.set_color(0, Color(0.2, 0.19, 0.18, 0.75))
+	g.set_color(1, Color(0.35, 0.33, 0.31, 0.0))
+	p.color_ramp = g
+	p.visibility_aabb = AABB(Vector3(-60, 0, -60), Vector3(120, 160, 120))
+	m.disable_fog = false
+	p.position = at
+	add_child(p)
 
 
 func _hut(p: Vector3, yaw: float, rr: RandomNumberGenerator) -> void:
@@ -596,7 +634,10 @@ func _build_ruin(r: Dictionary) -> void:
 
 
 func _add(parent: Node3D, mi: Node3D, local: Vector3) -> Node3D:
-	mi.reparent(parent, false)
+	if mi.get_parent():
+		mi.reparent(parent, false)
+	else:
+		parent.add_child(mi)
 	mi.position = local
 	return mi
 
@@ -654,10 +695,16 @@ func _rq_open(by: int, id: String) -> void:
 			var bag := Inventory.new(12)
 			for it in Items.roll(c.table, rr.randi_range(2, 4) + (2 if c.sealed else 0), rr):
 				bag.add(it[0], it[1])
-			for it in quests.cache_items(id):
-				bag.add(it[0], it[1])
-			shared("_w_cont", [id, bag.to_data()])
+			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
+		var cache := quests.cache_items(id)
+		if not cache.is_empty():
+			var bag := Inventory.new(14)
+			bag.from_data(containers[id])
+			for it in cache:
+				bag.add(it[0], it[1])
+			containers[id] = bag.to_data()
+		shared("_w_cont", [id, containers[id]])
 	if not containers.has(id):
 		shared("_w_cont", [id, Inventory.new(12).to_data()])
 	Net.call_peer(by, "_w_opened", [id])
@@ -1145,15 +1192,15 @@ func _apply_time(force: bool) -> void:
 		sun.light_energy = 1.45 * day_k
 	else:
 		sun.rotation = Vector3(-0.9, 2.2, 0)
-		sun.light_color = Color(0.55, 0.62, 0.85)
-		sun.light_energy = 0.16
+		sun.light_color = Color(0.5, 0.56, 0.75)
+		sun.light_energy = 0.07
 	var night_k := 1.0 - day_k
 	_sun_mat.sky_top_color = Color(0.4, 0.43, 0.48).lerp(Color(0.01, 0.012, 0.025), night_k)
 	_sun_mat.sky_horizon_color = Color(0.72, 0.62, 0.5).lerp(Color(0.85, 0.42, 0.22), dusk_k * 0.8).lerp(Color(0.03, 0.035, 0.05), night_k)
 	_sun_mat.ground_horizon_color = _sun_mat.sky_horizon_color
 	env.fog_light_color = Color(0.62, 0.55, 0.46).lerp(Color(0.025, 0.03, 0.04), night_k)
 	env.fog_density = lerpf(0.0035, 0.011, night_k)
-	env.ambient_light_energy = lerpf(0.7, 0.18, night_k)
+	env.ambient_light_energy = lerpf(0.7, 0.07, night_k)
 	if _stars:
 		_stars.material_override.albedo_color.a = clampf(night_k * 1.5 - 0.3, 0.0, 1.0)
 		_stars.visible = night_k > 0.2
@@ -1576,7 +1623,7 @@ func _load_character() -> void:
 
 
 func save_all() -> void:
-	if world_uid == "" or player == null:
+	if world_uid == "" or player == null or not player.is_inside_tree():
 		return
 	DirAccess.make_dir_recursive_absolute("user://wasteland")
 	if Net.authority():
@@ -1599,3 +1646,288 @@ static func describe(s: String) -> String:
 	if not d is Dictionary:
 		return ""
 	return "Day %d, %d of 9 beacons burning" % [int(d.get("day", 1)), d.get("lit", []).size()]
+
+
+# ================================================================== calls the fellowship shares, passed on to their keepers
+
+func _rq_build(by: int, k: String, p: Vector3, yaw: float) -> void:
+	builder._rq_build(by, k, p, yaw)
+
+
+func _rq_unbuild(by: int, pid: int) -> void:
+	builder._rq_unbuild(by, pid)
+
+
+func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
+	builder._w_piece(pid, k, p, yaw, hp)
+
+
+func _w_piece_hp(pid: int, hp: float) -> void:
+	builder._w_piece_hp(pid, hp)
+
+
+func _w_piece_gone(pid: int) -> void:
+	builder._w_piece_gone(pid)
+
+
+func _rq_door(pid: int) -> void:
+	builder._rq_door(pid)
+
+
+func _w_door(pid: int, open: bool) -> void:
+	builder._w_door(pid, open)
+
+
+func _rq_qadvance(qid: String, stage: int) -> void:
+	quests.advance(qid, stage)
+
+
+func _w_quest(qid: String, q: Dictionary) -> void:
+	quests.quests[qid] = q
+	if qid == "main":
+		q.steps = WQuests.MAIN
+	quests._place_things(qid)
+	quests.refresh_hud()
+	if ui:
+		ui.journal_dirty = true
+
+
+func _w_qstep(qid: String, stage: int) -> void:
+	quests.step_done(qid, stage)
+	if ui:
+		ui.journal_dirty = true
+
+
+func _w_offers(o: Dictionary) -> void:
+	quests.offers = o
+
+
+func _rq_accept(by: int, k: String, key: String) -> void:
+	quests.rq_accept(by, k, key)
+
+
+func _w_track(qid: String) -> void:
+	quests.tracked = qid
+	quests.refresh_hud()
+	if quests.quests.has(qid):
+		hud.notify("Taken up: %s\n%s" % [quests.quests[qid].title, quests.step_text(quests.quests[qid])])
+
+
+func _w_note(text: String) -> void:
+	hud.notify(text)
+
+
+# ------------------------------------------------------------------ nests, and the lost
+
+class Nest extends StaticBody3D:
+	var w
+	var qid := ""
+	var hp := 260.0
+	var _alive := true
+	var _t := 0.0
+	var _guard_t := 3.0
+	var _mesh: MeshInstance3D
+
+	func is_alive() -> bool:
+		return _alive
+
+	func hurt(amount: float, _dir: Vector3) -> bool:
+		if not _alive:
+			return false
+		_mesh.scale = Vector3.ONE * 1.15
+		w.shared("_rq_nest_hit", [qid, amount])
+		return true
+
+	func _process(delta: float) -> void:
+		_t += delta
+		_mesh.scale = _mesh.scale.lerp(Vector3.ONE * (1.0 + sin(_t * 2.4) * 0.06), minf(1.0, delta * 6.0))
+		if not Net.authority() or not _alive:
+			return
+		_guard_t -= delta
+		if _guard_t <= 0.0:
+			_guard_t = 14.0
+			for t in w.targets():
+				if t.global_position.distance_to(global_position) < 45.0 and w.alive_count() < 10:
+					for k in 3:
+						w._spawn_near(["swarm", "rusher", "spider"][randi() % 3], global_position, 4.0, 9.0, true)
+					w.sfx("screech", -2, global_position, 0.8)
+					break
+
+
+func make_nest(qid: String, p: Vector3) -> Node3D:
+	var n := Nest.new()
+	n.w = self
+	n.qid = qid
+	n.collision_layer = 2
+	var cs := CollisionShape3D.new()
+	var sh := SphereShape3D.new()
+	sh.radius = 1.6
+	cs.shape = sh
+	cs.position.y = 1.2
+	n.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 1.7
+	sm.height = 2.6
+	mi.mesh = sm
+	var m := mat(Color(0.28, 0.06, 0.07), 0.4, 0.6, 1.5)
+	m.emission_enabled = true
+	m.emission = Color(0.6, 0.05, 0.03)
+	m.emission_energy_multiplier = 0.6
+	mi.material_override = m
+	mi.position.y = 1.2
+	n._mesh = mi
+	n.add_child(mi)
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.15, 0.08)
+	l.light_energy = 1.5
+	l.omni_range = 9.0
+	l.position.y = 2.0
+	n.add_child(l)
+	add_child(n)
+	p.y = terrain.height_at(p.x, p.z)
+	n.global_position = p
+	return n
+
+
+func _rq_nest_hit(qid: String, amount: float) -> void:
+	if not Net.authority() or not quests.nests.has(qid):
+		return
+	var n = quests.nests[qid]
+	if not is_instance_valid(n) or not n._alive:
+		return
+	n.hp -= amount
+	if n.hp <= 0.0:
+		n._alive = false
+		shared("_w_nest_burst", [qid])
+		quests.advance(qid, int(quests.quests[qid].stage))
+
+
+func _w_nest_burst(qid: String) -> void:
+	if quests.nests.has(qid) and is_instance_valid(quests.nests[qid]):
+		var n: Node3D = quests.nests[qid]
+		burst(n.global_position + Vector3(0, 1.2, 0), Color(0.5, 0.05, 0.05))
+		sfx("dissolve", 0, n.global_position, 0.6)
+		n._alive = false
+		n.visible = false
+
+
+func make_lost(qid: String, p: Vector3, nm: String) -> Node3D:
+	p.y = terrain.height_at(p.x, p.z)
+	var f := figure(p, randf() * TAU, Color(0.4, 0.36, 0.32), true)
+	var body: StaticBody3D = f.get_meta("body")
+	body.collision_layer = 1 | 16
+	personal_interactable(body, "Speak with %s" % nm, func():
+		hud.say("%s: \"I thought no one would come. I have been hiding here since the night before last. Tell them... no. I will tell them myself. I am going home.\"" % nm, 6.0)
+		quests.ask_advance(qid))
+	return f
+
+
+## Testing aid: says what the waste holds, then leaves.
+func debug_report() -> void:
+	print("WASTE nodes=%d ruins=%d crates=%d people=%d quests=%d offers=%d pos=%s y=%.1f clock=%.2f" % [nodes.size(), ruins.size(), crates.size(), people.size(), quests.quests.size(), quests.offers.size(), str(player.global_position), terrain.height_at(player.global_position.x, player.global_position.z), clock])
+	print("WASTE objective: ", hud.objective.text.replace("\n", " | "))
+	save_all()
+	get_tree().quit()
+
+
+## Testing aid: walks the survivor through a day's work and prints what came of each step.
+func debug_play() -> void:
+	var c := gpos(WPlaces.SETTLEMENTS.cinderwick.pos)
+	player.place(c + Vector3(0, 0.5, 6), 0.0)
+	await get_tree().create_timer(1.5).timeout
+	print("PLAY at cinderwick, main stage ", quests.main_stage(), " visited ", visited.keys())
+	for o in quests.talk_options("maud"):
+		print("PLAY maud option: ", o[0])
+		o[1].call()
+	await get_tree().create_timer(0.5).timeout
+	print("PLAY main stage ", quests.main_stage(), " beacon oil ", inv.count("beacon_oil"))
+	var offer: Array = quests.offers.get("cinderwick", [])
+	if not offer.is_empty():
+		quests.accept(offer[0])
+		await get_tree().create_timer(0.3).timeout
+		print("PLAY accepted: ", offer[0].title, " / active ", quests.active().size())
+	var nd: Dictionary = nodes[nodes.size() - 1]
+	_gather(nd.id)
+	await get_tree().create_timer(0.3).timeout
+	print("PLAY gathered from ", nd.kind, ": pack ", inv.to_data().filter(func(x): return x != null))
+	inv.add("wood", 40)
+	inv.add("cloth", 5)
+	var spot := gpos(Vector2(c.x + 70, c.z + 30))
+	player.place(spot + Vector3(0, 0.5, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	builder._rq_build(1, "floor", Vector3(floorf(spot.x / 3) * 3 + 1.5, spot.y + 0.2, floorf(spot.z / 3) * 3 + 1.5), 0.0)
+	builder._rq_build(1, "wall", Vector3(floorf(spot.x / 3) * 3 + 1.5, spot.y, floorf(spot.z / 3) * 3), 0.0)
+	builder._rq_build(1, "chest", spot + Vector3(4, 0, 4), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	print("PLAY pieces ", pieces.size(), " containers ", containers.keys())
+	var cid: String = crates.keys()[0]
+	_rq_open(1, cid)
+	await get_tree().create_timer(0.3).timeout
+	print("PLAY crate ", cid, " holds ", containers.get(cid))
+	_rq_take(1, cid, 0)
+	await get_tree().create_timer(0.3).timeout
+	clock = 19.99
+	await get_tree().create_timer(1.0).timeout
+	_wave_t = 0.0
+	await get_tree().create_timer(2.0).timeout
+	print("PLAY night=", night, " forms=", alive_count())
+	_w_vigil(0, 3.0)
+	await get_tree().create_timer(5.0).timeout
+	print("PLAY lit ", lit, " main stage ", quests.main_stage())
+	save_all()
+	print("PLAY saved; world file ", FileAccess.file_exists(world_path(slot)))
+	get_tree().quit()
+
+
+## Testing aid: keeps a vigil at the first beacon, then reports what was kept from the last visit.
+func debug_vigil() -> void:
+	print("VIGIL loaded: day %d clock %.1f pieces %d main stage %d pack %s" % [day, clock, pieces.size(), quests.main_stage(), inv.to_data().filter(func(x): return x != null)])
+	player.place(beacon_nodes[0].pos + Vector3(0, 2.5, 8), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	_beacon_touched(0)
+	await get_tree().create_timer(0.5).timeout
+	vigils[0] = 2.0
+	await get_tree().create_timer(4.0).timeout
+	print("VIGIL lit ", lit, " main stage ", quests.main_stage(), " forms ", alive_count(), " safe ", safe_at(player.global_position))
+	get_tree().quit()
+
+
+## Testing aid: stands at the south gate of Cinderwick, then opens the map, then the talk of its elder.
+func debug_show() -> void:
+	print("UI size ", ui.size, " compass ", ui._compass.get_global_rect(), " clock ", ui._clock.get_global_rect(), " root ", hud.root.size)
+	var c := gpos(WPlaces.SETTLEMENTS.cinderwick.pos)
+	player.place(c + Vector3(0, 0.5, 44), 0.0)
+	reveal_place(WPlaces.SETTLEMENTS.cinderwick.pos, 260.0)
+	await get_tree().create_timer(7.0).timeout
+	ui.open_map()
+	await get_tree().create_timer(5.0).timeout
+	ui.close_all()
+	ui.open_dialogue("maud")
+	await get_tree().create_timer(5.0).timeout
+	ui.close_all()
+	clock = 22.0
+	player.place(beacon_nodes[0].pos + Vector3(0, 1.0, 30), 0.0)
+	lit.append(0)
+	_light_beacon(0, true)
+
+
+func debug_mapshot() -> void:
+	reveal_place(WPlaces.SETTLEMENTS.cinderwick.pos, 300.0)
+	reveal_place(WPlaces.BEACONS[0].pos, 120.0)
+	visited["cinderwick"] = true
+	ui.open_map()
+
+
+func debug_talkshot() -> void:
+	player.place(people.maud.pos + Vector3(0, 0.5, 3), 0.0)
+	ui.open_dialogue("maud")
+
+
+func debug_nightshot() -> void:
+	clock = 22.0
+	night = true
+	lit.append(0)
+	_light_beacon(0, true)
+	player.place(beacon_nodes[0].pos + Vector3(0, 1.0, 34), 0.0)
+	player.pitch = 0.15
