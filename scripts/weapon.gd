@@ -526,18 +526,20 @@ func _try_fire() -> void:
 			lvl.puff(r.position, r.normal)
 	if not hits.is_empty():
 		lvl.hits += 1
-	Arms.deal(hits, fwd)
+	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet")
 
 
 ## Applies harm to each struck thing and shows the hit marker once.
 static var _told_deflect := -100000
 
 
-static func deal(hits: Dictionary, dir: Vector3) -> void:
+static func deal(hits: Dictionary, dir: Vector3, harm := "") -> void:
+	LesserSpeeb.harm_kind = harm
 	var marked := 0
 	for t in hits:
 		if is_instance_valid(t) and t.has_method("hurt"):
 			var full: bool = t.hurt(hits[t], dir)
+			LesserSpeeb.harm_kind = harm
 			var killed: bool = t.has_method("is_alive") and not t.is_alive()
 			if killed:
 				marked = 2
@@ -548,6 +550,7 @@ static func deal(hits: Dictionary, dir: Vector3) -> void:
 			if not full and not killed and t.get("kind") == "idol" and Time.get_ticks_msec() - _told_deflect > 20000:
 				_told_deflect = Time.get_ticks_msec()
 				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side or behind.")
+	LesserSpeeb.harm_kind = ""
 	if marked > 0:
 		Game.main.hud.hitmarker(marked == 2)
 		if Game.main.level:
@@ -560,7 +563,7 @@ static func deal(hits: Dictionary, dir: Vector3) -> void:
 
 
 ## Harms everything near a point, less at the edge. The thrower is hurt too if they stand in it.
-static func blast(lvl: Node, at: Vector3, radius: float, dmg: float, thrower: Node = null) -> void:
+static func blast(lvl: Node, at: Vector3, radius: float, dmg: float, thrower: Node = null, harm := "blast") -> void:
 	var space: PhysicsDirectSpaceState3D = lvl.get_world_3d().direct_space_state
 	var q := PhysicsShapeQueryParameters3D.new()
 	var sh := SphereShape3D.new()
@@ -575,7 +578,7 @@ static func blast(lvl: Node, at: Vector3, radius: float, dmg: float, thrower: No
 			continue
 		var d: float = (c.global_position + Vector3(0, 0.6, 0)).distance_to(at)
 		hits[c] = dmg * clampf(1.15 - d / radius, 0.25, 1.0)
-	deal(hits, Vector3.UP)
+	deal(hits, Vector3.UP, harm)
 	if thrower and is_instance_valid(thrower) and thrower.global_position.distance_to(at) < radius * 0.8 and lvl.has_method("damage_player"):
 		lvl.damage_player(dmg * 0.3 * clampf(1.0 - thrower.global_position.distance_to(at) / radius, 0.2, 1.0), at)
 	blast_fx(lvl, at, radius)
@@ -678,7 +681,7 @@ func _melee_hit(m: Dictionary) -> void:
 	if not hits.is_empty():
 		lvl.sfx("chop", -4, null, randf_range(0.85, 1.1))
 		player.shake(0.15)
-		Arms.deal(hits, fwd)
+		Arms.deal(hits, fwd, "blade")
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)
 		lvl.sfx("thud", -10)
@@ -1274,7 +1277,7 @@ class Thrown extends RigidBody3D:
 				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(at) < radius:
 					hits[e] = dps
 			if not hits.is_empty():
-				Arms.deal(hits, Vector3.UP)
+				Arms.deal(hits, Vector3.UP, "fire")
 		if is_instance_valid(root):
 			fire.emitting = false
 			var tw := root.create_tween()

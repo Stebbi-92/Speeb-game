@@ -10,17 +10,53 @@ extends CharacterBody3D
 
 signal died
 
+## Each kind: its name, its numbers, how it fights, and what it fears ("weak") or shrugs off ("tough"),
+## by the kind of harm: shot (pellets), bullet, blast, fire, blade. "body" is "cat" for those that walk
+## on four legs; the rest are heads that drift through the air.
 const KINDS := {
-	"rusher": {"hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 18.0, "radius": 0.45},
-	"spitter": {"hp": 38.0, "size": 0.85, "speed": 3.2, "bite": 0.0, "radius": 0.4},
-	"idol": {"hp": 90.0, "size": 1.25, "speed": 2.6, "bite": 26.0, "radius": 0.55},
-	"swarm": {"hp": 12.0, "size": 0.5, "speed": 7.0, "bite": 7.0, "radius": 0.25},
-	"elite": {"hp": 320.0, "size": 2.0, "speed": 4.0, "bite": 30.0, "radius": 0.9},
-	"saucer": {"hp": 150.0, "size": 1.0, "speed": 4.5, "bite": 0.0, "radius": 1.6},
-	"mite": {"hp": 9.0, "size": 0.42, "speed": 7.6, "bite": 5.0, "radius": 0.22},
-	"spider": {"hp": 44.0, "size": 0.8, "speed": 7.2, "bite": 15.0, "radius": 0.55},
-	"unseen": {"hp": 140.0, "size": 1.3, "speed": 5.0, "bite": 34.0, "radius": 0.6},
+	"rusher": {"name": "Ash Stalker", "hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 18.0, "radius": 0.45, "body": "cat",
+		"weak": {"shot": 1.3}, "tough": {}, "text": "Runs you down and springs at the last."},
+	"spitter": {"name": "Bile Choir", "hp": 38.0, "size": 0.85, "speed": 3.2, "bite": 0.0, "radius": 0.4,
+		"weak": {"bullet": 1.4}, "tough": {"shot": 0.7}, "text": "Keeps its distance and spits. Pick it off."},
+	"idol": {"name": "Gilt Idol", "hp": 90.0, "size": 1.25, "speed": 2.6, "bite": 26.0, "radius": 0.55, "body": "cat",
+		"weak": {"blast": 1.6, "blade": 1.4}, "tough": {"shot": 0.6}, "text": "Its golden face turns shot. Strike from the side, or with a blade or a blast."},
+	"swarm": {"name": "Cinder Mote", "hp": 12.0, "size": 0.5, "speed": 7.0, "bite": 7.0, "radius": 0.25,
+		"weak": {"shot": 1.5, "fire": 2.0}, "tough": {}, "text": "Small, quick and many. A spread of shot clears them."},
+	"elite": {"name": "Ash Lion", "hp": 320.0, "size": 2.0, "speed": 4.0, "bite": 30.0, "radius": 0.9, "body": "cat",
+		"weak": {"blast": 1.5}, "tough": {"shot": 0.75, "fire": 0.7}, "text": "Great and slow to fall. It spits fire in a fan."},
+	"saucer": {"name": "Watching Disc", "hp": 150.0, "size": 1.0, "speed": 4.5, "bite": 0.0, "radius": 1.6,
+		"weak": {"bullet": 1.3, "blast": 1.3}, "tough": {"fire": 0.5}, "text": "Hangs above and lets down its brood."},
+	"mite": {"name": "Mite", "hp": 9.0, "size": 0.42, "speed": 7.6, "bite": 5.0, "radius": 0.22,
+		"weak": {"shot": 1.5}, "tough": {}, "text": "Let down by the discs."},
+	"spider": {"name": "Tar Crawler", "hp": 44.0, "size": 0.8, "speed": 7.2, "bite": 15.0, "radius": 0.55,
+		"weak": {"fire": 2.0}, "tough": {"bullet": 0.8}, "text": "Climbs what you build. Fire undoes it."},
+	"unseen": {"name": "The Unseen", "hp": 140.0, "size": 1.3, "speed": 5.0, "bite": 34.0, "radius": 0.6,
+		"weak": {"fire": 1.5}, "tough": {}, "text": "Moves only when not watched. Keep your eyes on it."},
+	"brute": {"name": "Bone Hauler", "hp": 210.0, "size": 1.6, "speed": 2.8, "bite": 32.0, "radius": 0.8, "body": "cat",
+		"weak": {"blade": 1.5, "blast": 1.3}, "tough": {"shot": 0.6, "bullet": 0.8}, "text": "Slow, until it charges. Step aside and cut at it."},
+	"howler": {"name": "Howler", "hp": 70.0, "size": 1.1, "speed": 4.6, "bite": 14.0, "radius": 0.5, "body": "cat",
+		"weak": {"bullet": 1.5}, "tough": {"fire": 0.6}, "text": "Stands back and screams. The cry hurts and drives the others on."},
+	"bloater": {"name": "Ember Sack", "hp": 30.0, "size": 1.15, "speed": 2.4, "bite": 0.0, "radius": 0.55,
+		"weak": {"bullet": 1.5}, "tough": {"blade": 0.5}, "text": "Bursts into fire when it reaches you, or when it dies. Shoot it far off."},
+	"lurker": {"name": "Dune Lurker", "hp": 80.0, "size": 1.0, "speed": 6.0, "bite": 24.0, "radius": 0.5, "body": "cat",
+		"weak": {"shot": 1.4}, "tough": {"bullet": 0.7}, "text": "Swims under the sand and rises at your feet."},
 }
+## The kind of harm now being dealt. Set by whatever deals it, just before it does.
+static var harm_kind := ""
+static var _smoke: Texture2D
+
+
+static func smoke_tex() -> Texture2D:
+	if _smoke == null:
+		var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+		for y in 32:
+			for x in 32:
+				var d := Vector2(x - 15.5, y - 15.5).length() / 16.0
+				img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d, 0.0, 1.0) ** 2))
+		_smoke = ImageTexture.create_from_image(img)
+	return _smoke
+
+
 ## The great ones of the waste, one to a land, each in its lair. Each wears the body of a lesser kind
 ## ("base") grown vast, and has ways of its own: slam (the ground breaks around it), brood (it brings
 ## forth lesser forms), volley (a fan of bolts), blink (watched too long, it is suddenly elsewhere).
@@ -97,7 +133,7 @@ func _ready() -> void:
 	collision_mask = 0 if puppet else (1 | 2)
 	_net_to = position
 	heard_at = Time.get_ticks_msec()
-	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED if kind == "spider" else CharacterBody3D.MOTION_MODE_FLOATING
+	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED if walks() else CharacterBody3D.MOTION_MODE_FLOATING
 	var cs := CollisionShape3D.new()
 	if kind == "saucer":
 		var cy := CylinderShape3D.new()
@@ -117,27 +153,14 @@ func _ready() -> void:
 		head.set_gild(1.0)
 	if kind == "unseen":
 		_build_unseen()
-	var l := OmniLight3D.new()
-	l.visible = kind != "unseen"
-	l.light_color = Color(1.0, 0.15, 0.08)
-	l.light_energy = (2.5 if kind == "elite" else 1.2) * (0.45 if Game.forms_style == 0 else 1.0)
-	l.omni_range = 3.5 * spec.size
-	l.position = Vector3(0, 0.2, 0.9) * spec.size
-	add_child(l)
 	if kind == "spider":
 		_build_spider()
-	if kind == "elite":
-		var crown := MeshInstance3D.new()
-		var tm := TorusMesh.new()
-		tm.inner_radius = 0.5
-		tm.outer_radius = 0.58
-		crown.mesh = tm
-		var cm := StandardMaterial3D.new()
-		cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		cm.albedo_color = Color(1.0, 0.15, 0.08)
-		crown.material_override = cm
-		crown.position.y = 1.45
-		add_child(crown)
+	if spec.get("body", "") == "cat":
+		_build_cat()
+	if kind == "bloater":
+		_build_sack()
+	if kind != "unseen":
+		_make_name()
 	if kind == "saucer":
 		_build_saucer()
 	if boss != "":
@@ -208,7 +231,7 @@ func _physics_process(delta: float) -> void:
 	var frozen: bool = level.combat_frozen or idle
 	if boss != "" and not frozen and not level.completed:
 		_boss_tick(delta, p, dist)
-	if kind == "spider":
+	if walks():
 		_spider_move(delta, p, dist, frozen)
 		return
 	var speed: float = spec.speed * Game.difficulty_scale("speed")
@@ -281,6 +304,9 @@ func _physics_process(delta: float) -> void:
 			"spitter":
 				_cry("growl_%d" % (randi() % 3), -2)
 				_cry_cd = randf_range(5.0, 9.0)
+	if kind == "bloater" and dist < 2.4:
+		die(true)
+		return
 	var reach: float = 1.0 + spec.radius
 	if spec.bite > 0.0 and dist < reach and _attack_cd <= 0.0:
 		_attack_cd = 1.3 if kind == "idol" else 0.9
@@ -367,25 +393,58 @@ func _segment(parent: Node3D, from: Vector3, to: Vector3, r: float, m: Material)
 	parent.add_child(mi)
 
 
-## The spider runs the ground, legs rippling, and springs when near.
+func walks() -> bool:
+	return kind == "spider" or spec.get("body", "") == "cat"
+
+
+var _buried := 0.0       ## a lurker under the sand: 1 hidden, 0 risen
+var _charge := 0.0       ## a hauler's charge, seconds left
+var _howl_cd := 4.0
+
+
+## Those that walk run the ground, legs rippling, and spring when near. Each kind has its own way.
 func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	var flat := p.global_position - global_position
 	flat.y = 0
 	var fd := flat.length()
 	var dir := flat / maxf(fd, 0.01)
-	rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * 10.0))
 	var speed: float = spec.speed * Game.difficulty_scale("speed")
 	var on_floor := is_on_floor()
+	var cat := kind != "spider"
+	if _charge <= 0.0:
+		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
 	if not frozen:
-		var want := dir * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * 2.5
+		var want := dir * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
+		match kind:
+			"howler":
+				# It keeps to the middle distance, where its cry carries
+				if fd < 9.0:
+					want = -dir * speed * 0.8 + dir.cross(Vector3.UP) * _strafe * 2.0
+				elif fd < 15.0:
+					want = dir.cross(Vector3.UP) * _strafe * 2.5
+			"lurker":
+				var under := fd > 6.0
+				_buried = move_toward(_buried, 1.0 if under else 0.0, delta * (1.5 if under else 3.0))
+				if under:
+					want = dir * speed * 1.3
+			"brute":
+				if _charge > 0.0:
+					_charge -= delta
+					want = Vector3(sin(rotation.y), 0, cos(rotation.y)) * speed * 4.2
 		if on_floor:
 			velocity.x = lerpf(velocity.x, want.x, minf(1.0, delta * 8.0))
 			velocity.z = lerpf(velocity.z, want.z, minf(1.0, delta * 8.0))
 		_leap_cd -= delta
-		if on_floor and fd < 7.5 and fd > 2.0 and _leap_cd <= 0.0:
-			_leap_cd = randf_range(2.0, 3.5)
-			velocity = dir * 11.0 + Vector3(0, 6.5, 0)
-			_cry("spider_hiss", 0)
+		if kind == "brute":
+			if on_floor and fd < 16.0 and fd > 4.0 and _leap_cd <= 0.0 and _charge <= 0.0:
+				_leap_cd = randf_range(4.0, 6.0)
+				_charge = 1.1
+				level.sfx("roar", 0, global_position, 0.75)
+		elif kind in ["rusher", "spider", "lurker", "elite"]:
+			if on_floor and fd < 7.5 and fd > 2.0 and _leap_cd <= 0.0 and _buried < 0.5:
+				_leap_cd = randf_range(2.0, 3.5) * (1.6 if kind == "elite" else 1.0)
+				velocity = dir * 11.0 + Vector3(0, 6.5, 0)
+				_cry("spider_hiss" if kind == "spider" else "shriek_%d" % (randi() % 4), 0)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
@@ -398,18 +457,30 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	velocity = real_v
 	if is_on_wall():
 		_claw_at_wall()
+		_charge = 0.0
 	if is_on_floor() and velocity.y < 0.0:
 		velocity.y = 0.0
-	# Spiders climb what stands in their way
+	# Spiders climb what stands in their way; cats scramble over the low things
 	if is_on_wall() and not frozen:
-		velocity.y = 4.5
+		velocity.y = 4.5 if not cat else 3.0
 	# The legs ripple with its pace
 	var pace := Vector2(velocity.x, velocity.z).length()
 	for leg in _legs:
 		var ph: float = _t * (6.0 + pace * 2.0) + leg.phase
-		var amp := minf(0.4, 0.08 + pace * 0.05)
-		leg.pivot.rotation.y = sin(ph) * amp
-		leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
+		if cat:
+			leg.pivot.rotation.x = sin(ph) * minf(0.7, 0.1 + pace * 0.08)
+		else:
+			var amp := minf(0.4, 0.08 + pace * 0.05)
+			leg.pivot.rotation.y = sin(ph) * amp
+			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
+	if _tail:
+		_tail.rotation.x = -0.6 + sin(_t * 2.2) * 0.25
+		_tail.rotation.y = sin(_t * 1.7) * 0.4
+	if _body_node:
+		_body_node.position.y = _lift - _buried * 1.6 * spec.size
+		_body_node.visible = _buried < 0.95
+		if _dust:
+			_dust.emitting = _buried > 0.3 and pace > 1.0
 	head.rotation.y = 0.0
 	head.rotation.x = -asin(clampf((p.global_position.y + 1.3 - global_position.y) / maxf(dist, 0.1), -0.6, 0.6)) * 0.5
 	_flash = maxf(0.0, _flash - delta * 5.0)
@@ -419,14 +490,199 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 		return
 	_attack_cd -= delta
 	_cry_cd -= delta
-	if _cry_cd <= 0.0 and dist < 18.0:
-		_cry_cd = randf_range(1.2, 3.0)
-		_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
-	if dist < 1.6 and _attack_cd <= 0.0:
-		_attack_cd = 0.8
+	if _cry_cd <= 0.0 and dist < 18.0 and _buried < 0.5:
+		_cry_cd = randf_range(1.2, 3.0) if not cat else randf_range(3.5, 7.0)
+		if cat:
+			_cry("growl_%d" % (randi() % 3) if randf() < 0.5 else "shriek_%d" % (randi() % 4), -2)
+		else:
+			_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
+	if kind == "howler":
+		_howl_cd -= delta
+		if _howl_cd <= 0.0 and dist < 18.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+			_howl_cd = randf_range(5.0, 7.0)
+			_howl(p)
+	if kind == "elite" and _attack_cd <= 0.0 and dist < 22.0 and dist > 4.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+		_attack_cd = randf_range(2.0, 3.0)
+		for k in [-0.2, 0.0, 0.2]:
+			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3, 0) - global_position).rotated(Vector3.UP, k))
+		return
+	var reach: float = 1.2 + spec.radius
+	if dist < reach and _attack_cd <= 0.0 and _buried < 0.3:
+		_attack_cd = 0.8 if kind != "brute" else 1.4
 		level.sfx("bite", -2, global_position)
-		level.hurt_target(p, spec.bite, global_position)
+		var bite: float = spec.bite * (1.8 if _charge > 0.0 else 1.0)
+		level.hurt_target(p, bite, global_position)
+		if _charge > 0.0 and p == level.player:
+			level.player.velocity += dir * 14.0 + Vector3(0, 5, 0)
+		_charge = 0.0
 		_knock = -dir * 5.0
+
+
+## The howler's cry: it hurts what hears it close, and the forms near it come on faster a while.
+func _howl(p: Node3D) -> void:
+	level.sfx("roar", 2, global_position, 1.35)
+	head.set_flash(1.0)
+	var d := global_position.distance_to(p.global_position)
+	if d < 14.0:
+		level.hurt_target(p, 10.0 * (1.0 - d / 16.0) + 4.0, global_position)
+		if p == level.player:
+			level.player.shake(0.6)
+	for e in level.enemies:
+		if is_instance_valid(e) and e != self and e.is_alive() and e.global_position.distance_to(global_position) < 16.0:
+			e._knock += (p.global_position - e.global_position).normalized() * 3.0
+			e._leap_cd = 0.0
+
+
+var _legs_m: Material
+var _tail: Node3D
+var _body_node: Node3D
+var _lift := 0.0
+var _dust: CPUParticles3D
+
+
+## Four legs and a long back under the head, a tail that will not keep still: a cat gone wrong.
+func _build_cat() -> void:
+	var s: float = spec.size
+	var coat: Color = head.coat if head.coat != Color() else head.fur.darkened(0.8)
+	var fur := StandardMaterial3D.new()
+	fur.albedo_color = coat
+	fur.roughness = 0.95
+	fur.rim_enabled = true
+	fur.rim = 0.25
+	fur.rim_tint = 0.0
+	var ember := StandardMaterial3D.new()
+	ember.albedo_color = Color(0.25, 0.04, 0.02)
+	ember.emission_enabled = true
+	ember.emission = Color(1.0, 0.28, 0.08)
+	ember.emission_energy_multiplier = 1.4
+	_legs_m = fur
+	_body_node = Node3D.new()
+	add_child(_body_node)
+	head.reparent(_body_node, false)
+	head.position = Vector3(0, 0.15 * s, 0.55 * s)
+	head.scale = Vector3.ONE * 0.72
+	var torso := MeshInstance3D.new()
+	var cap := CapsuleMesh.new()
+	cap.radius = 0.32 * s
+	cap.height = 1.25 * s
+	torso.mesh = cap
+	torso.material_override = fur
+	torso.rotation.x = PI / 2
+	torso.position = Vector3(0, -0.05 * s, -0.12 * s)
+	_body_node.add_child(torso)
+	# Cracks of ember along the spine: the mark of a lesser form
+	for i in 4:
+		var c := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.05, 0.03, 0.16) * s
+		c.mesh = bm
+		c.material_override = ember
+		c.position = Vector3(sin(i * 2.3) * 0.06 * s, 0.24 * s, (0.25 - i * 0.2) * s)
+		c.rotation.y = sin(i * 1.7) * 0.5
+		_body_node.add_child(c)
+	if kind == "idol":
+		var gold := StandardMaterial3D.new()
+		gold.albedo_color = Color(0.85, 0.66, 0.3)
+		gold.metallic = 0.9
+		gold.roughness = 0.3
+		torso.material_override = gold
+		fur = gold
+	if kind == "brute":
+		# Plates of bone over the shoulders
+		var bone := StandardMaterial3D.new()
+		bone.albedo_color = Color(0.82, 0.78, 0.68)
+		for sx in [-1.0, 1.0]:
+			var pl := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(0.25, 0.1, 0.45) * s
+			pl.mesh = bm
+			pl.material_override = bone
+			pl.position = Vector3(sx * 0.18 * s, 0.22 * s, 0.2 * s)
+			pl.rotation.z = sx * 0.5
+			_body_node.add_child(pl)
+	for fz in [0.38, -0.55]:
+		for sx in [-1.0, 1.0]:
+			var hip := Node3D.new()
+			hip.position = Vector3(sx * 0.17 * s, -0.12 * s, fz * s)
+			_body_node.add_child(hip)
+			_segment(hip, Vector3.ZERO, Vector3(0, -0.32 * s, 0.05 * s), 0.1 * s, fur)
+			_segment(hip, Vector3(0, -0.32 * s, 0.05 * s), Vector3(0, -0.62 * s, -0.02 * s), 0.07 * s, fur)
+			_legs.append({"pivot": hip, "phase": (0.0 if sx > 0 else PI) + (PI * 0.5 if fz < 0 else 0.0)})
+	_tail = Node3D.new()
+	_tail.position = Vector3(0, 0.05 * s, -0.75 * s)
+	_body_node.add_child(_tail)
+	_segment(_tail, Vector3.ZERO, Vector3(0, 0.1 * s, -0.7 * s), 0.05 * s, fur)
+	if kind == "lurker":
+		_dust = CPUParticles3D.new()
+		_dust.amount = 24
+		_dust.lifetime = 0.9
+		_dust.emitting = false
+		_dust.direction = Vector3.UP
+		_dust.spread = 40.0
+		_dust.initial_velocity_min = 1.0
+		_dust.initial_velocity_max = 2.5
+		_dust.gravity = Vector3(0, -4, 0)
+		var dq := QuadMesh.new()
+		dq.size = Vector2.ONE * 0.3
+		var dm := StandardMaterial3D.new()
+		dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		dm.albedo_texture = smoke_tex()
+		dm.albedo_color = Color(0.7, 0.6, 0.45, 0.6)
+		dq.material = dm
+		_dust.mesh = dq
+		_dust.position.y = -0.6 * s
+		add_child(_dust)
+		_buried = 1.0
+	# It stands on its legs: lift the body so the feet meet the ground below the round of its collision
+	_lift = 0.74 * s - float(spec.radius)
+	_body_node.position.y = _lift
+	if puppet:
+		_buried = 0.0
+
+
+## The ember sack: a head swollen with fire, glowing through its skin.
+func _build_sack() -> void:
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(0.9, 0.35, 0.1, 0.55)
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.4, 0.1)
+	glow.emission_energy_multiplier = 2.0
+	var sack := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.42 * spec.size
+	sm.height = 0.84 * spec.size
+	sack.mesh = sm
+	sack.material_override = glow
+	sack.position = Vector3(0, -0.45 * spec.size, -0.1)
+	add_child(sack)
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.5, 0.2)
+	l.light_energy = 1.2
+	l.omni_range = 4.0
+	l.position = sack.position
+	add_child(l)
+
+
+var _name_l: Label3D
+
+
+## Its name, shown in the colour of the forms when it is hurt or close by.
+func _make_name() -> void:
+	_name_l = Label3D.new()
+	_name_l.text = str(spec.get("name", "")) if boss == "" else ""
+	_name_l.font = load("res://assets/fonts/Marcellus-Regular.ttf")
+	_name_l.font_size = 36
+	_name_l.pixel_size = 0.005
+	_name_l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_name_l.no_depth_test = false
+	_name_l.modulate = Color(1.0, 0.55, 0.45, 0.0)
+	_name_l.outline_size = 6
+	_name_l.outline_modulate = Color(0, 0, 0, 0.0)
+	_name_l.position.y = (1.4 if kind == "saucer" else 0.75 * spec.size + 0.55) + (1.1 if kind == "unseen" else 0.0)
+	add_child(_name_l)
 
 
 ## The hull of a saucer: a spinning disc ringed with red lights, a glass dome over its head.
@@ -543,6 +799,10 @@ func _spit(target: Vector3) -> void:
 func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive:
 		return false
+	if harm_kind != "" and boss == "":
+		amount *= float(spec.get("weak", {}).get(harm_kind, 1.0)) * float(spec.get("tough", {}).get(harm_kind, 1.0))
+	if kind == "lurker" and _buried > 0.5:
+		amount *= 0.2
 	var full := true
 	if kind == "idol":
 		var facing := Vector3(sin(head.rotation.y), 0, cos(head.rotation.y))
@@ -575,6 +835,8 @@ func die(slain: bool) -> void:
 	if not _alive:
 		return
 	_alive = false
+	if kind == "bloater" and slain and not puppet:
+		_burst_fire()
 	collision_layer = 0
 	level.sfx("dissolve", -4, global_position)
 	var mine := credit if puppet else last_hitter == Net.me()
@@ -594,6 +856,17 @@ func die(slain: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+## The ember sack bursts: fire on everything near, the forms included.
+func _burst_fire() -> void:
+	var at := global_position
+	Arms.blast(level, at, 4.0, 40.0, null, "fire")
+	Arms.Thrown.burn(level, at, 3.5, 10.0, 5.0, true)
+	for t in level.targets():
+		var d: float = t.global_position.distance_to(at)
+		if d < 4.5:
+			level.hurt_target(t, 28.0 * (1.0 - d / 5.5), at)
 
 
 ## A form pressed against something built tears at it.
@@ -766,6 +1039,11 @@ func _make_bar() -> void:
 
 
 func _bar_tick(delta: float) -> void:
+	if _name_l:
+		var near: bool = _alive and level.player != null and global_position.distance_to(level.player.global_position) < 10.0
+		var a := maxf(clampf(_bar_t, 0.0, 1.0) if _alive else 0.0, 0.85 if near else 0.0) * (1.0 - _buried)
+		_name_l.modulate.a = move_toward(_name_l.modulate.a, a, delta * 3.0)
+		_name_l.outline_modulate.a = _name_l.modulate.a * 0.8
 	if _bar == null:
 		return
 	_bar_t -= delta

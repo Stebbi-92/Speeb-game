@@ -1338,12 +1338,12 @@ const BIOME_TEXT := {
 }
 ## What the night sends, by land.
 const BIOME_FORMS := {
-	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol"],
-	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider"],
-	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher"],
-	"forest": ["rusher", "rusher", "spider", "spider", "idol"],
-	"basalt": ["idol", "idol", "rusher", "spitter", "spider"],
-	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher"],
+	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler"],
+	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker"],
+	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater"],
+	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler"],
+	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater"],
+	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker"],
 }
 
 
@@ -1813,7 +1813,7 @@ func _day_watch() -> void:
 				r.guard_day = day
 				var n := 2 + randi() % 3
 				for k in n:
-					_spawn_near(["rusher", "spitter", "spider", "idol"][randi() % 4], r.pos, 6.0, 14.0, true)
+					_spawn_near(["rusher", "spitter", "spider", "idol", "brute", "howler"][randi() % 6], r.pos, 6.0, 14.0, true)
 		if alive_count() < 2 and randf() < 0.08:
 			_spawn_near(["rusher", "spider", "swarm"][randi() % 3], p, 40.0, 60.0)
 
@@ -2765,6 +2765,32 @@ func debug_camp() -> void:
 	elif "portal" in OS.get_cmdline_user_args():
 		ui.open_portal(portals[0])
 	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
+
+
+## Test: one of every kind of form, frozen in a row before the eye.
+func debug_formshot() -> void:
+	await get_tree().create_timer(2.0).timeout
+	combat_frozen = true
+	var c := player.global_position
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	var ks: Array = ["rusher", "idol", "elite", "brute", "howler", "lurker", "spider", "bloater", "spitter", "swarm"]
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("kinds="):
+			ks = Array(a.substr(6).split(","))
+	for i in ks.size():
+		var p := c + fwd * 7.0 + side * (i - (ks.size() - 1) * 0.5) * 2.2
+		p.y = terrain.height_at(p.x, p.z) + 1.5
+		var e := spawn_at(ks[i], p)
+		e._buried = 0.0
+		e.rotation.y = player.yaw + PI + 0.5
+		e._bar_t = 99.0
+	if DisplayServer.get_name() == "headless":
+		await get_tree().create_timer(3.0).timeout
+		for e in enemies:
+			if is_instance_valid(e):
+				print("FORM ", e.kind, " ", e.spec.name, " at y %.2f over ground %.2f" % [e.global_position.y, terrain.height_at(e.global_position.x, e.global_position.z)])
 		get_tree().quit()
 
 

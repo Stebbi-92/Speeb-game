@@ -18,6 +18,56 @@ var _thorns: Node3D
 var _flash := 0.0
 var _fur_mat: ShaderMaterial
 var _jaw: Node3D
+var _cat_mat: ShaderMaterial
+var coat := Color(0.2, 0.18, 0.17)   ## the ashen fur its body wears
+
+
+## A lesser form: a cat's head like the collected forms, its emoji on the face, but the coat gone
+## to ash and soot, and the edges smouldering red. Nothing friendly is drawn like this.
+func _build_lesser(tex: Texture2D) -> void:
+	coat = Color.from_hsv(fur.h, fur.s * 0.35, clampf(fur.v * 0.35, 0.08, 0.3))
+	_cat_mat = ShaderMaterial.new()
+	_cat_mat.shader = preload("res://scripts/cathead.gdshader")
+	_cat_mat.set_shader_parameter("face_tex", tex)
+	_cat_mat.set_shader_parameter("frames", float(frames))
+	_cat_mat.set_shader_parameter("fur", coat)
+	_cat_mat.set_shader_parameter("menace", 1.0)
+	_cat_mat.set_shader_parameter("glow", 0.12)
+	var m := MeshInstance3D.new()
+	m.mesh = Emoji3D._mesh if Emoji3D._mesh else Emoji3D._build_head()
+	if Emoji3D._mesh == null:
+		Emoji3D._mesh = m.mesh
+	m.material_override = _cat_mat
+	m.scale = Vector3.ONE * size
+	add_child(m)
+	# Smoke rises off it, thin and constant
+	var smoke := CPUParticles3D.new()
+	smoke.amount = 10
+	smoke.lifetime = 1.6
+	smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	smoke.emission_sphere_radius = 0.35 * size
+	smoke.direction = Vector3.UP
+	smoke.spread = 25.0
+	smoke.gravity = Vector3(0, 0.6, 0)
+	smoke.initial_velocity_min = 0.2
+	smoke.initial_velocity_max = 0.5
+	smoke.scale_amount_min = 0.5
+	smoke.scale_amount_max = 1.2
+	var sq := QuadMesh.new()
+	sq.size = Vector2.ONE * 0.22 * size
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	sm.vertex_color_use_as_albedo = true
+	sm.albedo_texture = preload("res://scripts/enemy.gd").smoke_tex()
+	sq.material = sm
+	smoke.mesh = sq
+	var g := Gradient.new()
+	g.set_color(0, Color(0.15, 0.12, 0.11, 0.5))
+	g.set_color(1, Color(0.1, 0.1, 0.1, 0.0))
+	smoke.color_ramp = g
+	add_child(smoke)
 
 
 func setup(c: String, s := 1.0) -> LesserHead:
@@ -35,10 +85,9 @@ func _ready() -> void:
 	if _skull == null:
 		_skull = Emoji3D._build_head()
 	if Game.forms_style == 0:
-		_build_flesh()
+		_build_lesser(tex)
 	else:
 		_build_mask(tex)
-	_build_thorns()
 
 
 ## A cat's head, as near to living as plain shapes allow. Its coat follows the colours of its emoji.
@@ -228,13 +277,18 @@ func _process(delta: float) -> void:
 		if frames > 1:
 			_mask_mat.set_shader_parameter("frame", float(int(_t * fps) % frames))
 		_mask_mat.set_shader_parameter("flash", _flash)
-	_thorns.rotation.z += delta * 0.6
+	if _thorns:
+		_thorns.rotation.z += delta * 0.6
+	if _cat_mat and frames > 1:
+		_cat_mat.set_shader_parameter("frame", float(int(_t * fps) % frames))
 	if _jaw:
 		_jaw.rotation.x = 0.25 + sin(_t * 3.0) * 0.12 + _flash * 0.4
 
 
 func set_flash(v: float) -> void:
 	_flash = v
+	if _cat_mat:
+		_cat_mat.set_shader_parameter("hit_flash", v)
 	if _fur_mat:
 		_fur_mat.set_shader_parameter("flash", v)
 	if _skull_mat:
@@ -243,6 +297,8 @@ func set_flash(v: float) -> void:
 
 ## The gilded idols: a skull of gold metal, and a mask that turns shot aside.
 func set_gild(v: float) -> void:
+	if _cat_mat:
+		_cat_mat.set_shader_parameter("gild", v)
 	if _fur_mat:
 		_fur_mat.set_shader_parameter("gild", v)
 	if _skull_mat and v > 0.0:
