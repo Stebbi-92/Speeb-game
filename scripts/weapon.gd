@@ -191,6 +191,8 @@ func _unhandled_input(e: InputEvent) -> void:
 		throw_grenade()
 	elif e.is_action_pressed("gadget"):
 		use_gadget()
+	elif e.is_action_pressed("streak"):
+		player.get_parent().call_streak()
 
 
 func swap() -> void:
@@ -364,6 +366,9 @@ func _ui() -> void:
 	if mount() != "":
 		line += " · " + ArmsDB.ATTACHMENTS[mount()].name
 	line += "     %s %d     %s %d" % [ArmsDB.GRENADES[grenade].name.split(" ")[0], grenades, ArmsDB.GADGETS[gadget].name, charges]
+	var ready = player.get_parent().get("streaks_ready")
+	if ready is Array and not ready.is_empty():
+		line += "     [H] " + Streaks.KINDS[ready[0]].name + (" +%d" % (ready.size() - 1) if ready.size() > 1 else "")
 	hud.set_kit(line)
 
 
@@ -479,6 +484,8 @@ static func deal(hits: Dictionary, dir: Vector3) -> void:
 				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side.")
 	if marked > 0:
 		Game.main.hud.hitmarker(marked == 2)
+		if Game.main.level:
+			Game.main.level.sfx("tick", -6 if marked == 1 else -2, null, 1.0 if marked == 1 else 0.7)
 
 
 ## Harms everything near a point, less at the edge. The thrower is hurt too if they stand in it.

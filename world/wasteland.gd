@@ -1462,6 +1462,7 @@ func on_blocked(_e: LesserSpeeb, col: Object, dmg: float) -> bool:
 
 
 func on_enemy_slain(e: LesserSpeeb) -> void:
+	life_kill()
 	kills += 1
 	kill_line()
 	Game.add_kill(e.kind)
@@ -1543,6 +1544,7 @@ func _check_wipe() -> void:
 func _perish(message: String) -> void:
 	if _pfail:
 		return
+	life_kills = 0
 	_pfail = true
 	player.input_locked = true
 	if ui:

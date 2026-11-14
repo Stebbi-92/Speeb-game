@@ -44,6 +44,8 @@ var _gathering := false
 var _first_wave_shown := false
 var anchors: Array = []
 var streak := 0
+var life_kills := 0          ## forms slain since last falling: kill streaks
+var streaks_ready: Array = []
 var _streak_t := 0.0
 var shots := 0
 var hits := 0
@@ -107,6 +109,37 @@ func _ready() -> void:
 	if armed and not Net.dedicated and OS.get_cmdline_user_args().is_empty():
 		_choose_arms()
 	intro()
+
+
+## Counts a form slain toward the kill streaks, and readies the ones earned.
+func life_kill() -> void:
+	life_kills += 1
+	for k in Streaks.ORDER:
+		if life_kills == int(Streaks.KINDS[k].kills):
+			streaks_ready.append(k)
+			sfx("bell", -6)
+			hud.notify("%s ready. Press H to mark the ground." % Streaks.KINDS[k].name)
+			if player.weapon:
+				player.weapon._ui()
+
+
+## Calls the oldest earned streak onto the point under the crosshair.
+func call_streak() -> void:
+	if streaks_ready.is_empty():
+		hud.notify("Nothing answers yet. Slay %d without falling to call the sky down." % maxi(1, int(Streaks.KINDS.airstrike.kills) - life_kills))
+		return
+	var k: String = streaks_ready.pop_front()
+	var cam := player.cam
+	var fwd := -cam.global_transform.basis.z
+	var q := PhysicsRayQueryParameters3D.create(cam.global_position, cam.global_position + fwd * 400.0, 1)
+	var r := get_world_3d().direct_space_state.intersect_ray(q)
+	var at: Vector3 = r.position if not r.is_empty() else cam.global_position + fwd * 60.0
+	Streaks.call_in(self, k, at, fwd, true)
+	Net.fx("streak:" + k, at, fwd)
+	hud.notify("%s called." % Streaks.KINDS[k].name)
+	sfx("deny", -12, null, 1.6)
+	if player.weapon:
+		player.weapon._ui()
 
 
 ## Before each trial the pilgrim chooses what to carry. Alone, the world waits; in a fellowship it does not.
@@ -386,6 +419,7 @@ func kill_line() -> void:
 
 
 func on_enemy_slain(e: LesserSpeeb) -> void:
+	life_kill()
 	kills += 1
 	kill_line()
 	Game.add_kill(e.kind)
@@ -871,6 +905,7 @@ func reset_trial() -> void:
 func fail(message: String, sound := "deny") -> void:
 	if failing or completed:
 		return
+	life_kills = 0
 	# In a fellowship a failed step sends back only the one who failed; the others walk on
 	if Net.online and not _wiping:
 		_personal_fail(message, sound)
@@ -2052,6 +2087,9 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 			# A fellow's mine shows until its burst is seen
 			get_tree().create_timer(120.0, false).timeout.connect(func(): if is_instance_valid(t): t.queue_free())
 		return
+	if kind.begins_with("streak:"):
+		Streaks.call_in(self, kind.substr(7), a, b, false)
+		return
 	match kind:
 		"shot":
 			sfx("shotgun", -6, a)
@@ -2104,6 +2142,7 @@ func _check_wipe() -> void:
 func _go_down() -> void:
 	if downed:
 		return
+	life_kills = 0
 	downed = true
 	player.health = 0.0
 	player.input_locked = true
@@ -2520,3 +2559,41 @@ func debug_loadoutshot() -> void:
 	player.relics.refresh()
 	await get_tree().create_timer(4.0).timeout
 	hud.show_loadout()
+
+
+## Testing aid: earns and calls each kill streak onto forms gathered before Brelm.
+func debug_streaks() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var fwd := -player.global_transform.basis.z
+	for k in Streaks.ORDER:
+		var es: Array = []
+		for i in 5:
+			es.append(spawn_at("rusher", player.global_position + fwd * (30.0 + i * 3.0) + Vector3(randf_range(-3, 3), 0, 0)))
+		combat_frozen = true
+		await get_tree().create_timer(0.5).timeout
+		streaks_ready.append(k)
+		_debug_aim(player.global_position + fwd * 36.0)
+		call_streak()
+		await get_tree().create_timer(14.0 if k != "gunship" else 40.0).timeout
+		var alive := es.filter(func(e): return is_instance_valid(e) and e.is_alive()).size()
+		print("STREAK %s: %d of 5 forms still stand, player hp %.0f" % [k, alive, player.health])
+		for e in es:
+			if is_instance_valid(e):
+				e.queue_free()
+	get_tree().quit()
+
+
+func debug_streakshot() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var fwd := -player.global_transform.basis.z
+	var h := Streaks._helicopter()
+	add_child(h)
+	h.global_position = player.global_position + fwd * 30.0 + Vector3(-8, 12, 0)
+	h.look_at(player.global_position + Vector3(0, 8, 0), Vector3.UP)
+	var j := Streaks._jet(true)
+	add_child(j)
+	j.global_position = player.global_position + fwd * 60.0 + Vector3(18, 22, 0)
+	j.look_at(j.global_position + Vector3(-1, -0.2, 0.3), Vector3.UP)
+	_debug_aim(player.global_position + fwd * 30.0 + Vector3(0, 12, 0))
+	await get_tree().create_timer(1.0).timeout
+	Arms.blast_fx(self, player.global_position + fwd * 25.0 + Vector3(6, 0.5, 0), 7.0)

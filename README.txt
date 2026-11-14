@@ -140,6 +140,8 @@ THE ASHEN WASTE (open world, alone or with up to four)
   I or Tab   your pack, and what you can make
   M          the map; it fills in as you walk
   J          the journal; click a task to follow it on the compass
+  (Arms, everywhere)  right mouse aim, R reload, 1 or X change gun, Z melee,
+             G grenade, T gadget, H call a kill streak
   K          what you have learned: spend a point each level in four trees
              of skills (Survival, Arms, Craft, Faith)
   B          build: wheel to choose, R to turn, click to build,

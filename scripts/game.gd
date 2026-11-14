@@ -148,6 +148,7 @@ func _setup_input() -> void:
 	_bind("melee", [KEY_Z])
 	_bind("grenade", [KEY_G])
 	_bind("gadget", [KEY_T])
+	_bind("streak", [KEY_H])
 	for i in RELICS.size():
 		_bind("slot_%d" % (i + 1), [KEY_1 + i])
 	InputMap.add_action("fire")
