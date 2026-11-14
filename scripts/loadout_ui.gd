@@ -56,8 +56,6 @@ func _ready() -> void:
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.custom_minimum_size = Vector2(1180, 52)
 	box.add_child(_info)
-	var keys: Label = hud._label("Left mouse fire   Right mouse aim   R reload   1 or X change gun   Z melee   G grenade   T gadget", 15, Color(hud.DIM, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
-	box.add_child(keys)
 	_go = _btn("Go", _finish, 30, hud.GOLD)
 	_go.size_flags_horizontal = Control.SIZE_SHRINK_END
 	box.add_child(_go)

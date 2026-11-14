@@ -2364,7 +2364,7 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		skills.points += 1
 		Game.gain_pxp(300)
 		ui.skills_changed()
-		hud.notify("%s is undone.\nA point of skill is yours to spend (K)." % LesserSpeeb.BOSSES[b].name)
+		hud.notify("%s is undone.\nA point of skill is yours to spend [%s]." % [LesserSpeeb.BOSSES[b].name, Game.key_text("skills")])
 		player.health = player.max_health
 		hud.set_health(1.0, true)
 		autosave_soon(4.0)

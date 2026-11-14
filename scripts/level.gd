@@ -1912,7 +1912,7 @@ func reveal(code: String, pos: Vector3, size := 3.0, descend := true, then := Ca
 		waited += get_process_delta_time()
 		if waited > 8.0 and not shown:
 			shown = true
-			hud.reveal_hint.text = "Judgment of this trial: %s      [E]  Continue the pilgrimage" % verdict
+			hud.reveal_hint.text = "Judgment of this trial: %s      [%s]  Continue the pilgrimage" % [verdict, Game.key_text("interact")]
 		if shown and Input.is_action_just_pressed("interact"):
 			break
 		if not voice.playing and waited > 8.0:
@@ -2122,7 +2122,7 @@ func net_downed(id: int, on: bool) -> void:
 	if avatars.has(id) and is_instance_valid(avatars[id]):
 		avatars[id].downed = on
 	if on:
-		hud.notify("%s has fallen. Hold [E] over them to raise them." % Net.name_of(id))
+		hud.notify("%s has fallen. Hold [%s] over them to raise them." % [Net.name_of(id), Game.key_text("interact")])
 	if Net.is_host():
 		_down_peers[id] = on
 		if on:

@@ -278,6 +278,6 @@ func _update_target(delta: float) -> void:
 				return
 		else:
 			hold_time = maxf(0.0, hold_time - delta * 2.0)
-		hud.set_prompt("Hold [E]  " + target.get_meta("prompt"), hold_time / hold)
+		hud.set_prompt("Hold [%s]  " % Game.key_text("interact") + target.get_meta("prompt"), hold_time / hold)
 	else:
-		hud.set_prompt("[E]  " + target.get_meta("prompt"), 0.0)
+		hud.set_prompt("[%s]  " % Game.key_text("interact") + target.get_meta("prompt"), 0.0)

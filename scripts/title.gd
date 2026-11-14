@@ -138,7 +138,7 @@ func _build_menu() -> void:
 		var a := AppearanceUI.new()
 		a.hud = hud
 		hud.root.add_child(a)))
-	_menu.add_child(_btn("Options", func(): hud.show_options()))
+	_menu.add_child(_btn("Settings", func(): hud.show_options()))
 	if Game.tenth_unlocked():
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
 	_menu.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex()))
@@ -191,13 +191,8 @@ func _build_menu() -> void:
 	ver.position = Vector2(-140, 20)
 	ver.size = Vector2(110, 24)
 	box.add_child(ver)
-	var c: Label = hud._label("WASD walk  ·  Mouse look  ·  LMB use  ·  RMB aim  ·  1–6 or wheel relics  ·  X change gun  ·  Z melee  ·  G grenade  ·  T gadget  ·  E interact  ·  Shift hasten  ·  Tab the Book of Emojis  ·  Esc stillness", 16, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
-	c.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	c.position = Vector2(110, -40)
-	c.size = Vector2(1400, 26)
-	c.add_theme_font_size_override("font_size", 15)
-	box.add_child(c)
-	_hint = c
+	_hint = hud._label("", 15, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	box.add_child(_hint)
 
 
 func _btn(text: String, cb: Callable, size := 27) -> Button:

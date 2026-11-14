@@ -132,44 +132,97 @@ func _json(path: String) -> Variant:
 	return JSON.parse_string(f.get_as_text())
 
 
+## Every control that may be changed: [action, what it is called, its keys]. A key is its physical keycode;
+## a mouse button is written as a negative number (-1 left, -2 right, -3 middle, -8 and -9 the side buttons).
+const CONTROLS := [
+	["move_forward", "Walk forward", [KEY_W, KEY_UP]], ["move_back", "Walk back", [KEY_S, KEY_DOWN]],
+	["move_left", "Step left", [KEY_A, KEY_LEFT]], ["move_right", "Step right", [KEY_D, KEY_RIGHT]],
+	["jump", "Jump", [KEY_SPACE]], ["run", "Hasten", [KEY_SHIFT]], ["soft", "Tread softly", [KEY_CTRL, KEY_C]],
+	["interact", "Interact", [KEY_E, KEY_F]],
+	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
+	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],
+	["melee", "Melee", [KEY_Z]], ["grenade", "Grenade", [KEY_G]], ["gadget", "Gadget", [KEY_T]], ["streak", "Call a kill streak", [KEY_H]],
+	["dash", "Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]],
+	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
+	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
+	["codex", "The Book of Emojis", [KEY_TAB]],
+	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
+	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
+	["pause", "Menu", [KEY_ESCAPE, KEY_P]],
+]
+var binds := {}   ## action -> [codes], only for those the player has changed
+
+
 func _setup_input() -> void:
-	_bind("move_forward", [KEY_W, KEY_UP])
-	_bind("move_back", [KEY_S, KEY_DOWN])
-	_bind("move_left", [KEY_A, KEY_LEFT])
-	_bind("move_right", [KEY_D, KEY_RIGHT])
-	_bind("jump", [KEY_SPACE])
-	_bind("interact", [KEY_E, KEY_F])
-	_bind("run", [KEY_SHIFT])
-	_bind("soft", [KEY_CTRL, KEY_C])
-	_bind("codex", [KEY_TAB, KEY_B])
-	_bind("pause", [KEY_ESCAPE, KEY_P])
-	_bind("reload", [KEY_R])
-	_bind("dash", [KEY_Q])
-	_bind("riftwalk", [KEY_V])
-	_bind("swap_gun", [KEY_X])
-	_bind("melee", [KEY_Z])
-	_bind("grenade", [KEY_G])
-	_bind("gadget", [KEY_T])
-	_bind("streak", [KEY_H])
-	for i in RELICS.size():
-		_bind("slot_%d" % (i + 1), [KEY_1 + i])
-	InputMap.add_action("fire")
-	var click := InputEventMouseButton.new()
-	click.button_index = MOUSE_BUTTON_LEFT
-	InputMap.action_add_event("fire", click)
-	InputMap.add_action("aim")
-	var rclick := InputEventMouseButton.new()
-	rclick.button_index = MOUSE_BUTTON_RIGHT
-	InputMap.action_add_event("aim", rclick)
+	for c in CONTROLS:
+		_bind(c[0], binds.get(c[0], c[2]))
+
+
+## The keys now set for an action.
+func keys_of(action: String) -> Array:
+	for c in CONTROLS:
+		if c[0] == action:
+			return binds.get(action, c[2])
+	return []
+
+
+static func key_name(code: int) -> String:
+	if code < 0:
+		return {-1: "Left mouse", -2: "Right mouse", -3: "Middle mouse", -8: "Mouse 4", -9: "Mouse 5"}.get(code, "Mouse %d" % -code)
+	return OS.get_keycode_string(code)
+
+
+## What to press, as words: "E", or "E or F".
+func key_text(action: String, all := false) -> String:
+	var ks := keys_of(action)
+	if ks.is_empty():
+		return "unset"
+	if all:
+		return " or ".join(ks.map(func(k): return key_name(int(k))))
+	return key_name(int(ks[0]))
+
+
+## Sets one of an action's two keys, taking that key away from any other action that held it.
+func rebind(action: String, slot: int, code: int) -> void:
+	for c in CONTROLS:
+		if c[0] == action:
+			continue
+		var other: Array = keys_of(c[0]).duplicate()
+		if code in other and c[0] != "pause":
+			other.erase(code)
+			binds[c[0]] = other
+	var ks: Array = keys_of(action).duplicate()
+	while ks.size() <= slot:
+		ks.append(code)
+	ks[slot] = code
+	var uniq := []
+	for k in ks:
+		if not k in uniq:
+			uniq.append(k)
+	binds[action] = uniq
+	_setup_input()
+	save()
+
+
+func reset_binds() -> void:
+	binds.clear()
+	_setup_input()
+	save()
 
 
 func _bind(action: String, keys: Array) -> void:
 	if not InputMap.has_action(action):
 		InputMap.add_action(action)
+	InputMap.action_erase_events(action)
 	for k in keys:
-		var ev := InputEventKey.new()
-		ev.physical_keycode = k
-		InputMap.action_add_event(action, ev)
+		if int(k) < 0:
+			var mb := InputEventMouseButton.new()
+			mb.button_index = -int(k)
+			InputMap.action_add_event(action, mb)
+		else:
+			var ev := InputEventKey.new()
+			ev.physical_keycode = int(k)
+			InputMap.action_add_event(action, ev)
 
 
 ## Replaces :code: tokens in scripture with the spoken name of the form.
@@ -371,7 +424,7 @@ func save() -> void:
 			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
-			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min,
+			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
 			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
 
 
@@ -420,6 +473,12 @@ func load_save() -> void:
 		gilded = bool(d.get("gilded", gilded))
 		player_name = str(d.get("player_name", player_name)).left(20)
 		lobby_url = str(d.get("lobby_url", lobby_url))
+		if d.get("binds") is Dictionary:
+			binds.clear()
+			for a in d.binds:
+				if d.binds[a] is Array:
+					binds[str(a)] = d.binds[a].map(func(k): return int(k))
+			_setup_input()
 		for r in d.get("revealed", []):
 			revealed[r] = true
 		for r in d.get("leaves", []):

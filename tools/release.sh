@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds everything a release needs, locally (no GitHub Actions):
+# Builds everything a release needs. Run locally, or by the Release workflow when it is started by hand:
 #   dist/Brelm-Setup.exe             Windows installer
 #   dist/Brelm-Windows.zip           Windows, unzip and play
 #   dist/Brelm-macOS.zip             macOS app
@@ -15,6 +15,10 @@ ENGINE=godot4.3
 mkdir -p build build-mac dist
 
 if [ "$1" != "publish" ]; then
+  # A fresh checkout has no import cache; make it before exporting
+  [ -d .godot/imported ] || $G --headless --import >/dev/null 2>&1 || true
+  cp "tools/launchers/Brelm (compatibility mode).bat" "tools/launchers/Brelm Server.bat" build/
+  cp "tools/launchers/Brelm Server.command" build-mac/
   $G --headless --path . --export-release "Windows Desktop" build/Brelm.exe
   $G --headless --path . --export-release "macOS" build-mac/Brelm.zip
   $G --headless --path . --export-pack "Windows Desktop" "dist/Brelm-Windows-$ENGINE.pck"
@@ -26,7 +30,7 @@ if [ "$1" != "publish" ]; then
 fi
 
 TAG="v$VERSION"
-gh release create "$TAG" --repo Stebbi-92/Speeb-game --prerelease --title "Brelm alpha $NUM" \
+gh release create "$TAG" --repo Stebbi-92/Speeb-game --target "${GITHUB_SHA:-main}" --prerelease --title "Brelm alpha $NUM" \
   --notes-file "${NOTES:-NEWS.txt}" \
   dist/Brelm-Setup.exe dist/Brelm-Windows.zip dist/Brelm-macOS.zip \
   "dist/Brelm-Windows-$ENGINE.pck" "dist/Brelm-macOS-$ENGINE.pck"

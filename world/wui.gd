@@ -49,7 +49,7 @@ func _ready() -> void:
 	_pin(_build_hint, 0.5, 1.0, Rect2(-500, -116, 1000, 28))
 	_build_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_build_hint)
-	_keys = _label("[I] Pack    [M] Map    [J] Journal    [K] Skills    [B] Build", 15, Color(DIM, 0.7))
+	_keys = _label("", 15, Color(DIM, 0.7))
 	_pin(_keys, 0.0, 1.0, Rect2(36, -100, 600, 24))
 	add_child(_keys)
 	_frame = PanelContainer.new()
@@ -110,7 +110,7 @@ func skills_changed() -> void:
 	var s: WSkills = w.skills
 	_xp_bar.max_value = WSkills.need(s.level)
 	_xp_bar.value = s.xp
-	var extra := "    %d to spend  [K]" % s.points if s.points > 0 else ""
+	var extra := "    %d to spend  [%s]" % [s.points, Game.key_text("skills")] if s.points > 0 else ""
 	_xp_text.text = ("Level %d" % s.level) + ("   (the most there is)" if s.level >= WSkills.MAX_LEVEL else "") + extra
 	if _panel_name == "skills":
 		_draw_skills()
@@ -290,51 +290,53 @@ func _input(e: InputEvent) -> void:
 			return
 		if w.player.input_locked and _panel == null:
 			return
-		match k:
-			KEY_I, KEY_TAB:
-				if _panel != null and _panel_name == "pack":
-					close_all()
-				else:
-					open_inventory("pack")
-				accept_event()
-			KEY_M:
-				if _panel_name == "map":
-					close_all()
-				else:
-					open_map()
-				accept_event()
-			KEY_J:
-				if _panel_name == "journal":
-					close_all()
-				else:
-					open_journal()
-				accept_event()
-			KEY_K:
-				if _panel_name == "skills":
-					close_all()
-				else:
-					open_skills()
-				accept_event()
-			KEY_B:
-				if _panel == null:
-					w.builder.toggle()
-					w.player.set_armed(not w.builder.active)
-				accept_event()
-			KEY_R:
-				if w.builder.active and _panel == null:
-					w.builder.turn()
-					accept_event()
-	if e is InputEventMouseButton and e.pressed and w.builder.active and _panel == null and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		match e.button_index:
-			MOUSE_BUTTON_LEFT:
-				w.builder.place()
-			MOUSE_BUTTON_RIGHT:
-				w.builder.dismantle()
-			MOUSE_BUTTON_WHEEL_UP:
-				w.builder.choose(-1)
-			MOUSE_BUTTON_WHEEL_DOWN:
-				w.builder.choose(1)
+	if w.player.input_locked and _panel == null:
+		return
+	if e.is_action_pressed("pack") or (e.is_action_pressed("codex") and not e.is_echo()):
+		if _panel != null and _panel_name == "pack":
+			close_all()
+		else:
+			open_inventory("pack")
 		accept_event()
+	elif e.is_action_pressed("map"):
+		if _panel_name == "map":
+			close_all()
+		else:
+			open_map()
+		accept_event()
+	elif e.is_action_pressed("journal"):
+		if _panel_name == "journal":
+			close_all()
+		else:
+			open_journal()
+		accept_event()
+	elif e.is_action_pressed("skills"):
+		if _panel_name == "skills":
+			close_all()
+		else:
+			open_skills()
+		accept_event()
+	elif e.is_action_pressed("build"):
+		if _panel == null:
+			w.builder.toggle()
+			w.player.set_armed(not w.builder.active)
+		accept_event()
+	elif e.is_action_pressed("reload") and w.builder.active and _panel == null:
+		w.builder.turn()
+		accept_event()
+	if w.builder.active and _panel == null and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		if e.is_action_pressed("fire"):
+			w.builder.place()
+			accept_event()
+		elif e.is_action_pressed("aim"):
+			w.builder.dismantle()
+			accept_event()
+		elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_UP:
+			w.builder.choose(-1)
+			accept_event()
+		elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			w.builder.choose(1)
+			accept_event()
 
 
 var _panel_name := ""
@@ -914,6 +916,10 @@ class Compass extends Control:
 			for e in w.enemies:
 				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
 					marks.append([e.global_position, Color(0.85, 0.25, 0.2, 0.85), 3.5])
+		for id in w.avatars:
+			var a = w.avatars[id]
+			if is_instance_valid(a) and a.visible:
+				marks.append([a.global_position, Net.color_of(id).lightened(0.2), 6.0, Net.name_of(id)])
 		var me: Vector3 = w.player.global_position
 		for m in marks:
 			var p: Vector3 = m[0]
@@ -925,7 +931,9 @@ class Compass extends Control:
 			var x := cx + clampf(dx / 1.2, -1.0, 1.0) * cx
 			var r: float = m[2]
 			draw_colored_polygon(PackedVector2Array([Vector2(x, 26 - r), Vector2(x + r, 26), Vector2(x, 26 + r), Vector2(x - r, 26)]), m[1])
-			if r > 5.0:
+			if m.size() > 3:
+				draw_string(font, Vector2(x - 60, 48), "%s  %d m" % [m[3], int(Vector2(d.x, d.z).length())], HORIZONTAL_ALIGNMENT_CENTER, 120, 12, m[1])
+			elif r > 5.0:
 				draw_string(font, Vector2(x - 30, 48), "%d m" % int(Vector2(d.x, d.z).length()), HORIZONTAL_ALIGNMENT_CENTER, 60, 12, Color(0.95, 0.85, 0.6, 0.9))
 
 
@@ -985,7 +993,10 @@ class MapDraw extends Control:
 		for id in w.avatars:
 			var a = w.avatars[id]
 			if is_instance_valid(a) and a.visible:
-				draw_circle(_to(a.global_position), 5.0, Net.color_of(id))
+				var ap := _to(a.global_position)
+				draw_circle(ap, 7.0, Color(0, 0, 0, 0.7))
+				draw_circle(ap, 5.0, Net.color_of(id))
+				draw_string(font, ap + Vector2(9, 5), Net.name_of(id), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Net.color_of(id).lightened(0.3))
 		var me := _to(w.player.global_position)
 		var f: Vector3 = -w.player.global_transform.basis.z
 		var dir := Vector2(f.x, f.z).normalized()

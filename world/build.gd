@@ -55,7 +55,7 @@ func _hint() -> void:
 	if active:
 		var k := kind()
 		var p: Dictionary = Items.PIECES[k]
-		w.ui.set_build_bar("%s   (%s)" % [p.name, Items.cost_text(w.skills.cost(p.cost))], "[Wheel] choose   [R] turn   [Click] build   [Right click] take down   [B] done")
+		w.ui.set_build_bar("%s   (%s)" % [p.name, Items.cost_text(w.skills.cost(p.cost))], "")
 	else:
 		w.ui.set_build_bar("", "")
 

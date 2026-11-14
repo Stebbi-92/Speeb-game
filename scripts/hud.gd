@@ -564,7 +564,7 @@ func set_blessings(p) -> void:
 		root.move_child(blessing_label, fade.get_index())
 	var parts := []
 	if Game.blessed("speebyeet"):
-		parts.append("Cast [Q] " + ("ready" if p.dash_cd <= 0.0 else "%.0f" % ceil(p.dash_cd)))
+		parts.append("Cast [%s] " % Game.key_text("dash") + ("ready" if p.dash_cd <= 0.0 else "%.0f" % ceil(p.dash_cd)))
 	if Game.blessed("glitchspeeb"):
 		parts.append("Riftwalk [V] " + ("ready" if p.rift_cd <= 0.0 else "%.0f" % ceil(p.rift_cd)))
 	if Game.blessed("runespeeb"):
@@ -641,6 +641,20 @@ func clear_all() -> void:
 
 # ---------------------------------------------------------------- pause and codex
 
+var _save_btn: Button
+var _restart_btn: Button
+
+
+## Writes everything down at once: the pilgrim's own record, and in the waste the world and what is carried.
+func _save_now() -> void:
+	Game.save()
+	var lvl = Game.main.level
+	if lvl and lvl.has_method("save_all"):
+		lvl.save_all()
+	_save_btn.text = "Saved"
+	get_tree().create_timer(1.5, true, false, true).timeout.connect(func(): _save_btn.text = "Save")
+
+
 func _build_pause() -> void:
 	pause_panel = ColorRect.new()
 	pause_panel.color = Color(0, 0, 0, 0.82)
@@ -661,8 +675,11 @@ func _build_pause() -> void:
 	v.add_child(Control.new())
 	v.add_child(button("Resume", toggle_pause))
 	v.add_child(button("The Book of Emojis", func(): toggle_codex()))
-	v.add_child(button("Options", func(): show_options()))
-	v.add_child(button("Restart this trial", func(): toggle_pause(); Game.main.restart_level()))
+	_save_btn = button("Save", _save_now)
+	v.add_child(_save_btn)
+	v.add_child(button("Settings", func(): show_options()))
+	_restart_btn = button("Restart this trial", func(): toggle_pause(); Game.main.restart_level())
+	v.add_child(_restart_btn)
 	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
 	v.add_child(button("Leave", func(): get_tree().quit()))
 
@@ -812,6 +829,29 @@ func _process(d: float) -> void:
 		set_fx("hurt", _hurt)
 
 
+var _rebinding: Array = []
+var _from_pause := false
+
+
+## While a control waits for its new key, the next key or mouse button pressed becomes it.
+func _input(e: InputEvent) -> void:
+	if _rebinding.is_empty():
+		return
+	var code := 0
+	if e is InputEventKey and e.pressed and not e.echo:
+		code = e.physical_keycode
+	elif e is InputEventMouseButton and e.pressed and not e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		code = -e.button_index
+	else:
+		return
+	get_viewport().set_input_as_handled()
+	var rb := _rebinding
+	_rebinding = []
+	if code != KEY_ESCAPE:
+		Game.rebind(rb[0], rb[1], code)
+	show_options.call_deferred()
+
+
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause"):
 		toggle_pause()
@@ -909,7 +949,7 @@ func _build_options() -> void:
 	outer.offset_bottom = -40
 	outer.add_theme_constant_override("separation", 12)
 	options_panel.add_child(outer)
-	var t := _label("Options", 46, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	var t := _label("Settings", 46, PALE, HORIZONTAL_ALIGNMENT_CENTER)
 	t.add_theme_font_override("font", title_font)
 	outer.add_child(t)
 	outer.add_child(_label("F11 or Alt+Enter toggles fullscreen at any time", 16, DIM, HORIZONTAL_ALIGNMENT_CENTER))
@@ -958,6 +998,25 @@ func show_options() -> void:
 	_section("Controls")
 	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
 	_toggle("Invert mouse Y", Game.invert_y, func(on): Game.invert_y = on; Game.save())
+	_options_list.add_child(_label("Click a key to change it, then press the new key or mouse button. Esc leaves it as it was.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	for c in Game.CONTROLS:
+		var action: String = c[0]
+		var h := _row(c[1])
+		var ks: Array = Game.keys_of(action)
+		for slot in 2:
+			var b := Button.new()
+			b.text = Game.key_name(int(ks[slot])) if slot < ks.size() else "—"
+			b.custom_minimum_size.x = 170
+			b.add_theme_font_size_override("font_size", 18)
+			b.focus_mode = Control.FOCUS_NONE
+			b.pressed.connect(func():
+				_rebinding = [action, slot]
+				b.text = "Press a key...")
+			h.add_child(b)
+	_options_list.add_child(_label("While building: the wheel chooses a piece.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var rb := button("Restore the default controls", func(): Game.reset_binds(); show_options(), 18)
+	rb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_options_list.add_child(rb)
 	_section("Sound")
 	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
@@ -974,6 +1033,8 @@ func show_options() -> void:
 	_section("Fellowship")
 	_line("Your name among the fellowship", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
 	_line("Internet list address", Game.lobby_url, Net.DEFAULT_LOBBY if Net.DEFAULT_LOBBY != "" else "https://... (optional)", func(t): Game.lobby_url = t.strip_edges(); Game.save())
+	if pause_panel.visible:
+		_from_pause = true
 	options_panel.visible = true
 	pause_panel.visible = false
 	root.move_child(options_panel, root.get_child_count() - 1)
@@ -989,8 +1050,10 @@ func _set_fov(x: float) -> void:
 
 func hide_options() -> void:
 	options_panel.visible = false
-	if Game.main.in_game() and get_tree().paused:
+	_rebinding = []
+	if Game.main.in_game() and (get_tree().paused or _from_pause):
 		pause_panel.visible = true
+	_from_pause = false
 
 
 func _apply_display() -> void:
@@ -1179,7 +1242,7 @@ func _build_results() -> void:
 	_results_grade = _label("", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	_results_grade.add_theme_font_override("font", title_font)
 	v.add_child(_results_grade)
-	v.add_child(_label("[E]  Continue", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(_label("[%s]  Continue" % Game.key_text("interact"), 20, DIM, HORIZONTAL_ALIGNMENT_CENTER))
 
 
 ## Shows the account of a trial, row by row, then the grade; returns when the player continues.
