@@ -399,6 +399,8 @@ func close_all() -> void:
 	_panel_name = ""
 	_cont_id = ""
 	_talking = ""
+	if _babble:
+		_babble.hush()
 	_frame.visible = false
 	if not w._pfail:
 		w.player.input_locked = false
@@ -950,6 +952,9 @@ func _take_all() -> void:
 
 # ------------------------------------------------------------------ talk and trade
 
+var _babble: WBabble
+
+
 func open_dialogue(pid: String) -> void:
 	_talking = pid
 	_panel_name = "talk"
@@ -963,8 +968,17 @@ func _talk(text: String) -> void:
 	var pd: Dictionary = WPlaces.PEOPLE[_talking]
 	_body.add_child(_title(pd.name))
 	_body.add_child(_label(pd.title + ("   ·   Standing: %d" % int(w.rep.get(pd.at, 0)) if int(w.rep.get(pd.at, 0)) > 0 else ""), 18, DIM))
-	var say := _wrap(WPlaces.words(text), 21, PALE)
+	var line := WPlaces.words(text)
+	var say := _wrap(line, 21, PALE)
 	say.custom_minimum_size = Vector2(1060, 0)
+	# The words come up as they are spoken, in the speaker's own murmur
+	var secs := clampf(line.length() / 55.0, 0.4, 5.0)
+	say.visible_ratio = 0.0
+	say.create_tween().tween_property(say, "visible_ratio", 1.0, secs)
+	if _babble == null:
+		_babble = WBabble.new()
+		add_child(_babble)
+	_babble.speak(_talking, line, secs)
 	var sc := ScrollContainer.new()
 	sc.custom_minimum_size = Vector2(0, 330)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
