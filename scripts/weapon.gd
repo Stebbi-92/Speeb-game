@@ -490,7 +490,9 @@ func _try_fire() -> void:
 		return
 	var space := get_world_3d().direct_space_state
 	var spread := float(s.spread)
-	spread *= lerpf(1.0, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
+	# From the hip a gun wanders; down the sights it holds true
+	var hip := 1.3 if s.mode == "pump" else (2.6 if s.mode == "bolt" else 1.9)
+	spread = maxf(spread, 0.006) * lerpf(hip, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
 	if mount() == "red_dot":
 		spread *= 0.85
 	if fitted("foregrip"):

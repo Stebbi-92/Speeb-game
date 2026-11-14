@@ -53,11 +53,9 @@ func _hint() -> void:
 	if not w.ui:
 		return
 	if active:
-		var k := kind()
-		var p: Dictionary = Items.PIECES[k]
-		w.ui.set_build_bar("%s   (%s)" % [p.name, Items.cost_text(w.skills.cost(p.cost))], "")
+		w.ui.set_build_bar(kind(), sel)
 	else:
-		w.ui.set_build_bar("", "")
+		w.ui.set_build_bar("", -1)
 
 
 func _process(_delta: float) -> void:
@@ -106,7 +104,7 @@ func _placement(k: String) -> Dictionary:
 			out.key = "%s:%d:%d" % ["roof" if k == "roof" else "floor", ci, cj]
 			if k == "floor" and _slope(ci, cj) > 1.2:
 				out.ok = false
-		"wall", "stonewall", "doorway":
+		"wall", "stonewall", "doorway", "window", "palisade":
 			var lx := at.x - cell_c.x
 			var lz := at.z - cell_c.z
 			var e := Vector3.ZERO
@@ -216,6 +214,7 @@ func place() -> void:
 		w.sfx("deny", -10)
 		return
 	w.sfx("carve", -4, _plan.pos)
+	_hint.call_deferred()
 	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
 	w.award("build")
 	if k == "bedroll":
@@ -242,7 +241,7 @@ func key_of(k: String, p: Vector3, yaw: float) -> String:
 	match k:
 		"floor", "roof":
 			return "%s:%d:%d" % [k, ci, cj]
-		"wall", "stonewall", "doorway":
+		"wall", "stonewall", "doorway", "window", "palisade":
 			if absf(sin(yaw)) > 0.5:
 				return "edge:v:%d:%d" % [roundi(p.x / GRID), floori(p.z / GRID)]
 			return "edge:h:%d:%d" % [floori(p.x / GRID), roundi(p.z / GRID)]
@@ -326,7 +325,7 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 	add_child(n)
 	n.global_position = p
 	n.rotation.y = yaw
-	w.pieces[pid] = {"kind": k, "pos": p, "yaw": yaw, "hp": hp, "node": n, "key": key_of(k, p, yaw), "open": false}
+	w.pieces[pid] = {"kind": k, "pos": p, "yaw": yaw, "hp": hp, "node": n, "key": key_of(k, p, yaw), "open": false, "name": "", "crop": "", "sown": 0.0}
 	w.piece_next = maxi(w.piece_next, pid + 1)
 	for b in n.find_children("*", "StaticBody3D", true, false):
 		b.set_meta("piece", pid)
@@ -337,14 +336,17 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 		"chest":
 			w.personal_interactable(body, "Open the chest", func(): w.shared("_rq_open", [Net.me(), "p%d" % pid]))
 		"bedroll":
-			w.personal_interactable(body, "Sleep here (wake here if you fall)", func():
+			w.personal_interactable(body, "Lie down (you wake here if you fall)", func():
 				w.bedroll = p
-				w.hud.notify("You will wake here if you fall.")
-				w.save_all())
+				w.ui.ask_rest("bed"))
 		"bench":
-			w.personal_interactable(body, "Work at the bench", func(): w.ui.open_inventory("craft"))
+			w.personal_interactable(body, "Work at the bench", func(): w.ui.open_inventory("arms"))
 		"campfire":
-			w.personal_interactable(body, "Rest by the fire (pass the time to dawn)", func(): w.ui.ask_rest())
+			w.personal_interactable(body, "Sit by the fire", func(): w.ui.ask_rest("fire"))
+		"planter":
+			w.personal_interactable(body, "Tend the planter", func(): w.ui.open_planter(pid))
+		"portal":
+			w.personal_interactable(body, "Use the waystone", func(): w.ui.open_portal(pid))
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -458,6 +460,107 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 				for z in [-0.4, 0.4]:
 					_part(n, null, Vector3(0.12, 0.9, 0.12), Vector3(x, 0.45, z), m.darkwood, is_ghost)
 			_part(n, null, Vector3(0.4, 0.25, 0.3), Vector3(0.5, 1.15, 0), m.iron, is_ghost)
+		"window":
+			_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, -0.35, 0), m.wood, is_ghost)
+			_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, 2.35, 0), m.wood, is_ghost)
+			_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(-1.15, 1.0, 0), m.wood, is_ghost)
+			_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(1.15, 1.0, 0), m.wood, is_ghost)
+			for x in [-1.3, 1.3]:
+				_part(n, null, Vector3(0.18, 4.0, 0.36), Vector3(x, 1.0, 0), m.darkwood, is_ghost)
+			_part(n, null, Vector3(1.6, 0.1, 0.4), Vector3(0, 0.32, 0), m.darkwood, is_ghost)
+		"palisade":
+			_part(n, body, Vector3(GRID, 3.6, 0.45), Vector3(0, 1.8, 0), null, is_ghost)
+			for i in 7:
+				var x := -1.29 + i * 0.43
+				var h := 3.6 + (0.25 if i % 2 == 0 else 0.0)
+				var post := _cyl(n, 0.2, h, Vector3(x, h * 0.5, 0), m.darkwood if i % 2 else m.wood, is_ghost)
+				var tip := _cone(n, 0.2, 0.45, Vector3(x, h + 0.22, 0), m.wood, is_ghost)
+				post.rotation.y = i
+				tip.rotation.y = i
+			_part(n, null, Vector3(GRID, 0.16, 0.12), Vector3(0, 2.6, 0.2), m.iron, is_ghost)
+		"stairs":
+			var ramp := _part(n, null, Vector3(1.4, 0.2, 4.2), Vector3(0, 1.5, 0), null, is_ghost)
+			var cs := CollisionShape3D.new()
+			var bs := BoxShape3D.new()
+			bs.size = Vector3(1.4, 0.2, 4.4)
+			cs.shape = bs
+			cs.position = Vector3(0, 1.45, 0)
+			cs.rotation.x = atan2(3.0, 3.6)
+			if not is_ghost:
+				body.add_child(cs)
+			if ramp:
+				ramp.rotation.x = atan2(3.0, 3.6)
+				ramp.visible = is_ghost
+			for i in 10:
+				_part(n, null, Vector3(1.4, 0.3, 0.38), Vector3(0, 0.15 + i * 0.3, 1.62 - i * 0.36), m.wood, is_ghost)
+			for x in [-0.72, 0.72]:
+				var rail := _part(n, null, Vector3(0.1, 0.25, 4.6), Vector3(x, 1.6, 0), m.darkwood, is_ghost)
+				if rail:
+					rail.rotation.x = atan2(3.0, 3.6)
+		"torch":
+			_part(n, body, Vector3(0.12, 1.7, 0.12), Vector3(0, 0.85, 0), m.darkwood, is_ghost)
+			_part(n, null, Vector3(0.2, 0.25, 0.2), Vector3(0, 1.75, 0), m.cloth, is_ghost)
+			if not is_ghost:
+				var e := MeshInstance3D.new()
+				var sm := SphereMesh.new()
+				sm.radius = 0.14
+				sm.height = 0.34
+				e.mesh = sm
+				e.material_override = m.ember
+				e.position.y = 1.98
+				n.add_child(e)
+				var l := OmniLight3D.new()
+				l.light_color = Color(1.0, 0.62, 0.32)
+				l.light_energy = 1.5
+				l.omni_range = 9.0
+				l.position.y = 2.1
+				n.add_child(l)
+				n.set_meta("flicker", l)
+		"planter":
+			_part(n, body, Vector3(2.0, 0.5, 1.2), Vector3(0, 0.25, 0), m.darkwood, is_ghost)
+			_part(n, null, Vector3(1.8, 0.08, 1.0), Vector3(0, 0.5, 0), m.soil if m.has("soil") else m.darkwood, is_ghost)
+			if not is_ghost:
+				var crop := Node3D.new()
+				crop.position.y = 0.52
+				n.add_child(crop)
+				n.set_meta("crop", crop)
+		"portal":
+			for x in [-1.1, 1.1]:
+				_part(n, body, Vector3(0.6, 3.6, 0.6), Vector3(x, 1.8, 0), m.stone, is_ghost)
+			_part(n, body, Vector3(3.0, 0.6, 0.7), Vector3(0, 3.9, 0), m.stone, is_ghost)
+			_part(n, null, Vector3(3.2, 0.3, 1.6), Vector3(0, 0.15, 0), m.stone, is_ghost)
+			if not is_ghost:
+				var veil := MeshInstance3D.new()
+				var qm := QuadMesh.new()
+				qm.size = Vector2(1.6, 3.3)
+				veil.mesh = qm
+				var vm := StandardMaterial3D.new()
+				vm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				vm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				vm.cull_mode = BaseMaterial3D.CULL_DISABLED
+				vm.albedo_color = Color(0.55, 0.75, 1.0, 0.0)
+				veil.material_override = vm
+				veil.position.y = 1.95
+				n.add_child(veil)
+				n.set_meta("veil", vm)
+				var lab := Label3D.new()
+				lab.font = load("res://assets/fonts/Marcellus-Regular.ttf")
+				lab.font_size = 40
+				lab.pixel_size = 0.006
+				lab.position = Vector3(0, 4.45, 0)
+				lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				lab.modulate = Color(0.85, 0.9, 1.0)
+				lab.outline_size = 6
+				lab.visibility_range_end = 24.0
+				n.add_child(lab)
+				n.set_meta("label", lab)
+				var l := OmniLight3D.new()
+				l.light_color = Color(0.6, 0.75, 1.0)
+				l.light_energy = 0.0
+				l.omni_range = 7.0
+				l.position.y = 2.0
+				n.add_child(l)
+				n.set_meta("light", l)
 		"lamp":
 			_part(n, body, Vector3(0.2, 3.0, 0.2), Vector3(0, 1.5, 0), m.iron, is_ghost)
 			_part(n, null, Vector3(0.35, 0.4, 0.35), Vector3(0, 3.1, 0), m.ember, is_ghost)
@@ -469,6 +572,26 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 				l.position.y = 3.0
 				n.add_child(l)
 	return n
+
+
+func _cyl(n: Node3D, r: float, h: float, pos: Vector3, m: Material, is_ghost: bool) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = h
+	cm.radial_segments = 8
+	mi.mesh = cm
+	mi.material_override = m if not is_ghost else _ok_m
+	mi.position = pos
+	n.add_child(mi)
+	return mi
+
+
+func _cone(n: Node3D, r: float, h: float, pos: Vector3, m: Material, is_ghost: bool) -> MeshInstance3D:
+	var mi := _cyl(n, r, h, pos, m, is_ghost)
+	(mi.mesh as CylinderMesh).top_radius = 0.0
+	return mi
 
 
 func _part(n: Node3D, body: StaticBody3D, size: Vector3, pos: Vector3, m: Material, is_ghost: bool) -> MeshInstance3D:

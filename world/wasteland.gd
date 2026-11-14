@@ -3,7 +3,7 @@ extends Level
 ## The Ashen Waste. A survivor cast out into it gathers, builds, and lives through its nights,
 ## while nine dead beacons wait across the land to be kindled again.
 
-const DAY_SECONDS := 1440.0
+const DAY_SECONDS := 2400.0   ## a whole day and night in forty minutes: twenty-five of light, fifteen of dark
 const DUSK := 20.0
 const DAWN := 5.0
 const RUINS_N := 44
@@ -53,6 +53,7 @@ var _stars: MultiMeshInstance3D
 var _sync_t := 0.0
 var _wave_t := 20.0
 var _safe_t := 2.0
+var _crop_t := 0.0
 var _day_t := 30.0
 var _save_t := 120.0
 var _save_soon := -1.0     ## counts down to a save asked for by an event; -1 when none
@@ -210,6 +211,8 @@ func _materials() -> void:
 	_m.bone = mat(Color(0.82, 0.78, 0.68), 0.8, 0.2, 1.0)
 	_m.herb = mat(Color(0.74, 0.76, 0.66), 1.0, 0.1, 1.0)
 	_m.thatch = mat(Color(0.48, 0.4, 0.26), 1.0, 0.4, 0.8)
+	_m.soil = mat(Color(0.17, 0.13, 0.1), 1.0, 0.2, 1.0)
+	_m.leaf = mat(Color(0.32, 0.4, 0.22), 1.0, 0.25, 0.8)
 	_m.ember = glow_mat(Color(1.0, 0.45, 0.15), 3.0)
 	_m.flame = glow_mat(Color(1.0, 0.95, 0.8), 6.0)
 	_m.cold = mat(Color(0.12, 0.11, 0.1), 1.0, 0.2, 0.5)
@@ -616,13 +619,277 @@ func safe_at(p: Vector3) -> bool:
 	return settlement_at(p, TOWN_SAFE) != "" or base_at(p) >= 0
 
 
-## The campfire whose ground this is, or -1. A campfire is what makes a camp.
-func base_at(p: Vector3, extra := 0.0) -> int:
+const TORCH_SAFE := 15.0
+
+## The campfire or torch whose ground this is, or -1. A campfire is what makes a camp.
+func base_at(p: Vector3, extra := 0.0, fires_only := false) -> int:
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		if pc.kind == "campfire" and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < BASE_SAFE + extra:
+		var r := BASE_SAFE if pc.kind == "campfire" else (TORCH_SAFE if pc.kind == "torch" and not fires_only else -1.0)
+		if r > 0.0 and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < r + extra:
 			return pid
 	return -1
+
+
+# ------------------------------------------------------------------ food and rest
+
+var food := 100.0
+var rest := 100.0
+const FOOD_SECONDS := 3000.0   ## a full belly empties in fifty minutes
+const REST_SECONDS := 3600.0   ## a rested body tires in an hour awake
+
+
+func _needs_tick(delta: float) -> void:
+	if Net.dedicated or _pfail or downed:
+		return
+	var work := 1.6 if player.cur_speed > 4.5 else 1.0
+	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work)
+	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS)
+	var slow := 0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)
+	player.walk_speed = 3.4 * skills.speed_mult() * slow
+	player.run_speed = 5.8 * skills.speed_mult() * slow
+	if food <= 0.0:
+		_starve_t -= delta
+		if _starve_t <= 0.0:
+			_starve_t = 6.0
+			player.health = maxf(1.0, player.health - 3.0)
+			hud.set_health(player.health / player.max_health, true)
+	if is_instance_valid(ui):
+		ui.set_needs(food, rest)
+	_need_warn(delta)
+
+
+var _starve_t := 6.0
+var _warned := {}
+
+
+func _need_warn(_delta: float) -> void:
+	for k in [["food", food, "You are hungry. Eat something."], ["rest", rest, "You are weary. Sleep at a bedroll or by a fire."]]:
+		var low: bool = k[1] < 20.0
+		if low and not _warned.get(k[0], false):
+			hud.notify(k[2])
+		_warned[k[0]] = low
+
+
+## Eating fills the belly; the healer's things only close wounds.
+func eat(id: String) -> bool:
+	var info: Dictionary = Items.info(id)
+	var f := float(info.get("food", 0.0))
+	var h := float(info.get("heal", 0.0))
+	if f <= 0.0 and player.health >= player.max_health - 0.5:
+		hud.notify("You are not hurt.")
+		return false
+	if f > 0.0 and food >= 99.0 and player.health >= player.max_health - 0.5:
+		hud.notify("You are not hungry.")
+		return false
+	if inv.take(id, 1) < 1:
+		return false
+	food = minf(100.0, food + f)
+	player.health = minf(player.max_health, player.health + h)
+	hud.set_health(player.health / player.max_health, true)
+	sfx("drink", -6)
+	return true
+
+
+# ------------------------------------------------------------------ planters
+
+func world_hours() -> float:
+	return day * 24.0 + clock
+
+
+func crop_left(pid: int) -> float:
+	var pc: Dictionary = pieces.get(pid, {})
+	if pc.is_empty() or pc.get("crop", "") == "":
+		return -1.0
+	return maxf(0.0, float(Items.info(pc.crop).hours) - (world_hours() - float(pc.sown)))
+
+
+func _rq_plant(by: int, pid: int, seed: String) -> void:
+	if not Net.authority() or not pieces.has(pid) or pieces[pid].kind != "planter" or pieces[pid].crop != "":
+		Net.call_peer(by, "_w_give", [[[seed, 1]]])
+		return
+	shared("_w_plant", [pid, seed, world_hours()])
+
+
+func _rq_harvest(by: int, pid: int) -> void:
+	if not Net.authority() or not pieces.has(pid) or pieces[pid].crop == "" or crop_left(pid) > 0.0:
+		return
+	var info: Dictionary = Items.info(pieces[pid].crop)
+	var n := randi_range(int(info["yield"][0]), int(info["yield"][1]))
+	var give := [[info.grows, n]]
+	if randf() < 0.5:
+		give.append([pieces[pid].crop, 1])
+	shared("_w_plant", [pid, "", 0.0])
+	Net.call_peer(by, "_w_give", [give])
+
+
+func _w_plant(pid: int, seed: String, sown: float) -> void:
+	if not pieces.has(pid):
+		return
+	pieces[pid].crop = seed
+	pieces[pid].sown = sown
+	_crop_look(pid)
+	if is_instance_valid(ui):
+		ui.planter_changed(pid)
+	autosave_soon(10.0)
+
+
+## Draws the crop in a planter at its present growth.
+func _crop_look(pid: int) -> void:
+	var pc: Dictionary = pieces[pid]
+	if pc.kind != "planter" or not pc.node.has_meta("crop"):
+		return
+	var crop: Node3D = pc.node.get_meta("crop")
+	var want := 0.0 if pc.crop == "" else 1.0 - crop_left(pid) / float(Items.info(pc.crop).hours)
+	if crop.has_meta("grown") and absf(float(crop.get_meta("grown")) - want) < 0.05:
+		return
+	crop.set_meta("grown", want)
+	for c in crop.get_children():
+		c.queue_free()
+	if pc.crop == "":
+		return
+	var m: Material = _m.leaf if pc.crop == "tuber_seed" else _m.herb
+	for i in 6:
+		var x := -0.6 + (i % 3) * 0.6
+		var z := -0.25 + (i / 3) * 0.5
+		var h := 0.08 + want * 0.5
+		var leaf := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.18 + want * 0.15, h, 0.18 + want * 0.15)
+		leaf.mesh = bm
+		leaf.material_override = m
+		leaf.position = Vector3(x, h * 0.5, z)
+		leaf.rotation.y = i * 0.7
+		crop.add_child(leaf)
+		if want >= 1.0:
+			var bloom := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.07
+			sm.height = 0.14
+			bloom.mesh = sm
+			bloom.material_override = _m.bone if pc.crop == "herb_seed" else _m.wood
+			bloom.position = Vector3(x, h + 0.04, z)
+			crop.add_child(bloom)
+
+
+# ------------------------------------------------------------------ waystones
+
+func _rq_portal_name(pid: int, name: String) -> void:
+	if Net.authority() and pieces.has(pid) and pieces[pid].kind == "portal":
+		shared("_w_portal_name", [pid, name.strip_edges().left(24)])
+
+
+func _w_portal_name(pid: int, name: String) -> void:
+	if not pieces.has(pid) or pieces[pid].kind != "portal":
+		return
+	pieces[pid].name = name
+	for q in pieces:
+		_portal_look(q)
+	if is_instance_valid(ui):
+		ui.planter_changed(pid)
+	autosave_soon(5.0)
+
+
+## The waystone that answers this one: another of the same name.
+func portal_pair(pid: int) -> int:
+	var pc: Dictionary = pieces.get(pid, {})
+	if pc.is_empty() or str(pc.get("name", "")) == "":
+		return -1
+	for q in pieces:
+		if q != pid and pieces[q].kind == "portal" and str(pieces[q].get("name", "")).to_lower() == str(pc.name).to_lower():
+			return q
+	return -1
+
+
+func _portal_look(pid: int) -> void:
+	var pc: Dictionary = pieces[pid]
+	if pc.kind != "portal" or not pc.node.has_meta("veil"):
+		return
+	var on := portal_pair(pid) >= 0
+	(pc.node.get_meta("veil") as StandardMaterial3D).albedo_color.a = 0.45 if on else 0.0
+	(pc.node.get_meta("light") as OmniLight3D).light_energy = 1.4 if on else 0.0
+	(pc.node.get_meta("label") as Label3D).text = str(pc.name)
+
+
+func step_through(pid: int) -> void:
+	var to := portal_pair(pid)
+	if to < 0:
+		return
+	var pc: Dictionary = pieces[to]
+	var fwd := Vector3(sin(pc.yaw), 0, cos(pc.yaw))
+	sfx("choir", -8)
+	player.input_locked = true
+	await hud.fade_to(1.0, 0.35)
+	player.place(pc.pos + fwd * 2.2 + Vector3(0, 0.5, 0), pc.yaw + PI)
+	await get_tree().create_timer(0.3, false).timeout
+	await hud.fade_to(0.0, 0.6)
+	player.input_locked = false
+
+
+# ------------------------------------------------------------------ sleeping through the night
+
+var sleep_votes := {}       ## peer id -> true, kept by the host
+var _my_vote := false
+var _vote_spot := Vector3.ZERO
+
+
+func vote_sleep(on: bool) -> void:
+	_my_vote = on
+	_vote_spot = player.global_position
+	shared("_rq_sleep", [Net.me(), on])
+
+
+func _rq_sleep(by: int, on: bool) -> void:
+	if not Net.authority():
+		return
+	if on:
+		sleep_votes[by] = true
+	else:
+		sleep_votes.erase(by)
+	var need: Array = Net.pilgrims() if Net.online else [Net.me()]
+	var have := 0
+	for id in need:
+		if sleep_votes.has(id):
+			have += 1
+	shared("_w_sleep_count", [have, need.size()])
+	if have >= need.size() and need.size() > 0 and night:
+		sleep_votes.clear()
+		shared("_w_sleep_through", [])
+
+
+func _w_sleep_count(have: int, of: int) -> void:
+	if is_instance_valid(ui):
+		ui.sleep_count(have, of)
+
+
+func _w_sleep_through() -> void:
+	_my_vote = false
+	if is_instance_valid(ui):
+		ui.close_all()
+	player.input_locked = true
+	await hud.fade_to(1.0, 1.5)
+	if Net.authority():
+		clock = DAWN - 0.02
+	rest = 100.0
+	food = maxf(0.0, food - 15.0)
+	player.health = player.max_health
+	hud.set_health(1.0, true)
+	await get_tree().create_timer(1.5, false).timeout
+	await hud.fade_to(0.0, 2.0)
+	player.input_locked = false
+
+
+## A short sleep by day: the body rests, the world does not wait.
+func nap() -> void:
+	player.input_locked = true
+	await hud.fade_to(1.0, 1.0)
+	rest = 100.0
+	if not Net.online:
+		clock = fmod(clock + 2.0, 24.0)
+	await get_tree().create_timer(1.0, false).timeout
+	await hud.fade_to(0.0, 1.5)
+	player.input_locked = false
+	hud.notify("You wake rested.")
 
 
 ## Forms that stray onto safe ground at night are taken by it, unless they came to raid.
@@ -631,7 +898,7 @@ func _keep_safe() -> void:
 		if not is_instance_valid(e) or not e.is_alive() or e.has_meta("raid") or e.boss != "":
 			continue
 		var p: Vector3 = e.global_position
-		if settlement_at(p, TOWN_SAFE - 6.0) != "" or base_at(p, -6.0) >= 0:
+		if settlement_at(p, TOWN_SAFE - 6.0) != "" or base_at(p, -4.0) >= 0:
 			e.die(false)
 
 
@@ -1326,11 +1593,21 @@ func _physics_process(delta: float) -> void:
 	_apply_time(false)
 	if Net.authority():
 		_world_tick(delta)
+	_needs_tick(delta)
 	_reveal_t -= delta
 	if _reveal_t <= 0.0 and not Net.dedicated:
 		_reveal_t = 0.5
 		_reveal_around(player.global_position, 90.0)
 		_visit_check()
+		if _my_vote and player.global_position.distance_to(_vote_spot) > 8.0:
+			vote_sleep(false)
+			hud.notify("You left the fire. Your wish to sleep is withdrawn.")
+		_crop_t -= 0.5
+		if _crop_t <= 0.0:
+			_crop_t = 5.0
+			for pid in pieces:
+				if pieces[pid].kind == "planter" and pieces[pid].crop != "":
+					_crop_look(pid)
 	if downed and Net.online and not failing:
 		_bleed_t -= delta
 		if _bleed_t <= 0.0:
@@ -1396,6 +1673,8 @@ func _w_dawn(d: int) -> void:
 	day = d
 	nights += 1
 	raiding.clear()
+	sleep_votes.clear()
+	_my_vote = false
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
 	if Net.authority():
@@ -1724,6 +2003,8 @@ func _perish(message: String) -> void:
 	player.health = player.max_health
 	player.weapon.shells = player.weapon.capacity()
 	player.weapon.add_shells(12)
+	food = maxf(food, 40.0)
+	rest = maxf(rest, 40.0)
 	hud.set_health(1.0, true)
 	player.input_locked = false
 	_pfail = false
@@ -1843,7 +2124,7 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false)]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0)}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
@@ -1875,6 +2156,9 @@ func apply_world(d: Dictionary) -> void:
 		builder._w_piece(int(pid), p[0], p[1], p[2], p[3])
 		if p[4]:
 			builder._w_door(int(pid), true)
+		if p.size() > 5 and p[5] is Dictionary:
+			_w_portal_name(int(pid), str(p[5].get("name", "")))
+			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
 	piece_next = int(d.get("piece_next", 1))
 	containers = d.get("containers", {})
 	for id in d.get("crates", {}):
@@ -1892,7 +2176,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk, "warms": arms,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk, "warms": arms, "food": food, "rest": rest,
 	}
 
 
@@ -1902,6 +2186,8 @@ func apply_char(d: Dictionary) -> void:
 	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
 	inv.from_data(d.get("inv", []))
 	arms = WArms.clean(d.get("warms"))
+	food = clampf(float(d.get("food", 100.0)), 0.0, 100.0)
+	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	Game.warms = arms
 	player.weapon.equip_loadout()
 	player.weapon.shells = int(d.get("shells", player.weapon.capacity()))
@@ -2409,6 +2695,72 @@ func debug_raid() -> void:
 	await get_tree().create_timer(24.0).timeout
 	var raiders := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("raid")).size()
 	print("RAID raiding ", raiding.keys(), " raiders alive ", raiders)
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
+
+
+## Test: the new pieces of a camp, a planter grown and lifted, two waystones paired.
+func debug_camp() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var c := player.global_position
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	inv.add("tuber_seed", 3)
+	inv.add("wood", 30)
+	var at := func(f: float, sd: float) -> Vector3:
+		var p: Vector3 = c + fwd * f + side * sd
+		return Vector3(p.x, terrain.height_at(p.x, p.z), p.z)
+	builder._rq_build(1, "campfire", at.call(6.0, 0.0), 0.0)
+	builder._rq_build(1, "torch", at.call(5.0, -3.0), 0.0)
+	builder._rq_build(1, "planter", at.call(6.0, 3.5), player.yaw)
+	builder._rq_build(1, "portal", at.call(11.0, -1.5), player.yaw)
+	builder._rq_build(1, "portal", at.call(60.0, 30.0), player.yaw)
+	builder._rq_build(1, "stairs", at.call(9.0, 5.0), player.yaw)
+	builder._rq_build(1, "bedroll", at.call(4.0, 2.0), player.yaw)
+	await get_tree().create_timer(0.5).timeout
+	var planter := -1
+	var portals: Array = []
+	for pid in pieces:
+		if pieces[pid].kind == "planter":
+			planter = pid
+		if pieces[pid].kind == "portal":
+			portals.append(pid)
+	inv.take("tuber_seed", 1)
+	_rq_plant(1, planter, "tuber_seed")
+	print("CAMP planted, left %.1f h" % crop_left(planter))
+	pieces[planter].sown -= 13.0
+	_crop_look(planter)
+	print("CAMP after 13 h, left %.1f h" % crop_left(planter))
+	pieces[planter].sown -= 2.0
+	var before := inv.count("tuber")
+	_rq_harvest(1, planter)
+	print("CAMP harvested tubers ", inv.count("tuber") - before, " crop now '", pieces[planter].crop, "'")
+	_rq_plant(1, planter, "tuber_seed")
+	pieces[planter].sown -= 9.0
+	_crop_look(planter)
+	_rq_portal_name(portals[0], "Ember Hill")
+	print("CAMP pair before ", portal_pair(portals[0]))
+	_rq_portal_name(portals[1], "ember hill")
+	print("CAMP pair after ", portal_pair(portals[0]), " ", portal_pair(portals[1]))
+	print("CAMP safe by torch ", base_at(at.call(5.0, -3.0)), " food ", food, " rest ", rest)
+	food = 15.0
+	rest = 10.0
+	var hp := player.health
+	eat("meat")
+	print("CAMP ate meat: food ", food, " hp ", hp, " -> ", player.health)
+	clock = 22.0
+	night = true
+	vote_sleep(true)
+	await get_tree().create_timer(5.0).timeout
+	print("CAMP after sleep vote clock %.2f rest %.0f" % [clock, rest])
+	if "guide" in OS.get_cmdline_user_args():
+		ui.open_inventory("build")
+	elif "bar" in OS.get_cmdline_user_args():
+		builder.toggle()
+		builder.sel = Items.PIECE_ORDER.find("portal")
+		builder._hint()
+	elif "portal" in OS.get_cmdline_user_args():
+		ui.open_portal(portals[0])
 	if DisplayServer.get_name() == "headless":
 		get_tree().quit()
 

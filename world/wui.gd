@@ -16,8 +16,8 @@ var _frame: PanelContainer
 var _body: VBoxContainer
 var _clock: Label
 var _build_title: Label
-var _build_hint: Label
 var _keys: HBoxContainer
+var _build_hint: RichTextLabel
 var _keys_sig := ""
 var _sel := -1
 var debug_bench := false
@@ -49,9 +49,13 @@ func _ready() -> void:
 	_pin(_build_title, 0.5, 1.0, Rect2(-500, -150, 1000, 34))
 	_build_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_build_title)
-	_build_hint = _label("", 17, DIM)
-	_pin(_build_hint, 0.5, 1.0, Rect2(-500, -116, 1000, 28))
-	_build_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_hint = RichTextLabel.new()
+	_build_hint.bbcode_enabled = true
+	_build_hint.scroll_active = false
+	_build_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_build_hint.add_theme_font_size_override("normal_font_size", 17)
+	_build_hint.add_theme_color_override("default_color", DIM)
+	_pin(_build_hint, 0.5, 1.0, Rect2(-560, -118, 1120, 60))
 	add_child(_build_hint)
 	_keys = HBoxContainer.new()
 	_keys.add_theme_constant_override("separation", 14)
@@ -93,6 +97,23 @@ func _ready() -> void:
 	_xp_pop.modulate.a = 0.0
 	add_child(_xp_pop)
 	skills_changed()
+	for k in [["food", Color(0.85, 0.62, 0.3), 0], ["rest", Color(0.55, 0.65, 0.8), 1]]:
+		var b := ProgressBar.new()
+		b.show_percentage = false
+		b.max_value = 100.0
+		var bb := StyleBoxFlat.new()
+		bb.bg_color = Color(0, 0, 0, 0.45)
+		var bf := StyleBoxFlat.new()
+		bf.bg_color = Color(k[1], 0.85)
+		b.add_theme_stylebox_override("background", bb)
+		b.add_theme_stylebox_override("fill", bf)
+		_pin(b, 0.0, 1.0, Rect2(36 + k[2] * 134, -36, 126, 4))
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(b)
+		var l := _label("Food" if k[0] == "food" else "Rest", 13, Color(DIM, 0.85))
+		_pin(l, 0.0, 1.0, Rect2(36 + k[2] * 134, -30, 126, 18))
+		add_child(l)
+		_needs[k[0]] = [b, l, bf, k[1]]
 	_saved = _label("", 16, DIM)
 	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
 	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -101,6 +122,19 @@ func _ready() -> void:
 
 
 var _saved: Label
+var _needs := {}
+
+
+func set_needs(f: float, r: float) -> void:
+	for k in [["food", f], ["rest", r]]:
+		var n: Array = _needs.get(k[0], [])
+		if n.is_empty():
+			continue
+		n[0].value = k[1]
+		var low: bool = k[1] < 20.0
+		var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006) if low else 1.0
+		n[2].bg_color = Color(Color(0.85, 0.3, 0.25) if low else n[3], 0.85 * pulse)
+		n[1].text = ("Hungry" if k[0] == "food" else "Weary") if low else ("Food" if k[0] == "food" else "Rest")
 var _saved_tw: Tween
 var _xp_bar: ProgressBar
 var _xp_text: Label
@@ -397,6 +431,12 @@ func _redraw() -> void:
 			_draw_travel()
 		"skills":
 			_draw_skills()
+		"rest":
+			_draw_rest()
+		"planter":
+			_draw_planter()
+		"portal":
+			_draw_portal()
 
 
 # ------------------------------------------------------------------ the strip along the top
@@ -454,9 +494,18 @@ func _refresh_keys() -> void:
 		_keys.add_child(hb)
 
 
-func set_build_bar(t: String, hint: String) -> void:
-	_build_title.text = t
-	_build_hint.text = hint
+## The strip shown while building: the piece, what it costs against what is carried, and its neighbours.
+func set_build_bar(k: String, sel: int) -> void:
+	if k == "":
+		_build_title.text = ""
+		_build_hint.text = ""
+		return
+	var pc: Dictionary = Items.PIECES[k]
+	var n: int = Items.PIECE_ORDER.size()
+	var prev: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel - 1, n)]].name
+	var next: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel + 1, n)]].name
+	_build_title.text = "%s" % pc.name
+	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next]
 
 
 # ------------------------------------------------------------------ the pack, and making things
@@ -473,6 +522,7 @@ func _pack_header() -> void:
 	hb.add_child(_btn("Carried", func(): _tab = "pack"; _redraw(), 22, GOLD if _tab == "pack" else DIM))
 	hb.add_child(_btn("Make", func(): _tab = "craft"; _redraw(), 22, GOLD if _tab == "craft" else DIM))
 	hb.add_child(_btn("Arms", func(): _tab = "arms"; _redraw(), 22, GOLD if _tab == "arms" else DIM))
+	hb.add_child(_btn("Build", func(): _tab = "build"; _redraw(), 22, GOLD if _tab == "build" else DIM))
 	var info := _label("Salt: %d" % w.inv.count("salt"), 18, DIM)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -489,6 +539,9 @@ func _draw_pack() -> void:
 	if _tab == "arms":
 		_draw_arms()
 		return
+	if _tab == "build":
+		_draw_build_guide()
+		return
 	_body.add_child(_label("Click a thing to choose it. Right click drops the whole stack.", 16, DIM))
 	_body.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 6, _sel))
 	_desc = _wrap("", 18, DIM)
@@ -503,7 +556,7 @@ func _draw_pack() -> void:
 		var n := int(s.n)
 		_desc.text = "%s. %s  Worth %d salt." % [info.name, info.text, int(info.value)]
 		if info.kind in ["food", "medicine"]:
-			row.add_child(_btn("Use", func(): _use_item(_sel), 19, PALE))
+			row.add_child(_btn("Eat" if info.kind == "food" else "Use", func(): _use_item(_sel), 19, PALE))
 		row.add_child(_btn("Drop one", func(): _drop(_sel, 1), 19, PALE))
 		if n > 2:
 			row.add_child(_btn("Drop half", func(): _drop(_sel, n / 2), 19, PALE))
@@ -529,15 +582,10 @@ func _use_item(i: int) -> void:
 	var s = w.inv.slots[i]
 	if s == null:
 		return
-	var info: Dictionary = Items.info(s.id)
-	if w.player.health >= w.player.max_health - 0.5:
-		_desc.text = "You are not hurt."
-		return
-	w.inv.take(s.id, 1)
-	w.player.health = minf(w.player.max_health, w.player.health + float(info.heal))
-	w.hud.set_health(w.player.health / w.player.max_health, true)
-	w.sfx("drink", -6)
-	_redraw()
+	if w.eat(s.id):
+		if w.inv.slots[i] == null:
+			_sel = -1
+		_redraw()
 
 
 ## Takes n of the chosen stack out of the pack; returns [id, n] or null.
@@ -744,15 +792,21 @@ func _pack_click(i: int, right: bool) -> void:
 
 
 func _draw_craft() -> void:
-	var bench: bool = w.builder.near_kind(w.player.global_position, "bench", 5.0)
-	_body.add_child(_label("At a workbench" if bench else "With your hands. A workbench close by lets you make more.", 16, DIM))
+	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	var fire: bool = w.builder.near_kind(w.player.global_position, "campfire", 5.0) or w.settlement_at(w.player.global_position) != ""
+	var where: Array = []
+	if bench:
+		where.append("a workbench")
+	if fire:
+		where.append("a fire")
+	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "With your hands. A workbench or a fire close by lets you make more.", 16, DIM))
 	var v := _scroll(520)
 	for r in Items.RECIPES:
 		if r.has("needs") and not w.flags.has(r.needs):
 			continue
 		var cost: Dictionary = w.skills.cost(r.cost)
-		var ok: bool = w.inv.has_all(cost) and (bench or not r.bench)
-		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ""]
+		var ok: bool = w.inv.has_all(cost) and (bench or not r.bench) and (fire or not r.get("fire", false))
+		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ("      (fire)" if r.get("fire", false) else "")]
 		var b := _btn(t, func(): _make(r), 20, PALE if ok else DIM)
 		b.disabled = not ok
 		b.tooltip_text = Items.info(r.id).text
@@ -1084,37 +1138,180 @@ func _travel(i: int) -> void:
 	w.player.input_locked = false
 
 
-func ask_rest() -> void:
+var _rest_kind := ""
+var _vote_label: Label
+
+
+func ask_rest(kind := "fire") -> void:
+	_rest_kind = kind
 	_open("rest")
+	_draw_rest()
+
+
+func _draw_rest() -> void:
 	_clear()
-	_body.add_child(_title("The Fire"))
-	if Net.online:
-		_body.add_child(_wrap("You warm your hands. The fellowship cannot all sleep at once; someone must keep watch.", 20, PALE))
-	elif not w.night:
-		_body.add_child(_wrap("You warm your hands by the fire. It is not yet night; there is work to do while the light holds.", 20, PALE))
-	else:
-		var near := 0
-		for e in w.enemies:
-			if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 50.0:
-				near += 1
-		if near > 0:
-			_body.add_child(_wrap("You cannot rest with forms so close.", 20, PALE))
+	_body.add_child(_title("The Fire" if _rest_kind == "fire" else "The Bedroll"))
+	_body.add_child(_label("Food %d     Rest %d" % [int(w.food), int(w.rest)], 18, DIM))
+	if _rest_kind == "bed":
+		_body.add_child(_wrap("You will wake here if you fall.", 18, DIM))
+	var near := 0
+	for e in w.enemies:
+		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
+			near += 1
+	if near > 0:
+		_body.add_child(_wrap("You cannot rest with forms so close.", 20, PALE))
+	elif w.night:
+		var t := "Sleep until dawn?" if not Net.online else "Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes."
+		_body.add_child(_wrap(t, 20, PALE))
+		if w._my_vote:
+			_body.add_child(_btn("Get up", func(): w.vote_sleep(false); _draw_rest(), 22, PALE))
 		else:
-			_body.add_child(_wrap("Sleep by the fire until dawn? What is built around you will have to hold on its own.", 20, PALE))
-			_body.add_child(_btn("Sleep until dawn", func(): _sleep(), 22, PALE))
+			_body.add_child(_btn("Sleep until dawn", func(): w.vote_sleep(true); _draw_rest(), 22, PALE))
+		_vote_label = _label("", 18, GOLD)
+		_body.add_child(_vote_label)
+	else:
+		_body.add_child(_wrap("It is day. A short sleep will leave you rested.", 20, PALE))
+		_body.add_child(_btn("Sleep a while", func(): close_all(); w.nap(), 22, PALE))
 	_body.add_child(_btn("Not now", close_all, 20))
 
 
-func _sleep() -> void:
-	close_all()
-	w.player.input_locked = true
-	await w.hud.fade_to(1.0, 1.5)
-	w.clock = Wasteland.DAWN - 0.02
-	await get_tree().create_timer(1.5).timeout
-	w.player.health = w.player.max_health
-	w.hud.set_health(1.0, true)
-	await w.hud.fade_to(0.0, 2.0)
-	w.player.input_locked = false
+func sleep_count(have: int, of: int) -> void:
+	if _panel_name == "rest" and is_instance_valid(_vote_label) and of > 1:
+		_vote_label.text = "%d of %d are ready to sleep." % [have, of]
+
+
+# ------------------------------------------------------------------ the planter
+
+var _pid := -1
+
+
+func open_planter(pid: int) -> void:
+	_pid = pid
+	_open("planter")
+
+
+func planter_changed(pid: int) -> void:
+	if pid == _pid and _panel_name in ["planter", "portal"]:
+		_redraw()
+
+
+func _draw_planter() -> void:
+	_clear()
+	_body.add_child(_title("Planter Box"))
+	var pc: Dictionary = w.pieces.get(_pid, {})
+	if pc.is_empty():
+		return
+	if pc.crop == "":
+		_body.add_child(_wrap("The soil is turned and waiting. What will you plant?", 20, PALE))
+		var any := false
+		for id in Items.DB:
+			if Items.info(id).kind == "seed" and w.inv.count(id) > 0:
+				any = true
+				var b := _btn("Plant %s  (you have %d)" % [Items.iname(id), w.inv.count(id)], func():
+					if w.inv.take(id, 1) == 1:
+						w.shared("_rq_plant", [Net.me(), _pid, id]), 20, PALE)
+				b.tooltip_text = Items.info(id).text
+				_body.add_child(b)
+		if not any:
+			_body.add_child(_wrap("You carry no seeds. Tuber eyes come from tubers, from camps and caravans, or from the traders.", 18, DIM))
+	else:
+		var left: float = w.crop_left(_pid)
+		var grows: String = Items.iname(Items.info(pc.crop).grows)
+		if left > 0.0:
+			_body.add_child(_wrap("%s, growing. Ready in about %d hours." % [grows, ceili(left)], 20, PALE))
+		else:
+			_body.add_child(_wrap("%s, ready to lift." % grows, 20, PALE))
+			_body.add_child(_btn("Harvest", func(): w.shared("_rq_harvest", [Net.me(), _pid]), 22, GOLD))
+	_body.add_child(_btn("Close", close_all, 20))
+
+
+# ------------------------------------------------------------------ the waystone
+
+func open_portal(pid: int) -> void:
+	_pid = pid
+	_open("portal")
+
+
+func _draw_portal() -> void:
+	_clear()
+	_body.add_child(_title("Waystone"))
+	var pc: Dictionary = w.pieces.get(_pid, {})
+	if pc.is_empty():
+		return
+	_body.add_child(_wrap("Two waystones of the same name lead to each other.", 18, DIM))
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 12)
+	var field := LineEdit.new()
+	field.text = str(pc.name)
+	field.placeholder_text = "A name"
+	field.max_length = 24
+	field.custom_minimum_size = Vector2(360, 0)
+	field.add_theme_font_size_override("font_size", 20)
+	hb.add_child(field)
+	var save := func(): w.shared("_rq_portal_name", [_pid, field.text])
+	field.text_submitted.connect(func(_t): save.call())
+	hb.add_child(_btn("Name it", save, 20, PALE))
+	_body.add_child(hb)
+	var to: int = w.portal_pair(_pid)
+	if to >= 0:
+		var d := int(pc.pos.distance_to(w.pieces[to].pos))
+		_body.add_child(_btn("Step through  (%d m)" % d, func(): close_all(); w.step_through(_pid), 22, GOLD))
+	elif str(pc.name) != "":
+		_body.add_child(_wrap("No other waystone bears this name yet.", 18, DIM))
+	var names := {}
+	for q in w.pieces:
+		if w.pieces[q].kind == "portal" and str(w.pieces[q].name) != "":
+			names[w.pieces[q].name] = names.get(w.pieces[q].name, 0) + 1
+	if not names.is_empty():
+		var parts: Array = []
+		for n in names:
+			parts.append("%s%s" % [n, "" if names[n] > 1 else " (alone)"])
+		_body.add_child(_wrap("Named waystones: " + ", ".join(parts), 16, DIM))
+	_body.add_child(_btn("Close", close_all, 20))
+
+
+# ------------------------------------------------------------------ the build guide
+
+func _draw_build_guide() -> void:
+	_body.add_child(_label("Press %s to build. The wheel chooses a piece, %s turns it, the aim key takes one down for half its cost." % [Game.key_text("build"), Game.key_text("reload")], 16, DIM))
+	var v := _scroll(540)
+	for g in Items.GROUPS:
+		v.add_child(_label(g, 22, GOLD))
+		for k in Items.PIECE_ORDER:
+			var pc: Dictionary = Items.PIECES[k]
+			if pc.group != g:
+				continue
+			var cost: Dictionary = w.skills.cost(pc.cost)
+			var hb := HBoxContainer.new()
+			hb.add_theme_constant_override("separation", 16)
+			var nm := _label(pc.name, 19, PALE if w.inv.has_all(cost) else DIM)
+			nm.custom_minimum_size.x = 190
+			hb.add_child(nm)
+			var rt := RichTextLabel.new()
+			rt.bbcode_enabled = true
+			rt.fit_content = true
+			rt.scroll_active = false
+			rt.autowrap_mode = TextServer.AUTOWRAP_OFF
+			rt.custom_minimum_size = Vector2(330, 24)
+			rt.add_theme_font_size_override("normal_font_size", 16)
+			rt.text = cost_bb(cost)
+			hb.add_child(rt)
+			var t := _label(pc.text, 15, DIM)
+			t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hb.add_child(t)
+			v.add_child(hb)
+
+
+## A cost with what is carried beside each part: pale when there is enough, red when not.
+func cost_bb(cost: Dictionary) -> String:
+	var parts: Array = []
+	for k in cost:
+		var have: int = w.inv.count(k)
+		var need := int(cost[k])
+		var c := "#e9e4d6" if have >= need else "#d0665a"
+		parts.append("[color=%s]%s %d/%d[/color]" % [c, Items.iname(k), have, need])
+	return "   ".join(parts)
 
 
 # ================================================================== drawn things
