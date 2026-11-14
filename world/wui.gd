@@ -647,7 +647,7 @@ func _arms_btn(text: String, cost: Dictionary, bench: bool, done: Callable) -> B
 func _draw_arms() -> void:
 	var a: Dictionary = w.arms
 	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
-	_body.add_child(_label("At a workbench." if bench else "Choose what to carry anywhere. Making and fitting need a workbench close by.", 16, DIM))
+	_body.add_child(_label("At a workbench." if bench else "Choose what to carry. Making and fitting need a workbench.", 16, DIM))
 	var v := _scroll(540)
 	var sc: ScrollContainer = v.get_parent()
 	sc.scroll_vertical = _arms_scroll
@@ -870,7 +870,7 @@ func _draw_craft() -> void:
 		where.append("a workbench")
 	if fire:
 		where.append("a cooking station")
-	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "With your hands. A workbench or a cooking station close by lets you make more.", 16, DIM))
+	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "By hand. A workbench or cooking station makes more.", 16, DIM))
 	if pot >= 0:
 		_body.add_child(_fuel_row(pot))
 	var v := _scroll(520)
@@ -1205,7 +1205,7 @@ func open_travel() -> void:
 func _draw_travel() -> void:
 	_clear()
 	_body.add_child(_title("The Beacon Road"))
-	_body.add_child(_wrap("The burning beacons see one another across the waste. Walk the road of their light to any of them.", 19, DIM))
+	_body.add_child(_wrap("Burning beacons see one another. Walk their light to any of them.", 19, DIM))
 	for i in w.lit:
 		var b: Dictionary = WPlaces.BEACONS[i]
 		_body.add_child(_btn(b.name, func(): _travel(i), 22, PALE))
@@ -1259,7 +1259,7 @@ func _draw_rest() -> void:
 	if _rest_kind == "fire" and _rest_pid >= 0:
 		_body.add_child(_fuel_row(_rest_pid))
 		if not w.burning(_rest_pid):
-			_body.add_child(_wrap("Light it with wood before you rest. A cold camp keeps nothing away.", 20, PALE))
+			_body.add_child(_wrap("Add wood before you rest.", 20, PALE))
 			_body.add_child(_btn("Not now", close_all, 20))
 			return
 	var near := 0
@@ -1381,7 +1381,7 @@ func _draw_portal() -> void:
 # ------------------------------------------------------------------ the build guide
 
 func _draw_build_guide() -> void:
-	_body.add_child(_label("Press %s to build. The wheel chooses a piece, %s turns it, the aim key takes one down for half its cost." % [Game.key_text("build"), Game.key_text("reload")], 16, DIM))
+	_body.add_child(_label("[%s] build. Wheel picks a piece, [%s] turns it, aim takes one down (half back)." % [Game.key_text("build"), Game.key_text("reload")], 16, DIM))
 	var v := _scroll(540)
 	for g in Items.GROUPS:
 		v.add_child(_label(g, 22, GOLD))
