@@ -463,6 +463,13 @@ func _build_settlement(k: String) -> void:
 		var p := c + Vector3(pd.off.x, 0, pd.off.y)
 		p.y = terrain.height_at(p.x, p.z)
 		_person(pid, p, yaw_to(p, c))
+	# And the folk who live there, about their day
+	for i in (3 if s.get("far", false) else 5):
+		var f := WTownsfolk.new().setup(self, c, r * 0.6, hash(k) + i * 101)
+		add_child(f)
+		var a := i * TAU / 5.0 + 0.4
+		f.global_position = c + Vector3(cos(a), 0, sin(a)) * r * 0.35
+		f.global_position.y = terrain.height_at(f.global_position.x, f.global_position.z)
 
 
 ## A column of smoke over a hearth, seen from far across the waste.
@@ -3758,3 +3765,13 @@ func debug_beastshot() -> void:
 	var c := base + side * 5.5
 	builder._rq_build(1, "cookpot", Vector3(c.x, terrain.height_at(c.x, c.z), c.z), 0.0)
 	clock = 19.5
+
+
+func debug_townshot() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var c := gpos(WPlaces.spos("cinderwick"))
+	var at := c + Vector3(0, 0, 22)
+	at.y = terrain.height_at(at.x, at.z) + 0.3
+	player.place(at, 0.0)
+	player.face(c + Vector3(0, 1.5, 0))
+	clock = 11.0

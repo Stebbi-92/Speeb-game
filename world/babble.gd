@@ -33,6 +33,12 @@ func _ready() -> void:
 
 ## Murmurs a line in a voice, for about as long as the words take to come up.
 func speak(who: String, text: String, secs: float) -> void:
+	stream = make(who, text, secs)
+	play()
+
+
+## The murmur itself, as a sound to be played anywhere.
+static func make(who: String, text: String, secs: float) -> AudioStreamWAV:
 	var v := voice_of(who)
 	var r := RandomNumberGenerator.new()
 	r.seed = int(v.seed) ^ hash(text)
@@ -87,8 +93,7 @@ func speak(who: String, text: String, secs: float) -> void:
 	wav.mix_rate = RATE
 	wav.stereo = false
 	wav.data = data
-	stream = wav
-	play()
+	return wav
 
 
 func hush() -> void:
