@@ -2206,12 +2206,12 @@ func _rise(fraction: float) -> void:
 	_pose_t = 0.0
 
 
-func net_revived(by: int) -> void:
+func net_revived(by: int, strength := 0.5) -> void:
 	if not downed or failing:
 		return
 	if OS.is_debug_build() or OS.get_cmdline_user_args().size() > 0:
 		print("raised by %s" % Net.name_of(by))
-	_rise(0.5)
+	_rise(strength)
 	sfx("bell", -8)
 	hud.clear_say()
 	hud.notify("%s raised you." % Net.name_of(by))

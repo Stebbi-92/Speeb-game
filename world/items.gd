@@ -24,6 +24,7 @@ const DB := {
 	"torchwood": {"name": "Torch", "kind": "material", "stack": 20, "value": 2, "color": Color(0.85, 0.55, 0.25), "text": "Pitch-soaked wood. Makes a torch."},
 	"milk": {"name": "Bowl of Milk", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.95, 0.94, 0.9), "heal": 55.0, "text": "Speeb's own comfort. Restores much health."},
 	"bandage": {"name": "Bandage", "kind": "medicine", "stack": 10, "value": 5, "color": Color(0.85, 0.82, 0.75), "heal": 35.0, "text": "Clean cloth, boiled. Restores health."},
+	"salts": {"name": "Smelling Salts", "kind": "aid", "stack": 5, "value": 12, "color": Color(0.88, 0.86, 0.8), "text": "Held under the nose of a fallen companion. Raises them faster, and stronger."},
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
 	"shells": {"name": "Shotgun Shells", "kind": "ammo", "stack": 120, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Paper and brass, packed with shot. For the pump shotgun."},
 	"rounds": {"name": "Pistol Rounds", "kind": "ammo", "stack": 150, "value": 1, "color": Color(0.8, 0.65, 0.3), "text": "Short brass rounds. For the pistol and the revolver."},
@@ -53,6 +54,7 @@ const DB := {
 const RECIPES := [
 	{"id": "bandage", "n": 1, "cost": {"cloth": 2}, "bench": false},
 	{"id": "salve", "n": 1, "cost": {"cloth": 1, "herb": 3}, "bench": false},
+	{"id": "salts", "n": 1, "cost": {"salt": 3, "herb": 2}, "bench": false},
 	{"id": "meat", "n": 2, "cost": {"bone": 2, "salt": 4}, "bench": false},
 	{"id": "shells", "n": 8, "cost": {"scrap": 1, "salt": 3}, "bench": false},
 	{"id": "shells", "n": 30, "cost": {"scrap": 3, "salt": 8}, "bench": true},
@@ -116,7 +118,7 @@ const STOCK := {
 	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
 	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets"],
-	"healer": ["bandage", "salve", "herb", "herb_seed", "milk"],
+	"healer": ["bandage", "salve", "salts", "herb", "herb_seed", "milk"],
 	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
 }
 

@@ -96,7 +96,12 @@ func _ready() -> void:
 	_area.set_meta("hold", 2.0)
 	_area.set_meta("on_interact", func():
 		if downed:
-			Net.revive(peer_id)
+			# A land may ask something of the one who raises (smelling salts in the waste)
+			var lvl = Game.main.level
+			var strength := 0.5
+			if lvl and lvl.has_method("raise_strength"):
+				strength = lvl.raise_strength(true)
+			Net.revive(peer_id, strength)
 			Game.main.hud.notify("You raise %s." % Net.name_of(peer_id)))
 	visible = false
 
@@ -128,6 +133,10 @@ func pose(data: Array) -> void:
 		_last = _to
 	_has_pose = true
 	visible = true
+	if downed:
+		var lvl = Game.main.level
+		if lvl and lvl.has_method("raise_hold"):
+			_area.set_meta("hold", lvl.raise_hold())
 	if downed != was:
 		_area.set_meta("prompt", "Raise %s" % Net.name_of(peer_id) if downed else "")
 		_label.text = Net.name_of(peer_id) + ("\nfallen" if downed else "")

@@ -650,6 +650,43 @@ func raise_text(up: bool) -> void:
 		narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
 
+# ------------------------------------------------------------------ banner
+
+var _banner: VBoxContainer
+var _banner_big: Label
+var _banner_small: Label
+
+
+## A large line and a small one, low in the middle of the screen: a count while fallen, or before waking.
+func set_banner(big: String, small: String) -> void:
+	if _banner == null:
+		_banner = VBoxContainer.new()
+		_banner.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_banner.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_banner.position.y -= 150
+		_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_banner.add_theme_constant_override("separation", 6)
+		_banner_big = _label("", 44, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+		_banner_big.add_theme_font_override("font", title_font)
+		_banner_small = _label("", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		_banner_small.add_theme_font_override("font", serif)
+		for l in [_banner_big, _banner_small]:
+			l.add_theme_constant_override("outline_size", 8)
+			l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+		_banner_small.add_theme_color_override("font_color", PALE)
+		_banner.add_child(_banner_big)
+		_banner.add_child(_banner_small)
+		var top := CanvasLayer.new()
+		top.layer = 90
+		add_child(top)
+		top.add_child(_banner)
+	_banner_big.text = big
+	_banner_small.text = small
+	_banner_big.visible = big != ""
+	_banner_small.visible = small != ""
+
+
 # ------------------------------------------------------------------ loading
 
 var loading: Control

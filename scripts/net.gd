@@ -600,15 +600,15 @@ func _downed(s: int, on: bool) -> void:
 		lvl.net_downed(multiplayer.get_remote_sender_id(), on)
 
 
-func revive(id: int) -> void:
-	_revive.rpc_id(id, seq, me())
+func revive(id: int, strength := 0.5) -> void:
+	_revive.rpc_id(id, seq, me(), strength)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _revive(s: int, by: int) -> void:
+func _revive(s: int, by: int, strength := 0.5) -> void:
 	var lvl = _here(s)
 	if lvl:
-		lvl.net_revived(by)
+		lvl.net_revived(by, clampf(strength, 0.1, 1.0))
 
 
 func wipe() -> void:

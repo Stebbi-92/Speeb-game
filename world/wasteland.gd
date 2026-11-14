@@ -66,6 +66,8 @@ var _save_soon := -1.0     ## counts down to a save asked for by an event; -1 wh
 var _last_save := 0
 var _reveal_t := 0.0
 var _bleed_t := 0.0
+var _give_up_t := 0.0
+var _banner_on := false
 var _vigil_t := 0.0
 var _gen := RandomNumberGenerator.new()
 var _m := {}
@@ -2043,10 +2045,21 @@ func _physics_process(delta: float) -> void:
 					_crop_look(pid)
 				elif pieces[pid].kind in FIRE_KINDS:
 					_fire_look(pid)
-	if downed and Net.online and not failing:
+	if downed and Net.online and not failing and not _pfail:
 		_bleed_t -= delta
+		# Holding jump gives up the wait and wakes at camp
+		_give_up_t = _give_up_t + delta if Input.is_action_pressed("jump") else 0.0
+		hud.set_banner("Unconscious   %d" % ceili(maxf(_bleed_t, 0.0)),
+			"A companion can raise you.   Hold [Space] to wake at camp" + (" (%d)" % ceili(1.5 - _give_up_t) if _give_up_t > 0.0 else ""))
 		if _bleed_t <= 0.0:
+			hud.set_banner("", "")
 			_perish("You bled out in the dust before anyone could raise you.")
+		elif _give_up_t >= 1.5:
+			hud.set_banner("", "")
+			_perish("You let go, and the dust took you.")
+	elif _banner_on and not _pfail:
+		hud.set_banner("", "")
+	_banner_on = downed or _pfail
 	_save_t -= delta
 	if _save_soon >= 0.0:
 		_save_soon -= delta
@@ -2387,7 +2400,8 @@ func damage_player(amount: float, from: Vector3) -> void:
 	player.velocity += push.normalized() * 3.0
 	if player.health <= 0.0:
 		if Net.online and targets().size() > 0:
-			_bleed_t = 40.0
+			_bleed_t = 45.0
+			_give_up_t = 0.0
 			_go_down()
 		else:
 			_perish("You fell in the dust, and the forms went on without you.")
@@ -2432,7 +2446,11 @@ func _perish(message: String) -> void:
 	hud.clear_say()
 	hud.raise_text(true)
 	hud.say(message + "\nWhat you carried lies where you fell.", 5.0)
-	await get_tree().create_timer(5.5, false).timeout
+	var where := "your bedroll" if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0) else "the nearest town"
+	for left in range(5, 0, -1):
+		hud.set_banner("", "You will wake at %s in %d" % [where, left])
+		await get_tree().create_timer(1.1, false).timeout
+	hud.set_banner("", "")
 	hud.raise_text(false)
 	if downed:
 		_rise(1.0)
@@ -2446,6 +2464,20 @@ func _perish(message: String) -> void:
 	player.input_locked = false
 	_pfail = false
 	hud.fade_to(0.0, 1.5)
+
+
+## Raising a fallen companion: smelling salts make it quick and leave them stronger.
+func raise_hold() -> float:
+	return 1.5 if inv.count("salts") > 0 else 5.0
+
+
+func raise_strength(spend: bool) -> float:
+	if inv.count("salts") > 0:
+		if spend:
+			inv.take("salts", 1)
+			hud.notify("The salts are spent.")
+		return 0.75
+	return 0.3
 
 
 func respawn_point() -> Vector3:
@@ -3927,3 +3959,42 @@ func debug_askshot() -> void:
 
 func debug_loadshot() -> void:
 	hud.show_loading("The Ashen Waste", "The waste is raised")
+
+
+func debug_deathshot() -> void:
+	damage_player(9999.0, player.global_position + Vector3(1, 0, 0))
+
+
+func debug_downed_join() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(4.0).timeout
+	damage_player(9999.0, player.global_position + Vector3(1, 0, 0))
+	print("DOWN downed=%s bleed=%.0f" % [downed, _bleed_t])
+	await get_tree().create_timer(5.0).timeout
+	print("DOWN bleed now %.0f" % _bleed_t)
+	print("DOWN after raise: downed=%s health=%.0f" % [downed, player.health])
+
+
+func debug_downed_host() -> void:
+	inv.add("salts", 1)
+	for t in 60:
+		await get_tree().create_timer(1.0).timeout
+		var any := false
+		for id in avatars:
+			any = any or avatars[id].downed
+		if any:
+			break
+	for id in avatars:
+		var a = avatars[id]
+		print("HOST sees %s downed=%s hold=%.1f" % [Net.name_of(id), a.downed, a._area.get_meta("hold")])
+		if a.downed:
+			a._area.get_meta("on_interact").call()
+	await get_tree().create_timer(1.0).timeout
+	print("HOST salts left %d" % inv.count("salts"))
+
+
+func debug_bannershot() -> void:
+	hud.set_fx("desat", 0.85)
+	hud.set_fx("dark", 0.35)
+	hud.set_banner("Unconscious   34", "A companion can raise you.   Hold [Space] to wake at camp")
