@@ -58,7 +58,7 @@ fellowship must run the same version of Brelm.
 
 4. THE INTERNET LIST
    "Fellowships found" shows fellowships on your own network, and public
-   ones from the internet list at https://brelm-lobby.stebbi92.workers.dev
+   ones from the internet list at https://game.speeb.org
    (built into the game). Tick "List on the internet" when hosting to
    appear there. The list keeps nothing on disk; a fellowship drops off two
    minutes after its host stops announcing it.
