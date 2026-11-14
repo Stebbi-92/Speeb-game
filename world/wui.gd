@@ -180,43 +180,114 @@ func open_skills() -> void:
 func _draw_skills() -> void:
 	_clear()
 	var s: WSkills = w.skills
-	_body.add_child(_title("What You Have Learned"))
-	var head := "Level %d.   %d of %d toward the next.   " % [s.level, s.xp, WSkills.need(s.level)] if s.level < WSkills.MAX_LEVEL else "Level %d, the most there is.   " % s.level
-	head += ("%d point%s to spend." % [s.points, "" if s.points == 1 else "s"]) if s.points > 0 else "Nothing to spend. Experience comes from the forms you fell, the work you do, the places you find and the beacons you light."
-	var hl := _label(head, 17, GOLD if s.points > 0 else DIM)
-	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body.add_child(hl)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 18)
+	top.add_child(_title("Skills"))
+	var lv := VBoxContainer.new()
+	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lv.add_theme_constant_override("separation", 4)
+	lv.add_child(_label(("Level %d    %d of %d toward the next" % [s.level, s.xp, WSkills.need(s.level)]) if s.level < WSkills.MAX_LEVEL else "Level %d, the most there is" % s.level, 17, PALE))
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 6)
+	bar.max_value = 1.0
+	bar.value = float(s.xp) / maxf(1.0, WSkills.need(s.level)) if s.level < WSkills.MAX_LEVEL else 1.0
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(1, 1, 1, 0.1)
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = Color(GOLD, 0.8)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fg)
+	lv.add_child(bar)
+	top.add_child(lv)
+	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
+	_body.add_child(top)
+	if s.points == 0:
+		_body.add_child(_label("Experience comes from what you undo, make, build and find, and from the beacons you light.", 15, DIM))
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 12)
 	_body.add_child(row)
 	for t in WSkills.TREES:
 		var tr: Dictionary = WSkills.TREES[t]
+		var card := PanelContainer.new()
+		var cs := StyleBoxFlat.new()
+		cs.bg_color = Color(1, 1, 1, 0.03)
+		cs.border_color = Color(1, 1, 1, 0.07)
+		cs.set_border_width_all(1)
+		cs.set_corner_radius_all(4)
+		cs.set_content_margin_all(12)
+		card.add_theme_stylebox_override("panel", cs)
+		card.custom_minimum_size.x = 258
+		row.add_child(card)
 		var col := VBoxContainer.new()
-		col.custom_minimum_size.x = 250
-		col.add_theme_constant_override("separation", 6)
-		row.add_child(col)
-		col.add_child(_label("%s   %d" % [tr.name, s.spent_in(t)], 24, GOLD))
-		var tl := _label(tr.text, 14, DIM)
-		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tl.custom_minimum_size.x = 250
+		col.add_theme_constant_override("separation", 5)
+		card.add_child(col)
+		var hd := HBoxContainer.new()
+		hd.add_child(_label(tr.name, 22, GOLD))
+		var sp := _label("%d" % s.spent_in(t), 18, DIM)
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		hd.add_child(sp)
+		col.add_child(hd)
+		var tl := _label(tr.text, 12, DIM)
+		tl.clip_text = true
+		tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		tl.custom_minimum_size.x = 230
+		tl.tooltip_text = tr.text
 		col.add_child(tl)
-		col.add_child(HSeparator.new())
 		for id in tr.skills:
-			var sk: Dictionary = WSkills.SKILLS[id]
-			var r := s.rank(id)
-			var why := s.blocked(id)
-			var pips := ""
-			for i in int(sk.ranks):
-				pips += "●" if i < r else "○"
-			var b := _btn("%s  %s" % [sk.name, pips], func(): _learn(id), 19, PALE if why == "" else (GOLD if r > 0 else DIM))
-			b.focus_mode = Control.FOCUS_NONE
-			b.tooltip_text = sk.text + ("" if why == "" else "\n" + why)
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			col.add_child(b)
-			var line := _label(sk.text if why == "" or why == "Mastered" or why == "No points to spend" else why, 13, Color(DIM, 0.85))
-			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			line.custom_minimum_size.x = 250
-			col.add_child(line)
+			col.add_child(_skill_card(id))
+
+
+func _skill_card(id: String) -> Button:
+	var s: WSkills = w.skills
+	var sk: Dictionary = WSkills.SKILLS[id]
+	var r := s.rank(id)
+	var why := s.blocked(id)
+	var can := why == ""
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(232, 82)
+	b.focus_mode = Control.FOCUS_ALL
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if can else Control.CURSOR_ARROW
+	b.tooltip_text = sk.text + ("" if can else "\n" + why)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(GOLD, 0.1) if r > 0 else Color(1, 1, 1, 0.025)
+	sb.border_color = Color(GOLD, 0.8) if can else (Color(GOLD, 0.35) if r > 0 else Color(1, 1, 1, 0.06))
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	b.add_theme_stylebox_override("normal", sb)
+	var hs := sb.duplicate()
+	hs.bg_color = Color(GOLD, 0.2) if can else sb.bg_color
+	b.add_theme_stylebox_override("hover", hs)
+	b.add_theme_stylebox_override("pressed", hs)
+	b.add_theme_stylebox_override("focus", hs)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 10
+	v.offset_right = -8
+	v.offset_top = 6
+	v.add_theme_constant_override("separation", 1)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(_label(sk.name, 17, PALE if (can or r > 0) else DIM))
+	var pips := ""
+	for i in int(sk.ranks):
+		pips += "●" if i < r else "○"
+	var pl := _label(pips, 14, GOLD if r > 0 else DIM)
+	pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(pl)
+	v.add_child(h)
+	var tx := _label(sk.text, 12, Color(PALE, 0.8) if (can or r > 0) else Color(DIM, 0.8))
+	tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tx.custom_minimum_size.x = 210
+	v.add_child(tx)
+	if not can and why != "Mastered" and why != "No points to spend":
+		v.add_child(_label(why, 12, Color(0.85, 0.5, 0.4, 0.85)))
+	b.add_child(v)
+	b.pressed.connect(func(): _learn(id))
+	return b
 
 
 func _learn(id: String) -> void:
@@ -370,6 +441,13 @@ func _input(e: InputEvent) -> void:
 	elif e.is_action_pressed("reload") and w.builder.active and _panel == null:
 		w.builder.turn()
 		accept_event()
+	elif _panel_name == "talk" and e is InputEventKey and e.pressed and not e.echo and e.physical_keycode >= KEY_1 and e.physical_keycode <= KEY_9 \
+			and is_instance_valid(_talk_keys) and _talk_keys.is_inside_tree():
+		# Number keys choose what to say
+		var i: int = e.physical_keycode - KEY_1
+		if i < _talk_keys.get_child_count() - 1:
+			(_talk_keys.get_child(i) as Button).pressed.emit()
+			accept_event()
 	elif not get_viewport().gui_get_focus_owner() is LineEdit and _panel_name == "container" and e.is_action_pressed("reload"):
 		_take_all()
 		accept_event()
@@ -1345,11 +1423,16 @@ func open_dialogue(pid: String) -> void:
 func _talk(text: String) -> void:
 	_clear()
 	var pd: Dictionary = WPlaces.PEOPLE[_talking]
-	_body.add_child(_title(pd.name))
-	_body.add_child(_label(pd.title + ("   ·   Standing: %d" % int(w.rep.get(pd.at, 0)) if int(w.rep.get(pd.at, 0)) > 0 else ""), 18, DIM))
+	_speaker_head(pd)
 	var line := WPlaces.words(text)
-	var say := _wrap(line, 21, PALE)
-	say.custom_minimum_size = Vector2(1060, 0)
+	var quote := PanelContainer.new()
+	var qs := StyleBoxFlat.new()
+	qs.bg_color = Color(1, 1, 1, 0.035)
+	qs.border_color = Color(GOLD, 0.45)
+	qs.border_width_left = 3
+	qs.set_content_margin_all(18)
+	quote.add_theme_stylebox_override("panel", qs)
+	var say := _wrap(line, 21, PALE, 1000)
 	# The words come up as they are spoken, in the speaker's own murmur
 	var secs := clampf(line.length() / 55.0, 0.4, 5.0)
 	say.visible_ratio = 0.0
@@ -1360,22 +1443,53 @@ func _talk(text: String) -> void:
 	_babble.speak(_talking, line, secs)
 	w.speaker_says(_talking, minf(secs, 2.8))
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(0, 330)
+	sc.custom_minimum_size = Vector2(0, 220)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.add_child(say)
-	_body.add_child(sc)
+	quote.add_child(sc)
+	_body.add_child(quote)
+	_body.add_child(_gap(4))
 	var opts := VBoxContainer.new()
-	opts.add_theme_constant_override("separation", 2)
+	opts.add_theme_constant_override("separation", 5)
+	var n := 1
 	for o in w.quests.talk_options(_talking):
 		var cb: Callable = o[1]
-		opts.add_child(_btn("» " + o[0], func(): _talk(cb.call()), 20, GOLD))
-	opts.add_child(_btn("Have you any work for me?", func(): _offers(), 20))
-	opts.add_child(_btn("Tell me about yourself.", func(): _talk(pd.about), 20))
-	opts.add_child(_btn("What news on the road?", func(): _rumor(), 20))
+		opts.add_child(_action(o[0], func(): _talk(cb.call()), str(n), GOLD))
+		n += 1
+	var offers: int = w.quests.offers_from(_talking).size()
+	opts.add_child(_action("Have you any work for me?" + ("  (%d)" % offers if offers > 0 else ""), func(): _offers(), str(n)))
+	n += 1
+	opts.add_child(_action("Tell me about yourself.", func(): _talk(pd.about), str(n)))
+	n += 1
+	opts.add_child(_action("What news on the road?", func(): _rumor(), str(n)))
+	n += 1
 	if Items.STOCK.has(pd.role):
-		opts.add_child(_btn("Let us trade.", func(): _trade(), 20))
-	opts.add_child(_btn("Farewell.", close_all, 20))
+		opts.add_child(_action("Let us trade.", func(): _tsel = ""; _trade(), str(n)))
+		n += 1
+	opts.add_child(_action("Farewell.", close_all, "Esc", DIM))
 	_body.add_child(opts)
+	_talk_keys = opts
+
+
+var _talk_keys: VBoxContainer
+
+
+## The speaker's name, what they are, and where you stand with their people.
+func _speaker_head(pd: Dictionary) -> void:
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	var nv := VBoxContainer.new()
+	nv.add_theme_constant_override("separation", -2)
+	nv.add_child(_title(pd.name))
+	nv.add_child(_label(pd.title, 17, DIM))
+	top.add_child(nv)
+	var st := int(w.rep.get(pd.at, 0))
+	if st > 0:
+		var c := _label("Standing in %s: %d" % [WPlaces.SETTLEMENTS[pd.at].name, st], 16, GOLD)
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		top.add_child(c)
+	_body.add_child(top)
 
 
 func _rumor() -> void:
@@ -1401,22 +1515,44 @@ func _rumor() -> void:
 func _offers() -> void:
 	_clear()
 	var pd: Dictionary = WPlaces.PEOPLE[_talking]
-	_body.add_child(_title(pd.name))
+	_speaker_head(pd)
 	var list: Array = w.quests.offers_from(_talking)
-	var v := _scroll(470)
+	var v := _scroll(450)
+	v.add_theme_constant_override("separation", 10)
 	if list.is_empty():
-		v.add_child(_wrap("\"Nothing today. Come back after the dawn; there is always something after the dawn.\"", 21, PALE))
+		v.add_child(_wrap("\"Nothing today. Come back after the dawn; there is always something after the dawn.\"", 21, PALE, 1000))
 	for o in list:
-		v.add_child(_label(o.title, 24, GOLD))
-		v.add_child(_wrap("\"%s\"" % WPlaces.words(o.pitch), 20, PALE))
+		var card := PanelContainer.new()
+		var cs := StyleBoxFlat.new()
+		cs.bg_color = Color(1, 1, 1, 0.04)
+		cs.border_color = Color(1, 1, 1, 0.08)
+		cs.set_border_width_all(1)
+		cs.set_corner_radius_all(4)
+		cs.set_content_margin_all(16)
+		card.add_theme_stylebox_override("panel", cs)
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 6)
+		card.add_child(cv)
+		cv.add_child(_label(o.title, 23, GOLD))
+		cv.add_child(_wrap("\"%s\"" % WPlaces.words(o.pitch), 19, PALE, 980))
 		var r: Dictionary = o.reward
-		var rw := "%d salt" % int(r.salt)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.add_child(_label("Reward:", 17, DIM))
+		row.add_child(_icon("salt", 22))
+		row.add_child(_label("%d salt" % int(r.salt), 17, PALE))
 		for it in r.get("items", []):
-			rw += ", %d %s" % [int(it[1]), Items.iname(it[0])]
-		v.add_child(_label("Reward: " + rw, 17, DIM))
-		v.add_child(_btn("I will do it.", func(): w.quests.accept(o); _talk("\"Go carefully. Come back.\""), 20, PALE))
-		v.add_child(HSeparator.new())
-	_body.add_child(_btn("Back", func(): _talk(pd.greet), 20))
+			row.add_child(_icon(it[0], 22))
+			row.add_child(_label("%d %s" % [int(it[1]), Items.iname(it[0])], 17, PALE))
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(sp)
+		var take := _action("I will do it.", func(): w.quests.accept(o); _talk("\"Go carefully. Come back.\""), "", GOLD)
+		take.custom_minimum_size.x = 220
+		row.add_child(take)
+		cv.add_child(row)
+		v.add_child(card)
+	_body.add_child(_action("Back", func(): _talk(pd.greet), "", DIM))
 
 
 func _discount(at: String) -> float:
@@ -1434,46 +1570,177 @@ func sell_price(id: String) -> int:
 	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
 
 
+var _tsel := ""      ## the chosen thing in trade
+var _tside := ""     ## "buy" or "sell"
+
+
 func _trade() -> void:
 	_clear()
 	var pd: Dictionary = WPlaces.PEOPLE[_talking]
-	_body.add_child(_title("Trade with %s" % pd.name))
-	_body.add_child(_label("You carry %d salt. Better standing with %s brings better prices." % [w.inv.count("salt"), WPlaces.SETTLEMENTS[pd.at].name], 17, DIM))
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 40)
-	hb.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var left := VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(_label("Buy", 22, GOLD))
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	top.add_child(_title("Trade with %s" % pd.name))
+	var salt := _label("Salt  %d" % w.inv.count("salt"), 22, GOLD)
+	salt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	salt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(salt)
+	_body.add_child(top)
+	var disc := int(round(_discount(pd.at) * 100.0))
+	_body.add_child(_label(("Your standing in %s takes %d%% off." % [WPlaces.SETTLEMENTS[pd.at].name, disc]) if disc > 0 else "Better standing with %s brings better prices." % WPlaces.SETTLEMENTS[pd.at].name, 16, DIM))
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 18)
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(split)
+	# What they sell
+	var buy_ids: Array = []
 	for id in Items.STOCK[pd.role]:
 		if id == "beacon_oil" and not w.flags.has("oilcraft"):
 			continue
-		var price := buy_price(id, pd.at)
-		var n := 10 if id in ["shells", "rounds", "rifle"] else 1
-		var ok: bool = w.inv.count("salt") >= price * n
-		var cost := price * n
-		var b := _btn("%s%s   %d salt" % [Items.iname(id), " ×10" if n > 1 else "", cost], func(): _buy(id, n, cost), 19, PALE if ok else DIM)
-		b.disabled = w.inv.count("salt") < cost
-		b.tooltip_text = Items.info(id).text
-		left.add_child(b)
-	hb.add_child(left)
-	var right := VBoxContainer.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.add_child(_label("Sell (one at a time)", 22, GOLD))
+		buy_ids.append(id)
+	var lb := _list_col(split, "%s sells" % pd.name.split(" ")[0])
+	for id in buy_ids:
+		var n := _lot(id)
+		var cost := buy_price(id, pd.at) * n
+		lb.add_child(_trade_row(id, "buy", "%d" % cost, w.inv.count("salt") >= cost, n))
+	# What you can sell
+	var ls := _list_col(split, "You can sell")
 	var seen := {}
 	for s in w.inv.slots:
 		if s == null or seen.has(s.id) or sell_price(s.id) <= 0:
 			continue
 		seen[s.id] = true
-		var id: String = s.id
-		right.add_child(_btn("%s ×%d   %d salt each" % [Items.iname(id), w.inv.count(id), sell_price(id)], func(): _sell(id), 19, PALE))
-	hb.add_child(right)
-	_body.add_child(hb)
+		ls.add_child(_trade_row(s.id, "sell", "%d" % sell_price(s.id), true, w.inv.count(s.id)))
+	if seen.is_empty():
+		ls.add_child(_label("Nothing they would take.", 16, DIM))
+	var side := _side_panel(split)
+	side.custom_minimum_size.x = 330
+	if _tsel == "" or (_tside == "sell" and w.inv.count(_tsel) <= 0) or (_tside == "buy" and not _tsel in buy_ids):
+		_tsel = ""
+		side.add_child(_label("Choose something", 22, DIM))
+		side.add_child(_wrap("Click a thing on either side to buy or sell it.", 17, DIM, 300))
+		var junk := _junk_value()
+		if junk > 0:
+			side.add_child(_gap(10))
+			side.add_child(_action("Sell all trinkets  (+%d salt)" % junk, func(): _sell_junk(), "", GOLD))
+	else:
+		var info: Dictionary = Items.info(_tsel)
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 12)
+		head.add_child(_icon(_tsel, 44))
+		var hv := VBoxContainer.new()
+		hv.add_theme_constant_override("separation", 0)
+		hv.add_child(_label(info.name, 24, PALE))
+		hv.add_child(_label("You have %d" % w.inv.count(_tsel), 15, DIM))
+		head.add_child(hv)
+		side.add_child(head)
+		side.add_child(_wrap(info.text, 17, PALE, 300))
+		side.add_child(_gap(6))
+		var id: String = _tsel
+		if _tside == "buy":
+			var lot := _lot(id)
+			var price := buy_price(id, pd.at) * lot
+			var can: int = w.inv.count("salt") / maxi(1, price)
+			side.add_child(_label("%d salt for %d" % [price, lot], 18, GOLD))
+			for k in [1, 5]:
+				if k == 1 or can >= k:
+					var b := _action("Buy %d" % (k * lot) if lot > 1 or k > 1 else "Buy", func(): _buy(id, lot * k, price * k))
+					b.disabled = can < k
+					side.add_child(b)
+			if can > 5:
+				side.add_child(_action("Buy %d  (%d salt)" % [can * lot, can * price], func(): _buy(id, lot * can, price * can)))
+		else:
+			var each := sell_price(id)
+			var have: int = w.inv.count(id)
+			side.add_child(_label("%d salt each" % each, 18, GOLD))
+			side.add_child(_action("Sell one", func(): _sell(id, 1)))
+			if have > 1:
+				side.add_child(_action("Sell all %d  (+%d salt)" % [have, have * each], func(): _sell(id, have)))
 	_body.add_child(_btn("Back", func(): _talk(pd.greet), 20))
+
+
+## Rounds come by the ten.
+func _lot(id: String) -> int:
+	return 10 if id in ["shells", "rounds", "rifle"] else 1
+
+
+func _list_col(parent: Control, title: String) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	col.add_child(_label(title, 19, GOLD))
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(326, 470)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(v)
+	col.add_child(sc)
+	parent.add_child(col)
+	return v
+
+
+func _trade_row(id: String, side: String, price: String, ok: bool, n: int) -> Button:
+	var on := _tsel == id and _tside == side
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(312, 42)
+	b.focus_mode = Control.FOCUS_ALL
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(GOLD, 0.14) if on else Color(1, 1, 1, 0.03)
+	sb.border_color = Color(GOLD, 0.8) if on else Color(1, 1, 1, 0.0)
+	sb.border_width_left = 3
+	b.add_theme_stylebox_override("normal", sb)
+	var hs := sb.duplicate()
+	hs.bg_color = Color(1, 1, 1, 0.09) if not on else Color(GOLD, 0.2)
+	b.add_theme_stylebox_override("hover", hs)
+	b.add_theme_stylebox_override("pressed", hs)
+	b.add_theme_stylebox_override("focus", hs)
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 10
+	row.offset_right = -10
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := _icon(id, 26)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ic)
+	var nm := _label(Items.iname(id) + ("  × %d" % n if n > 1 else ""), 17, PALE if ok else DIM)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
+	row.add_child(nm)
+	row.add_child(_label(price + " salt", 16, GOLD if ok else Color(DIM, 0.6)))
+	b.add_child(row)
+	b.pressed.connect(func(): _tsel = id; _tside = side; _trade())
+	return b
+
+
+func _junk_value() -> int:
+	var v := 0
+	for s in w.inv.slots:
+		if s != null and Items.info(s.id).kind == "trinket":
+			v += sell_price(s.id) * int(s.n)
+	return v
+
+
+func _sell_junk() -> void:
+	var got := 0
+	for s in w.inv.slots.duplicate():
+		if s != null and Items.info(s.id).kind == "trinket":
+			var n: int = w.inv.take(s.id, int(s.n))
+			got += sell_price(s.id) * n
+	if got > 0:
+		w.give([["salt", got]])
+		w.sfx("shell", -6)
+	_trade()
 
 
 func _buy(id: String, n: int, cost: int) -> void:
 	if w.inv.count("salt") < cost:
+		w.sfx("deny", -8)
+		return
+	if not w.inv.room_for(id, n):
+		w.hud.notify("Your pack is full.")
+		w.sfx("deny", -8)
 		return
 	w.inv.take("salt", cost)
 	w.give([[id, n]])
@@ -1481,10 +1748,11 @@ func _buy(id: String, n: int, cost: int) -> void:
 	_trade()
 
 
-func _sell(id: String) -> void:
-	if w.inv.take(id, 1) < 1:
+func _sell(id: String, n := 1) -> void:
+	var got: int = w.inv.take(id, n)
+	if got < 1:
 		return
-	w.give([["salt", sell_price(id)]])
+	w.give([["salt", sell_price(id) * got]])
 	w.sfx("shell", -8)
 	_trade()
 
@@ -1495,26 +1763,107 @@ func open_journal() -> void:
 	_open("journal")
 
 
+var _jsel := ""
+
+
 func _draw_journal() -> void:
 	_clear()
-	_body.add_child(_title("Journal"))
-	_body.add_child(_label("Click a task to follow it on the compass. %d beacons of 9 burn. %d nights survived." % [w.lit.size(), w.nights], 16, DIM))
-	var v := _scroll(560)
-	var list: Array = w.quests.active()
-	if list.is_empty():
-		v.add_child(_wrap("Nothing is asked of you. Ask in the settlements; there is always work.", 20, DIM))
-	for q in list:
-		var tracked: bool = w.quests.tracked == q.id
-		var head: String = ("◆ " if tracked else "") + q.title + ("   (the beacon road)" if q.get("main", false) else "")
-		v.add_child(_btn(head, func(): w.quests.tracked = q.id; w.quests.refresh_hud(); journal_dirty = true, 23, GOLD if tracked else PALE))
-		v.add_child(_wrap(w.quests.step_text(q), 19, PALE if tracked else DIM))
-		var r: Dictionary = q.get("reward", {})
-		if int(r.get("salt", 0)) > 0:
-			var rw := "%d salt" % int(r.salt)
-			for it in r.get("items", []):
-				rw += ", %d %s" % [int(it[1]), Items.iname(it[0])]
-			v.add_child(_label("Reward: " + rw, 15, DIM))
-		v.add_child(HSeparator.new())
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	top.add_child(_title("Journal"))
+	var st := _label("Day %d    %d of 9 beacons burn    %d nights lived through" % [w.day, w.lit.size(), w.nights], 17, DIM)
+	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(st)
+	_body.add_child(top)
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 22)
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(split)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(560, 540)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 4)
+	sc.add_child(list)
+	split.add_child(sc)
+	var side := _side_panel(split)
+	var qs: Array = w.quests.active()
+	if qs.is_empty():
+		list.add_child(_wrap("Nothing is asked of you. Ask in the settlements; there is always work.", 19, DIM, 540))
+		side.add_child(_label("No tasks", 22, DIM))
+		return
+	if _jsel == "" or not w.quests.quests.has(_jsel) or w.quests.quests[_jsel].state != "active":
+		_jsel = w.quests.tracked if w.quests.quests.has(w.quests.tracked) else qs[0].id
+	for q in qs:
+		list.add_child(_quest_row(q))
+	var q: Dictionary = w.quests.quests[_jsel]
+	var tracked: bool = w.quests.tracked == q.id
+	side.add_child(_label(q.title, 25, PALE))
+	if q.get("main", false):
+		side.add_child(_label("The beacon road", 15, GOLD))
+	side.add_child(_gap(4))
+	side.add_child(_wrap(w.quests.step_text(q), 18, PALE, 380))
+	var t = w.quests.target_of(q)
+	if t is Vector3:
+		var me: Vector3 = w.player.global_position
+		var d := Vector2(t.x - me.x, t.z - me.z).length()
+		side.add_child(_label("%d m %s" % [int(d), WPlaces.dir_word(Vector2(me.x, me.z), Vector2(t.x, t.z))], 16, DIM))
+	var r: Dictionary = q.get("reward", {})
+	if int(r.get("salt", 0)) > 0:
+		side.add_child(_gap(6))
+		side.add_child(_label("Reward", 16, GOLD))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.add_child(_icon("salt", 22))
+		row.add_child(_label("%d salt" % int(r.salt), 17, PALE))
+		for it in r.get("items", []):
+			row.add_child(_icon(it[0], 22))
+			row.add_child(_label("%d %s" % [int(it[1]), Items.iname(it[0])], 17, PALE))
+		side.add_child(row)
+	side.add_child(_gap(10))
+	if not tracked:
+		side.add_child(_action("Follow on the compass", func(): w.quests.tracked = q.id; w.quests.refresh_hud(); _draw_journal(), "", GOLD))
+	else:
+		side.add_child(_label("◆ Followed on the compass", 17, GOLD))
+	if t is Vector3:
+		var tv: Vector3 = t
+		side.add_child(_action("Show on the map", func(): open_map(); _map_zoom = maxf(_map_zoom, 2.5); _map_center_on(tv)))
+
+
+func _quest_row(q: Dictionary) -> Button:
+	var on: bool = q.id == _jsel
+	var tracked: bool = w.quests.tracked == q.id
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(540, 58)
+	b.focus_mode = Control.FOCUS_ALL
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(GOLD, 0.14) if on else Color(1, 1, 1, 0.03)
+	sb.border_color = Color(GOLD, 0.85) if tracked else (Color(GOLD, 0.4) if on else Color(1, 1, 1, 0.0))
+	sb.border_width_left = 3
+	b.add_theme_stylebox_override("normal", sb)
+	var hs := sb.duplicate()
+	hs.bg_color = Color(1, 1, 1, 0.09) if not on else Color(GOLD, 0.2)
+	b.add_theme_stylebox_override("hover", hs)
+	b.add_theme_stylebox_override("pressed", hs)
+	b.add_theme_stylebox_override("focus", hs)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 14
+	v.offset_right = -10
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", -2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(_label(("◆  " if tracked else "") + q.title, 19, GOLD if tracked else PALE))
+	var sub := _label(w.quests.step_text(q), 14, DIM)
+	sub.clip_text = true
+	sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(sub)
+	b.add_child(v)
+	b.pressed.connect(func(): _jsel = q.id; _draw_journal())
+	return b
 
 
 # ------------------------------------------------------------------ the map

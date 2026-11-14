@@ -4534,3 +4534,38 @@ func debug_rulesshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
 	hud.show_rules(rules, true, func(_r): pass)
+
+
+## Testing aid: opens talk, trade, journal and skills in turn for screenshots.
+func debug_menushot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	inv.add("coin", 6)
+	inv.add("bell", 1)
+	skills.points = 2
+	var pid: String = WPlaces.PEOPLE.keys()[0]
+	for k in WPlaces.PEOPLE:
+		if Items.STOCK.has(WPlaces.PEOPLE[k].role):
+			pid = k
+			break
+	ui.open_dialogue(pid)
+	await get_tree().create_timer(5.0).timeout
+	ui._tsel = "bandage"
+	ui._tside = "buy"
+	ui._trade()
+	await get_tree().create_timer(5.0).timeout
+	ui.close_all()
+	ui.open_journal()
+	await get_tree().create_timer(5.0).timeout
+	ui.close_all()
+	ui.open_skills()
+
+
+func debug_menushot2() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	skills.points = 2
+	ui.open_journal()
+	await get_tree().create_timer(4.0).timeout
+	ui.close_all()
+	ui.open_skills()
