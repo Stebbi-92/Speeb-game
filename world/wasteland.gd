@@ -40,6 +40,7 @@ var crates := {}
 var containers := {}
 var pieces := {}
 var satchels := {}
+var guide: WGuide
 var map_marks: Array = []   ## spots marked on the map by the fellowship: [position, who marked it]
 const MAX_MARKS := 16
 var people := {}
@@ -174,6 +175,9 @@ func intro() -> void:
 	ui = WUI.new()
 	ui.w = self
 	hud.root.add_child(ui)
+	guide = WGuide.new()
+	guide.w = self
+	hud.root.add_child(guide)
 	inv.changed.connect(func(): if ready_world: autosave_soon(20.0))
 	skills.changed.connect(_apply_skills)
 	player.weapon.reserve_max = 400
@@ -212,6 +216,9 @@ func _exit_tree() -> void:
 		ui.close_all()
 		ui.queue_free()
 	ui = null
+	if is_instance_valid(guide):
+		guide.queue_free()
+	guide = null
 	if hud:
 		hud.boss_bar("", -1.0)
 		hud.hotbar.arms = null
@@ -2404,6 +2411,8 @@ func _dawn_world() -> void:
 
 ## Gives this survivor experience for a deed (see WSkills.XP).
 func award(kind: String, mult := 1.0) -> void:
+	if guide:
+		guide.event(kind)
 	if Net.dedicated or _pfail or not WSkills.XP.has(kind):
 		return
 	var amount := int(round(WSkills.XP[kind] * mult))
@@ -2910,10 +2919,13 @@ func char_data() -> Dictionary:
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
+		"guide": guide.step if guide else -1,
 	}
 
 
 func apply_char(d: Dictionary) -> void:
+	if guide:
+		guide.begin(int(d.get("guide", -1)))
 	skills.from_data(d.get("skills", {}))
 	_apply_skills()
 	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
@@ -2978,7 +2990,9 @@ func _load_character() -> void:
 	if d is Dictionary:
 		apply_char(d)
 		return
-	# Cast out with almost nothing
+	# Cast out with almost nothing, and shown the first steps
+	if guide:
+		guide.begin(0)
 	inv.from_data([])
 	inv.add("bandage", 2)
 	inv.add("meat", 2)
@@ -4398,3 +4412,33 @@ func debug_lootshot() -> void:
 	shared("_rq_satchel", [Net.me(), player.global_position + f * 6.0 - r * 2.5, [["wood", 3]], false])
 	shared("_rq_satchel", [Net.me(), player.global_position + f * 8.0, [["t_ash", 1]], false])
 	shared("_rq_satchel", [Net.me(), player.global_position + f * 6.0 + r * 2.5, [["bone", 3]], true])
+
+
+## Testing aid: walks the guide through its steps by doing each thing, and shows it on screen.
+func debug_guide() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	guide.begin(0)
+	await get_tree().create_timer(1.5).timeout
+	print("GUIDE start step=%d text=%s" % [guide.step, guide._text.text])
+	player.global_position += Vector3(15, 0, 0)
+	await get_tree().create_timer(1.5).timeout
+	inv.add("wood", 6)
+	await get_tree().create_timer(1.5).timeout
+	ui.open_inventory("pack")
+	await get_tree().create_timer(1.5).timeout
+	award("make")
+	await get_tree().create_timer(1.5).timeout
+	ui.close_all()
+	award("build")
+	await get_tree().create_timer(1.5).timeout
+	print("GUIDE after five step=%d text=%s" % [guide.step, guide._text.text])
+	var d := char_data()
+	print("GUIDE saved step=", d.guide)
+	get_tree().quit()
+
+
+func debug_guideshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	guide.begin(1)

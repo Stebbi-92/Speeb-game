@@ -55,6 +55,7 @@ var fov := 72.0
 var head_bob := true
 var invert_y := false
 var voice_lines := true
+var guide := true   ## the first-steps guide in the waste
 var quality := 1
 var gilded := false
 var player_name := ""
@@ -491,7 +492,7 @@ func tier_of(gun: String) -> int:
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines,
+			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
@@ -539,6 +540,7 @@ func load_save() -> void:
 		head_bob = bool(d.get("head_bob", head_bob))
 		invert_y = bool(d.get("invert_y", invert_y))
 		voice_lines = bool(d.get("voice_lines", voice_lines))
+		guide = bool(d.get("guide", guide))
 		quality = clampi(int(d.get("quality", quality)), 0, 1)
 		gilded = bool(d.get("gilded", gilded))
 		player_name = str(d.get("player_name", player_name)).left(20)
