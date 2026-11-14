@@ -473,19 +473,33 @@ func _try_fire() -> void:
 
 
 ## Applies harm to each struck thing and shows the hit marker once.
+static var _told_deflect := -100000
+
+
 static func deal(hits: Dictionary, dir: Vector3) -> void:
 	var marked := 0
 	for t in hits:
 		if is_instance_valid(t) and t.has_method("hurt"):
 			var full: bool = t.hurt(hits[t], dir)
 			var killed: bool = t.has_method("is_alive") and not t.is_alive()
-			marked = maxi(marked, 2 if killed else (1 if full else 0))
-			if not full and not killed and t.get("kind") == "idol":
-				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side.")
+			if killed:
+				marked = 2
+			elif full:
+				marked = maxi(marked, 1)
+			elif marked == 0:
+				marked = -1
+			if not full and not killed and t.get("kind") == "idol" and Time.get_ticks_msec() - _told_deflect > 20000:
+				_told_deflect = Time.get_ticks_msec()
+				Game.main.hud.notify("The gilded face turns the shot aside. Strike it from the side or behind.")
 	if marked > 0:
 		Game.main.hud.hitmarker(marked == 2)
 		if Game.main.level:
 			Game.main.level.sfx("tick", -6 if marked == 1 else -2, null, 1.0 if marked == 1 else 0.7)
+	elif marked < 0:
+		# Struck, but turned aside: a grey ring and a hard high note, so it is plain the shot did little
+		Game.main.hud.hitmarker(false, true)
+		if Game.main.level:
+			Game.main.level.sfx("tick", -4, null, 1.9)
 
 
 ## Harms everything near a point, less at the edge. The thrower is hurt too if they stand in it.

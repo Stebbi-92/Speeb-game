@@ -458,10 +458,11 @@ class ScopeView extends Control:
 			queue_redraw()
 
 
-func hitmarker(kill: bool) -> void:
+func hitmarker(kill: bool, turned := false) -> void:
 	_ensure_marks()
 	_marks.hit = 1.0
 	_marks.kill = kill
+	_marks.turned = turned
 
 
 func damage_from(angle: float) -> void:
@@ -473,6 +474,7 @@ func damage_from(angle: float) -> void:
 class Marks extends Control:
 	var hit := 0.0
 	var kill := false
+	var turned := false
 	var arcs: Array = []
 
 	func _process(d: float) -> void:
@@ -487,8 +489,12 @@ class Marks extends Control:
 		if hit > 0.0:
 			var col := Color(1.0, 0.25, 0.15, hit) if kill else Color(1, 1, 1, hit)
 			var r := 14.0 if kill else 10.0
-			for s in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
-				draw_line(c + s * 5.0, c + s * r, col, 2.5)
+			if turned:
+				# A shot turned aside: a small grey ring, not the cross of a true hit
+				draw_arc(c, 9.0, 0.0, TAU, 20, Color(0.6, 0.6, 0.62, hit), 2.0)
+			else:
+				for s in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
+					draw_line(c + s * 5.0, c + s * r, col, 2.5)
 		for a in arcs:
 			var ang: float = a[0] - PI / 2
 			draw_arc(c, 130.0, ang - 0.35, ang + 0.35, 24, Color(0.85, 0.12, 0.08, a[1] * 0.85), 7.0)

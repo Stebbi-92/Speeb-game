@@ -58,6 +58,9 @@ var hp_frac := 1.0    ## for puppets, as the host tells it
 var _way_cd := {}
 var _brood: Array = []
 var _watched_t := 0.0
+var _bar: MeshInstance3D
+var _bar_t := 0.0
+static var _bar_mat: ShaderMaterial
 var _shimmer: ShaderMaterial
 var _seen := 0.08
 var _watched := false
@@ -139,6 +142,8 @@ func _ready() -> void:
 		_build_saucer()
 	if boss != "":
 		_grow_into_boss()
+	elif spec.hp >= 30.0:
+		_make_bar()
 	scale = Vector3.ONE * 0.01
 	create_tween().tween_property(self, "scale", Vector3.ONE, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_strafe = 1.0 if randf() < 0.5 else -1.0
@@ -254,6 +259,7 @@ func _physics_process(delta: float) -> void:
 		_claw_at_wall()
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	_bar_tick(delta)
 	if frozen or level.completed or level.failing:
 		return
 	_attack_cd -= delta
@@ -408,6 +414,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	head.rotation.x = -asin(clampf((p.global_position.y + 1.3 - global_position.y) / maxf(dist, 0.1), -0.6, 0.6)) * 0.5
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	_bar_tick(delta)
 	if frozen or level.completed or level.failing:
 		return
 	_attack_cd -= delta
@@ -543,6 +550,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		incoming.y = 0
 		if facing.dot(incoming.normalized()) > 0.35:
 			full = false
+	_bar_t = 8.0
 	if puppet:
 		# The blow is sent to the host, who alone decides whether the form is undone
 		Net.hit(net_id, amount, from_dir)
@@ -651,6 +659,7 @@ func _puppet_tick(delta: float) -> void:
 	head.rotation.x = lerpf(head.rotation.x, _net_head.y, minf(1.0, delta * 12.0))
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	_bar_tick(delta)
 	if kind == "saucer" and _disc:
 		_disc.rotation.y += delta * 2.5
 	if kind == "unseen":
@@ -737,6 +746,34 @@ func _unseen_noise(delta: float, dist: float) -> void:
 	if dist < 12.0 and _breath_cd <= 0.0:
 		level.sfx("unseen_breath", -4, global_position, randf_range(0.9, 1.1))
 		_breath_cd = randf_range(3.0, 5.0)
+
+
+## A thin bar of life over the form, shown once it has been struck (great ones have theirs across the sight).
+func _make_bar() -> void:
+	if _bar_mat == null:
+		_bar_mat = ShaderMaterial.new()
+		_bar_mat.shader = load("res://scripts/foe_bar.gdshader")
+	_bar = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(clampf(0.7 * spec.size + 0.3, 0.6, 1.6), 0.09)
+	_bar.mesh = q
+	_bar.material_override = _bar_mat
+	_bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_bar.position.y = (1.25 if kind == "saucer" else 0.75 * spec.size + 0.35) + (1.1 if kind == "unseen" else 0.0)
+	_bar.set_instance_shader_parameter("shown", 0.0)
+	_bar.visible = false
+	add_child(_bar)
+
+
+func _bar_tick(delta: float) -> void:
+	if _bar == null:
+		return
+	_bar_t -= delta
+	var show := clampf(_bar_t, 0.0, 1.0) if _alive else 0.0
+	_bar.visible = show > 0.0
+	if show > 0.0:
+		_bar.set_instance_shader_parameter("shown", show)
+		_bar.set_instance_shader_parameter("frac", clampf(hp_frac if puppet else hp / max_hp, 0.0, 1.0))
 
 
 ## A great one is a lesser body made vast: its flesh, legs and disc are grown, its shape for collision set by spec.

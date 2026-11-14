@@ -148,10 +148,10 @@ func _unhandled_input(e: InputEvent) -> void:
 		if not look_locked:
 			yaw -= e.relative.x * Game.sensitivity
 			pitch = clampf(pitch - e.relative.y * Game.sensitivity * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
-	elif e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
+	elif e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif e.is_action_pressed("interact"):
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		interact_pressed.emit()
 		if not input_locked and target and target.has_meta("on_interact") and target.get_meta("hold", 0.0) <= 0.0:
