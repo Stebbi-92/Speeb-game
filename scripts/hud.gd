@@ -309,7 +309,31 @@ func button(text: String, cb: Callable, size := 28) -> Button:
 	b.add_theme_color_override("font_hover_color", PALE)
 	b.add_theme_color_override("font_focus_color", PALE)
 	b.add_theme_color_override("font_pressed_color", GOLD)
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# One look for every menu button: a quiet line of words that, under the pointer, gains a gold
+	# mark at its left and a faint ground. The same margins in every state, so nothing jumps.
+	var plain := StyleBoxEmpty.new()
+	plain.content_margin_left = 14
+	plain.content_margin_right = 14
+	plain.content_margin_top = 2
+	plain.content_margin_bottom = 2
+	var lit := StyleBoxFlat.new()
+	lit.bg_color = Color(GOLD, 0.07)
+	lit.border_color = GOLD
+	lit.border_width_left = 3
+	lit.content_margin_left = 14
+	lit.content_margin_right = 14
+	lit.content_margin_top = 2
+	lit.content_margin_bottom = 2
+	var down := lit.duplicate()
+	down.bg_color = Color(GOLD, 0.14)
+	b.flat = false
+	b.add_theme_stylebox_override("normal", plain)
+	b.add_theme_stylebox_override("hover", lit)
+	b.add_theme_stylebox_override("focus", lit)
+	b.add_theme_stylebox_override("pressed", down)
+	b.add_theme_stylebox_override("disabled", plain)
+	b.add_theme_color_override("font_disabled_color", Color(DIM, 0.45))
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.pressed.connect(cb)
 	return b
 

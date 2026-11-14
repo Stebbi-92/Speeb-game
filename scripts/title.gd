@@ -128,21 +128,32 @@ func _build_menu() -> void:
 	_sub = st
 	_menu = VBoxContainer.new()
 	v.add_child(_menu)
-	_menu.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage()))
-	if Game.reached > 0:
-		_menu.add_child(_btn("Return to a Trial", _show_chapters))
+	# The waste first: it is where the game is now. The trials and the pilgrim's own things wait one step in.
+	var last := _last_world()
+	if last != "":
+		_menu.add_child(_btn("Continue", func(): _play_world(last)))
+		_menu.add_child(_note("World %s   ·   %s" % [_roman(last), Wasteland.describe(last).split(", seed")[0]]))
 	_menu.add_child(_btn("The Ashen Waste", _show_waste))
 	_menu.add_child(_btn("Walk Together", _show_together))
-	_menu.add_child(_btn("Arms", func(): hud.show_loadout()))
-	_menu.add_child(_btn("Appearance", func():
+	_menu.add_child(_btn("The Trials", func(): _open_sub(_trials)))
+	_menu.add_child(_btn("Arms and Appearance", func(): _open_sub(_pilgrim)))
+	_menu.add_child(_btn("Settings", func(): hud.show_options()))
+	_menu.add_child(_btn("Leave", func(): hud.ask("Leave the game?", "Leave", func(): get_tree().quit())))
+	_trials = _submenu(v, "The Trials")
+	_trials.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage(), 24))
+	if Game.reached > 0:
+		_trials.add_child(_btn("Return to a Trial", func(): _trials.visible = false; _show_chapters(), 24))
+	if Game.tenth_unlocked():
+		_trials.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11), 24))
+	_trials.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex(), 24))
+	_trials.add_child(_back(_trials))
+	_pilgrim = _submenu(v, "Arms and Appearance")
+	_pilgrim.add_child(_btn("Arms", func(): hud.show_loadout(), 24))
+	_pilgrim.add_child(_btn("Appearance", func():
 		var a := AppearanceUI.new()
 		a.hud = hud
-		hud.root.add_child(a)))
-	_menu.add_child(_btn("Settings", func(): hud.show_options()))
-	if Game.tenth_unlocked():
-		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
-	_menu.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex()))
-	_menu.add_child(_btn("Leave", func(): hud.ask("Leave the game?", "Leave", func(): get_tree().quit())))
+		hud.root.add_child(a), 24))
+	_pilgrim.add_child(_back(_pilgrim))
 	_build_update(box)
 	_chapters = VBoxContainer.new()
 	_chapters.visible = false
@@ -150,7 +161,7 @@ func _build_menu() -> void:
 	for i in range(Game.reached + 1):
 		var idx := i
 		_chapters.add_child(_btn(PLACES[i], func(): Game.main.start_level(idx), 22))
-	_chapters.add_child(_btn("Back", func(): _chapters.visible = false; _menu.visible = true, 22))
+	_chapters.add_child(_btn("Back", func(): _chapters.visible = false; _trials.visible = true, 22))
 	_waste = VBoxContainer.new()
 	_waste.visible = false
 	_waste.add_theme_constant_override("separation", 4)
@@ -179,6 +190,8 @@ func _build_menu() -> void:
 		_show_lobby.call_deferred()
 	elif Net._joining or "together" in OS.get_cmdline_user_args():
 		_show_together.call_deferred()
+	elif "worlds" in OS.get_cmdline_user_args():
+		_show_waste.call_deferred()
 
 	var q: Label = hud._label("\"Speeb sees. Speeb is. Do not try to please him. Only survive him.\"\n— scratched in claw-marks upon a cave wall", 20, hud.DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	q.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -195,6 +208,63 @@ func _build_menu() -> void:
 	box.add_child(_hint)
 
 
+var _trials: VBoxContainer
+var _pilgrim: VBoxContainer
+
+
+func _submenu(parent: Control, title: String) -> VBoxContainer:
+	var sub := VBoxContainer.new()
+	sub.visible = false
+	sub.add_theme_constant_override("separation", 2)
+	parent.add_child(sub)
+	sub.add_child(_heading(title))
+	return sub
+
+
+func _open_sub(sub: Control) -> void:
+	_menu.visible = false
+	sub.visible = true
+
+
+func _back(sub: Control) -> Button:
+	return _btn("Back", func(): sub.visible = false; _menu.visible = true, 20)
+
+
+func _note(text: String) -> Label:
+	var l := _small("     " + text, hud.DIM, 15)
+	return l
+
+
+static func _roman(slot: String) -> String:
+	return ["I", "II", "III"][clampi(int(slot) - 1, 0, 2)]
+
+
+## The world walked most lately, if any.
+func _last_world() -> String:
+	var best := ""
+	var bt := 0
+	for i in 3:
+		var slot := str(i + 1)
+		var path := ProjectSettings.globalize_path(Wasteland.world_path(slot))
+		if FileAccess.file_exists(Wasteland.world_path(slot)):
+			var t := FileAccess.get_modified_time(path)
+			if t > bt:
+				bt = t
+				best = slot
+	return best
+
+
+func _play_world(slot: String, seed_text := "") -> void:
+	Game.world_slot = slot
+	Game.new_world_seed = 0
+	var t := seed_text.strip_edges()
+	if t.is_valid_int():
+		Game.new_world_seed = absi(int(t))
+	elif t != "":
+		Game.new_world_seed = absi(t.hash()) % 99999999 + 1
+	Game.main.start_level(Game.WASTELAND)
+
+
 func _btn(text: String, cb: Callable, size := 27) -> Button:
 	var b: Button = hud.button(text, cb, size)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -205,38 +275,97 @@ var _waste: VBoxContainer
 
 
 ## The open waste: three worlds may be kept, each with its own days, beacons and shelters.
+## Each can be walked, set aside as a file (export), or forgotten (deleted, after asking).
 func _show_waste() -> void:
 	_menu.visible = false
 	_waste.visible = true
 	for c in _waste.get_children():
 		c.queue_free()
 	_waste.add_child(_heading("The Ashen Waste"))
-	_waste.add_child(_small("Cast out into the waste, you gather, build and live through its nights,\nwhile nine dead beacons wait to be kindled. The world is kept between walks."))
+	_waste.add_child(_small("Gather, build and live through the nights,\nwhile nine dead beacons wait to be kindled."))
+	var sp := Control.new()
+	sp.custom_minimum_size.y = 8
+	_waste.add_child(sp)
 	for i in 3:
-		var slot := str(i + 1)
-		var d := Wasteland.describe(slot)
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 14)
-		var seed_e: LineEdit = null
-		if d == "":
-			seed_e = _field("", "seed (empty for a new land)", 220)
-		hb.add_child(_btn("World %s:  %s" % [["I", "II", "III"][i], d if d != "" else "unwalked"], func():
-			Game.world_slot = slot
-			Game.new_world_seed = 0
-			if seed_e and seed_e.text.strip_edges().is_valid_int():
-				Game.new_world_seed = absi(int(seed_e.text.strip_edges()))
-			elif seed_e and seed_e.text.strip_edges() != "":
-				Game.new_world_seed = absi(seed_e.text.strip_edges().hash()) % 99999999 + 1
-			Game.main.start_level(Game.WASTELAND), 22))
-		if seed_e:
-			hb.add_child(seed_e)
-		if d != "":
-			hb.add_child(_btn("forget", func():
-				for ext in ["", ".bak", ".tmp"]:
-					DirAccess.remove_absolute(Wasteland.world_path(slot) + ext)
-				_show_waste(), 16))
-		_waste.add_child(hb)
-	_waste.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 22))
+		_waste.add_child(_world_card(str(i + 1)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	row.add_child(_btn("Open the saves folder", func(): OS.shell_open(ProjectSettings.globalize_path("user://wasteland")), 18))
+	row.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 20))
+	_waste.add_child(row)
+
+
+func _world_card(slot: String) -> Control:
+	var d := Wasteland.describe(slot)
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.02, 0.02, 0.7)
+	sb.border_color = Color(hud.GOLD, 0.18)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	card.add_theme_stylebox_override("panel", sb)
+	card.custom_minimum_size = Vector2(540, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	card.add_child(v)
+	var name := _small("World %s" % _roman(slot), hud.PALE, 24)
+	name.add_theme_font_override("font", hud.title_font)
+	v.add_child(name)
+	v.add_child(_small(d if d != "" else "Not yet walked", hud.DIM, 16))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	v.add_child(row)
+	if d == "":
+		var seed_e := _field("", "Seed (optional)", 200)
+		row.add_child(_btn("Begin", func(): _play_world(slot, seed_e.text), 20))
+		row.add_child(seed_e)
+	else:
+		row.add_child(_btn("Walk", func(): _play_world(slot), 20))
+		row.add_child(_btn("Export", func(): _export_world(slot), 18))
+		row.add_child(_btn("Delete", func():
+			hud.ask("Delete World %s for good?" % _roman(slot), "Delete", func(): _delete_world(slot); _show_waste()), 18))
+	return card
+
+
+## Copies a world (and the pilgrims kept in it) into a zip in Documents/Brelm, and shows where.
+func _export_world(slot: String) -> void:
+	var d = Game.read_var_safe(Wasteland.world_path(slot))
+	var uid: String = str(d.get("uid", "")) if d is Dictionary else ""
+	var dir := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Brelm")
+	DirAccess.make_dir_recursive_absolute(dir)
+	var stamp := Time.get_datetime_string_from_system().replace(":", "-").replace("T", " ")
+	var out := dir.path_join("Brelm World %s %s.zip" % [_roman(slot), stamp])
+	var zip := ZIPPacker.new()
+	if zip.open(out) != OK:
+		_hint_text("Could not write to %s." % dir)
+		return
+	var files := [Wasteland.world_path(slot)]
+	if uid != "":
+		for f in DirAccess.get_files_at("user://wasteland"):
+			if f.begins_with("char_%s" % uid):
+				files.append("user://wasteland/" + f)
+	for f in files:
+		zip.start_file(f.get_file())
+		zip.write_file(FileAccess.get_file_as_bytes(f))
+		zip.close_file()
+	zip.close()
+	_hint_text("Saved to %s" % out)
+	OS.shell_show_in_file_manager(out)
+
+
+func _delete_world(slot: String) -> void:
+	for ext in ["", ".bak", ".tmp"]:
+		DirAccess.remove_absolute(Wasteland.world_path(slot) + ext)
+
+
+func _hint_text(t: String) -> void:
+	if _status:
+		_status.text = t
+	hud.notify(t)
 
 
 func _show_chapters() -> void:
@@ -331,7 +460,9 @@ func _update_done(ok: bool, message: String) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	speeb.rotation.y = sin(_t * 0.15) * 0.35
-	_cam_off = lerpf(_cam_off, -4.2 if _col and _col.position.y < _col.get_parent().size.y * 0.5 - 380.0 else 0.0, minf(1.0, delta * 3.0))
+	# Speeb steps aside when a wide panel opens beside him
+	var aside: bool = (_col and _col.position.y < _col.get_parent().size.y * 0.5 - 380.0) or (_waste and _waste.visible)
+	_cam_off = lerpf(_cam_off, -4.2 if aside else 0.0, minf(1.0, delta * 3.0))
 	cam.position.x = sin(_t * 0.07) * 1.2 + _cam_off
 	cam.look_at(Vector3(_cam_off, 2.6, 0))
 
