@@ -1,6 +1,6 @@
 class_name Companion
 extends Node3D
-## Another pilgrim of the fellowship, as seen from here: a robed and hooded figure in the colour of their place,
+## Another pilgrim of the fellowship, as seen from here: a figure dressed as they chose, lit faintly in their colour,
 ## their name carried above them. When fallen they lie still, and may be raised by holding [E] over them.
 
 var peer_id := 0
@@ -16,7 +16,8 @@ var _label: Label3D
 var _lamp: OmniLight3D
 var _flash: OmniLight3D
 var _area: Area3D
-var _robe: StandardMaterial3D
+var _fig: Figure
+var _look := {}
 var _walk := 0.0
 var _last := Vector3.ZERO
 
@@ -30,56 +31,11 @@ func _ready() -> void:
 	var col: Color = Net.color_of(peer_id)
 	_body = Node3D.new()
 	add_child(_body)
-	_robe = StandardMaterial3D.new()
-	_robe.albedo_color = col.darkened(0.35)
-	_robe.roughness = 1.0
-	var trim := StandardMaterial3D.new()
-	trim.albedo_color = col
-	trim.roughness = 0.7
-	var robe := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.17
-	cm.bottom_radius = 0.42
-	cm.height = 1.5
-	robe.mesh = cm
-	robe.material_override = _robe
-	robe.position.y = 0.75
-	_body.add_child(robe)
-	var hem := MeshInstance3D.new()
-	var hm := CylinderMesh.new()
-	hm.top_radius = 0.42
-	hm.bottom_radius = 0.44
-	hm.height = 0.08
-	hem.mesh = hm
-	hem.material_override = trim
-	hem.position.y = 0.04
-	_body.add_child(hem)
-	var hood := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.23
-	sm.height = 0.52
-	hood.mesh = sm
-	hood.material_override = _robe
-	hood.position = Vector3(0, 1.66, -0.02)
-	_body.add_child(hood)
-	var face := MeshInstance3D.new()
-	var fm := SphereMesh.new()
-	fm.radius = 0.15
-	fm.height = 0.3
-	face.mesh = fm
-	var dark := StandardMaterial3D.new()
-	dark.albedo_color = Color(0.02, 0.02, 0.02)
-	face.material_override = dark
-	face.position = Vector3(0, 1.63, 0.1)
-	_body.add_child(face)
-	var stole := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.12, 1.0, 0.03)
-	stole.mesh = bm
-	stole.material_override = trim
-	stole.position = Vector3(0, 0.95, 0.27)
-	stole.rotation.x = -0.22
-	_body.add_child(stole)
+	# Dressed as they chose to be
+	_fig = Figure.new().setup(Net.look_of(peer_id))
+	_look = _fig.look.duplicate()
+	_body.add_child(_fig)
+	Net.roster_changed.connect(_relook)
 	# The shotgun, carried low across the body
 	_gun = Node3D.new()
 	_gun.position = Vector3(0.22, 1.1, 0.25)
@@ -197,4 +153,13 @@ func _process(delta: float) -> void:
 	if not downed:
 		_body.position.y = absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0)
 		_body.rotation.z = sin(_walk * 0.5) * 0.03 * clampf(speed / 3.0, 0.0, 1.0)
-	_robe.albedo_color = Net.color_of(peer_id).darkened(0.35 + (0.3 if downed else 0.0))
+	_fig.walk = _walk
+	_fig.stride = 0.0 if downed else clampf(speed / 3.0, 0.0, 1.0)
+
+
+func _relook() -> void:
+	var l := Net.look_of(peer_id)
+	if l != _look:
+		_look = l.duplicate()
+		_fig.look = Figure.clean(l)
+		_fig.rebuild()

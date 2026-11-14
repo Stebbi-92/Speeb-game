@@ -133,7 +133,7 @@ func host(p: int, sname: String, listed: bool, headless := false) -> Error:
 	in_level = -1
 	players.clear()
 	if not headless:
-		players[1] = {"name": my_name(), "slot": 0}
+		players[1] = {"name": my_name(), "slot": 0, "look": Game.look.duplicate()}
 	leader = 0 if headless else 1
 	_open_discovery()
 	_open_port_upnp()
@@ -207,6 +207,7 @@ func leave(reason := "") -> void:
 func _on_connected() -> void:
 	_joining = false
 	_hello.rpc_id(1, my_name(), PROTOCOL, str(ProjectSettings.get_setting("application/config/version", "")))
+	_look.rpc_id(1, Game.look)
 
 
 func _on_failed() -> void:
@@ -295,6 +296,34 @@ func _welcome(sname: String, difficulty: int) -> void:
 	Game.difficulty = difficulty
 	_log("Joined \"%s\"." % sname)
 	roster_changed.emit()
+
+
+func look_of(id: int) -> Dictionary:
+	return Figure.clean(players[id].get("look", {})) if players.has(id) else Figure.DEFAULT
+
+
+## Tells the fellowship how this pilgrim now looks.
+func send_look() -> void:
+	if not online:
+		return
+	if multiplayer.is_server():
+		if players.has(1):
+			players[1].look = Game.look.duplicate()
+			_roster.rpc(players, leader)
+			roster_changed.emit()
+	else:
+		_look.rpc_id(1, Game.look)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _look(l: Dictionary) -> void:
+	if not is_host():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	if players.has(id):
+		players[id].look = Figure.clean(l)
+		_roster.rpc(players, leader)
+		roster_changed.emit()
 
 
 ## Whether guns spend their reserve. Offline it is the player's own choice; in a fellowship, the host's.

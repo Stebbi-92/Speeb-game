@@ -400,6 +400,13 @@ func _hut(p: Vector3, yaw: float, rr: RandomNumberGenerator) -> void:
 func _person(pid: String, p: Vector3, yaw: float) -> void:
 	var pd: Dictionary = WPlaces.PEOPLE[pid]
 	var f := figure(p, yaw, pd.robe)
+	# The people of the waste are dressed each in their own way; the robed shape only keeps their place
+	for c in f.get_children():
+		if c is MeshInstance3D:
+			c.queue_free()
+	var dressed := Figure.new().setup(Figure.seeded(pid.hash()))
+	dressed.arms_forward = false
+	f.add_child(dressed)
 	var body: StaticBody3D = f.get_meta("body")
 	body.collision_layer = 1 | 16
 	personal_interactable(body, "Speak with %s" % pd.name, func(): ui.open_dialogue(pid))

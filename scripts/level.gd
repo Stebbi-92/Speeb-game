@@ -2597,3 +2597,21 @@ func debug_streakshot() -> void:
 	_debug_aim(player.global_position + fwd * 30.0 + Vector3(0, 12, 0))
 	await get_tree().create_timer(1.0).timeout
 	Arms.blast_fx(self, player.global_position + fwd * 25.0 + Vector3(6, 0.5, 0), 7.0)
+
+
+func debug_appearance() -> void:
+	var a := AppearanceUI.new()
+	a.hud = hud
+	hud.root.add_child(a)
+
+
+func debug_figures() -> void:
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	for i in 5:
+		var f := Figure.new().setup(Figure.seeded(i * 7919 + 3))
+		f.arms_forward = i % 2 == 0
+		add_child(f)
+		f.global_position = player.global_position + fwd * 4.5 + side * (i - 2) * 1.1
+		f.look_at(player.global_position, Vector3.UP)
+		f.rotate_y(PI)

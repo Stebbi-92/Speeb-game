@@ -127,6 +127,10 @@ func _build_menu() -> void:
 	_menu.add_child(_btn("The Ashen Waste", _show_waste))
 	_menu.add_child(_btn("Walk Together", _show_together))
 	_menu.add_child(_btn("Arms", func(): hud.show_loadout()))
+	_menu.add_child(_btn("Appearance", func():
+		var a := AppearanceUI.new()
+		a.hud = hud
+		hud.root.add_child(a)))
 	_menu.add_child(_btn("Options", func(): hud.show_options()))
 	if Game.tenth_unlocked():
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
