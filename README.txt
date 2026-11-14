@@ -124,6 +124,30 @@ WALKING TOGETHER (up to four players)
   Hosting for friends beyond your own network needs an open port. See
   HOSTING.txt.
 
+THE ASHEN WASTE (open world, alone or with up to four)
+  Choose "The Ashen Waste" on the title screen, or, when hosting a
+  fellowship, choose it in the gathering place. Three worlds may be kept.
+  You are cast out into a waste two kilometres across, with six
+  settlements, nine dead beacons and some fifty ruins.
+
+  By day, gather and build. By night (20:00 to 05:00) the forms come.
+  Kindle the dead beacons with beacon oil and keep their flame through
+  the vigil: the night will not come within sight of a burning beacon,
+  and the burning beacons let you walk the beacon road between them.
+  If you fall, what you carried is left where you fell, and you wake at
+  your bedroll or the nearest settlement you have visited.
+
+  I or Tab   your pack, and what you can make
+  M          the map; it fills in as you walk
+  J          the journal; click a task to follow it on the compass
+  B          build: wheel to choose, R to turn, click to build,
+             right click to take a piece down, B or Esc to stop
+  E (hold)   gather wood, stone, scrap, salt, ash-bloom and bone;
+             search crates; speak with the people of the settlements
+  The world saves itself at every dawn, every two minutes, and when you
+  leave. In a fellowship the host keeps the world; each of you keeps
+  your own pack and map.
+
 THE HOTBAR
   1  Shotgun          Eight pellets, a pump between shots.
   2  Praying Hands    A blast of tiny haloed Speebs that undoes every hostile
