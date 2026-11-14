@@ -1216,6 +1216,12 @@ class Thrown extends RigidBody3D:
 		fuse -= delta
 		if _light:
 			_light.light_energy = 3.0 + randf() * 1.2
+			# A flare's light shows every form that moves near it
+			if kind == "flare" and not shown_only and Engine.get_physics_frames() % 20 == 0:
+				var lv = get_parent()
+				for e in lv.get("enemies") if lv.get("enemies") != null else []:
+					if is_instance_valid(e) and e.is_alive() and e.has_method("reveal") and e.global_position.distance_to(global_position) < 22.0:
+						e.reveal(1.5)
 		if kind == "mine" and not shown_only:
 			armed_after -= delta
 			if armed_after <= 0.0:

@@ -978,7 +978,7 @@ func _streak_keys(e: InputEvent) -> bool:
 
 func set_hotbar(slot: int, faith: float, milk: int) -> void:
 	hotbar.visible = slot >= 0
-	var cells := 8 if Game.wasteland else 6
+	var cells := 10 if Game.wasteland else 6
 	hotbar.position = Vector2(-36 - Hotbar.W * cells, -182)
 	hotbar.size = Vector2(Hotbar.W * cells, Hotbar.W + 24)
 	hotbar.slot = slot
@@ -1012,28 +1012,30 @@ class Hotbar extends Control:
 			["4", "hands", "Prayer", slot == 1, ""],
 			["5", "lantern", "Lantern", slot == 2, ""],
 			["6", "milk", "Milk", slot == 5, str(milk)],
+			["7", "claw", "Claw of Ascent", slot == 3, "" if Game.has_relic("claw") else "-"],
+			["8", "censer", "Censer", slot == 4, "" if Game.has_relic("censer") else "-"],
 			[Game.key_text("grenade"), "thrown", ArmsDB.GRENADES[arms.grenade].name, false, str(arms.grenades)],
 			[Game.key_text("gadget"), "kit", ArmsDB.GADGETS[arms.gadget].name, false, str(arms.charges)],
 		]
 		var name := ""
 		for i in cells.size():
 			var c: Array = cells[i]
-			var x := i * W + (8.0 if i >= 6 else 0.0)
+			var x := i * W + (8.0 if i >= 8 else 0.0)
 			var r := Rect2(x + 3, 0, W - 6, W - 6)
 			var on: bool = c[3]
-			var empty: bool = c[4] == "0"
+			var empty: bool = c[4] == "0" or c[4] == "-"
 			draw_rect(r, Color(0.03, 0.03, 0.035, 0.6))
 			draw_rect(r, gold if on else Color(1, 1, 1, 0.16), false, 2.0 if on else 1.0)
 			if on:
 				draw_rect(Rect2(r.position.x, r.end.y - 3, r.size.x, 3), gold)
 				name = c[2]
-			draw_string(font, r.position + Vector2(4, 13), Game.key_text("slot_%d" % (i + 1)) if i < 6 else c[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
+			draw_string(font, r.position + Vector2(4, 13), Game.key_text("slot_%d" % (i + 1)) if i < 8 else c[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
 			_icon(c[1], r.get_center() + Vector2(0, 3), Color(0.93, 0.92, 0.88, 0.25 if empty else 0.95))
 			if c[1] == "hands":
 				draw_rect(Rect2(r.position.x + 4, r.end.y - 6, (r.size.x - 8) * faith, 3), Color(1.0, 0.85, 0.45) if faith >= 1.0 else Color(0.7, 0.62, 0.45))
-			if c[4] != "":
+			if c[4] != "" and c[4] != "-":
 				draw_string(font, r.end - Vector2(15, 5), c[4], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.93, 0.92, 0.88, 0.4 if empty else 1.0))
-		draw_string(font, Vector2(0, W + 14), name, HORIZONTAL_ALIGNMENT_RIGHT, W * 6 - 4, 16, gold)
+		draw_string(font, Vector2(0, W + 14), name, HORIZONTAL_ALIGNMENT_RIGHT, W * 10 - 4, 16, gold)
 
 	func _draw() -> void:
 		if Game.wasteland and is_instance_valid(arms):

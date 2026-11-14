@@ -19,6 +19,7 @@ const DB := {
 	"tuber_seed": {"name": "Tuber Eyes", "kind": "seed", "stack": 30, "value": 2, "color": Color(0.5, 0.42, 0.3), "grows": "tuber", "yield": [3, 5], "hours": 14.0, "text": "Plant in a planter box. A day later there are tubers."},
 	"herb_seed": {"name": "Ash-bloom Seed", "kind": "seed", "stack": 30, "value": 3, "color": Color(0.65, 0.7, 0.58), "grows": "herb", "yield": [2, 4], "hours": 18.0, "text": "Plant in a planter box. The bloom heals."},
 	"torchwood": {"name": "Torch", "kind": "material", "stack": 20, "value": 2, "color": Color(0.85, 0.55, 0.25), "text": "Pitch-soaked wood. Set in the ground, it keeps the forms back a little way."},
+	"milk": {"name": "Bowl of Milk", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.95, 0.94, 0.9), "heal": 55.0, "text": "Speeb's own comfort. Restores much health."},
 	"bandage": {"name": "Bandage", "kind": "medicine", "stack": 10, "value": 5, "color": Color(0.85, 0.82, 0.75), "heal": 35.0, "text": "Clean cloth, boiled. Restores health."},
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
 	"shells": {"name": "Shotgun Shells", "kind": "ammo", "stack": 120, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Paper and brass, packed with shot. For the pump shotgun."},
@@ -98,7 +99,7 @@ const LOOT := {
 	"shrine": [["coin", 4, 1, 5], ["icon", 2, 1, 1], ["herb", 3, 2, 4], ["bell", 1, 1, 1], ["cloth", 2, 1, 3], ["salve", 1, 1, 1]],
 	"order": [["rifle", 2, 20, 50], ["rounds", 2, 10, 24], ["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3]],
 	"camp": [["tuber_seed", 2, 2, 4], ["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5]],
-	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24]],
+	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24], ["milk", 1, 1, 1]],
 	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
 }
 
@@ -107,7 +108,7 @@ const STOCK := {
 	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
 	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets"],
-	"healer": ["bandage", "salve", "herb", "herb_seed"],
+	"healer": ["bandage", "salve", "herb", "herb_seed", "milk"],
 	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
 }
 

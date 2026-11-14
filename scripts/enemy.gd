@@ -210,6 +210,8 @@ func _physics_process(delta: float) -> void:
 		return
 	delta *= level.enemy_time
 	_t += delta
+	seen_t -= delta
+	smoke_t -= delta
 	# It hunts the nearest pilgrim still standing; with none, it waits
 	var p: Node3D = level.nearest_target(global_position)
 	var idle := p == null
@@ -400,6 +402,15 @@ func walks() -> bool:
 var _buried := 0.0       ## a lurker under the sand: 1 hidden, 0 risen
 var _charge := 0.0       ## a hauler's charge, seconds left
 var _howl_cd := 4.0
+var seen_t := 0.0        ## shown by a flare or the censer: its name stands over it and it is marked
+var smoke_t := 0.0       ## in the censer's smoke: it chokes and slows, and cannot hide under the sand
+
+
+## A flare's light or the censer's smoke shows it for a while; smoke also chokes it.
+func reveal(secs: float, smoke := false) -> void:
+	seen_t = maxf(seen_t, secs)
+	if smoke:
+		smoke_t = maxf(smoke_t, secs)
 
 
 ## Those that walk run the ground, legs rippling, and spring when near. Each kind has its own way.
@@ -408,7 +419,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	flat.y = 0
 	var fd := flat.length()
 	var dir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed")
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0)
 	var on_floor := is_on_floor()
 	var cat := kind != "spider"
 	if _charge <= 0.0:
@@ -423,7 +434,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 				elif fd < 15.0:
 					want = dir.cross(Vector3.UP) * _strafe * 2.5
 			"lurker":
-				var under := fd > 6.0
+				var under := fd > 6.0 and seen_t <= 0.0
 				_buried = move_toward(_buried, 1.0 if under else 0.0, delta * (1.5 if under else 3.0))
 				if under:
 					want = dir * speed * 1.3
@@ -1040,7 +1051,7 @@ func _make_bar() -> void:
 
 func _bar_tick(delta: float) -> void:
 	if _name_l:
-		var near: bool = _alive and level.player != null and global_position.distance_to(level.player.global_position) < 10.0
+		var near: bool = _alive and level.player != null and (seen_t > 0.0 or global_position.distance_to(level.player.global_position) < 10.0)
 		var a := maxf(clampf(_bar_t, 0.0, 1.0) if _alive else 0.0, 0.85 if near else 0.0) * (1.0 - _buried)
 		_name_l.modulate.a = move_toward(_name_l.modulate.a, a, delta * 3.0)
 		_name_l.outline_modulate.a = _name_l.modulate.a * 0.8

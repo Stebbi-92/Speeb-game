@@ -7,7 +7,13 @@ const START := {
 	"owned": ["shotgun", "pistol"], "blades": ["hatchet"], "thrown": ["frag"], "kits": ["bandages"],
 	"parts": {}, "mounts": {}, "tier": {},
 	"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
-	"wear": {},
+	"wear": {}, "relics": [],
+}
+
+## Relics a survivor can make at a workbench. The lantern and the praying hands are carried from the start.
+const RELICS := {
+	"claw": {"name": "Claw of Ascent", "cost": {"scrap": 14, "cloth": 4, "oil": 1}, "text": "A hook on a line. Cast it at a wall, a rock or a roof and it pulls you up."},
+	"censer": {"name": "Censer", "cost": {"scrap": 8, "salt": 12, "oil": 2}, "text": "Lit, its smoke shows the forms near you, slows them and draws lurkers out of the sand."},
 }
 
 ## What may be worn: head, body and feet. "guard" is the share of harm it turns aside.
@@ -105,6 +111,9 @@ static func clean(d) -> Dictionary:
 						keep.append(m)
 				if not keep.is_empty():
 					a[key][g] = keep
+	for r in d.get("relics", []):
+		if RELICS.has(r) and not r in a.relics:
+			a.relics.append(r)
 	var wr = d.get("wear", {})
 	if wr is Dictionary:
 		for slot in wr:

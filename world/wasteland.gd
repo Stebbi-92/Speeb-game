@@ -156,6 +156,7 @@ func intro() -> void:
 	skills.changed.connect(_apply_skills)
 	player.weapon.reserve_max = 400
 	player.weapon.pack = inv
+	Game.milk_bag = inv
 	player.max_health = 100.0
 	if Net.authority():
 		_load_world()
@@ -183,6 +184,7 @@ func _exit_tree() -> void:
 	if ready_world:
 		save_all()
 	Game.wasteland = false
+	Game.milk_bag = null
 	# The waste's own strip, panels and keys live on the HUD, which outlasts the level: take them away
 	if is_instance_valid(ui):
 		ui.close_all()
@@ -690,6 +692,14 @@ func eat(id: String) -> bool:
 	hud.set_health(player.health / player.max_health, true)
 	sfx("drink", -6)
 	return true
+
+
+## The censer's smoke: forms in it are shown, choke and slow, and lurkers cannot stay under the sand.
+func cense(at: Vector3, reach: float) -> void:
+	super(at, reach)
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(at) < reach:
+			e.reveal(1.2, true)
 
 
 # ------------------------------------------------------------------ planters
@@ -2178,7 +2188,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk, "warms": arms, "food": food, "rest": rest,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 	}
 
 
@@ -2245,6 +2255,7 @@ func _load_character() -> void:
 	inv.add("salt", 12)
 	inv.add("shells", 18)
 	inv.add("rounds", 24)
+	inv.add("milk", 1)
 	player.weapon.equip_loadout()
 	player.weapon.shells = player.weapon.capacity()
 	player.weapon._ui()
@@ -2662,6 +2673,7 @@ func debug_armsshot() -> void:
 	arms.mounts["machine_gun"] = ["red_dot", "foregrip"]
 	arms.tier["machine_gun"] = 1
 	arms.wear = {"body": "padded_coat", "head": "hood"}
+	arms.relics = ["claw"]
 	rearm()
 	_save_t = 9999.0
 	ready_world = false
@@ -2996,3 +3008,36 @@ func debug_allbosses() -> void:
 			alive += 1
 	print("ALLBOSS alive=%d foes=%d" % [alive, alive_count()])
 	get_tree().quit()
+
+
+## Test: the relics and kit of the waste. The claw bites rock, the censer's smoke and a flare show forms.
+func debug_gadgets() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var r: Relics = player.relics
+	print("GADGETS has claw before ", Game.has_relic("claw"), " milk ", Game.milk_count())
+	arms.relics.append("claw")
+	arms.relics.append("censer")
+	print("GADGETS has claw after ", Game.has_relic("claw"), " censer ", Game.has_relic("censer"))
+	# Face the ground a few metres ahead: the claw should find something to bite
+	player.pitch = -0.5
+	player.head.rotation.x = -0.5
+	await get_tree().physics_frame
+	var a = r._find_anchor()
+	print("GADGETS claw anchor ", a != null, " landing ", a.get_meta("landing") if a else null)
+	var lk = spawn_at("lurker", player.global_position + Vector3(8, 1.5, 0))
+	await get_tree().create_timer(1.0).timeout
+	print("GADGETS lurker buried ", lk._buried)
+	cense(player.global_position, 12.0)
+	await get_tree().create_timer(0.6).timeout
+	print("GADGETS smoked ", lk.smoke_t > 0.0, " seen ", lk.seen_t > 0.0, " buried ", snappedf(lk._buried, 0.01))
+	var far = spawn_at("rusher", player.global_position + Vector3(-15, 1.5, 0))
+	var fl := Arms.Thrown.make(self, "flare", player.global_position + Vector3(-12, 1, 0), Vector3.ZERO)
+	fl.fuse = 10.0
+	await get_tree().create_timer(1.5).timeout
+	print("GADGETS flare shows ", far.seen_t > 0.0)
+	player.health = 40.0
+	r.select(5)
+	r._use(self)
+	print("GADGETS milk after drink ", Game.milk_count(), " hp ", player.health)
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()

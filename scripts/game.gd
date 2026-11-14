@@ -40,6 +40,7 @@ var difficulty := 1
 var judgments := {}
 var relics := {}
 var milk := 1
+var milk_bag = null     ## the pack the waste keeps its milk in
 # Options
 const RESOLUTIONS := [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
 const DISPLAY_MODES := ["Windowed", "Fullscreen", "Exclusive fullscreen"]
@@ -145,6 +146,7 @@ const CONTROLS := [
 	["dash", "Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]],
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
+	["slot_7", "Claw (the waste)", [KEY_7]], ["slot_8", "Censer (the waste)", [KEY_8]],
 	["codex", "The Book of Emojis", [KEY_TAB]],
 	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
 	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
@@ -309,8 +311,23 @@ func add_kill(kind: String) -> void:
 
 func has_relic(id: String) -> bool:
 	if wasteland:
-		return id in ["shotgun", "hands", "lantern"] or (id == "milk" and milk > 0)
+		return id in ["shotgun", "hands", "lantern"] or (id == "milk" and milk_count() > 0) or id in warms.get("relics", [])
 	return id in ["shotgun", "hands"] or (id == "milk" and milk > 0) or relics.has(id)
+
+
+## Milk on hand. In the waste it is carried in the pack like anything else.
+func milk_count() -> int:
+	if wasteland and milk_bag != null:
+		return milk_bag.count("milk")
+	return milk
+
+
+func spend_milk() -> void:
+	if wasteland and milk_bag != null:
+		milk_bag.take("milk", 1)
+	else:
+		milk -= 1
+		save()
 
 
 func gain_relic(id: String) -> void:

@@ -711,6 +711,22 @@ func _draw_arms() -> void:
 				b = _arms_btn("Make %s" % tb[id].name, WArms.MAKE[id], bench, func(): a[k[0]].append(id); a[k[1]] = id)
 			b.tooltip_text = _waste_text(tb[id].text)
 			hb.add_child(b)
+	var rb := HBoxContainer.new()
+	rb.add_theme_constant_override("separation", 18)
+	v.add_child(rb)
+	var rhead := _label("Relics", 20, GOLD)
+	rhead.custom_minimum_size.x = 90
+	rb.add_child(rhead)
+	for id in WArms.RELICS:
+		var it: Dictionary = WArms.RELICS[id]
+		var key := Game.key_text("slot_%d" % (7 if id == "claw" else 8))
+		var b: Button
+		if id in a.relics:
+			b = _btn("◆ %s  [%s]" % [it.name, key], func(): pass, 17, GOLD)
+		else:
+			b = _arms_btn("Make %s" % it.name, it.cost, bench, func(): a.relics.append(id); w.player.relics.refresh())
+		b.tooltip_text = it.text
+		rb.add_child(b)
 	v.add_child(HSeparator.new())
 	var wn := WArms.worn(a)
 	v.add_child(_label("Worn      turns aside %d%% of harm%s" % [int(round(wn.guard * 100.0)), "" if is_equal_approx(wn.speed, 1.0) else ",  stride ×%.2f" % wn.speed], 20, GOLD))
@@ -1398,10 +1414,10 @@ class Compass extends Control:
 			marks.append([w.beacon_nodes[i].pos, Color(1, 0.97, 0.85, 0.6), 4.0])
 		for k in w.visited:
 			marks.append([w.gpos(WPlaces.spos(k)), Color(0.8, 0.6, 0.4, 0.7), 4.0])
-		if w.night and w.skills.rank("witness") > 0:
-			for e in w.enemies:
-				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
-					marks.append([e.global_position, Color(0.85, 0.25, 0.2, 0.85), 3.5])
+		var witness: bool = w.night and w.skills.rank("witness") > 0
+		for e in w.enemies:
+			if is_instance_valid(e) and e.is_alive() and (e.seen_t > 0.0 or (witness and e.global_position.distance_to(w.player.global_position) < 40.0)):
+				marks.append([e.global_position, Color(0.85, 0.25, 0.2, 0.85), 3.5])
 		for id in w.avatars:
 			var a = w.avatars[id]
 			if is_instance_valid(a) and a.visible:

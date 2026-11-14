@@ -263,15 +263,15 @@ func refresh() -> void:
 		Game.main.hud.set_ammo(-1, 0)
 	for k in _models:
 		_models[k].visible = armed and current() == k
-	Game.main.hud.set_hotbar(slot if armed else -1, faith, Game.milk)
+	Game.main.hud.set_hotbar(slot if armed else -1, faith, Game.milk_count())
 
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not player.armed or player.input_locked or get_tree().paused:
 		return
 	if Game.wasteland:
-		# In the waste the bar is: long gun, side arm, blade, prayer, lantern, milk
-		for i in 6:
+		# In the waste the bar is: long gun, side arm, blade, prayer, lantern, milk, claw, censer
+		for i in 8:
 			if e.is_action_pressed("slot_%d" % (i + 1)):
 				if i < 2:
 					if slot != 0:
@@ -284,7 +284,10 @@ func _unhandled_input(e: InputEvent) -> void:
 					if player.weapon and player.weapon.enabled:
 						player.weapon.strike()
 				else:
-					select([1, 2, 5][i - 3])
+					var r: int = [1, 2, 5, 3, 4][i - 3]
+					if not Game.has_relic(Game.RELICS[r]) and r in [3, 4]:
+						Game.main.hud.notify("You have no %s. Make one at a workbench." % Game.RELIC_NAMES[Game.RELICS[r]])
+					select(r)
 				return
 	for i in Game.RELICS.size():
 		if e.is_action_pressed("slot_%d" % (i + 1)):
@@ -340,7 +343,7 @@ func _process(delta: float) -> void:
 	var hint := ""
 	match current():
 		"claw":
-			hint = "[LMB]  Cast the claw" if _find_anchor() != null else ""
+			hint = "[LMB]  Cast the claw" if _find_anchor() != null else ("Nothing in reach to hold" if Game.wasteland else "")
 		"hands":
 			hint = "[LMB]  Pray" if faith >= 1.0 else "Faith gathers as the lesser forms are undone"
 		"lantern":
@@ -348,7 +351,7 @@ func _process(delta: float) -> void:
 		"censer":
 			hint = "[LMB]  " + ("Quench the censer" if censer_lit else "Light the censer")
 		"milk":
-			hint = "[LMB]  Drink  (%d)" % Game.milk
+			hint = "[LMB]  Drink  (%d)" % Game.milk_count()
 	Game.main.hud.set_relic_hint(hint)
 	if Input.is_action_just_pressed("fire") and _cool <= 0.0:
 		_use(lvl)
@@ -378,31 +381,74 @@ func _use(lvl) -> void:
 				Game.main.hud.notify("The claw finds no ring of iron to hold.")
 				lvl.sfx("shell", -12)
 			else:
+				if Game.wasteland:
+					# Where the claw bit: a point for the line to run to while it pulls
+					var bite := Node3D.new()
+					lvl.add_child(bite)
+					bite.global_position = a.get_meta("at")
+					bite.set_meta("landing", a.get_meta("landing"))
+					get_tree().create_timer(3.6, false).timeout.connect(bite.queue_free)
+					a = bite
 				_grapple_to = a
 				lvl.sfx("grapple", -2)
 				player.grapple(a.get_meta("landing"))
 				Game.reveal_deed("claw")
 		"milk":
-			if Game.milk <= 0:
+			if Game.milk_count() <= 0:
 				return
 			if player.health >= player.max_health:
 				Game.main.hud.notify("Brelm is not wounded. He keeps the milk.")
 				return
-			Game.milk -= 1
-			Game.save()
+			Game.spend_milk()
 			player.health = minf(player.max_health, player.health + 55.0)
 			Game.main.hud.set_health(player.health / player.max_health, lvl.combat)
 			lvl.sfx("drink", -2)
 			Game.reveal_deed("milk")
 			_raise = 1.0
-			if Game.milk <= 0:
+			if Game.milk_count() <= 0:
 				select(0)
 			refresh()
+
+
+## In the waste the claw bites anything solid: a wall, a rock, a roof. It pulls you onto the top
+## when there is a ledge just above where it caught.
+func _waste_anchor():
+	var cam := player.cam
+	var space := get_world_3d().direct_space_state
+	var from := cam.global_position
+	var q := PhysicsRayQueryParameters3D.create(from, from - cam.global_transform.basis.z * CLAW_RANGE, 1)
+	q.exclude = [player.get_rid()]
+	var hit := space.intersect_ray(q)
+	if hit.is_empty() or from.distance_to(hit.position) < 3.0:
+		return null
+	var at: Vector3 = hit.position
+	var n: Vector3 = hit.normal
+	var landing := at + n * 0.7
+	if absf(n.y) < 0.6:
+		# A wall: look for a ledge to stand on just above
+		var top := at - n * 0.5 + Vector3.UP * 3.0
+		var dq := PhysicsRayQueryParameters3D.create(top, top + Vector3.DOWN * 3.2, 1)
+		dq.exclude = [player.get_rid()]
+		var ledge := space.intersect_ray(dq)
+		if not ledge.is_empty() and ledge.normal.y > 0.6:
+			landing = ledge.position + Vector3.UP * 1.0
+	elif n.y > 0.6:
+		landing = at + Vector3.UP * 1.0
+	if _waste_mark == null or not is_instance_valid(_waste_mark):
+		_waste_mark = Node3D.new()
+	_waste_mark.set_meta("landing", landing)
+	_waste_mark.set_meta("at", at)
+	return _waste_mark
+
+
+var _waste_mark: Node3D
 
 
 ## The nearest ring of iron near the line of sight, with nothing in the way.
 func _find_anchor():
 	var lvl = player.get_parent()
+	if Game.wasteland:
+		return _waste_anchor()
 	if not "anchors" in lvl:
 		return null
 	var cam := player.cam
@@ -426,7 +472,7 @@ func _find_anchor():
 
 
 func _grapple_rope() -> void:
-	if _grapple_to == null or not player.grappling:
+	if _grapple_to == null or not is_instance_valid(_grapple_to) or not player.grappling:
 		if _rope:
 			_rope.visible = false
 		_grapple_to = null if not player.grappling else _grapple_to
@@ -529,4 +575,4 @@ func add_faith(v: float) -> void:
 	if was < 1.0 and faith >= 1.0:
 		Game.main.hud.notify("The Praying Hands are ready. [2]")
 		player.get_parent().sfx("bell", -12)
-	Game.main.hud.set_hotbar(slot if player.armed else -1, faith, Game.milk)
+	Game.main.hud.set_hotbar(slot if player.armed else -1, faith, Game.milk_count())
