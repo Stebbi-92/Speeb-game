@@ -3916,3 +3916,10 @@ func debug_coopbeasts() -> void:
 				print("COOPB joiner goat dead ", not b.is_alive(), " satchels +", satchels.size() - before)
 				return
 	print("COOPB joiner saw no goat; beasts ", beasts.size())
+
+
+func debug_askshot() -> void:
+	await get_tree().create_timer(1.0).timeout
+	hud.ask("Leave the game?", "Leave", func(): pass)
+	await get_tree().create_timer(1.0).timeout
+	print("ASK root vis ", hud.root.visible, " kids ", hud.root.get_child_count(), " last ", hud.root.get_child(hud.root.get_child_count() - 1))

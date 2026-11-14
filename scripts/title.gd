@@ -142,7 +142,7 @@ func _build_menu() -> void:
 	if Game.tenth_unlocked():
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
 	_menu.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex()))
-	_menu.add_child(_btn("Leave", func(): get_tree().quit()))
+	_menu.add_child(_btn("Leave", func(): hud.ask("Leave the game?", "Leave", func(): get_tree().quit())))
 	_build_update(box)
 	_chapters = VBoxContainer.new()
 	_chapters.visible = false

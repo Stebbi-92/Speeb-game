@@ -714,7 +714,48 @@ func _build_pause() -> void:
 	_restart_btn = button("Restart this trial", func(): toggle_pause(); Game.main.restart_level())
 	v.add_child(_restart_btn)
 	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
-	v.add_child(button("Leave", func(): get_tree().quit()))
+	v.add_child(button("Leave", func(): ask("Leave the game?", "Leave", func(): get_tree().quit())))
+
+
+## A question over everything else, answered yes or no. Escape or "Stay" closes it.
+func ask(question: String, yes: String, on_yes: Callable, no := "Stay") -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.6)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(shade)
+	var box := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.055, 0.05, 0.96)
+	sb.border_color = Color(GOLD, 0.5)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 40
+	sb.content_margin_right = 40
+	sb.content_margin_top = 28
+	sb.content_margin_bottom = 24
+	box.add_theme_stylebox_override("panel", sb)
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	shade.add_child(box)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 18)
+	box.add_child(v)
+	var q := _label(question, 30, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	q.add_theme_font_override("font", title_font)
+	v.add_child(q)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 40)
+	v.add_child(row)
+	var stay := button(no, func(): shade.queue_free(), 24)
+	row.add_child(stay)
+	var go := button(yes, func(): shade.queue_free(); on_yes.call(), 24)
+	go.add_theme_color_override("font_color", GOLD)
+	row.add_child(go)
+	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())
+	stay.grab_focus.call_deferred()
 
 
 func toggle_pause() -> void:
