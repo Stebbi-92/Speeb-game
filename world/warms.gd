@@ -7,7 +7,36 @@ const START := {
 	"owned": ["shotgun", "pistol"], "blades": ["hatchet"], "thrown": ["frag"], "kits": ["bandages"],
 	"parts": {}, "mounts": {}, "tier": {},
 	"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
+	"wear": {},
 }
+
+## What may be worn: head, body and feet. "guard" is the share of harm it turns aside.
+## "speed" changes the stride, "hunger" how fast the belly empties, "weary" how fast the body tires.
+const WEAR := {
+	"hood": {"name": "Pilgrim's Hood", "slot": "head", "guard": 0.03, "cost": {"cloth": 3}, "look": {"head": 1}, "text": "Keeps the ash out of your eyes."},
+	"wide_hat": {"name": "Wide-brim Hat", "slot": "head", "guard": 0.03, "weary": 0.85, "cost": {"cloth": 3, "bone": 1}, "look": {"head": 2}, "text": "Shade from the sun. You tire more slowly."},
+	"iron_helm": {"name": "Iron Helm", "slot": "head", "guard": 0.12, "cost": {"scrap": 10, "cloth": 1}, "look": {"head": 4}, "text": "Heavy, and it rings when struck."},
+	"gas_mask": {"name": "Gas Mask", "slot": "head", "guard": 0.06, "hunger": 0.9, "cost": {"scrap": 6, "cloth": 2, "oil": 1}, "look": {"head": 5}, "text": "Old rubber and glass. The air tastes of nothing."},
+	"padded_coat": {"name": "Padded Coat", "slot": "body", "guard": 0.08, "cost": {"cloth": 6}, "look": {"coat": 2}, "text": "Quilted cloth. Turns a claw, now and then."},
+	"duster": {"name": "Oilcloth Duster", "slot": "body", "guard": 0.06, "hunger": 0.85, "cost": {"cloth": 8, "oil": 1}, "look": {"coat": 3}, "text": "Long and waxed. Keeps the body's warmth in."},
+	"bone_mail": {"name": "Bone Mail", "slot": "body", "guard": 0.15, "speed": 0.97, "cost": {"bone": 12, "cloth": 4}, "look": {"coat": 4}, "text": "Plates of bone sewn on leather. Clatters as you walk."},
+	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "cost": {"scrap": 18, "cloth": 4}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
+	"wraps": {"name": "Foot Wraps", "slot": "feet", "guard": 0.01, "speed": 1.03, "cost": {"cloth": 2}, "text": "Better than bare feet on hot ash."},
+	"boots": {"name": "Hobnail Boots", "slot": "feet", "guard": 0.04, "speed": 1.05, "cost": {"cloth": 2, "bone": 2, "scrap": 3}, "text": "Sure footing. You walk faster."},
+}
+const WEAR_SLOTS := [["head", "Head"], ["body", "Body"], ["feet", "Feet"]]
+
+
+## The sum of what is worn: guard, and the speed, hunger and weariness it brings.
+static func worn(a: Dictionary) -> Dictionary:
+	var out := {"guard": 0.0, "speed": 1.0, "hunger": 1.0, "weary": 1.0}
+	for slot in a.get("wear", {}):
+		var it: Dictionary = WEAR.get(str(a.wear[slot]), {})
+		out.guard += float(it.get("guard", 0.0))
+		for k in ["speed", "hunger", "weary"]:
+			out[k] *= float(it.get(k, 1.0))
+	out.guard = minf(out.guard, 0.45)
+	return out
 
 ## What each thing costs to make.
 const MAKE := {
@@ -76,6 +105,11 @@ static func clean(d) -> Dictionary:
 						keep.append(m)
 				if not keep.is_empty():
 					a[key][g] = keep
+	var wr = d.get("wear", {})
+	if wr is Dictionary:
+		for slot in wr:
+			if WEAR.has(str(wr[slot])) and WEAR[str(wr[slot])].slot == slot:
+				a.wear[slot] = str(wr[slot])
 	var t = d.get("tier", {})
 	if t is Dictionary:
 		for g in t:

@@ -426,6 +426,17 @@ func _fix_loadout() -> void:
 var warms := {}
 
 
+## How this pilgrim appears to others: as dressed, with what is worn in the waste over it.
+func shown_look() -> Dictionary:
+	var l: Dictionary = look.duplicate()
+	if wasteland and warms.get("wear") is Dictionary:
+		for slot in warms.wear:
+			var it: Dictionary = WArms.WEAR.get(str(warms.wear[slot]), {})
+			for k in it.get("look", {}):
+				l[k] = it.look[k]
+	return l
+
+
 func arms_now() -> Dictionary:
 	return warms if wasteland and not warms.is_empty() else loadout
 

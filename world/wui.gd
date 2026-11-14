@@ -557,6 +557,9 @@ func _draw_pack() -> void:
 		_desc.text = "%s. %s  Worth %d salt." % [info.name, info.text, int(info.value)]
 		if info.kind in ["food", "medicine"]:
 			row.add_child(_btn("Eat" if info.kind == "food" else "Use", func(): _use_item(_sel), 19, PALE))
+		if info.kind == "wear":
+			var sid: String = s.id
+			row.add_child(_btn("Wear", func(): _wear(sid); _sel = -1; _redraw(), 19, PALE))
 		row.add_child(_btn("Drop one", func(): _drop(_sel, 1), 19, PALE))
 		if n > 2:
 			row.add_child(_btn("Drop half", func(): _drop(_sel, n / 2), 19, PALE))
@@ -709,6 +712,31 @@ func _draw_arms() -> void:
 			b.tooltip_text = _waste_text(tb[id].text)
 			hb.add_child(b)
 	v.add_child(HSeparator.new())
+	var wn := WArms.worn(a)
+	v.add_child(_label("Worn      turns aside %d%% of harm%s" % [int(round(wn.guard * 100.0)), "" if is_equal_approx(wn.speed, 1.0) else ",  stride ×%.2f" % wn.speed], 20, GOLD))
+	for sl in WArms.WEAR_SLOTS:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 18)
+		v.add_child(hb)
+		var head := _label(sl[1], 18, GOLD)
+		head.custom_minimum_size.x = 90
+		hb.add_child(head)
+		var on := str(a.wear.get(sl[0], ""))
+		for id in WArms.WEAR:
+			var it: Dictionary = WArms.WEAR[id]
+			if it.slot != sl[0]:
+				continue
+			var b: Button
+			if id == on:
+				b = _btn("◆ " + it.name, func(): _unwear(sl[0]), 17, GOLD)
+			elif w.inv.count(id) > 0:
+				b = _btn(it.name, func(): _wear(id), 17, PALE)
+			else:
+				b = _arms_btn("Make %s" % it.name, it.cost, bench, func(): w.give([[id, 1]]))
+				b.add_theme_font_size_override("font_size", 16)
+			b.tooltip_text = "%s  Turns aside %d%% of harm." % [it.text, int(round(float(it.guard) * 100.0))]
+			hb.add_child(b)
+	v.add_child(HSeparator.new())
 	var any := false
 	for g in ArmsDB.GUNS:
 		if g in a.owned:
@@ -719,6 +747,30 @@ func _draw_arms() -> void:
 		var b := _arms_btn("Make %s" % ArmsDB.GUNS[g].name, WArms.MAKE[g], bench, func(): a.owned.append(g); a[ArmsDB.GUNS[g].slot] = g)
 		b.tooltip_text = _waste_text(ArmsDB.GUNS[g].text)
 		v.add_child(b)
+
+
+## Puts a thing on from the pack; what was worn there goes back into the pack.
+func _wear(id: String) -> void:
+	var slot: String = WArms.WEAR[id].slot
+	if w.inv.take(id, 1) < 1:
+		return
+	var old := str(w.arms.wear.get(slot, ""))
+	w.arms.wear[slot] = id
+	if old != "":
+		w.give([[old, 1]])
+	w.sfx("cloth" if false else "carve", -10)
+	w.rearm()
+	_redraw()
+
+
+func _unwear(slot: String) -> void:
+	var old := str(w.arms.wear.get(slot, ""))
+	if old == "" or not w.inv.room_for(old, 1):
+		return
+	w.arms.wear.erase(slot)
+	w.give([[old, 1]])
+	w.rearm()
+	_redraw()
 
 
 ## The trials' own words name fixed keys; in the waste the keys are whatever was set.

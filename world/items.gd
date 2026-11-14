@@ -117,6 +117,9 @@ const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "m
 
 
 static func info(id: String) -> Dictionary:
+	if WArms.WEAR.has(id):
+		var wr: Dictionary = WArms.WEAR[id]
+		return {"name": wr.name, "kind": "wear", "stack": 1, "value": 6 * wr.cost.values().reduce(func(a, b): return a + b, 0) / 3, "color": Color(0.55, 0.5, 0.45), "text": wr.text}
 	return DB.get(id, {"name": id, "kind": "material", "stack": 99, "value": 0, "color": Color.GRAY, "text": ""})
 
 

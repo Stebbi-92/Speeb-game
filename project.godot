@@ -17,6 +17,7 @@ config/icon="res://assets/emoji/_speeb.png"
 Updater="*res://scripts/updater.gd"
 Game="*res://scripts/game.gd"
 Net="*res://scripts/net.gd"
+Presence="*res://scripts/presence.gd"
 
 [display]
 

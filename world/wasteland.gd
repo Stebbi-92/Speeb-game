@@ -643,9 +643,10 @@ func _needs_tick(delta: float) -> void:
 	if Net.dedicated or _pfail or downed:
 		return
 	var work := 1.6 if player.cur_speed > 4.5 else 1.0
-	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work)
-	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS)
-	var slow := 0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)
+	var wn := WArms.worn(arms)
+	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger))
+	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary))
+	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
 	player.walk_speed = 3.4 * skills.speed_mult() * slow
 	player.run_speed = 5.8 * skills.speed_mult() * slow
 	if food <= 0.0:
@@ -1176,6 +1177,7 @@ func give(items: Array) -> void:
 
 ## Takes up the arms now chosen, without refilling what is thrown or used.
 func rearm() -> void:
+	Net.send_look()
 	var wp: Arms = player.weapon
 	var had := [wp.grenade, wp.grenades, wp.gadget, wp.charges, wp.gun()]
 	wp.equip_loadout()
@@ -1927,7 +1929,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated:
 		return
 	player.shake(0.45)
-	amount *= Game.difficulty_scale("damage") * skills.harm_mult()
+	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
 	if skills.rank("last_light") > 0:
 		for i in lit:
 			if player.global_position.distance_to(beacon_nodes[i].pos) < 150.0:
@@ -2651,7 +2653,7 @@ func debug_skills() -> void:
 ## Test: the Arms page of the pack, with a bench at hand and enough to make things.
 func debug_armsshot() -> void:
 	await get_tree().create_timer(2.0).timeout
-	for it in [["scrap", 40], ["scrap", 30], ["wood", 30], ["oil", 6], ["cloth", 8], ["salt", 120], ["coin", 12], ["bandage", 3]]:
+	for it in [["scrap", 40], ["scrap", 30], ["wood", 30], ["oil", 6], ["cloth", 8], ["salt", 120], ["coin", 12], ["bandage", 3], ["bone", 14], ["boots", 1]]:
 		inv.add(it[0], it[1])
 	ui.debug_bench = true
 	arms.owned.append("machine_gun")
@@ -2659,6 +2661,7 @@ func debug_armsshot() -> void:
 	arms.parts["machine_gun"] = ["red_dot", "foregrip"]
 	arms.mounts["machine_gun"] = ["red_dot", "foregrip"]
 	arms.tier["machine_gun"] = 1
+	arms.wear = {"body": "padded_coat", "head": "hood"}
 	rearm()
 	_save_t = 9999.0
 	ready_world = false

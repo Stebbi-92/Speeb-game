@@ -331,11 +331,11 @@ func send_look() -> void:
 		return
 	if multiplayer.is_server():
 		if players.has(1):
-			players[1].look = Game.look.duplicate()
+			players[1].look = Game.shown_look()
 			_roster.rpc(players, leader)
 			roster_changed.emit()
 	else:
-		_look.rpc_id(1, Game.look)
+		_look.rpc_id(1, Game.shown_look())
 
 
 @rpc("any_peer", "call_remote", "reliable")
