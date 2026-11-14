@@ -383,22 +383,32 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if player.relics:
 		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.125)
 	if e.kind in ["saucer", "elite"] or randf() < 0.05:
-		milk_pickup(e.global_position)
+		shared("_drop", ["milk", e.global_position, 1])
 	if Game.blessed("emospeeb") and combat:
 		player.health = minf(player.max_health, player.health + 8.0)
 		hud.set_health(player.health / player.max_health, true)
 	if e.kind == "elite":
 		player.health = player.max_health
 		hud.set_health(1.0, true)
-		_offering(e.global_position, 12)
+		shared("_drop", ["shells", e.global_position, 12])
 		hud.notify("The greater form is undone. Strength returns to Brelm.")
 	elif e.kind == "saucer":
-		_offering(e.global_position, 8)
+		shared("_drop", ["shells", e.global_position, 8])
 		hud.notify("The saucer falls silent and is undone.")
 	elif not e.kind in ["swarm", "mite"] or randf() < 0.3:
 		var low: bool = player.weapon and player.weapon.reserve < 8
 		if randf() < (0.7 if low else 0.35):
-			_offering(e.global_position, 4)
+			shared("_drop", ["shells", e.global_position, 4])
+
+
+## What a fallen form leaves is seen by the whole fellowship, and each pilgrim may take their own share of it.
+func _drop(what: String, at: Vector3, n: int) -> void:
+	if Net.dedicated:
+		return
+	if what == "milk":
+		milk_pickup(at)
+	else:
+		_offering(at, n)
 
 
 ## A form undone by another pilgrim of the fellowship still counts toward the land's gatherings.
@@ -2357,3 +2367,14 @@ func debug_velm() -> void:
 	combat_frozen = true
 	clear_enemies()
 	_velm_t = 0.0
+
+
+## Testing aid: a form falls before this pilgrim; the fellowship should see what it leaves.
+func debug_drop() -> void:
+	shared("_drop", ["shells", player.global_position + Vector3(2, 0, 0), 4])
+	await get_tree().create_timer(4.0).timeout
+	var n := 0
+	for c in get_children():
+		if c is Area3D and c.get_child_count() > 2 and c.has_signal("body_entered") and c.get_children().any(func(k): return k is OmniLight3D and k.light_color == Color(1.0, 0.75, 0.4)):
+			n += 1
+	print("DROPS SEEN ", n)
