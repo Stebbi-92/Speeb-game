@@ -1,3 +1,9 @@
+Brelm alpha 0.4.1
+
+- Fixed a white screen after updating from inside the game.
+- Updates fetched in game now wait safely until you restart.
+- Compatibility mode stays on after an update restart.
+
 Brelm alpha 0.4
 
 The Ashen Waste grows. Everything here is in the open world, alone or with a fellowship.

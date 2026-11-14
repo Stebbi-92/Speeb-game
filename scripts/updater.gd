@@ -17,6 +17,11 @@ const REPO := "Stebbi-92/Speeb-game"
 const DIR := "user://update/"
 const PACK := DIR + "Brelm.pck"
 const VERSION_FILE := DIR + "version.txt"
+## A pack fetched while the game may be running on Brelm.pck. Godot reads a pack afresh for each file,
+## so Brelm.pck must never change under a running game: the new one waits here and is moved into place
+## only in the moment before this process restarts and ends.
+const NEXT := DIR + "Brelm.next.pck"
+const NEXT_VERSION := DIR + "next.txt"
 
 var current := ""
 var latest := {}          ## {version, name, notes, page, news, pack_url, pack_size}
@@ -32,18 +37,32 @@ var _tried_github := false
 
 func _enter_tree() -> void:
 	current = str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
-	if not FileAccess.file_exists(PACK) or not FileAccess.file_exists(VERSION_FILE):
+	var held := "noupdate" in OS.get_cmdline_user_args() or (OS.has_feature("editor") and "updtest" not in OS.get_cmdline_user_args())
+	var nxt := _read(NEXT_VERSION) if FileAccess.file_exists(NEXT) else ""
+	var live := _read(VERSION_FILE) if FileAccess.file_exists(PACK) else ""
+	if nxt != "" and compare(nxt, current) > 0 and (live == "" or compare(nxt, live) > 0):
+		# Fetched last time but never restarted onto: put it in place now, before anything else loads
+		staged = nxt
+		if not held:
+			_swap_and_go()
 		return
-	staged = FileAccess.get_file_as_string(VERSION_FILE).strip_edges()
-	if compare(staged, current) <= 0:
-		# This build is as new as the staged pack (a fresh install, or we are already running on it)
-		if "--main-pack" not in OS.get_cmdline_args():
+	if nxt != "":
+		_clear_next()
+	if live == "":
+		return
+	staged = live
+	var c := compare(staged, current)
+	if c <= 0:
+		# Never clear a pack of this very version: we may be running on it. Godot keeps --main-pack out of
+		# get_cmdline_args(), so that cannot tell us, and deleting the pack under a running game leaves
+		# a blank white window. Only an older pack (a newer full install) is cleared.
+		if c < 0:
 			_clear()
 		staged = ""
 		return
-	if (OS.has_feature("editor") and "updtest" not in OS.get_cmdline_user_args()) or "--main-pack" in OS.get_cmdline_args() or "noupdate" in OS.get_cmdline_user_args():
+	if held:
 		return
-	_relaunch()
+	_relaunch(false)
 
 
 func _ready() -> void:
@@ -126,7 +145,7 @@ func download() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(DIR)
 	busy = true
-	_dl.download_file = DIR + "Brelm.pck.part"
+	_dl.download_file = NEXT + ".part"
 	if _dl.request(latest.pack_url, ["User-Agent: Brelm-updater"]) != OK:
 		busy = false
 		finished.emit(false, "The road to the new version could not be opened.")
@@ -136,12 +155,12 @@ func cancel() -> void:
 	if busy:
 		_dl.cancel_request()
 		busy = false
-		DirAccess.remove_absolute(DIR + "Brelm.pck.part")
+		DirAccess.remove_absolute(NEXT + ".part")
 
 
 func _on_download(result: int, code: int, _h: PackedStringArray, _body: PackedByteArray) -> void:
 	busy = false
-	var part := DIR + "Brelm.pck.part"
+	var part := NEXT + ".part"
 	var size := 0
 	if FileAccess.file_exists(part):
 		var f := FileAccess.open(part, FileAccess.READ)
@@ -154,11 +173,9 @@ func _on_download(result: int, code: int, _h: PackedStringArray, _body: PackedBy
 		DirAccess.remove_absolute(part)
 		finished.emit(false, "The download failed. Try again later.")
 		return
-	DirAccess.remove_absolute(PACK)
-	DirAccess.rename_absolute(part, PACK)
-	var vf := FileAccess.open(VERSION_FILE, FileAccess.WRITE)
-	vf.store_string(latest.version)
-	vf.close()
+	DirAccess.remove_absolute(NEXT)
+	DirAccess.rename_absolute(part, NEXT)
+	_write(NEXT_VERSION, latest.version)
 	staged = latest.version
 	can_patch = false
 	finished.emit(true, "Version %s is ready. Restart to walk it." % latest.version)
@@ -179,34 +196,65 @@ func restart() -> void:
 		return
 	if Game.has_method("save"):
 		Game.save()
-	_relaunch()
+	if FileAccess.file_exists(NEXT):
+		_swap_and_go()
+	else:
+		_relaunch(false)
 
 
-func _relaunch() -> void:
+## Moves the fetched pack into place and restarts onto it. From the swap on, this process must load
+## nothing more from Brelm.pck, so it ends at once instead of quitting gracefully.
+func _swap_and_go() -> void:
+	var v := _read(NEXT_VERSION)
+	DirAccess.remove_absolute(PACK)
+	if DirAccess.rename_absolute(NEXT, PACK) != OK:
+		push_warning("Updater: could not put the new version in place.")
+		return
+	_write(VERSION_FILE, v)
+	DirAccess.remove_absolute(NEXT_VERSION)
+	_relaunch(true)
+
+
+func _relaunch(hard: bool) -> void:
 	var args := PackedStringArray(["--main-pack", ProjectSettings.globalize_path(PACK)])
 	if DisplayServer.get_name() == "headless":    # a dedicated server keeps running without a window
 		args.append("--headless")
-	var old := OS.get_cmdline_args()
-	var i := 0
-	while i < old.size():
-		if old[i] == "--main-pack":
-			i += 2
-			continue
-		args.append(old[i])
-		i += 1
+	# Godot hides its own options from get_cmdline_args(), so carry the renderer over by hand
+	# (compatibility mode starts on OpenGL, and must restart on it too)
+	if DisplayServer.get_name() != "headless" and RenderingServer.get_rendering_device() == null:
+		args.append_array(["--rendering-driver", "opengl3"])
+	args.append_array(OS.get_cmdline_args())
 	var user := OS.get_cmdline_user_args()
 	if user.size() > 0:
 		args.append("--")
 		args.append_array(user)
 	if OS.create_process(OS.get_executable_path(), args) > 0:
+		if hard:
+			OS.kill(OS.get_process_id())
 		get_tree().quit.call_deferred()
 	else:
 		push_warning("Updater: could not restart onto the new version; running the installed one.")
 
 
+func _read(path: String) -> String:
+	return FileAccess.get_file_as_string(path).strip_edges()
+
+
+func _write(path: String, text: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_string(text)
+		f.close()
+
+
 func _clear() -> void:
 	DirAccess.remove_absolute(PACK)
 	DirAccess.remove_absolute(VERSION_FILE)
+
+
+func _clear_next() -> void:
+	DirAccess.remove_absolute(NEXT)
+	DirAccess.remove_absolute(NEXT_VERSION)
 
 
 ## Compares versions like 0.3.0-alpha: numbers first, then a release outranks its pre-releases.
