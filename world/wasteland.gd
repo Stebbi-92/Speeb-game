@@ -784,6 +784,92 @@ func base_at(p: Vector3, extra := 0.0, fires_only := false) -> int:
 	return -1
 
 
+# ------------------------------------------------------------------ a base's stores
+
+## Inside a base (near a lit campfire), what lies in its chests counts as carried for making and
+## building, so a pilgrim need not run from chest to chest. Chests within the fire's reach count.
+func base_chests() -> Array:
+	if player == null:
+		return []
+	var fire := base_at(player.global_position, 0.0, true)
+	if fire < 0:
+		return []
+	var fp: Vector3 = pieces[fire].pos
+	var out: Array = []
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind == "chest" and Vector2(pc.pos.x, pc.pos.z).distance_to(Vector2(fp.x, fp.z)) < BASE_SAFE and containers.has("p%d" % pid):
+			out.append("p%d" % pid)
+	return out
+
+
+func stock_count(id: String) -> int:
+	var n := inv.count(id)
+	for cid in base_chests():
+		n += _cont_count(cid, id)
+	return n
+
+
+func stock_has_all(cost: Dictionary) -> bool:
+	if inv.has_all(cost):
+		return true
+	for k in cost:
+		if stock_count(k) < int(cost[k]):
+			return false
+	return true
+
+
+## Pays from the pack first, then from the base's chests (the host takes those).
+func stock_pay(cost: Dictionary) -> bool:
+	if not stock_has_all(cost):
+		return false
+	var cids := base_chests()
+	for k in cost:
+		var need := int(cost[k])
+		var from_pack := mini(need, inv.count(k))
+		if from_pack > 0:
+			inv.take(k, from_pack)
+		if need - from_pack > 0:
+			shared("_rq_spend", [Net.me(), cids, k, need - from_pack])
+			# Seen at once here too, so the menus count right until the host's word arrives
+			if not Net.authority():
+				_spend_local(cids, k, need - from_pack)
+	return true
+
+
+func _rq_spend(_by: int, cids: Array, item: String, n: int) -> void:
+	if not Net.authority():
+		return
+	for cid in cids:
+		if n <= 0:
+			break
+		if not containers.has(cid):
+			continue
+		var data: Array = containers[cid]
+		for i in data.size():
+			if n <= 0:
+				break
+			if data[i] != null and data[i][0] == item:
+				var t := mini(n, int(data[i][1]))
+				n -= t
+				data[i][1] = int(data[i][1]) - t
+				if int(data[i][1]) <= 0:
+					data[i] = null
+		shared("_w_cont", [cid, data])
+
+
+func _spend_local(cids: Array, item: String, n: int) -> void:
+	for cid in cids:
+		var data: Array = containers.get(cid, [])
+		for i in data.size():
+			if n > 0 and data[i] != null and data[i][0] == item:
+				var t := mini(n, int(data[i][1]))
+				n -= t
+				data[i][1] = int(data[i][1]) - t
+				if int(data[i][1]) <= 0:
+					data[i] = null
+
+
 # ------------------------------------------------------------------ food and rest
 
 var food := 100.0
@@ -3998,3 +4084,21 @@ func debug_bannershot() -> void:
 	hud.set_fx("desat", 0.85)
 	hud.set_fx("dark", 0.35)
 	hud.set_banner("Unconscious   34", "A companion can raise you.   Hold [Space] to wake at camp")
+
+
+func debug_basestock() -> void:
+	var p := player.global_position + Vector3(3, 0, 0)
+	builder._rq_build(1, "campfire", gpos(Vector2(p.x, p.z)), 0.0)
+	var c := player.global_position + Vector3(0, 0, 4)
+	builder._rq_build(1, "chest", gpos(Vector2(c.x, c.z)), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	var cid: String = base_chests()[0] if not base_chests().is_empty() else ""
+	print("STOCK chests ", base_chests())
+	inv.take("scrap", inv.count("scrap"))
+	inv.add("scrap", 2)
+	if cid != "":
+		_rq_put(1, cid, "scrap", 10)
+	print("STOCK scrap pack %d total %d" % [inv.count("scrap"), stock_count("scrap")])
+	var ok := stock_pay({"scrap": 7})
+	print("STOCK paid %s: pack %d chest %d" % [ok, inv.count("scrap"), _cont_count(cid, "scrap")])
+	get_tree().quit()

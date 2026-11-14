@@ -74,7 +74,7 @@ func _process(_delta: float) -> void:
 		return
 	ghost.global_position = _plan.pos
 	ghost.rotation.y = _plan.yaw
-	var ok: bool = _plan.ok and w.inv.has_all(w.skills.cost(Items.PIECES[k].cost))
+	var ok: bool = _plan.ok and w.stock_has_all(w.skills.cost(Items.PIECES[k].cost))
 	for mi in ghost.find_children("*", "MeshInstance3D", true, false):
 		mi.material_override = _ok_m if ok else _bad_m
 
@@ -209,7 +209,7 @@ func place() -> void:
 		return
 	var k: String = _plan.kind
 	var cost: Dictionary = w.skills.cost(Items.PIECES[k].cost)
-	if not w.inv.pay(cost):
+	if not w.stock_pay(cost):
 		w.hud.notify("You lack the makings: %s." % Items.cost_text(cost))
 		w.sfx("deny", -10)
 		return

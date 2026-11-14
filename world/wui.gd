@@ -630,7 +630,7 @@ func _give_to(id: int, i: int, n: int) -> void:
 # ------------------------------------------------------------------ arms: what is carried, fitted and made
 
 func _arms_pay(cost: Dictionary, done: Callable) -> void:
-	if not w.inv.pay(w.skills.cost(cost)):
+	if not w.stock_pay(w.skills.cost(cost)):
 		return
 	done.call()
 	w.sfx("carve", -6)
@@ -640,7 +640,7 @@ func _arms_pay(cost: Dictionary, done: Callable) -> void:
 
 func _arms_btn(text: String, cost: Dictionary, bench: bool, done: Callable) -> Button:
 	var c: Dictionary = w.skills.cost(cost)
-	var ok: bool = bench and w.inv.has_all(c)
+	var ok: bool = bench and w.stock_has_all(c)
 	var b := _btn("%s   %s" % [text, Items.cost_text(c)], func(): _arms_pay(cost, done), 17, PALE if ok else DIM)
 	b.disabled = not ok
 	return b
@@ -880,7 +880,7 @@ func _draw_craft() -> void:
 		if r.has("needs") and not w.flags.has(r.needs):
 			continue
 		var cost: Dictionary = w.skills.cost(r.cost)
-		var ok: bool = w.inv.has_all(cost) and (bench or not r.bench) and (fire or not r.get("fire", false))
+		var ok: bool = w.stock_has_all(cost) and (bench or not r.bench) and (fire or not r.get("fire", false))
 		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ("      (cooking station)" if r.get("fire", false) else "")]
 		var b := _btn(t, func(): _make(r), 20, PALE if ok else DIM)
 		b.disabled = not ok
@@ -889,7 +889,7 @@ func _draw_craft() -> void:
 
 
 func _make(r: Dictionary) -> void:
-	if not w.inv.pay(w.skills.cost(r.cost)):
+	if not w.stock_pay(w.skills.cost(r.cost)):
 		return
 	w.sfx("carve", -6)
 	w.give([[r.id, int(r.n) + w.skills.make_bonus(r.id)]])
@@ -1413,7 +1413,7 @@ func _draw_build_guide() -> void:
 			var cost: Dictionary = w.skills.cost(pc.cost)
 			var hb := HBoxContainer.new()
 			hb.add_theme_constant_override("separation", 16)
-			var nm := _label(pc.name, 19, PALE if w.inv.has_all(cost) else DIM)
+			var nm := _label(pc.name, 19, PALE if w.stock_has_all(cost) else DIM)
 			nm.custom_minimum_size.x = 190
 			hb.add_child(nm)
 			var rt := RichTextLabel.new()
@@ -1436,7 +1436,7 @@ func _draw_build_guide() -> void:
 func cost_bb(cost: Dictionary) -> String:
 	var parts: Array = []
 	for k in cost:
-		var have: int = w.inv.count(k)
+		var have: int = w.stock_count(k)
 		var need := int(cost[k])
 		var c := "#e9e4d6" if have >= need else "#d0665a"
 		parts.append("[color=%s]%s %d/%d[/color]" % [c, Items.iname(k), have, need])
