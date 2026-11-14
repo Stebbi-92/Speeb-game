@@ -1595,6 +1595,49 @@ func _rq_take(by: int, id: String, i: int) -> void:
 	_check_satchel(id)
 
 
+## Takes as much of a container as the pack has room for, in one ask. Returns how many stacks were asked for.
+func take_all(id: String) -> int:
+	var data: Array = containers.get(id, [])
+	var room := Inventory.new(inv.slots.size())
+	room.from_data(inv.to_data())
+	var idxs: Array = []
+	var left_behind := false
+	for i in data.size():
+		var it = data[i]
+		if it == null:
+			continue
+		if room.room_for(str(it[0]), int(it[1])):
+			room.add(str(it[0]), int(it[1]))
+			idxs.append(i)
+		else:
+			left_behind = true
+	if not idxs.is_empty():
+		shared("_rq_take_many", [Net.me(), id, idxs])
+		sfx("step", -4, null, 0.7)
+	if left_behind:
+		hud.notify("Your pack is full. Some is left behind.")
+	elif idxs.is_empty() and data.is_empty():
+		hud.notify("Nothing here.")
+	return idxs.size()
+
+
+func _rq_take_many(by: int, id: String, idxs: Array) -> void:
+	if not Net.authority() or not containers.has(id):
+		return
+	var data: Array = containers[id]
+	var got: Array = []
+	for i in idxs:
+		i = int(i)
+		if i >= 0 and i < data.size() and data[i] != null:
+			got.append(data[i])
+			data[i] = null
+	if got.is_empty():
+		return
+	shared("_w_cont", [id, data])
+	Net.call_peer(by, "_w_give", [got])
+	_check_satchel(id)
+
+
 func _rq_put(by: int, id: String, item: String, n: int) -> void:
 	# Every pilgrim hears this; only the host acts on it. (The others giving the item back is what
 	# once let a joiner keep what they had just put away.)
@@ -1700,6 +1743,8 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 		l.position.y = 1.0
 		n.add_child(l)
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
+	body.set_meta("on_hold", func(): take_all(sid))
+	body.set_meta("hold_prompt", "Take all")
 	satchels[sid] = {"node": n, "pos": p, "grave": grave}
 
 
@@ -4122,3 +4167,52 @@ func debug_floors() -> void:
 	var c := Vector3((ci0 + 2) * WBuilder.GRID, 0, (cj0 + 2) * WBuilder.GRID)
 	player.place(c + Vector3(-9, terrain.height_at(c.x - 9, c.z - 9) + 2.0 - c.y, -9), 0.0)
 	player.face(c + Vector3(0, 6, 0))
+
+
+## Testing aid: fills the pack and opens the pack, the making screen and a satchel in turn, for screenshots.
+func debug_packshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for it in [["wood", 34], ["stone", 20], ["roast", 3], ["bandage", 4], ["salts", 1], ["shells", 40], ["herb", 9], ["cloth", 7],
+			["coin", 5], ["hatchet", 1], ["tuber_seed", 6], ["scrap", 12], ["wood", 50], ["salt", 60], ["bone", 4]]:
+		inv.add(it[0], it[1])
+	ui.open_inventory("pack")
+	ui._sel = 2
+	ui._redraw()
+	await get_tree().create_timer(6.0).timeout
+	ui.open_inventory("craft")
+	await get_tree().create_timer(6.0).timeout
+	ui.close_all()
+	shared("_rq_satchel", [Net.me(), player.global_position + Vector3(0, 0, -2), [["hide", 3], ["raw_meat", 2], ["bone", 6]], false])
+	await get_tree().create_timer(1.0).timeout
+	var sid: String = satchels.keys()[-1]
+	ui.open_container(sid)
+
+
+## Testing aid: holding interact on a satchel takes everything that fits; tidy merges stacks.
+func debug_takeall() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	shared("_rq_satchel", [Net.me(), player.global_position + Vector3(0, 0, -2), [["hide", 3], ["raw_meat", 2], ["bone", 6]], false])
+	await get_tree().create_timer(1.0).timeout
+	var sid: String = satchels.keys()[-1]
+	var n0 := satchels.size()
+	var asked := take_all(sid)
+	await get_tree().create_timer(1.0).timeout
+	print("TAKEALL asked=%d hide=%d meat=%d bone=%d satchel_gone=%s" % [asked, inv.count("hide"), inv.count("raw_meat"), inv.count("bone"), satchels.size() < n0])
+	# A full pack takes only what fits
+	for i in inv.slots.size():
+		if inv.slots[i] == null:
+			inv.slots[i] = {"id": "stone", "n": 60}
+	inv.add("bone", 100)
+	shared("_rq_satchel", [Net.me(), player.global_position + Vector3(0, 0, -2), [["hide", 2], ["oil", 1]], false])
+	await get_tree().create_timer(1.0).timeout
+	sid = satchels.keys()[-1]
+	asked = take_all(sid)
+	await get_tree().create_timer(1.0).timeout
+	print("TAKEALL full asked=%d still_there=%s" % [asked, satchels.has(sid)])
+	inv.slots[0] = {"id": "wood", "n": 5}
+	inv.slots[5] = {"id": "wood", "n": 7}
+	ui._tidy(inv)
+	print("TIDY wood=%d first=%s" % [inv.count("wood"), inv.slots[0]])
+	get_tree().quit()

@@ -289,10 +289,10 @@ func _btn(t: String, cb: Callable, size := 20, c := DIM) -> Button:
 	return b
 
 
-func _wrap(t: String, size := 20, c := PALE) -> Label:
+func _wrap(t: String, size := 20, c := PALE, width := 400) -> Label:
 	var l := _label(t, size, c)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = 400
+	l.custom_minimum_size.x = width
 	return l
 
 
@@ -363,6 +363,12 @@ func _input(e: InputEvent) -> void:
 		accept_event()
 	elif e.is_action_pressed("reload") and w.builder.active and _panel == null:
 		w.builder.turn()
+		accept_event()
+	elif not get_viewport().gui_get_focus_owner() is LineEdit and _panel_name == "container" and e.is_action_pressed("reload"):
+		_take_all()
+		accept_event()
+	elif not get_viewport().gui_get_focus_owner() is LineEdit and _panel_name == "pack" and _tab == "craft" and e is InputEventKey and e.pressed and not e.echo and e.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] and _rsel >= 0 and _rhere:
+		_make(Items.RECIPES[_rsel])
 		accept_event()
 	if w.builder.active and _panel == null and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		if e.is_action_pressed("fire"):
@@ -546,33 +552,208 @@ func _draw_pack() -> void:
 	if _tab == "build":
 		_draw_build_guide()
 		return
-	_body.add_child(_label("Click a thing to choose it. Right click drops the whole stack.", 16, DIM))
-	_body.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 6, _sel))
-	_desc = _wrap("", 18, DIM)
-	_body.add_child(_desc)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 22)
-	_body.add_child(row)
-	var near := _near_players()
+	# Sort tools along the top, then the pack on the left and the chosen thing on the right
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 6)
+	for f in FILTERS:
+		var fid: String = f[0]
+		bar.add_child(_chip(f[1], _filter == fid, func(): _filter = fid; _redraw()))
+	var used := 0
+	for s in w.inv.slots:
+		if s != null:
+			used += 1
+	var fill := _label("%d of %d slots" % [used, w.inv.slots.size()], 16, DIM)
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	bar.add_child(fill)
+	bar.add_child(_chip("Tidy", false, func(): _tidy(w.inv); _sel = -1; _redraw()))
+	_body.add_child(bar)
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 24)
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(split)
+	var left := VBoxContainer.new()
+	left.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 4, _sel, _kinds_of(_filter)))
+	split.add_child(left)
+	var side := _side_panel(split)
 	var s = w.inv.slots[_sel] if _sel >= 0 and _sel < w.inv.slots.size() else null
-	if s != null:
-		var info: Dictionary = Items.info(s.id)
-		var n := int(s.n)
-		_desc.text = "%s. %s  Worth %d salt." % [info.name, info.text, int(info.value)]
-		if info.kind in ["food", "medicine"]:
-			row.add_child(_btn("Eat" if info.kind == "food" else "Use", func(): _use_item(_sel), 19, PALE))
-		if info.kind == "wear":
-			var sid: String = s.id
-			row.add_child(_btn("Wear", func(): _wear(sid); _sel = -1; _redraw(), 19, PALE))
-		row.add_child(_btn("Drop one", func(): _drop(_sel, 1), 19, PALE))
-		if n > 2:
-			row.add_child(_btn("Drop half", func(): _drop(_sel, n / 2), 19, PALE))
+	if s == null:
+		side.add_child(_label("Nothing chosen", 22, DIM))
+		side.add_child(_wrap("Click a thing to see it. Right click eats, uses or wears it at once.", 17, DIM, 330))
+		return
+	var info: Dictionary = Items.info(s.id)
+	var n := int(s.n)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	head.add_child(_icon(s.id, 44))
+	var hv := VBoxContainer.new()
+	hv.add_theme_constant_override("separation", 0)
+	hv.add_child(_label(info.name, 24, PALE))
+	hv.add_child(_label("%s,  %d carried" % [KIND_NAMES.get(info.kind, info.kind), n], 15, DIM))
+	head.add_child(hv)
+	side.add_child(head)
+	side.add_child(_wrap(info.text, 17, PALE, 330))
+	var facts: Array = []
+	if info.has("heal") and float(info.heal) > 0.0:
+		facts.append("Heals %d" % int(info.heal))
+	if info.has("food"):
+		facts.append("Feeds %d" % int(info.food))
+	if int(info.value) > 0:
+		facts.append("Worth %d salt each" % int(info.value))
+	if not facts.is_empty():
+		side.add_child(_label(",  ".join(facts), 16, GOLD))
+	side.add_child(_gap(6))
+	if info.kind in ["food", "medicine"]:
+		side.add_child(_action("Eat" if info.kind == "food" else "Use", func(): _use_item(_sel), "Right click"))
+	if info.kind == "wear":
+		var sid: String = s.id
+		side.add_child(_action("Wear", func(): _wear(sid); _sel = -1; _redraw(), "Right click"))
+	side.add_child(_action("Drop one", func(): _drop(_sel, 1)))
+	if n > 1:
+		side.add_child(_action("Drop all %d" % n, func(): _drop(_sel, n)))
+	for id in _near_players():
+		side.add_child(_action("Give to %s" % Net.name_of(id), func(): _give_to(id, _sel, n), "", GOLD))
 		if n > 1:
-			row.add_child(_btn("Drop all", func(): _drop(_sel, n), 19, PALE))
-		for id in near:
-			row.add_child(_btn("Give to %s" % Net.name_of(id), func(): _give_to(id, _sel, n), 19, GOLD))
-			if n > 1:
-				row.add_child(_btn("Give half", func(): _give_to(id, _sel, maxi(1, n / 2)), 19, GOLD))
+			side.add_child(_action("Give half to %s" % Net.name_of(id), func(): _give_to(id, _sel, maxi(1, n / 2)), "", GOLD))
+
+
+const FILTERS := [["all", "All"], ["food", "Food and aid"], ["material", "Materials"], ["gear", "Gear and ammo"], ["keep", "Keepsakes"]]
+const KIND_NAMES := {"material": "Material", "food": "Food", "medicine": "Medicine", "aid": "Aid", "seed": "Seed", "tool": "Tool",
+	"ammo": "Ammunition", "wear": "Clothing", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand"}
+var _filter := "all"
+
+
+func _kinds_of(f: String) -> Array:
+	match f:
+		"food":
+			return ["food", "medicine", "aid", "seed"]
+		"material":
+			return ["material"]
+		"gear":
+			return ["tool", "ammo", "wear"]
+		"keep":
+			return ["trinket", "trophy", "quest"]
+	return []
+
+
+## Gathers like with like, fills each stack, and orders the pack by kind and then by name.
+func _tidy(bag: Inventory) -> void:
+	var totals := {}
+	for s in bag.slots:
+		if s != null:
+			totals[s.id] = int(totals.get(s.id, 0)) + int(s.n)
+	var order := ["medicine", "aid", "food", "seed", "ammo", "tool", "wear", "material", "trinket", "trophy", "quest"]
+	var ids := totals.keys()
+	ids.sort_custom(func(a, b):
+		var ka := order.find(Items.info(a).kind)
+		var kb := order.find(Items.info(b).kind)
+		return ka < kb if ka != kb else Items.iname(a) < Items.iname(b))
+	bag.slots.fill(null)
+	for id in ids:
+		bag.add(id, int(totals[id]))
+	bag.changed.emit()
+	w.sfx("step", -8, null, 0.7)
+
+
+## A small square of the thing's colour with its first letter: enough to know it at a glance.
+func _icon(id: String, px := 34) -> Control:
+	var c: Color = Items.info(id).color
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(c.darkened(0.35), 0.95)
+	sb.border_color = Color(c.lightened(0.15), 0.9)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	p.add_theme_stylebox_override("panel", sb)
+	p.custom_minimum_size = Vector2(px, px)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := _label(Items.iname(id).substr(0, 1), int(px * 0.5), Color(1, 1, 1, 0.92) if c.get_luminance() < 0.6 else Color(0.08, 0.07, 0.06))
+	l.remove_theme_color_override("font_shadow_color")
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", load("res://assets/fonts/Marcellus-Regular.ttf"))
+	p.add_child(l)
+	return p
+
+
+func _chip(t: String, on: bool, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_color_override("font_color", GOLD if on else DIM)
+	b.add_theme_color_override("font_hover_color", PALE)
+	for st in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GOLD, 0.16) if on else Color(1, 1, 1, 0.1 if st == "hover" else 0.04)
+		sb.border_color = Color(GOLD, 0.6) if on else Color(1, 1, 1, 0.1)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(12)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		sb.content_margin_top = 3
+		sb.content_margin_bottom = 3
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(cb)
+	return b
+
+
+## The column on the right of a screen, where the chosen thing is shown.
+func _side_panel(parent: Control) -> VBoxContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1, 1, 1, 0.03)
+	sb.border_color = Color(1, 1, 1, 0.07)
+	sb.border_width_left = 1
+	sb.set_content_margin_all(18)
+	p.add_theme_stylebox_override("panel", sb)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	p.add_child(v)
+	parent.add_child(p)
+	return v
+
+
+## A full-width button in the side column, with an optional key hint on its right.
+func _action(t: String, cb: Callable, key := "", c := PALE) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", 19)
+	b.add_theme_color_override("font_color", c)
+	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	b.add_theme_color_override("font_disabled_color", Color(DIM, 0.4))
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1, 1, 1, 0.1 if st == "hover" else 0.05)
+		sb.border_color = Color(c, 0.9 if st == "hover" else 0.35)
+		sb.border_width_left = 3
+		sb.content_margin_left = 14
+		sb.content_margin_top = 6
+		sb.content_margin_bottom = 6
+		b.add_theme_stylebox_override(st, sb)
+	if key != "":
+		var k := _label(key, 14, DIM)
+		k.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		k.offset_left = -160
+		k.offset_right = -12
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		b.add_child(k)
+	b.pressed.connect(cb)
+	return b
+
+
+func _gap(h: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.y = h
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
 
 
 ## Fellow survivors close enough to hand something to.
@@ -813,7 +994,7 @@ func _fit(g: String, m: String, redraw := true) -> void:
 		_redraw()
 
 
-func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1) -> GridContainer:
+func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1, kinds: Array = [], tile_w := 150) -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = cols
 	g.add_theme_constant_override("h_separation", 6)
@@ -821,31 +1002,51 @@ func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1) -> GridConta
 	for i in bag.slots.size():
 		var s = bag.slots[i]
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(170 if cols == 6 else 128, 58)
-		b.clip_text = true
-		b.add_theme_font_size_override("font_size", 16)
+		b.custom_minimum_size = Vector2(tile_w, 54)
+		b.focus_mode = Control.FOCUS_NONE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(1, 1, 1, 0.04)
-		sb.border_color = Color(1, 1, 1, 0.08)
+		sb.bg_color = Color(1, 1, 1, 0.035)
+		sb.border_color = Color(1, 1, 1, 0.07)
 		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
 		if s != null:
-			var c: Color = Items.info(s.id).color
-			sb.border_color = Color(c, 0.6)
-			sb.border_width_left = 4
-			b.text = "%s\n× %d" % [Items.iname(s.id), int(s.n)]
-			b.tooltip_text = Items.info(s.id).text
+			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			b.tooltip_text = "%s\n%s" % [Items.iname(s.id), Items.info(s.id).text]
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			row.offset_left = 8
+			row.offset_right = -6
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var ic := _icon(s.id, 34)
+			ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(ic)
+			var col := VBoxContainer.new()
+			col.add_theme_constant_override("separation", -2)
+			col.alignment = BoxContainer.ALIGNMENT_CENTER
+			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var nm := _label(Items.iname(s.id), 15, PALE)
+			nm.clip_text = true
+			nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			col.add_child(nm)
+			col.add_child(_label("× %d" % int(s.n), 14, DIM))
+			row.add_child(col)
+			b.add_child(row)
+			if not kinds.is_empty() and not Items.info(s.id).kind in kinds:
+				b.modulate.a = 0.22
 		if i == sel and s != null:
 			sb.bg_color = Color(GOLD, 0.14)
 			sb.border_color = GOLD
 		b.add_theme_stylebox_override("normal", sb)
 		var hs := sb.duplicate()
-		hs.bg_color = Color(1, 1, 1, 0.1)
+		hs.bg_color = Color(1, 1, 1, 0.1) if i != sel else Color(GOLD, 0.2)
 		b.add_theme_stylebox_override("hover", hs)
-		b.add_theme_color_override("font_color", PALE)
+		b.add_theme_stylebox_override("pressed", hs)
 		var idx := i
 		b.gui_input.connect(func(ev):
 			if ev is InputEventMouseButton and ev.pressed and ev.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-				cb.call(idx, ev.button_index == MOUSE_BUTTON_RIGHT))
+				cb.call(idx, ev.button_index == MOUSE_BUTTON_RIGHT or ev.shift_pressed))
 		g.add_child(b)
 	return g
 
@@ -857,43 +1058,179 @@ func _pack_click(i: int, right: bool) -> void:
 		_redraw()
 		return
 	if right:
-		_drop(i, int(s.n))
-		return
+		# The quick use: eat it, use it, or put it on. Nothing is dropped by accident.
+		var kind: String = Items.info(s.id).kind
+		if kind in ["food", "medicine"]:
+			_use_item(i)
+			return
+		if kind == "wear":
+			_wear(s.id)
+			_sel = -1
+			_redraw()
+			return
 	_sel = i
 	_redraw()
+
+
+var _rsel := -1
+var _rhere := false   ## the chosen recipe can be made where you stand
 
 
 func _draw_craft() -> void:
 	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
 	var pot: int = w.builder.near_pid(w.player.global_position, "cookpot", 5.0)
 	var fire: bool = (pot >= 0 and w.burning(pot)) or w.settlement_at(w.player.global_position) != ""
+	var chests: int = w.base_chests().size()
 	var where: Array = []
 	if bench:
 		where.append("a workbench")
 	if fire:
 		where.append("a cooking station")
-	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "By hand. A workbench or cooking station makes more.", 16, DIM))
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 20)
+	top.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "By hand. A workbench or cooking station makes more.", 16, DIM))
+	if chests > 0:
+		var cl := _label("Using your pack and %d chest%s in this base." % [chests, "" if chests == 1 else "s"], 16, GOLD)
+		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		top.add_child(cl)
+	_body.add_child(top)
 	if pot >= 0:
 		_body.add_child(_fuel_row(pot))
-	var v := _scroll(520)
-	for r in Items.RECIPES:
-		if r.has("needs") and not w.flags.has(r.needs):
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 24)
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(split)
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(560, 480)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 3)
+	sc.add_child(list)
+	split.add_child(sc)
+	var side := _side_panel(split)
+	# Grouped by where each is made; what can be made now comes first in its group
+	var groups := [["By hand", func(r): return not r.bench and not r.get("fire", false)],
+		["Cooking station", func(r): return r.get("fire", false)], ["Workbench", func(r): return r.bench]]
+	var chosen = null
+	for g in groups:
+		var rows: Array = []
+		for i in Items.RECIPES.size():
+			var r: Dictionary = Items.RECIPES[i]
+			if r.has("needs") and not w.flags.has(r.needs):
+				continue
+			if g[1].call(r):
+				rows.append(i)
+		if rows.is_empty():
 			continue
-		var cost: Dictionary = w.skills.cost(r.cost)
-		var ok: bool = w.stock_has_all(cost) and (bench or not r.bench) and (fire or not r.get("fire", false))
-		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ("      (cooking station)" if r.get("fire", false) else "")]
-		var b := _btn(t, func(): _make(r), 20, PALE if ok else DIM)
-		b.disabled = not ok
-		b.tooltip_text = Items.info(r.id).text
-		v.add_child(b)
+		var here: bool = g[0] == "By hand" or (g[0] == "Workbench" and bench) or (g[0] == "Cooking station" and fire)
+		list.add_child(_label(g[0] + ("" if here else "  (not here)"), 17, GOLD if here else Color(DIM, 0.7)))
+		for i in rows:
+			var r: Dictionary = Items.RECIPES[i]
+			var cost: Dictionary = w.skills.cost(r.cost)
+			var ok: bool = here and w.stock_has_all(cost)
+			if _rsel == -1 and ok:
+				_rsel = i
+			if i == _rsel:
+				chosen = [r, cost, ok, here]
+			list.add_child(_recipe_row(i, r, ok, here))
+	_rhere = false
+	if chosen == null:
+		side.add_child(_label("Choose something to make", 22, DIM))
+		return
+	_rhere = chosen[3]
+	var rr: Dictionary = chosen[0]
+	var cost2: Dictionary = chosen[1]
+	var n: int = int(rr.n) + w.skills.make_bonus(rr.id)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	head.add_child(_icon(rr.id, 44))
+	var hv := VBoxContainer.new()
+	hv.add_theme_constant_override("separation", 0)
+	hv.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 24, PALE))
+	hv.add_child(_label("You have %d" % w.stock_count(rr.id), 15, DIM))
+	head.add_child(hv)
+	side.add_child(head)
+	side.add_child(_wrap(Items.info(rr.id).text, 17, PALE, 330))
+	side.add_child(_gap(4))
+	side.add_child(_label("Needs", 17, GOLD))
+	for k in cost2:
+		var have: int = w.stock_count(k)
+		var need := int(cost2[k])
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 10)
+		line.add_child(_icon(k, 24))
+		var nm := _label(Items.iname(k), 17, PALE)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(nm)
+		line.add_child(_label("%d / %d" % [mini(have, 9999), need], 17, Color(0.6, 0.85, 0.55) if have >= need else Color(0.9, 0.45, 0.38)))
+		side.add_child(line)
+	side.add_child(_gap(8))
+	if not chosen[3]:
+		side.add_child(_label("Made at a " + ("workbench." if rr.bench else "cooking station."), 17, DIM))
+		return
+	var most := 99
+	for k in cost2:
+		most = mini(most, w.stock_count(k) / maxi(1, int(cost2[k])))
+	var b1 := _action("Make", func(): _make(rr), "Enter")
+	b1.disabled = most < 1
+	side.add_child(b1)
+	if most >= 5:
+		side.add_child(_action("Make 5", func(): _make(rr, 5)))
+	if most >= 2:
+		side.add_child(_action("Make all %d" % most, func(): _make(rr, most)))
 
 
-func _make(r: Dictionary) -> void:
-	if not w.stock_pay(w.skills.cost(r.cost)):
+func _recipe_row(i: int, r: Dictionary, ok: bool, here: bool) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(540, 44)
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(GOLD, 0.14) if i == _rsel else Color(1, 1, 1, 0.03)
+	sb.border_color = Color(GOLD, 0.8) if i == _rsel else Color(1, 1, 1, 0.0)
+	sb.border_width_left = 3
+	b.add_theme_stylebox_override("normal", sb)
+	var hs := sb.duplicate()
+	hs.bg_color = Color(1, 1, 1, 0.09) if i != _rsel else Color(GOLD, 0.2)
+	b.add_theme_stylebox_override("hover", hs)
+	b.add_theme_stylebox_override("pressed", hs)
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 10
+	row.offset_right = -10
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := _icon(r.id, 28)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ic)
+	var n: int = int(r.n) + w.skills.make_bonus(r.id)
+	var nm := _label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 18, PALE if ok else DIM)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(nm)
+	var cl := _label(Items.cost_text(w.skills.cost(r.cost)), 15, DIM if ok else Color(DIM, 0.55))
+	row.add_child(cl)
+	if not here or not ok:
+		ic.modulate.a = 0.45
+	b.add_child(row)
+	b.pressed.connect(func(): _rsel = i; _redraw())
+	return b
+
+
+func _make(r: Dictionary, times := 1) -> void:
+	var made := 0
+	for t in times:
+		if not w.stock_pay(w.skills.cost(r.cost)):
+			break
+		made += 1
+	if made == 0:
+		w.sfx("deny", -8)
 		return
 	w.sfx("carve", -6)
-	w.give([[r.id, int(r.n) + w.skills.make_bonus(r.id)]])
-	w.award("make")
+	w.give([[r.id, (int(r.n) + w.skills.make_bonus(r.id)) * made]])
+	for t in made:
+		w.award("make")
 	_redraw()
 
 
@@ -921,42 +1258,45 @@ func _draw_container() -> void:
 	var cpid := int(_cont_id.substr(1)) if _cont_id.begins_with("p") else -1
 	if cpid >= 0 and str(w.pieces.get(cpid, {}).get("name", "")) != "":
 		name = str(w.pieces[cpid].name)
-	_body.add_child(_title(name))
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	top.add_child(_title(name))
 	if cpid >= 0 and w.pieces.has(cpid):
 		# A chest may be named, and the name shows above it
-		var nh := HBoxContainer.new()
-		nh.add_theme_constant_override("separation", 10)
 		var field := LineEdit.new()
 		field.text = str(w.pieces[cpid].get("name", ""))
 		field.placeholder_text = "Name this chest"
 		field.max_length = 24
-		field.custom_minimum_size = Vector2(300, 0)
-		field.add_theme_font_size_override("font_size", 18)
-		nh.add_child(field)
+		field.custom_minimum_size = Vector2(260, 0)
+		field.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		field.add_theme_font_size_override("font_size", 17)
+		top.add_child(field)
 		var save := func(): w.shared("_rq_portal_name", [cpid, field.text])
 		field.text_submitted.connect(func(_t): save.call())
-		nh.add_child(_btn("Name it", save, 18, PALE))
-		_body.add_child(nh)
-	_body.add_child(_label("Click on either side to move a thing across.", 16, DIM))
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 30)
+		field.focus_exited.connect(save)
+	_body.add_child(top)
+	_body.add_child(_label("Click a thing to move it across.", 16, DIM))
 	var bag := Inventory.new(w.containers[_cont_id].size())
 	bag.from_data(w.containers[_cont_id])
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 28)
 	var left := VBoxContainer.new()
-	left.add_child(_label("Here", 20, GOLD))
-	left.add_child(_slot_grid(bag, func(i, _r): w.shared("_rq_take", [Net.me(), _cont_id, i]), 4))
+	left.add_theme_constant_override("separation", 8)
+	left.add_child(_label("In the " + name.to_lower() if cpid < 0 else name, 20, GOLD))
+	left.add_child(_slot_grid(bag, func(i, _r): w.shared("_rq_take", [Net.me(), _cont_id, i]), 3, -1, [], 136))
+	left.add_child(_action("Take everything", func(): _take_all(), "[%s]" % Game.key_text("reload")))
 	hb.add_child(left)
 	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 8)
 	right.add_child(_label("Your pack", 20, GOLD))
-	right.add_child(_slot_grid(w.inv, func(i, _r): _put(i), 4))
+	right.add_child(_slot_grid(w.inv, func(i, _r): _put(i), 4, -1, [], 136))
+	if cpid >= 0:
+		right.add_child(_action("Store what's already here", func(): _store_matching(), "Adds to stacks in the chest"))
 	hb.add_child(right)
 	_body.add_child(hb)
-	_body.add_child(_btn("Take everything", func(): _take_all(), 20, PALE))
 
 
 func _put(i: int) -> void:
-	if _cont_id.begins_with("c") or not (_cont_id.begins_with("p") or _cont_id.begins_with("s")):
-		pass
 	var it = w.inv.take_slot(i)
 	if it == null:
 		return
@@ -964,10 +1304,23 @@ func _put(i: int) -> void:
 
 
 func _take_all() -> void:
-	var data: Array = w.containers.get(_cont_id, [])
-	for i in data.size():
-		if data[i] != null:
-			w.shared("_rq_take", [Net.me(), _cont_id, i])
+	w.take_all(_cont_id)
+
+
+## Puts away every stack of a kind the chest already holds: the usual end of a day's gathering.
+func _store_matching() -> void:
+	var here := {}
+	for it in w.containers.get(_cont_id, []):
+		if it != null:
+			here[str(it[0])] = true
+	var moved := 0
+	for i in w.inv.slots.size():
+		var s = w.inv.slots[i]
+		if s != null and here.has(s.id):
+			_put(i)
+			moved += 1
+	if moved == 0:
+		w.hud.notify("Nothing you carry is kept here yet.")
 
 
 # ------------------------------------------------------------------ talk and trade

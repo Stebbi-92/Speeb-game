@@ -25,6 +25,7 @@ var cur_speed := 0.0
 var look_motion := 0.0
 var target: Node = null
 var hold_time := 0.0
+var _alt_pending := false   ## interact is down on a thing with a second, held use (a satchel: hold to take all)
 var bob_amount := 1.0
 var health := 100.0
 var max_health := 100.0
@@ -155,8 +156,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		interact_pressed.emit()
 		if not input_locked and target and target.has_meta("on_interact") and target.get_meta("hold", 0.0) <= 0.0:
-			var cb: Callable = target.get_meta("on_interact")
-			cb.call()
+			if target.has_meta("on_hold"):
+				# Tap opens it; holding does the second thing. Which one is known on release, or when the bar fills.
+				_alt_pending = true
+				hold_time = 0.0
+			else:
+				var cb: Callable = target.get_meta("on_interact")
+				cb.call()
 
 
 func _physics_process(delta: float) -> void:
@@ -260,10 +266,30 @@ func _update_target(delta: float) -> void:
 			t = c
 	if t != target:
 		hold_time = 0.0
+		_alt_pending = false
 	target = t
 	var hud = Game.main.hud
 	if target == null:
 		hud.set_prompt("", 0.0)
+		return
+	if target.has_meta("on_hold") and target.get_meta("hold", 0.0) <= 0.0:
+		const ALT := 0.45
+		if _alt_pending:
+			if Input.is_action_pressed("interact"):
+				hold_time += delta
+				if hold_time >= ALT:
+					_alt_pending = false
+					hold_time = 0.0
+					var hcb: Callable = target.get_meta("on_hold")
+					hcb.call()
+			else:
+				_alt_pending = false
+				hold_time = 0.0
+				var tcb: Callable = target.get_meta("on_interact")
+				tcb.call()
+				return
+		var k := Game.key_text("interact")
+		hud.set_prompt("[%s]  %s      Hold [%s]  %s" % [k, target.get_meta("prompt"), k, target.get_meta("hold_prompt", "")], hold_time / ALT if _alt_pending else 0.0)
 		return
 	var hold: float = target.get_meta("hold", 0.0)
 	if hold > 0.0:
