@@ -118,6 +118,9 @@ func intro() -> void:
 	if Net.authority():
 		_load_world()
 		ready_world = true
+		for by in _waiting_hello:
+			_rq_hello(by)
+		_waiting_hello.clear()
 	else:
 		hud.say("The waste is taking shape around you...", 4.0)
 		shared("_rq_hello", [Net.me()])
@@ -1479,8 +1482,14 @@ func _visit_check() -> void:
 
 # ================================================================== the fellowship
 
+var _waiting_hello: Array = []
+
+
 func _rq_hello(by: int) -> void:
 	if not Net.authority() or by == Net.me():
+		return
+	if not ready_world or world_uid == "":
+		_waiting_hello.append(by)
 		return
 	Net.call_peer(by, "_w_snapshot", [world_data()])
 
@@ -1931,3 +1940,27 @@ func debug_nightshot() -> void:
 	_light_beacon(0, true)
 	player.place(beacon_nodes[0].pos + Vector3(0, 1.0, 34), 0.0)
 	player.pitch = 0.15
+
+
+func debug_coop_host() -> void:
+	var p := gpos(WPlaces.SETTLEMENTS.cinderwick.pos) + Vector3(80, 0, 20)
+	builder._rq_build(1, "chest", p, 0.0)
+	_w_vigil_end(0, true)
+	await get_tree().create_timer(12.0).timeout
+	print("HOST pieces %d lit %s avatars %d foes %d quests %d" % [pieces.size(), lit, avatars.size(), foes.size(), quests.active().size()])
+
+
+func debug_coop_join() -> void:
+	await get_tree().create_timer(8.0).timeout
+	print("JOIN ready %s uid %s day %d pieces %d lit %s main %d offers %d" % [ready_world, world_uid, day, pieces.size(), lit, quests.main_stage(), quests.offers.size()])
+	var cid: String = crates.keys()[3]
+	_search(cid)
+	await get_tree().create_timer(3.0).timeout
+	print("JOIN crate ", containers.get(cid))
+	shared("_rq_take", [Net.me(), cid, 0])
+	await get_tree().create_timer(3.0).timeout
+	print("JOIN pack ", inv.to_data().filter(func(x): return x != null), " shells ", player.weapon.reserve)
+	var nd: Dictionary = nodes[5]
+	_gather(nd.id)
+	await get_tree().create_timer(3.0).timeout
+	print("JOIN node charges ", nodes[5].charges, " pack ", inv.to_data().filter(func(x): return x != null))

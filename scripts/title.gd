@@ -124,6 +124,7 @@ func _build_menu() -> void:
 	_menu.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage()))
 	if Game.reached > 0:
 		_menu.add_child(_btn("Return to a Trial", _show_chapters))
+	_menu.add_child(_btn("The Ashen Waste", _show_waste))
 	_menu.add_child(_btn("Walk Together", _show_together))
 	_menu.add_child(_btn("Options", func(): hud.show_options()))
 	if Game.tenth_unlocked():
@@ -137,6 +138,10 @@ func _build_menu() -> void:
 		var idx := i
 		_chapters.add_child(_btn(PLACES[i], func(): Game.main.start_level(idx), 22))
 	_chapters.add_child(_btn("Back", func(): _chapters.visible = false; _menu.visible = true, 22))
+	_waste = VBoxContainer.new()
+	_waste.visible = false
+	_waste.add_theme_constant_override("separation", 4)
+	v.add_child(_waste)
 	_together = VBoxContainer.new()
 	_together.visible = false
 	_together.add_theme_constant_override("separation", 6)
@@ -176,6 +181,33 @@ func _btn(text: String, cb: Callable, size := 30) -> Button:
 	var b: Button = hud.button(text, cb, size)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	return b
+
+
+var _waste: VBoxContainer
+
+
+## The open waste: three worlds may be kept, each with its own days, beacons and shelters.
+func _show_waste() -> void:
+	_menu.visible = false
+	_waste.visible = true
+	for c in _waste.get_children():
+		c.queue_free()
+	_waste.add_child(_heading("The Ashen Waste"))
+	_waste.add_child(_small("Cast out into the waste, you gather, build and live through its nights,\nwhile nine dead beacons wait to be kindled. The world is kept between walks."))
+	for i in 3:
+		var slot := str(i + 1)
+		var d := Wasteland.describe(slot)
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 14)
+		hb.add_child(_btn("World %s:  %s" % [["I", "II", "III"][i], d if d != "" else "unwalked"], func():
+			Game.world_slot = slot
+			Game.main.start_level(Game.WASTELAND), 22))
+		if d != "":
+			hb.add_child(_btn("forget", func():
+				DirAccess.remove_absolute(Wasteland.world_path(slot))
+				_show_waste(), 16))
+		_waste.add_child(hb)
+	_waste.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 22))
 
 
 func _show_chapters() -> void:
@@ -382,6 +414,20 @@ func _on_roster() -> void:
 			grid.add_child(_btn(PLACES[i], func(): Net.begin(idx), 18))
 		if Game.tenth_unlocked():
 			grid.add_child(_btn("The Tenth Trial", func(): Net.begin(11), 18))
+		if Net.is_host():
+			_lobby.add_child(_heading("Or walk the open waste"))
+			var wh := HBoxContainer.new()
+			wh.add_theme_constant_override("separation", 10)
+			var ws := OptionButton.new()
+			for i in 3:
+				var d := Wasteland.describe(str(i + 1))
+				ws.add_item("World %s  (%s)" % [["I", "II", "III"][i], d if d != "" else "unwalked"])
+			ws.selected = int(Game.world_slot) - 1
+			ws.add_theme_font_size_override("font_size", 17)
+			ws.item_selected.connect(func(i): Game.world_slot = str(i + 1))
+			wh.add_child(ws)
+			wh.add_child(_btn("The Ashen Waste", func(): Net.begin(Game.WASTELAND), 18))
+			_lobby.add_child(wh)
 	else:
 		_lobby.add_child(_small("Waiting for the host to choose a trial.", hud.PALE, 19))
 	_lobby.add_child(_btn("Leave the fellowship", func(): Net.leave(""); _lobby.visible = false; _menu.visible = true; _raise_column(false), 22))
