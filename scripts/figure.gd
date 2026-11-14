@@ -29,6 +29,11 @@ var look := DEFAULT.duplicate()
 var walk := 0.0            ## the stride's phase; the owner advances it
 var stride := 0.0          ## 0 standing, 1 walking
 var arms_forward := true   ## holding something before them
+var hold := false          ## both hands on a gun, at GRIP and FORE
+var aim := 0.0             ## how far the gun is raised or lowered, in radians
+const SHOULDER_Y := 1.45
+const GRIP := Vector3(0.17, 1.2, 0.44)   ## where the near hand holds a gun, with the gun level
+const FORE := Vector3(0.1, 1.19, 0.52)   ## where the far hand steadies it
 var hand_r: Node3D         ## where a held thing goes
 var _legs: Array = []
 var _arms: Array = []
@@ -217,6 +222,14 @@ func _process(_delta: float) -> void:
 	var s := sin(walk) * 0.55 * stride
 	_legs[0].rotation.x = s
 	_legs[1].rotation.x = -s
+	if hold:
+		var pts := [FORE, GRIP]
+		for i in 2:
+			var sh: Node3D = _arms[i]
+			var t: Vector3 = pts[i] - Vector3(0, SHOULDER_Y, 0)
+			t = t.rotated(Vector3.RIGHT, aim) + Vector3(0, SHOULDER_Y, 0)
+			sh.basis = Basis(Quaternion(Vector3.DOWN, (t - sh.position).normalized()))
+		return
 	var fwd := -1.15 if arms_forward else 0.0
 	_arms[0].rotation.x = fwd * 0.85 - s * (0.2 if arms_forward else 0.6)
 	_arms[1].rotation.x = fwd + s * (0.15 if arms_forward else 0.6)

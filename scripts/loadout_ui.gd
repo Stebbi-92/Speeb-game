@@ -122,15 +122,14 @@ func _rebuild() -> void:
 			pad.custom_minimum_size.x = 150
 			mrow.add_child(pad)
 			mrow.add_child(hud._label("on the %s:" % ArmsDB.GUNS[g].name.to_lower(), 15, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT))
-			var cur := Game.mount_of(g)
-			mrow.add_child(_btn(("◆ " if cur == "" else "") + "Iron sights", _mount.bind(g, ""), 15, hud.GOLD if cur == "" else hud.PALE))
+			var on: Array = Game.mounts_of(g)
 			for m in mounts:
 				var a: Dictionary = ArmsDB.ATTACHMENTS[m]
 				var have: bool = Game.unlocked(ArmsDB.ATTACHMENTS, m)
 				var lab: String = a.name if have else "%s  (rank %d)" % [a.name, int(a.unlock)]
-				var b := _btn(("◆ " if cur == m else "") + lab, _mount.bind(g, m), 15, hud.GOLD if cur == m else (hud.PALE if have else hud.DIM))
+				var b := _btn(("◆ " if m in on else "") + lab, _mount.bind(g, m), 15, hud.GOLD if m in on else (hud.PALE if have else hud.DIM))
 				b.disabled = not have
-				b.mouse_entered.connect(func(): _info.text = a.text)
+				b.mouse_entered.connect(func(): _info.text = "%s: %s" % [ArmsDB.SLOT_NAMES[a.slot], a.text])
 				mrow.add_child(b)
 
 
@@ -140,11 +139,18 @@ func _choose(kind: String, id: String) -> void:
 	_rebuild()
 
 
+## Fits or removes one thing. A gun takes one thing to each slot, so a new sight replaces the old.
 func _mount(g: String, m: String) -> void:
+	var on: Array = Game.mounts_of(g).duplicate()
+	if m in on:
+		on.erase(m)
+	else:
+		on = on.filter(func(x): return ArmsDB.ATTACHMENTS[x].slot != ArmsDB.ATTACHMENTS[m].slot)
+		on.append(m)
 	if not Game.loadout.get("mounts") is Dictionary:
 		Game.loadout.mounts = {}
-	if m == "":
+	if on.is_empty():
 		Game.loadout.mounts.erase(g)
 	else:
-		Game.loadout.mounts[g] = m
+		Game.loadout.mounts[g] = on
 	_rebuild()

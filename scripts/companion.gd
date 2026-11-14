@@ -12,6 +12,9 @@ var _pitch := 0.0
 var _has_pose := false
 var _body: Node3D
 var _gun: Node3D
+var _gun_model: Node3D
+var _gun_id := ""
+var _tip := Vector3(0, -0.2, 1.2)
 var _label: Label3D
 var _lamp: OmniLight3D
 var _flash: OmniLight3D
@@ -36,27 +39,18 @@ func _ready() -> void:
 	_look = _fig.look.duplicate()
 	_body.add_child(_fig)
 	Net.roster_changed.connect(_relook)
-	# The shotgun, carried low across the body
+	# What they carry, held in both hands and raised with their eye
 	_gun = Node3D.new()
-	_gun.position = Vector3(0.22, 1.1, 0.25)
+	_gun.position = Vector3(0, Figure.SHOULDER_Y, 0)
 	_body.add_child(_gun)
-	var steel := StandardMaterial3D.new()
-	steel.albedo_color = Color(0.15, 0.15, 0.16)
-	steel.metallic = 0.8
-	steel.roughness = 0.35
-	var barrel := MeshInstance3D.new()
-	var gm := BoxMesh.new()
-	gm.size = Vector3(0.06, 0.07, 0.8)
-	barrel.mesh = gm
-	barrel.material_override = steel
-	barrel.position.z = 0.25
-	_gun.add_child(barrel)
+	_fig.hold = true
+	_show_gun("shotgun")
 	_flash = OmniLight3D.new()
 	_flash.light_color = Color(1.0, 0.75, 0.4)
 	_flash.light_energy = 0.0
 	_flash.omni_range = 6.0
-	_flash.position = Vector3(0, 0, 0.75)
 	_gun.add_child(_flash)
+	_place_flash()
 	_lamp = OmniLight3D.new()
 	_lamp.light_color = Color(1.0, 0.78, 0.5)
 	_lamp.light_energy = 0.0
@@ -116,7 +110,12 @@ func pose(data: Array) -> void:
 	var was := downed
 	downed = data[3]
 	hp = data[4]
-	_gun.visible = data[6] and data[5] == "shotgun"
+	var armed: bool = data[6] and data[5] == "shotgun"
+	_gun.visible = armed
+	_fig.hold = armed
+	_fig.arms_forward = armed or data[5] != ""
+	if data.size() > 8 and str(data[8]) != _gun_id:
+		_show_gun(str(data[8]))
 	_lamp.light_energy = 2.0 if data[7] else 0.0
 	if not _has_pose or global_position.distance_to(_to) > 6.0:
 		global_position = _to
@@ -126,6 +125,30 @@ func pose(data: Array) -> void:
 	if downed != was:
 		_area.set_meta("prompt", "Raise %s" % Net.name_of(peer_id) if downed else "")
 		_label.text = Net.name_of(peer_id) + ("\nfallen" if downed else "")
+
+
+## Builds the gun they hold, the same shape the holder sees, turned to face the way they face.
+func _show_gun(g: String) -> void:
+	if not ArmsDB.GUNS.has(g):
+		return
+	_gun_id = g
+	if _gun_model:
+		_gun_model.queue_free()
+	var maker := Arms.new()
+	_gun_model = maker._build(g, [])
+	maker.free()
+	_gun_model.rotation.y = PI
+	_gun_model.position = Figure.GRIP - Vector3(0, Figure.SHOULDER_Y, 0) + Vector3(0, 0.06, 0.02)
+	_gun.add_child(_gun_model)
+	_tip = _gun_model.position + (_gun_model.get_meta("tip") as Vector3) * Vector3(-1, 1, -1)
+	for c in _gun_model.find_children("*", "MeshInstance3D", true, false):
+		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_place_flash()
+
+
+func _place_flash() -> void:
+	if _flash:
+		_flash.position = _tip
 
 
 func muzzle() -> void:
@@ -144,6 +167,7 @@ func _process(delta: float) -> void:
 	global_position = global_position.lerp(_to, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, _yaw + PI, minf(1.0, delta * 14.0))
 	_gun.rotation.x = lerpf(_gun.rotation.x, -_pitch, minf(1.0, delta * 10.0))
+	_fig.aim = _gun.rotation.x
 	var speed := (global_position - _last).length() / maxf(delta, 0.001)
 	_last = global_position
 	_walk += delta * minf(speed, 6.0) * 2.2

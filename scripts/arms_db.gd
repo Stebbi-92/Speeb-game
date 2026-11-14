@@ -11,13 +11,13 @@ extends RefCounted
 const GUNS := {
 	"shotgun": {"name": "Pump Shotgun", "slot": "primary", "mode": "pump", "dmg": 11.0, "pellets": 8, "spread": 0.075, "range": 45.0,
 		"mag": 6, "rate": 0.7, "reload": "shell", "reload_t": 0.45, "sound": "shotgun", "kick": 1.0, "falloff": 25.0, "unlock": 1,
-		"mounts": ["red_dot", "suppressor"], "text": "Eight pellets and a pump between each. It forgives a poor aim, close in."},
+		"mounts": ["red_dot", "suppressor", "foregrip", "ext_mag"], "text": "Eight pellets and a pump between each. It forgives a poor aim, close in."},
 	"machine_gun": {"name": "Machine Gun", "slot": "primary", "mode": "auto", "dmg": 15.0, "pellets": 1, "spread": 0.02, "range": 140.0,
 		"mag": 30, "rate": 0.095, "reload": "mag", "reload_t": 2.1, "sound": "mg", "kick": 0.22, "falloff": 70.0, "unlock": 3,
-		"mounts": ["red_dot", "suppressor", "scope"], "text": "A steady stream that climbs as you hold it. Short bursts keep it true."},
+		"mounts": ["red_dot", "scope", "suppressor", "foregrip", "ext_mag"], "text": "A steady stream that climbs as you hold it. Short bursts keep it true."},
 	"sniper": {"name": "Sniper Rifle", "slot": "primary", "mode": "bolt", "dmg": 135.0, "pellets": 1, "spread": 0.0, "range": 400.0,
 		"mag": 5, "rate": 1.25, "reload": "mag", "reload_t": 2.6, "sound": "sniper", "kick": 1.6, "falloff": 0.0, "unlock": 6, "zoom": 2.5,
-		"mounts": ["suppressor", "scope"], "text": "One heavy round, then the bolt. Hold the right mouse button to look down the glass."},
+		"mounts": ["scope", "suppressor", "ext_mag"], "text": "One heavy round, then the bolt. Aim to look down the glass."},
 	"rocket": {"name": "Rocket Launcher", "slot": "primary", "mode": "rocket", "dmg": 170.0, "radius": 5.5, "speed": 38.0, "pellets": 1,
 		"spread": 0.0, "range": 300.0, "mag": 1, "rate": 0.9, "reload": "mag", "reload_t": 2.4, "sound": "rocket", "kick": 1.4, "falloff": 0.0,
 		"unlock": 10, "mounts": ["scope"], "text": "Bursts where it strikes and takes everything near with it. Keep it far from your own feet."},
@@ -26,7 +26,7 @@ const GUNS := {
 		"spin": 0.7, "slow": 0.6, "mounts": [], "text": "It must spin before it speaks, and it slows the one who carries it. Then nothing stands."},
 	"pistol": {"name": "Pistol", "slot": "secondary", "mode": "semi", "dmg": 24.0, "pellets": 1, "spread": 0.012, "range": 90.0,
 		"mag": 12, "rate": 0.16, "reload": "mag", "reload_t": 1.3, "sound": "pistol", "kick": 0.35, "falloff": 45.0, "unlock": 1,
-		"mounts": ["red_dot", "suppressor"], "text": "Quick to draw and quick to load. Something to reach for when the long gun runs dry."},
+		"mounts": ["red_dot", "suppressor", "ext_mag"], "text": "Quick to draw and quick to load. Something to reach for when the long gun runs dry."},
 	"revolver": {"name": "Revolver", "slot": "secondary", "mode": "semi", "dmg": 52.0, "pellets": 1, "spread": 0.008, "range": 110.0,
 		"mag": 6, "rate": 0.45, "reload": "mag", "reload_t": 2.0, "sound": "revolver", "kick": 0.8, "falloff": 60.0, "unlock": 5,
 		"mounts": ["red_dot"], "text": "Six heavy rounds. Slow, and sure."},
@@ -49,11 +49,16 @@ const GADGETS := {
 	"mine": {"name": "Salt Mine", "charges": 2, "recharge": 45.0, "unlock": 8, "text": "Set with T. Bursts when a form steps near."},
 }
 
+## What may be fitted to a gun. One thing to each slot: a sight above, something on the muzzle,
+## a grip under the fore-end, a longer magazine.
 const ATTACHMENTS := {
-	"red_dot": {"name": "Red Dot", "unlock": 2, "text": "Tighter spread, and a steadier aim down the sight."},
-	"suppressor": {"name": "Suppressor", "unlock": 5, "text": "Quiets the shot and hides the flash. A little less force."},
-	"scope": {"name": "Scope", "unlock": 7, "text": "Looks further when you aim with the right mouse button."},
+	"red_dot": {"name": "Red Dot", "slot": "sight", "unlock": 2, "text": "Tighter spread, and a steadier aim down the sight."},
+	"foregrip": {"name": "Foregrip", "slot": "grip", "unlock": 3, "text": "Less kick and less climb. The shots keep closer together."},
+	"suppressor": {"name": "Suppressor", "slot": "muzzle", "unlock": 5, "text": "Quiets the shot and hides the flash. A little less force."},
+	"ext_mag": {"name": "Long Magazine", "slot": "mag", "unlock": 6, "text": "Holds half as many rounds again."},
+	"scope": {"name": "Scope", "slot": "sight", "unlock": 7, "text": "Looks further when you aim."},
 }
+const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine"}
 
 ## What the right mouse does to the view and the spread, per sight.
 const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15}}

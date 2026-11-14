@@ -55,6 +55,7 @@ var _aim := 0.0
 var _climb := 0.0
 var _heal_left := 0.0
 var _sway := Vector2.ZERO
+var debug_aim := false
 var _models := {}
 var _melee_models := {}
 var _model: Node3D
@@ -94,7 +95,10 @@ func _ready() -> void:
 
 ## Takes up whatever the loadout says, full of ammunition.
 func equip_loadout() -> void:
-	var lo: Dictionary = Game.loadout
+	var lo: Dictionary = Game.arms_now()
+	for k in _models:
+		_models[k].queue_free()
+	_models.clear()
 	guns = [str(lo.get("primary", "shotgun")), str(lo.get("secondary", "pistol"))]
 	for g in guns:
 		if not ArmsDB.GUNS.has(g):
@@ -105,7 +109,7 @@ func equip_loadout() -> void:
 	gadget = str(lo.get("gadget", "bandages")) if ArmsDB.GADGETS.has(lo.get("gadget", "")) else "bandages"
 	for g in guns:
 		if not _st.has(g):
-			_st[g] = {"mag": int(ArmsDB.GUNS[g].mag), "reserve": int(ArmsDB.GUNS[g].mag) * 4}
+			_st[g] = {"mag": Arms.mag_of(g), "reserve": Arms.mag_of(g) * 4}
 	cur = 0
 	grenades = int(ArmsDB.GRENADES[grenade].carry)
 	charges = int(ArmsDB.GADGETS[gadget].charges)
@@ -121,18 +125,36 @@ func spec() -> Dictionary:
 
 
 func capacity() -> int:
-	return int(spec().mag)
+	return Arms.mag_of(gun())
 
 
+## How many rounds a gun holds: more with a longer magazine, and more again as it is worked on in the waste.
+static func mag_of(g: String) -> int:
+	var m := float(ArmsDB.GUNS[g].mag)
+	if Game.has_mount(g, "ext_mag"):
+		m *= 1.5
+	return maxi(1, int(round(m * (1.0 + 0.15 * Game.tier_of(g)))))
+
+
+## The sight on the gun in hand ("" is iron sights).
 func mount() -> String:
 	return Game.mount_of(gun())
+
+
+func fitted(id: String) -> bool:
+	return Game.has_mount(gun(), id)
+
+
+## What the work done on this gun adds to each shot.
+func tier_mult() -> float:
+	return 1.0 + 0.12 * Game.tier_of(gun())
 
 
 ## The most reserve a gun can carry: eight magazines, or more where the waste allows.
 func reserve_cap(g := "") -> int:
 	if g == "":
 		g = gun()
-	var m: int = ArmsDB.GUNS[g].mag
+	var m: int = Arms.mag_of(g)
 	return maxi(m * 2, int(round(m * 8 * reserve_max / SHELL_RESERVE)))
 
 
@@ -143,7 +165,7 @@ func low_ammo() -> bool:
 ## Fills every carried gun to the brim, as at the start of a trial.
 func refill() -> void:
 	for g in guns:
-		_st[g] = {"mag": int(ArmsDB.GUNS[g].mag), "reserve": int(ArmsDB.GUNS[g].mag) * 4}
+		_st[g] = {"mag": Arms.mag_of(g), "reserve": Arms.mag_of(g) * 4}
 	grenades = int(ArmsDB.GRENADES[grenade].carry)
 	charges = int(ArmsDB.GADGETS[gadget].charges)
 	_ui()
@@ -152,7 +174,7 @@ func refill() -> void:
 ## Ammunition found or bought: n is counted in shotgun shells, and each gun takes its share.
 func add_shells(n: int) -> void:
 	for g in guns:
-		var m: int = ArmsDB.GUNS[g].mag
+		var m: int = Arms.mag_of(g)
 		var add := maxi(1, int(ceil(n * m / 6.0))) if g == gun() else maxi(1, int(ceil(n * m / 12.0)))
 		_st[g].reserve = mini(int(_st[g].reserve) + add, reserve_cap(g))
 	_ui()
@@ -170,7 +192,7 @@ func set_ammo_state(d) -> void:
 	if st is Dictionary:
 		for g in st:
 			if ArmsDB.GUNS.has(g) and st[g] is Dictionary:
-				_st[g] = {"mag": clampi(int(st[g].get("mag", 0)), 0, int(ArmsDB.GUNS[g].mag)), "reserve": maxi(0, int(st[g].get("reserve", 0)))}
+				_st[g] = {"mag": clampi(int(st[g].get("mag", 0)), 0, Arms.mag_of(g)), "reserve": maxi(0, int(st[g].get("reserve", 0)))}
 	grenades = clampi(int(d.get("gren", grenades)), 0, int(ArmsDB.GRENADES[grenade].carry))
 	charges = clampi(int(d.get("gad", charges)), 0, int(ArmsDB.GADGETS[gadget].charges))
 	_ui()
@@ -240,9 +262,13 @@ func _process(delta: float) -> void:
 		_pump.position.z = phase * (0.1 if s.mode == "pump" else 0.06)
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
-	var aiming := Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0
+	var aiming := debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0
 	_set_aim(1.0 if aiming else 0.0, delta)
-	var aim_off := Vector3(-0.16, 0.115 if mount() == "" else 0.1, 0.12) * _aim
+	# Aiming brings the sights onto the eye's own line
+	var aim_off := Vector3.ZERO
+	var ease_aim := smoothstep(0.0, 1.0, _aim)
+	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(0, -float(_model.get_meta("eye", 0.07)), -0.6), ease_aim)
+	rotation = Vector3(0.02, 0.05, 0) * (1.0 - ease_aim)
 	_holder.position = Vector3(_sway.x, bob - _kick * 0.04 + _sway.y - _switch * 0.5, _kick * 0.12 * (1.0 - _aim * 0.6)) + aim_off
 	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4
 	if _swing > 0.0:
@@ -304,7 +330,7 @@ func _trickle_back(delta: float) -> void:
 	if _quiet < 4.0:
 		return
 	for g in guns:
-		var m: int = ArmsDB.GUNS[g].mag
+		var m: int = Arms.mag_of(g)
 		var floor_n := maxi(m * 2, 2)
 		if int(_st[g].reserve) + int(_st[g].mag) >= floor_n:
 			continue
@@ -363,8 +389,8 @@ func _ui() -> void:
 	var hud = Game.main.hud
 	hud.set_ammo(shells, capacity(), reserve if not Net.unlimited_ammo() else -2)
 	var line := "%s" % spec().name
-	if mount() != "":
-		line += " · " + ArmsDB.ATTACHMENTS[mount()].name
+	for m in Game.mounts_of(gun()):
+		line += " · " + ArmsDB.ATTACHMENTS[m].name
 	line += "     %s %d     %s %d" % [ArmsDB.GRENADES[grenade].name.split(" ")[0], grenades, ArmsDB.GADGETS[gadget].name, charges]
 	var ready = player.get_parent().get("streaks_ready")
 	if ready is Array and not ready.is_empty():
@@ -400,15 +426,16 @@ func _try_fire() -> void:
 	_quiet = 0.0
 	_ui()
 	_cool = float(s.rate)
+	var steady := 0.65 if fitted("foregrip") else 1.0
 	_kick = minf(1.0, _kick + float(s.kick) * (0.35 if s.mode in ["auto", "spin"] else 1.0))
-	player.shake(0.18 * float(s.kick) * (1.0 - 0.5 * _aim))
-	var climb := 0.045 * float(s.kick) * (1.0 - 0.5 * _aim)
+	player.shake(0.18 * float(s.kick) * (1.0 - 0.5 * _aim) * steady)
+	var climb := 0.045 * float(s.kick) * (1.0 - 0.5 * _aim) * steady
 	if s.mode in ["auto", "spin"]:
 		_climb += 0.1
-		climb = 0.008 + 0.006 * _climb
+		climb = (0.008 + 0.006 * _climb) * steady
 	player.pitch = minf(player.pitch + climb, 1.45)
 	var lvl = player.get_parent()
-	var quiet := mount() == "suppressor"
+	var quiet := fitted("suppressor")
 	lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2)
 	if s.mode == "pump":
 		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump", -8))
@@ -429,7 +456,7 @@ func _try_fire() -> void:
 	if s.mode == "rocket":
 		var r := Rocket.new()
 		r.owner_player = player
-		r.dmg = float(s.dmg) * damage_mult
+		r.dmg = float(s.dmg) * damage_mult * tier_mult()
 		r.radius = float(s.radius)
 		r.vel = fwd * float(s.speed)
 		lvl.add_child(r)
@@ -440,12 +467,14 @@ func _try_fire() -> void:
 	spread *= lerpf(1.0, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
 	if mount() == "red_dot":
 		spread *= 0.85
+	if fitted("foregrip"):
+		spread *= 0.85
 	if player.cur_speed > 3.0:
 		spread *= 1.4
 	if s.mode in ["auto", "spin"]:
 		spread *= 1.0 + _climb * 0.6
 	var hits := {}
-	var dmg_m := damage_mult * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0)
+	var dmg_m := damage_mult * tier_mult() * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0)
 	for i in int(s.pellets):
 		var dir := fwd
 		if spread > 0.0:
@@ -752,97 +781,234 @@ func _tube(r: float, length: float, pos: Vector3, m: Material, parent: Node3D, r
 	return mi
 
 
-func _build(g: String) -> Node3D:
+## Builds a gun from plain shapes: barrel along -Z, the hand at the origin, the stock behind.
+## mnts: what is fitted to it; null means whatever this pilgrim has chosen for the gun.
+func _build(g: String, mnts = null) -> Node3D:
 	var n := Node3D.new()
+	var fit: Array = Game.mounts_of(g) if mnts == null else mnts
+	var ext: bool = "ext_mag" in fit
 	var metal := _metal()
 	var dark := _mat(Color(0.07, 0.07, 0.075), 0.5, 0.5)
-	var wood := _mat(Color(0.32, 0.2, 0.12))
+	var wood := _mat(Color(0.34, 0.2, 0.11), 0.0, 0.55)
+	var wood2 := _mat(Color(0.25, 0.14, 0.08), 0.0, 0.6)
 	var brass := _mat(Color(0.7, 0.55, 0.3), 0.9, 0.3)
 	var olive := _mat(Color(0.2, 0.22, 0.16), 0.2, 0.7)
 	var pump := Node3D.new()
 	n.add_child(pump)
 	n.set_meta("pump", pump)
-	var top := 0.05      # where a sight sits
-	var tip := Vector3(0, 0.03, -0.8)
+	var top := 0.05                       # where a sight sits
+	var tip := Vector3(0, 0.03, -0.8)     # the muzzle
+	var rear_z := 0.08                    # where the rear sight sits
+	var front := Vector3(0, 0.03, -0.7)   # the top of the barrel, near the muzzle
+	var fore := Vector3(0, -0.04, -0.3)   # under the fore-end, where a grip hangs
 	match g:
 		"shotgun":
-			_box(Vector3(0.07, 0.09, 0.32), Vector3(0, 0, 0.05), metal, n)
-			_tube(0.022, 0.62, Vector3(0, 0.025, -0.4), metal, n)
-			_tube(0.018, 0.5, Vector3(0, -0.025, -0.34), metal, n)
-			_box(Vector3(0.055, 0.09, 0.2), Vector3(0, -0.035, 0.29), wood, n, Vector3(-0.18, 0, 0))
-			_box(Vector3(0.074, 0.03, 0.12), Vector3(0, -0.035, 0.12), brass, n)
-			_box(Vector3(0.06, 0.06, 0.17), Vector3(0, -0.03, -0.3), wood, pump)
-			tip = Vector3(0, 0.03, -0.75)
+			_box(Vector3(0.05, 0.076, 0.27), Vector3(0, 0, 0.03), metal, n)
+			_box(Vector3(0.052, 0.02, 0.2), Vector3(0, -0.03, 0.02), dark, n)
+			_box(Vector3(0.004, 0.024, 0.075), Vector3(0.026, 0.012, 0.0), brass, n)
+			_tube(0.0145, 0.64, Vector3(0, 0.02, -0.42), metal, n)
+			_tube(0.0165, 0.012, Vector3(0, 0.02, -0.735), dark, n)
+			var tube_len := 0.6 if ext else 0.47
+			_tube(0.0125, tube_len, Vector3(0, -0.014, -0.105 - tube_len * 0.5), metal, n)
+			_tube(0.015, 0.02, Vector3(0, -0.014, -0.105 - tube_len), dark, n)
+			_box(Vector3(0.012, 0.05, 0.014), Vector3(0, 0.003, -0.52), dark, n)
+			# The stock: wrist, comb and butt
+			_box(Vector3(0.036, 0.05, 0.13), Vector3(0, -0.035, 0.215), wood, n, Vector3(-0.4, 0, 0))
+			_box(Vector3(0.04, 0.085, 0.22), Vector3(0, -0.062, 0.385), wood, n, Vector3(-0.1, 0, 0))
+			_box(Vector3(0.042, 0.1, 0.016), Vector3(0, -0.073, 0.5), dark, n, Vector3(-0.1, 0, 0))
+			# Trigger and its guard
+			_box(Vector3(0.008, 0.006, 0.075), Vector3(0, -0.07, 0.085), dark, n)
+			_box(Vector3(0.008, 0.03, 0.006), Vector3(0, -0.055, 0.047), dark, n)
+			_box(Vector3(0.005, 0.022, 0.005), Vector3(0, -0.052, 0.09), brass, n, Vector3(0.3, 0, 0))
+			# The slide under the barrel, ribbed
+			_box(Vector3(0.046, 0.048, 0.18), Vector3(0, -0.016, -0.3), wood, pump)
+			for i in 5:
+				_box(Vector3(0.049, 0.05, 0.008), Vector3(0, -0.016, -0.36 + i * 0.03), wood2, pump)
+			_box(Vector3(0.006, 0.008, 0.2), Vector3(0.021, -0.005, -0.14), dark, pump)
+			tip = Vector3(0, 0.02, -0.75)
+			top = 0.038
+			rear_z = 0.1
+			front = Vector3(0, 0.0345, -0.7)
+			fore = Vector3(0, -0.04, -0.3)
 		"machine_gun":
-			_box(Vector3(0.07, 0.1, 0.42), Vector3(0, 0, 0.0), metal, n)
-			_tube(0.016, 0.42, Vector3(0, 0.02, -0.42), dark, n)
-			_box(Vector3(0.06, 0.07, 0.22), Vector3(0, 0.0, -0.3), olive, n)
-			_box(Vector3(0.04, 0.16, 0.07), Vector3(0, -0.11, -0.06), dark, n, Vector3(0.25, 0, 0))
-			_box(Vector3(0.045, 0.1, 0.05), Vector3(0, -0.08, 0.12), olive, n, Vector3(-0.3, 0, 0))
-			_box(Vector3(0.05, 0.08, 0.2), Vector3(0, -0.02, 0.32), olive, n)
-			_box(Vector3(0.012, 0.03, 0.05), Vector3(0.03, 0.03, 0.05), dark, pump)
-			tip = Vector3(0, 0.02, -0.66)
-			top = 0.06
+			_box(Vector3(0.048, 0.06, 0.36), Vector3(0, 0.012, 0.0), metal, n)
+			_box(Vector3(0.044, 0.04, 0.2), Vector3(0, -0.036, 0.04), dark, n)
+			_box(Vector3(0.02, 0.008, 0.34), Vector3(0, 0.046, -0.01), dark, n)
+			_box(Vector3(0.004, 0.02, 0.06), Vector3(0.025, 0.018, -0.02), brass, n)
+			# Hand guard with its vents
+			_box(Vector3(0.052, 0.058, 0.25), Vector3(0, 0.008, -0.3), olive, n)
+			for i in 4:
+				_box(Vector3(0.054, 0.012, 0.03), Vector3(0, 0.014, -0.39 + i * 0.055), dark, n)
+			_tube(0.011, 0.26, Vector3(0, 0.012, -0.54), dark, n)
+			_box(Vector3(0.02, 0.036, 0.022), Vector3(0, 0.024, -0.5), dark, n)
+			_tube(0.016, 0.055, Vector3(0, 0.012, -0.665), metal, n)
+			# Magazine, curved; longer when extended
+			_box(Vector3(0.03, 0.1, 0.062), Vector3(0, -0.095, -0.055), dark, n, Vector3(0.12, 0, 0))
+			_box(Vector3(0.03, 0.09 if not ext else 0.16, 0.06), Vector3(0, -0.175 if not ext else -0.2, -0.078 if not ext else -0.09), dark, n, Vector3(0.34, 0, 0))
+			# Grip, trigger, stock
+			_box(Vector3(0.034, 0.1, 0.044), Vector3(0, -0.09, 0.125), olive, n, Vector3(-0.3, 0, 0))
+			_box(Vector3(0.008, 0.006, 0.07), Vector3(0, -0.066, 0.06), dark, n)
+			_box(Vector3(0.005, 0.02, 0.005), Vector3(0, -0.055, 0.075), dark, n, Vector3(0.3, 0, 0))
+			_tube(0.014, 0.16, Vector3(0, 0.012, 0.25), dark, n)
+			_box(Vector3(0.042, 0.1, 0.13), Vector3(0, -0.012, 0.36), olive, n)
+			_box(Vector3(0.044, 0.11, 0.014), Vector3(0, -0.014, 0.432), dark, n)
+			_box(Vector3(0.012, 0.014, 0.04), Vector3(0.03, 0.03, 0.06), dark, pump)
+			tip = Vector3(0, 0.012, -0.695)
+			top = 0.05
+			rear_z = 0.12
+			front = Vector3(0, 0.042, -0.5)
+			fore = Vector3(0, -0.022, -0.3)
 		"sniper":
-			_box(Vector3(0.065, 0.085, 0.4), Vector3(0, 0, 0.02), metal, n)
-			_tube(0.014, 0.78, Vector3(0, 0.02, -0.56), dark, n)
-			_box(Vector3(0.06, 0.07, 0.42), Vector3(0, -0.03, -0.12), wood, n)
-			_box(Vector3(0.055, 0.11, 0.24), Vector3(0, -0.05, 0.32), wood, n, Vector3(-0.12, 0, 0))
-			_tube(0.024, 0.3, Vector3(0, 0.085, -0.02), dark, n)
-			_box(Vector3(0.012, 0.012, 0.06), Vector3(0.05, 0.03, 0.12), brass, pump)
-			tip = Vector3(0, 0.02, -0.96)
-			top = 0.11
+			_box(Vector3(0.044, 0.056, 0.3), Vector3(0, 0.006, 0.02), metal, n)
+			_tube(0.0135, 0.8, Vector3(0, 0.014, -0.53), dark, n, 0.0095)
+			_tube(0.014, 0.05, Vector3(0, 0.014, -0.95), metal, n)
+			# One long stock of wood: fore-end, wrist, butt and cheek rest
+			_box(Vector3(0.05, 0.044, 0.46), Vector3(0, -0.028, -0.17), wood, n)
+			_box(Vector3(0.046, 0.03, 0.1), Vector3(0, -0.02, -0.43), wood2, n)
+			_box(Vector3(0.036, 0.05, 0.13), Vector3(0, -0.04, 0.2), wood, n, Vector3(-0.42, 0, 0))
+			_box(Vector3(0.042, 0.1, 0.24), Vector3(0, -0.06, 0.37), wood, n, Vector3(-0.08, 0, 0))
+			_box(Vector3(0.036, 0.03, 0.14), Vector3(0, 0.0, 0.35), wood2, n)
+			_box(Vector3(0.044, 0.115, 0.016), Vector3(0, -0.068, 0.495), dark, n)
+			_box(Vector3(0.03, 0.05 if not ext else 0.1, 0.07), Vector3(0, -0.07 if not ext else -0.095, -0.02), dark, n)
+			_box(Vector3(0.008, 0.006, 0.07), Vector3(0, -0.07, 0.085), dark, n)
+			# The glass it was made to carry
+			_tube(0.02, 0.26, Vector3(0, 0.082, 0.0), dark, n)
+			_tube(0.028, 0.07, Vector3(0, 0.082, -0.16), dark, n, 0.021)
+			_tube(0.021, 0.05, Vector3(0, 0.082, 0.15), dark, n, 0.025)
+			_box(Vector3(0.016, 0.04, 0.02), Vector3(0, 0.05, -0.07), metal, n)
+			_box(Vector3(0.016, 0.04, 0.02), Vector3(0, 0.05, 0.08), metal, n)
+			_box(Vector3(0.016, 0.02, 0.016), Vector3(0, 0.108, 0.01), metal, n)
+			# The bolt
+			_box(Vector3(0.05, 0.01, 0.01), Vector3(0.045, 0.012, 0.13), metal, pump)
+			_box(Vector3(0.018, 0.018, 0.018), Vector3(0.072, 0.008, 0.13), dark, pump)
+			tip = Vector3(0, 0.014, -0.975)
+			top = 0.108
+			front = Vector3(0, 0.024, -0.9)
+			fore = Vector3(0, -0.05, -0.28)
 		"rocket":
-			_tube(0.06, 0.95, Vector3(0, 0.0, -0.1), olive, n)
-			_tube(0.068, 0.08, Vector3(0, 0.0, -0.58), dark, n)
-			_tube(0.068, 0.1, Vector3(0, 0.0, 0.38), dark, n)
-			_box(Vector3(0.04, 0.12, 0.06), Vector3(0, -0.1, 0.0), dark, n, Vector3(0.2, 0, 0))
-			_box(Vector3(0.04, 0.1, 0.05), Vector3(0, -0.09, -0.22), dark, n)
+			_tube(0.058, 0.95, Vector3(0, 0.0, -0.1), olive, n)
+			_tube(0.068, 0.07, Vector3(0, 0.0, -0.56), dark, n)
+			_tube(0.062, 0.03, Vector3(0, 0.0, -0.3), dark, n)
+			_tube(0.062, 0.03, Vector3(0, 0.0, 0.12), dark, n)
+			_tube(0.062, 0.16, Vector3(0, 0.0, 0.44), dark, n, 0.085)
+			_box(Vector3(0.036, 0.11, 0.05), Vector3(0, -0.105, 0.0), dark, n, Vector3(0.2, 0, 0))
+			_box(Vector3(0.036, 0.1, 0.045), Vector3(0, -0.1, -0.22), dark, n)
+			_box(Vector3(0.008, 0.006, 0.08), Vector3(0, -0.075, -0.045), dark, n)
+			_box(Vector3(0.07, 0.03, 0.12), Vector3(0, -0.065, 0.24), _mat(Color(0.25, 0.2, 0.15), 0.0, 0.9), n)
 			var head := _tube(0.045, 0.14, Vector3(0, 0, -0.6), _mat(Color(0.35, 0.33, 0.28), 0.4, 0.5), pump, 0.02)
 			head.rotation.x = -PI / 2
+			_tube(0.046, 0.03, Vector3(0, 0, -0.535), brass, pump)
 			tip = Vector3(0, 0.0, -0.66)
-			top = 0.09
+			top = 0.06
+			rear_z = 0.05
+			front = Vector3(0, 0.068, -0.5)
+			fore = Vector3(0, -0.06, -0.38)
 		"minigun":
-			_box(Vector3(0.14, 0.14, 0.26), Vector3(0, -0.02, 0.12), dark, n)
-			_box(Vector3(0.05, 0.12, 0.1), Vector3(0, 0.1, 0.1), metal, n)
+			_box(Vector3(0.13, 0.13, 0.26), Vector3(0, -0.02, 0.12), dark, n)
+			_box(Vector3(0.1, 0.1, 0.06), Vector3(0, -0.02, -0.03), metal, n)
+			_box(Vector3(0.09, 0.14, 0.16), Vector3(-0.11, -0.07, 0.1), olive, n)
+			_box(Vector3(0.03, 0.02, 0.1), Vector3(-0.07, 0.02, 0.02), brass, n, Vector3(0, 0, 0.5))
+			# Carried by a handle above and a grip behind
+			_box(Vector3(0.02, 0.05, 0.02), Vector3(0, 0.07, 0.03), metal, n)
+			_box(Vector3(0.02, 0.05, 0.02), Vector3(0, 0.07, 0.2), metal, n)
+			_box(Vector3(0.024, 0.02, 0.2), Vector3(0, 0.1, 0.115), dark, n)
+			_box(Vector3(0.036, 0.1, 0.045), Vector3(0, -0.1, 0.28), dark, n, Vector3(-0.3, 0, 0))
 			for i in 6:
 				var a := i * TAU / 6.0
 				_tube(0.012, 0.62, Vector3(cos(a) * 0.035, sin(a) * 0.035, -0.34), metal, pump)
-			_tube(0.05, 0.03, Vector3(0, 0, -0.2), dark, pump)
-			_tube(0.05, 0.03, Vector3(0, 0, -0.6), dark, pump)
-			pump.position = Vector3(0, 0, 0)
-			tip = Vector3(0, 0.0, -0.68)
-			top = 0.12
+			_tube(0.052, 0.03, Vector3(0, 0, -0.2), dark, pump)
+			_tube(0.052, 0.03, Vector3(0, 0, -0.42), dark, pump)
+			_tube(0.052, 0.03, Vector3(0, 0, -0.62), dark, pump)
+			pump.position = Vector3(0, -0.02, 0)
+			tip = Vector3(0, -0.02, -0.68)
+			top = 0.11
+			rear_z = 0.2
+			front = Vector3(0, 0.11, 0.03)
 		"pistol":
-			_box(Vector3(0.04, 0.05, 0.2), Vector3(0, 0.02, -0.08), metal, n)
-			_box(Vector3(0.036, 0.11, 0.05), Vector3(0, -0.05, 0.0), dark, n, Vector3(-0.22, 0, 0))
-			_box(Vector3(0.042, 0.035, 0.2), Vector3(0, 0.045, -0.08), dark, pump)
-			tip = Vector3(0, 0.03, -0.2)
-			top = 0.065
+			_box(Vector3(0.028, 0.026, 0.17), Vector3(0, 0.01, -0.065), metal, n)
+			_box(Vector3(0.03, 0.105, 0.046), Vector3(0, -0.05, 0.005), dark, n, Vector3(-0.2, 0, 0))
+			_box(Vector3(0.033, 0.07, 0.03), Vector3(0, -0.05, 0.007), wood2, n, Vector3(-0.2, 0, 0))
+			if ext:
+				_box(Vector3(0.024, 0.06, 0.036), Vector3(0, -0.125, 0.022), metal, n, Vector3(-0.2, 0, 0))
+			_box(Vector3(0.007, 0.005, 0.06), Vector3(0, -0.035, -0.05), dark, n)
+			_box(Vector3(0.007, 0.03, 0.005), Vector3(0, -0.02, -0.08), dark, n)
+			_box(Vector3(0.004, 0.018, 0.004), Vector3(0, -0.018, -0.04), brass, n, Vector3(0.3, 0, 0))
+			# The slide, with its grooves and port
+			_box(Vector3(0.031, 0.032, 0.2), Vector3(0, 0.038, -0.07), dark, pump)
+			for i in 4:
+				_box(Vector3(0.033, 0.024, 0.005), Vector3(0, 0.038, 0.0 + i * 0.009), metal, pump)
+			_box(Vector3(0.004, 0.012, 0.04), Vector3(0.016, 0.044, -0.07), brass, pump)
+			_tube(0.008, 0.02, Vector3(0, 0.036, -0.175), metal, n)
+			_box(Vector3(0.008, 0.016, 0.012), Vector3(0, 0.035, 0.036), metal, n, Vector3(-0.5, 0, 0))
+			tip = Vector3(0, 0.036, -0.185)
+			top = 0.054
+			rear_z = 0.02
+			front = Vector3(0, 0.054, -0.16)
 		"revolver":
-			_tube(0.016, 0.22, Vector3(0, 0.03, -0.17), metal, n)
-			_tube(0.03, 0.05, Vector3(0, 0.01, -0.03), metal, n)
-			_box(Vector3(0.04, 0.05, 0.08), Vector3(0, 0.02, 0.02), metal, n)
-			_box(Vector3(0.036, 0.11, 0.05), Vector3(0, -0.05, 0.05), wood, n, Vector3(-0.3, 0, 0))
-			tip = Vector3(0, 0.03, -0.29)
-			top = 0.05
-	# The chosen sight, suppressor or scope
-	match Game.mount_of(g):
+			_tube(0.0115, 0.2, Vector3(0, 0.032, -0.16), metal, n)
+			_box(Vector3(0.012, 0.014, 0.17), Vector3(0, 0.012, -0.145), metal, n)
+			_box(Vector3(0.03, 0.062, 0.1), Vector3(0, 0.014, -0.01), metal, n)
+			_tube(0.027, 0.058, Vector3(0, 0.02, -0.02), dark, n)
+			for i in 6:
+				var a := i * TAU / 6.0 + 0.5
+				_tube(0.006, 0.06, Vector3(cos(a) * 0.024, 0.02 + sin(a) * 0.024, -0.02), metal, n)
+			_box(Vector3(0.032, 0.07, 0.04), Vector3(0, -0.045, 0.04), wood, n, Vector3(-0.35, 0, 0))
+			_box(Vector3(0.032, 0.05, 0.045), Vector3(0, -0.09, 0.062), wood, n, Vector3(-0.1, 0, 0))
+			_box(Vector3(0.007, 0.005, 0.05), Vector3(0, -0.045, -0.02), metal, n)
+			_box(Vector3(0.007, 0.028, 0.005), Vector3(0, -0.032, -0.045), metal, n)
+			_box(Vector3(0.008, 0.022, 0.014), Vector3(0, 0.052, 0.04), dark, n, Vector3(-0.6, 0, 0))
+			tip = Vector3(0, 0.032, -0.265)
+			top = 0.046
+			rear_z = 0.03
+			front = Vector3(0, 0.0435, -0.24)
+	var eye := top + 0.012
+	var sight := ""
+	for m in fit:
+		if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "sight":
+			sight = m
+	match sight:
 		"red_dot":
-			_box(Vector3(0.03, 0.035, 0.05), Vector3(0, top + 0.015, -0.02), dark, n)
-			var glass := _mat(Color(0.6, 0.1, 0.1, 0.5))
+			_box(Vector3(0.026, 0.008, 0.06), Vector3(0, top + 0.004, rear_z - 0.08), dark, n)
+			for sx in [-1, 1]:
+				_box(Vector3(0.004, 0.034, 0.012), Vector3(0.016 * sx, top + 0.024, rear_z - 0.1), dark, n)
+			_box(Vector3(0.036, 0.004, 0.012), Vector3(0, top + 0.042, rear_z - 0.1), dark, n)
+			var glass := _mat(Color(0.5, 0.75, 0.8, 0.12))
 			glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			glass.emission_enabled = true
-			glass.emission = Color(1, 0.1, 0.1)
-			glass.emission_energy_multiplier = 0.4
-			_box(Vector3(0.024, 0.024, 0.004), Vector3(0, top + 0.02, -0.044), glass, n)
+			_box(Vector3(0.028, 0.03, 0.002), Vector3(0, top + 0.024, rear_z - 0.1), glass, n)
+			var dot := _mat(Color(1, 0.15, 0.1))
+			dot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_box(Vector3(0.003, 0.003, 0.001), Vector3(0, top + 0.024, rear_z - 0.099), dot, n)
+			eye = top + 0.024
 		"scope":
 			if g != "sniper":
-				_tube(0.022, 0.24, Vector3(0, top + 0.03, -0.02), dark, n)
-		"suppressor":
-			_tube(0.024, 0.18, tip + Vector3(0, 0, -0.08), dark, n)
-			tip += Vector3(0, 0, -0.17)
+				_tube(0.018, 0.2, Vector3(0, top + 0.034, rear_z - 0.1), dark, n)
+				_tube(0.025, 0.05, Vector3(0, top + 0.034, rear_z - 0.22), dark, n, 0.019)
+				_tube(0.019, 0.04, Vector3(0, top + 0.034, rear_z + 0.015), dark, n, 0.022)
+				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.15), metal, n)
+				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.04), metal, n)
+			eye = top + 0.034 if g != "sniper" else 0.082
+		_:
+			if g == "sniper":
+				eye = 0.082
+			else:
+				# Iron sights: a notch behind and a post before
+				for sx in [-1, 1]:
+					_box(Vector3(0.005, 0.012, 0.008), Vector3(0.0075 * sx, top + 0.006, rear_z), dark, n)
+				_box(Vector3(0.022, 0.004, 0.01), Vector3(0, top + 0.001, rear_z), dark, n)
+				var h := maxf(0.008, eye - front.y)
+				_box(Vector3(0.004, h, 0.006), Vector3(0, front.y + h * 0.5, front.z), dark, n)
+				_box(Vector3(0.012, 0.003, 0.01), Vector3(0, front.y + 0.001, front.z), dark, n)
+	for m in fit:
+		match m:
+			"suppressor":
+				_tube(0.022, 0.19, tip + Vector3(0, 0, -0.085), dark, n)
+				_tube(0.0235, 0.012, tip + Vector3(0, 0, -0.02), metal, n)
+				tip += Vector3(0, 0, -0.18)
+			"foregrip":
+				_box(Vector3(0.03, 0.012, 0.05), fore, dark, n)
+				_box(Vector3(0.026, 0.085, 0.03), fore + Vector3(0, -0.045, 0.004), dark, n, Vector3(0.12, 0, 0))
 	n.set_meta("tip", tip)
+	n.set_meta("eye", eye)
 	return n
 
 

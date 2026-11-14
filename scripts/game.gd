@@ -409,13 +409,55 @@ func _fix_loadout() -> void:
 	if not loadout.get("mounts") is Dictionary:
 		loadout.mounts = {}
 	for g in loadout.mounts.keys():
-		var m: String = loadout.mounts[g]
-		if not ArmsDB.GUNS.has(g) or not m in ArmsDB.GUNS[g].mounts or not unlocked(ArmsDB.ATTACHMENTS, m):
+		var keep: Array = []
+		var slots := {}
+		var v = loadout.mounts[g]
+		for m in (v if v is Array else [str(v)]):
+			if ArmsDB.GUNS.has(g) and m in ArmsDB.GUNS[g].mounts and unlocked(ArmsDB.ATTACHMENTS, m) and not slots.has(ArmsDB.ATTACHMENTS[m].slot):
+				slots[ArmsDB.ATTACHMENTS[m].slot] = true
+				keep.append(m)
+		if keep.is_empty():
 			loadout.mounts.erase(g)
+		else:
+			loadout.mounts[g] = keep
 
 
+## The arms in use: the waste keeps its own, apart from the loadout of the trials.
+var warms := {}
+
+
+func arms_now() -> Dictionary:
+	return warms if wasteland and not warms.is_empty() else loadout
+
+
+## Everything fitted to a gun.
+func mounts_of(gun: String) -> Array:
+	var m = arms_now().get("mounts", {})
+	var v = m.get(gun, []) if m is Dictionary else []
+	if v is Array:
+		return v
+	return [str(v)] if str(v) != "" else []
+
+
+func has_mount(gun: String, id: String) -> bool:
+	return id in mounts_of(gun)
+
+
+## The sight on a gun; "" is iron sights.
 func mount_of(gun: String) -> String:
-	return str(loadout.get("mounts", {}).get(gun, ""))
+	for m in mounts_of(gun):
+		if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "sight":
+			return m
+	return ""
+
+
+## How far a gun has been worked on in the waste (0 to 3).
+func tier_of(gun: String) -> int:
+	if not wasteland:
+		return 0
+	var t = warms.get("tier", {})
+	return int(t.get(gun, 0)) if t is Dictionary else 0
+
 
 
 func save() -> void:

@@ -1992,7 +1992,8 @@ func _net_tick(delta: float) -> void:
 		_pose_t = 0.05
 		var r = player.relics
 		Net.send_pose([player.global_position, player.yaw, player.pitch, downed, player.health / player.max_health,
-			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false])
+			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
+			player.weapon.gun() if player.weapon else "shotgun"])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:
@@ -2494,7 +2495,7 @@ func debug_arms() -> void:
 	for g in ArmsDB.GUNS:
 		Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
 		Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
-		Game.loadout.mounts = {g: ArmsDB.GUNS[g].mounts[0]} if not ArmsDB.GUNS[g].mounts.is_empty() else {}
+		Game.loadout.mounts = {g: [ArmsDB.GUNS[g].mounts[0]]} if not ArmsDB.GUNS[g].mounts.is_empty() else {}
 		w.equip_loadout()
 		w.refill()
 		if w.gun() != g:
@@ -2556,7 +2557,7 @@ func _debug_aim(at: Vector3) -> void:
 func debug_loadoutshot() -> void:
 	Game.plevel = 7
 	Game.loadout.primary = "machine_gun"
-	Game.loadout.mounts = {"machine_gun": "red_dot"}
+	Game.loadout.mounts = {"machine_gun": ["red_dot", "foregrip", "ext_mag"], "shotgun": ["foregrip"]}
 	player.weapon.equip_loadout()
 	player.relics.refresh()
 	await get_tree().create_timer(4.0).timeout
@@ -2617,6 +2618,74 @@ func debug_figures() -> void:
 		f.global_position = player.global_position + fwd * 4.5 + side * (i - 2) * 1.1
 		f.look_at(player.global_position, Vector3.UP)
 		f.rotate_y(PI)
+
+
+## Test: fellow pilgrims holding each gun, level and raised, seen from the front and the side.
+func debug_heldshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.5
+	sun.rotation = Vector3(-0.7, player.yaw + 0.5, 0)
+	add_child(sun)
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	var gs := ["shotgun", "machine_gun", "pistol", "sniper", "minigun"]
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("guns="):
+			gs = Array(a.substr(5).split(","))
+	for i in gs.size():
+		var c := Companion.new().setup(1)
+		add_child(c)
+		var at := player.global_position + fwd * 2.6 + side * (i - (gs.size() - 1) * 0.5) * 1.0
+		var yaw: float = player.yaw + PI + [0.0, 1.57, 0.8, 1.57, -1.57][i % 5]
+		c.pose([at, yaw, [0.0, 0.0, 0.0, 0.5, -0.5][i % 5], false, 1.0, "shotgun", true, false, gs[i]])
+		c._label.visible = false
+
+
+## Test: every gun laid out side on, bare above and fully fitted below.
+func debug_gunshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	hud.root.visible = false
+	var cam := player.cam
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.2
+	add_child(sun)
+	sun.global_rotation = cam.global_rotation + Vector3(-0.5, 0.5, 0)
+	var maker := Arms.new()
+	var gs := ArmsDB.GUNS.keys()
+	var full := "fitted" in OS.get_cmdline_user_args()
+	for i in gs.size():
+		var m := maker._build(gs[i], ArmsDB.GUNS[gs[i]].mounts.filter(func(x): return x != "scope") if full else [])
+		cam.add_child(m)
+		m.position = Vector3(-0.75 + (i % 2) * 1.5, 0.55 - (i / 2) * 0.36, -1.7)
+		m.rotation.y = -PI / 2 + 0.3
+	maker.free()
+
+
+## Test: looking down the sights of the gun named by gun=, with fit= listing what is on it.
+func debug_aimshot() -> void:
+	combat_frozen = true
+	var g := "shotgun"
+	var fit: Array = []
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("gun="):
+			g = a.substr(4)
+		if a.begins_with("fit="):
+			fit = Array(a.substr(4).split(","))
+	Game.plevel = ArmsDB.MAX_LEVEL
+	Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
+	Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
+	Game.loadout.mounts = {g: fit}
+	player.weapon.equip_loadout()
+	if player.weapon.gun() != g:
+		player.weapon.swap()
+	player.weapon.debug_aim = not "hip" in OS.get_cmdline_user_args()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = player.cam.global_rotation + Vector3(-0.6, 0.6, 0)
 
 
 func debug_catshot() -> void:
