@@ -861,20 +861,23 @@ func _pack_click(i: int, right: bool) -> void:
 
 func _draw_craft() -> void:
 	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
-	var fire: bool = w.builder.near_kind(w.player.global_position, "campfire", 5.0) or w.settlement_at(w.player.global_position) != ""
+	var pot: int = w.builder.near_pid(w.player.global_position, "cookpot", 5.0)
+	var fire: bool = (pot >= 0 and w.burning(pot)) or w.settlement_at(w.player.global_position) != ""
 	var where: Array = []
 	if bench:
 		where.append("a workbench")
 	if fire:
-		where.append("a fire")
-	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "With your hands. A workbench or a fire close by lets you make more.", 16, DIM))
+		where.append("a cooking station")
+	_body.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "With your hands. A workbench or a cooking station close by lets you make more.", 16, DIM))
+	if pot >= 0:
+		_body.add_child(_fuel_row(pot))
 	var v := _scroll(520)
 	for r in Items.RECIPES:
 		if r.has("needs") and not w.flags.has(r.needs):
 			continue
 		var cost: Dictionary = w.skills.cost(r.cost)
 		var ok: bool = w.inv.has_all(cost) and (bench or not r.bench) and (fire or not r.get("fire", false))
-		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ("      (fire)" if r.get("fire", false) else "")]
+		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ("      (cooking station)" if r.get("fire", false) else "")]
 		var b := _btn(t, func(): _make(r), 20, PALE if ok else DIM)
 		b.disabled = not ok
 		b.tooltip_text = Items.info(r.id).text
@@ -1210,8 +1213,25 @@ var _rest_kind := ""
 var _vote_label: Label
 
 
-func ask_rest(kind := "fire") -> void:
+var _rest_pid := -1
+
+
+## How long a fire will burn, and a button to put wood on it.
+func _fuel_row(pid: int) -> HBoxContainer:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 18)
+	var left: float = w.fuel_left(pid)
+	hb.add_child(_label(("Burns for %s more." % w._days_text(left)) if left > 0.0 else "The fire is out.", 18, PALE if left > 24.0 else GOLD))
+	var b := _btn("Add wood (have %d)" % w.inv.count("wood"), func(): w.add_wood(pid); _redraw(), 18, PALE)
+	b.disabled = w.inv.count("wood") <= 0 or left > Wasteland.FUEL_MAX - Wasteland.WOOD_HOURS
+	b.tooltip_text = "Each piece of wood burns for a day."
+	hb.add_child(b)
+	return hb
+
+
+func ask_rest(kind := "fire", pid := -1) -> void:
 	_rest_kind = kind
+	_rest_pid = pid
 	_open("rest")
 	_draw_rest()
 
@@ -1222,6 +1242,12 @@ func _draw_rest() -> void:
 	_body.add_child(_label("Food %d     Rest %d" % [int(w.food), int(w.rest)], 18, DIM))
 	if _rest_kind == "bed":
 		_body.add_child(_wrap("You will wake here if you fall.", 18, DIM))
+	if _rest_kind == "fire" and _rest_pid >= 0:
+		_body.add_child(_fuel_row(_rest_pid))
+		if not w.burning(_rest_pid):
+			_body.add_child(_wrap("Light it with wood before you rest. A cold camp keeps nothing away.", 20, PALE))
+			_body.add_child(_btn("Not now", close_all, 20))
+			return
 	var near := 0
 	for e in w.enemies:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:

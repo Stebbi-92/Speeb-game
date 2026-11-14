@@ -10,6 +10,10 @@ const RUINS_N := 44
 const NODES_N := 900
 const RUINS_FAR := 140      ## ruins in the far reaches, beyond the old rim
 const NODES_FAR := 2700
+const FIRE_KINDS := ["campfire", "cookpot", "torch"]
+const WOOD_HOURS := 24.0     ## one piece of wood keeps a fire for a whole day
+const FUEL_MAX := 240.0      ## a fire holds ten days of wood at most
+const FUEL_START := 72.0     ## a new fire is laid with three days' wood
 const REVEAL_N := 256
 
 var terrain: WTerrain
@@ -728,6 +732,8 @@ func base_at(p: Vector3, extra := 0.0, fires_only := false) -> int:
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
 		var r := BASE_SAFE if pc.kind == "campfire" else (TORCH_SAFE if pc.kind == "torch" and not fires_only else -1.0)
+		if r > 0.0 and not burning(pid):
+			continue
 		if r > 0.0 and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < r + extra:
 			return pid
 	return -1
@@ -788,9 +794,11 @@ func eat(id: String) -> bool:
 	if inv.take(id, 1) < 1:
 		return false
 	food = minf(100.0, food + f)
-	player.health = minf(player.max_health, player.health + h)
+	player.health = clampf(player.health + h, 1.0, player.max_health)
 	hud.set_health(player.health / player.max_health, true)
 	sfx("drink", -6)
+	if h < 0.0:
+		hud.notify("Raw meat turns your stomach. Cook it first.")
 	return true
 
 
@@ -800,6 +808,182 @@ func cense(at: Vector3, reach: float) -> void:
 	for e in enemies:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(at) < reach:
 			e.reveal(1.2, true)
+
+
+# ------------------------------------------------------------------ beasts to hunt
+
+var beasts := {}          ## id -> WBeast
+var _beast_next := 1
+var _beast_t := 3.0
+var _beast_sync := 0.0
+
+
+## The host keeps a few beasts grazing near each pilgrim, out in the open, and lets the far ones go.
+func _beast_tick(delta: float) -> void:
+	_beast_sync -= delta
+	if Net.online and _beast_sync <= 0.0 and not beasts.is_empty():
+		_beast_sync = 0.25
+		var batch: Array = []
+		for id in beasts:
+			var b: WBeast = beasts[id]
+			if is_instance_valid(b) and b.is_alive():
+				batch.append([id, b.kind, b.global_position, b.rotation.y])
+		shared("_w_beasts", [batch])
+	_beast_t -= delta
+	if _beast_t > 0.0:
+		return
+	_beast_t = 4.0
+	var tg := targets()
+	for id in beasts.keys():
+		var b = beasts[id]
+		if not is_instance_valid(b):
+			beasts.erase(id)
+			continue
+		if b.is_alive() and not tg.any(func(t): return t.global_position.distance_to(b.global_position) < 280.0):
+			shared("_w_beast_gone", [id])
+	for t in tg:
+		var p: Vector3 = t.global_position
+		var near := beasts.values().filter(func(b): return is_instance_valid(b) and b.is_alive() and b.global_position.distance_to(p) < 170.0).size()
+		if near >= 5 or randf() > 0.45:
+			continue
+		var a := randf() * TAU
+		var at := p + Vector3(cos(a), 0, sin(a)) * randf_range(70.0, 130.0)
+		if absf(at.x) > 1900.0 or absf(at.z) > 1900.0:
+			continue
+		at.y = terrain.height_at(at.x, at.z)
+		if safe_at(at) or settlement_at(at, 60.0) != "" or terrain.normal_at(at.x, at.z).y < 0.8:
+			continue
+		var land := terrain.biome_name(at.x, at.z)
+		var kinds: Array = WBeast.KINDS.keys().filter(func(k): return land in WBeast.KINDS[k].lands)
+		if kinds.is_empty():
+			continue
+		var k: String = kinds[randi() % kinds.size()]
+		if k == "tusker" and randf() < 0.5:
+			k = kinds[randi() % kinds.size()]
+		var herd := 1 if k == "tusker" else randi_range(1, 3)
+		for i in herd:
+			var q := at + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
+			q.y = terrain.height_at(q.x, q.z) + 0.4
+			_w_beast(_beast_next, k, q)
+			if Net.online:
+				shared("_w_beasts", [[[_beast_next, k, q, 0.0]]])
+			_beast_next += 1
+
+
+func _w_beast(id: int, k: String, at: Vector3) -> WBeast:
+	if beasts.has(id) and is_instance_valid(beasts[id]):
+		return beasts[id]
+	var b := WBeast.new().setup(self, id, k)
+	add_child(b)
+	b.global_position = at
+	b.rotation.y = randf() * TAU
+	beasts[id] = b
+	return b
+
+
+func _w_beasts(batch: Array) -> void:
+	if Net.authority():
+		return
+	for e in batch:
+		var b := _w_beast(int(e[0]), str(e[1]), e[2])
+		b.net_set(e[2], float(e[3]))
+
+
+func _w_beast_gone(id: int) -> void:
+	if beasts.has(id):
+		if is_instance_valid(beasts[id]):
+			beasts[id].queue_free()
+		beasts.erase(id)
+
+
+func _rq_beast_hit(id: int, amount: float, by: int) -> void:
+	if Net.authority() and beasts.has(id) and is_instance_valid(beasts[id]):
+		beasts[id].take(amount, by)
+
+
+## The host has a beast fall: everyone sees it drop, and what can be taken from it lies by the body.
+func beast_died(b: WBeast, by: int) -> void:
+	var items: Array = []
+	for d in b.spec.drops:
+		var n := randi_range(int(d[1]), int(d[2]))
+		if n > 0:
+			items.append([d[0], n])
+	shared("_w_beast_die", [b.id, b.global_position])
+	_rq_satchel(by, b.global_position + Vector3(0, 0.3, 0), items, false)
+
+
+func _w_beast_die(id: int, at: Vector3) -> void:
+	if not beasts.has(id) or not is_instance_valid(beasts[id]):
+		return
+	var b: WBeast = beasts[id]
+	beasts.erase(id)
+	b.global_position = at
+	b.die()
+	sfx("thud", -6, at)
+
+
+# ------------------------------------------------------------------ fires that burn wood
+
+## Whether a campfire, cooking station or torch still has wood burning in it.
+func burning(pid: int) -> bool:
+	var pc: Dictionary = pieces.get(pid, {})
+	return not pc.is_empty() and world_hours() < float(pc.get("fuel", world_hours() + 1.0))
+
+
+## Hours of wood left in a fire.
+func fuel_left(pid: int) -> float:
+	return maxf(0.0, float(pieces.get(pid, {}).get("fuel", 0.0)) - world_hours())
+
+
+## Puts wood from the pack on a fire: as much as it will take, up to what is carried.
+func add_wood(pid: int, n := -1) -> void:
+	if not pieces.has(pid):
+		return
+	var room := int(floor((FUEL_MAX - fuel_left(pid)) / WOOD_HOURS))
+	var want := room if n < 0 else mini(n, room)
+	want = mini(want, inv.count("wood"))
+	if room <= 0:
+		hud.notify("It is full of wood. It will burn for %d days." % int(fuel_left(pid) / 24.0))
+		return
+	if want <= 0:
+		hud.notify("You have no wood.")
+		return
+	inv.take("wood", want)
+	sfx("carve", -8)
+	shared("_rq_fuel", [pid, want])
+	hud.notify("+%d wood. It will burn for %s." % [want, _days_text(fuel_left(pid) + want * WOOD_HOURS)])
+
+
+func _days_text(hours: float) -> String:
+	if hours >= 36.0:
+		return "%d days" % int(round(hours / 24.0))
+	return "%d hours" % int(ceil(hours))
+
+
+func _rq_fuel(pid: int, n: int) -> void:
+	if not Net.authority() or not pieces.has(pid):
+		return
+	var start := maxf(world_hours(), float(pieces[pid].get("fuel", 0.0)))
+	shared("_w_fuel", [pid, minf(start + n * WOOD_HOURS, world_hours() + FUEL_MAX)])
+
+
+func _w_fuel(pid: int, until: float) -> void:
+	if not pieces.has(pid):
+		return
+	pieces[pid].fuel = until
+	_fire_look(pid)
+	autosave_soon(10.0)
+
+
+## A fire with no wood left goes dark.
+func _fire_look(pid: int) -> void:
+	var pc: Dictionary = pieces[pid]
+	if not pc.node.has_meta("fire"):
+		return
+	var lit := burning(pid)
+	for nd in pc.node.get_meta("fire"):
+		if is_instance_valid(nd):
+			nd.visible = lit
 
 
 # ------------------------------------------------------------------ planters
@@ -1781,6 +1965,8 @@ func _physics_process(delta: float) -> void:
 			for pid in pieces:
 				if pieces[pid].kind == "planter" and pieces[pid].crop != "":
 					_crop_look(pid)
+				elif pieces[pid].kind in FIRE_KINDS:
+					_fire_look(pid)
 	if downed and Net.online and not failing:
 		_bleed_t -= delta
 		if _bleed_t <= 0.0:
@@ -1818,6 +2004,7 @@ func _world_tick(delta: float) -> void:
 		_keep_safe()
 	_spikes(delta)
 	_lair_tick()
+	_beast_tick(delta)
 
 
 func _w_clock(c: float, d: int, n: int) -> void:
@@ -2298,7 +2485,7 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0)}]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0)}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
@@ -2333,6 +2520,10 @@ func apply_world(d: Dictionary) -> void:
 		if p.size() > 5 and p[5] is Dictionary:
 			_w_portal_name(int(pid), str(p[5].get("name", "")))
 			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
+		# Fires laid before they burned wood start with a full three days
+		if str(p[0]) in FIRE_KINDS:
+			var f := float(p[5].get("fuel", -1.0)) if p.size() > 5 and p[5] is Dictionary else -1.0
+			_w_fuel(int(pid), f if f >= 0.0 else world_hours() + FUEL_START)
 	piece_next = int(d.get("piece_next", 1))
 	containers = d.get("containers", {})
 	for id in d.get("crates", {}):
@@ -3513,3 +3704,57 @@ func debug_far() -> void:
 	print("FAR satchels ", satchels.size(), " alive ", alive_count())
 	if DisplayServer.get_name() == "headless":
 		get_tree().quit()
+
+
+
+## Test: beasts graze and run, one is brought down and leaves meat; a cooking station burns wood and cooks.
+func debug_hunt() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var b := _w_beast(900, "goat", player.global_position + Vector3(10, 1, 0))
+	var t := _w_beast(901, "tusker", player.global_position + Vector3(-12, 1, 0))
+	await get_tree().create_timer(3.0).timeout
+	print("HUNT goat fled to ", snappedf(b.global_position.distance_to(player.global_position), 0.1), " tusker at ", snappedf(t.global_position.distance_to(player.global_position), 0.1))
+	var sat := satchels.size()
+	b.hurt(60.0, Vector3.FORWARD)
+	t.hurt(10.0, Vector3.FORWARD)
+	var hp0 := player.health
+	await get_tree().create_timer(4.0).timeout
+	print("HUNT goat dead ", not b.is_alive(), " satchels +", satchels.size() - sat, " tusker charged hp ", hp0, " -> ", player.health)
+	var c := player.global_position + Vector3(3, 0, 3)
+	inv.add("wood", 5)
+	inv.add("raw_meat", 2)
+	builder._rq_build(1, "cookpot", c, 0.0)
+	builder._rq_build(1, "campfire", c + Vector3(6, 0, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var pot := builder.near_pid(c, "cookpot", 2.0)
+	var fire := builder.near_pid(c + Vector3(6, 0, 0), "campfire", 2.0)
+	print("HUNT pot burning ", burning(pot), " left ", fuel_left(pot), " base ", base_at(c + Vector3(6, 0, 0)) >= 0)
+	add_wood(pot, 2)
+	await get_tree().create_timer(0.3).timeout
+	print("HUNT after wood left ", fuel_left(pot), " wood ", inv.count("wood"))
+	clock += 0.0
+	day += 6
+	await get_tree().create_timer(0.3).timeout
+	print("HUNT six days on: pot burning ", burning(pot), " fire burning ", burning(fire), " base ", base_at(c + Vector3(6, 0, 0)) >= 0)
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
+
+
+func debug_beastshot() -> void:
+	await get_tree().create_timer(2.0).timeout
+	_beast_t = 9999.0
+	var f := -player.global_transform.basis.z
+	var side := f.cross(Vector3.UP)
+	var base := player.global_position + f * 7.0
+	var i := 0
+	for k in ["hare", "goat", "tusker"]:
+		var q := base + side * (i - 1) * 2.6
+		q.y = terrain.height_at(q.x, q.z) + 0.3
+		var b := _w_beast(950 + i, k, q)
+		b.set_physics_process(false)
+		b.global_position = Vector3(q.x, terrain.height_at(q.x, q.z), q.z)
+		b.rotation.y = atan2(side.x, side.z)
+		i += 1
+	var c := base + side * 5.5
+	builder._rq_build(1, "cookpot", Vector3(c.x, terrain.height_at(c.x, c.z), c.z), 0.0)
+	clock = 19.5

@@ -264,6 +264,8 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
 	var pid: int = w.piece_next
 	w.piece_next += 1
 	w.shared("_w_piece", [pid, k, p, yaw, float(Items.PIECES[k].hp) * clampf(hm, 1.0, 1.6)])
+	if k in Wasteland.FIRE_KINDS:
+		w.shared("_w_fuel", [pid, w.world_hours() + Wasteland.FUEL_START])
 	if k == "chest":
 		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
 
@@ -342,7 +344,11 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 		"bench":
 			w.personal_interactable(body, "Work at the bench", func(): w.ui.open_inventory("arms"))
 		"campfire":
-			w.personal_interactable(body, "Sit by the fire", func(): w.ui.ask_rest("fire"))
+			w.personal_interactable(body, "Sit by the fire", func(): w.ui.ask_rest("fire", pid))
+		"cookpot":
+			w.personal_interactable(body, "Cook", func(): w.ui.open_inventory("craft"))
+		"torch":
+			w.personal_interactable(body, "Add wood to the torch", func(): w.add_wood(pid))
 		"planter":
 			w.personal_interactable(body, "Tend the planter", func(): w.ui.open_planter(pid))
 		"portal":
@@ -380,6 +386,18 @@ func _w_door(pid: int, open: bool) -> void:
 	body.collision_layer = 16 if open else (1 | 16)
 	body.set_meta("prompt", "Close the door" if open else "Open the door")
 	w.sfx("carve", -10, pc.pos, 0.7)
+
+
+## The nearest piece of a kind within reach, or -1.
+func near_pid(p: Vector3, k: String, r: float) -> int:
+	var best := -1
+	var bd := r
+	for pid in w.pieces:
+		var pc: Dictionary = w.pieces[pid]
+		if pc.kind == k and pc.pos.distance_to(p) < bd:
+			bd = pc.pos.distance_to(p)
+			best = pid
+	return best
 
 
 func near_kind(p, k: String, r: float) -> bool:
@@ -448,6 +466,31 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 				l.shadow_enabled = true
 				l.position.y = 1.3
 				n.add_child(l)
+				n.set_meta("fire", [e, l])
+		"cookpot":
+			_part(n, body, Vector3(1.4, 0.3, 1.4), Vector3(0, 0.15, 0), m.stone, is_ghost)
+			for li in 3:
+				var a := li * TAU / 3.0
+				var leg := _part(n, null, Vector3(0.08, 1.7, 0.08), Vector3(cos(a) * 0.55, 0.85, sin(a) * 0.55), m.darkwood, is_ghost)
+				leg.rotation = Vector3(sin(a) * 0.3, 0, -cos(a) * 0.3)
+			_part(n, null, Vector3(0.7, 0.5, 0.7), Vector3(0, 0.85, 0), m.iron, is_ghost)
+			_part(n, null, Vector3(0.75, 0.06, 0.75), Vector3(0, 1.12, 0), m.iron, is_ghost)
+			if not is_ghost:
+				var e := MeshInstance3D.new()
+				var sm := SphereMesh.new()
+				sm.radius = 0.3
+				sm.height = 0.3
+				e.mesh = sm
+				e.material_override = m.ember
+				e.position.y = 0.38
+				n.add_child(e)
+				var l := OmniLight3D.new()
+				l.light_color = Color(1.0, 0.6, 0.3)
+				l.light_energy = 1.6
+				l.omni_range = 9.0
+				l.position.y = 1.0
+				n.add_child(l)
+				n.set_meta("fire", [e, l])
 		"bedroll":
 			_part(n, body, Vector3(0.9, 0.18, 2.0), Vector3(0, 0.09, 0), m.cloth, is_ghost)
 			_part(n, null, Vector3(0.6, 0.2, 0.35), Vector3(0, 0.2, -0.75), m.cloth, is_ghost)
@@ -516,6 +559,7 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 				l.position.y = 2.1
 				n.add_child(l)
 				n.set_meta("flicker", l)
+				n.set_meta("fire", [e, l])
 		"planter":
 			_part(n, body, Vector3(2.0, 0.5, 1.2), Vector3(0, 0.25, 0), m.darkwood, is_ghost)
 			_part(n, null, Vector3(1.8, 0.08, 1.0), Vector3(0, 0.5, 0), m.soil if m.has("soil") else m.darkwood, is_ghost)

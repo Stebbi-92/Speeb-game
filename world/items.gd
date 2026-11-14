@@ -13,6 +13,9 @@ const DB := {
 	"bone": {"name": "Bone", "kind": "material", "stack": 40, "value": 1, "color": Color(0.85, 0.82, 0.72), "text": "There is no shortage of it."},
 	"oil": {"name": "Lamp Oil", "kind": "material", "stack": 20, "value": 6, "color": Color(0.75, 0.55, 0.2), "text": "Drawn from the Well. It burns yellow and smoky."},
 	"beacon_oil": {"name": "Beacon Oil", "kind": "quest", "stack": 5, "value": 40, "color": Color(1.0, 0.95, 0.75), "text": "Oil rendered in the old measure. It burns white, and the night draws back from it."},
+	"raw_meat": {"name": "Raw Meat", "kind": "food", "stack": 10, "value": 3, "color": Color(0.7, 0.28, 0.26), "heal": -4.0, "food": 10.0, "text": "From a hunted beast. Cook it first."},
+	"roast": {"name": "Roast Meat", "kind": "food", "stack": 10, "value": 7, "color": Color(0.5, 0.3, 0.18), "heal": 15.0, "food": 50.0, "text": "Cooked over a cooking station. Filling."},
+	"hide": {"name": "Hide", "kind": "material", "stack": 20, "value": 3, "color": Color(0.55, 0.42, 0.3), "text": "A beast's skin. Cuts into cloth."},
 	"meat": {"name": "Salted Meat", "kind": "food", "stack": 10, "value": 4, "color": Color(0.55, 0.25, 0.2), "heal": 15.0, "food": 30.0, "text": "Do not ask from what. Fills the belly a little."},
 	"tuber": {"name": "Ash Tuber", "kind": "food", "stack": 20, "value": 2, "color": Color(0.55, 0.45, 0.32), "heal": 4.0, "food": 18.0, "text": "Grows in poor ground. Better cooked."},
 	"stew": {"name": "Tuber Stew", "kind": "food", "stack": 10, "value": 9, "color": Color(0.6, 0.38, 0.22), "heal": 30.0, "food": 70.0, "text": "Hot, thick and filling. Made over a fire."},
@@ -60,7 +63,11 @@ const RECIPES := [
 	{"id": "pick", "n": 1, "cost": {"wood": 4, "scrap": 4}, "bench": true},
 	{"id": "hatchet", "n": 1, "cost": {"wood": 3, "scrap": 3}, "bench": true},
 	{"id": "prybar", "n": 1, "cost": {"scrap": 8}, "bench": true},
+	{"id": "roast", "n": 1, "cost": {"raw_meat": 1}, "bench": false, "fire": true},
+	{"id": "stew", "n": 1, "cost": {"tuber": 2, "raw_meat": 1, "salt": 1}, "bench": false, "fire": true},
 	{"id": "stew", "n": 1, "cost": {"tuber": 2, "meat": 1, "salt": 2}, "bench": false, "fire": true},
+	{"id": "meat", "n": 3, "cost": {"raw_meat": 2, "salt": 3}, "bench": false},
+	{"id": "cloth", "n": 3, "cost": {"hide": 2}, "bench": false},
 	{"id": "meat", "n": 1, "cost": {"tuber": 3}, "bench": false, "fire": true},
 	{"id": "torchwood", "n": 2, "cost": {"wood": 2, "oil": 1}, "bench": false},
 	{"id": "tuber_seed", "n": 2, "cost": {"tuber": 2}, "bench": false},
@@ -78,8 +85,9 @@ const PIECES := {
 	"door": {"name": "Door", "group": "Frame", "cost": {"wood": 4, "scrap": 1}, "hp": 300.0, "text": "Set into a doorway."},
 	"roof": {"name": "Roof", "group": "Frame", "cost": {"wood": 4}, "hp": 300.0, "text": "Sits atop the walls."},
 	"stairs": {"name": "Stairs", "group": "Frame", "cost": {"wood": 6}, "hp": 300.0, "text": "Up to a roof or a second floor."},
-	"campfire": {"name": "Campfire", "group": "Camp", "cost": {"wood": 3, "stone": 3}, "hp": 200.0, "text": "Makes a camp. No forms rise within forty paces. Cook and sleep here."},
-	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "Keeps forms from rising within fifteen paces."},
+	"campfire": {"name": "Campfire", "group": "Camp", "cost": {"wood": 3, "stone": 3}, "hp": 200.0, "text": "Makes a camp. While it burns, no forms rise within forty paces. Sleep here. Burns wood slowly."},
+	"cookpot": {"name": "Cooking Station", "group": "Camp", "cost": {"wood": 4, "stone": 4, "scrap": 2}, "hp": 160.0, "text": "Cook raw food here. Burns wood slowly."},
+	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "While lit, keeps forms from rising within fifteen paces. Burns wood slowly."},
 	"bedroll": {"name": "Bedroll", "group": "Camp", "cost": {"cloth": 3}, "hp": 120.0, "text": "Rest here. You wake here if you fall."},
 	"chest": {"name": "Storage Chest", "group": "Camp", "cost": {"wood": 8}, "hp": 250.0, "text": "Sixteen places to keep things."},
 	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "text": "Plant seeds here. Come back in a day."},
@@ -89,7 +97,7 @@ const PIECES := {
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
-const PIECE_ORDER := ["campfire", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp",
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp",
 	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade"]
 const GROUPS := ["Camp", "Frame", "Defence"]
 
