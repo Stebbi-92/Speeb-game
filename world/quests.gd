@@ -216,7 +216,18 @@ func refresh_hud() -> void:
 		w.hud.set_objective("")
 		return
 	var q: Dictionary = quests[tracked]
-	w.hud.set_objective("%s\n%s" % [q.title, step_text(q)])
+	var line := "%s\n%s" % [q.title, step_text(q)]
+	# How far, and which way
+	var t = target_of(q)
+	if t is Vector3 and w.player:
+		var me: Vector3 = w.player.global_position
+		var d := Vector2(t.x - me.x, t.z - me.z).length()
+		if d > 15.0:
+			line += "\n%d m %s" % [int(d), WPlaces.dir_word(Vector2(me.x, me.z), Vector2(t.x, t.z))]
+	var others := active().size() - 1
+	if others > 0:
+		line += "\n+%d more in the journal [%s]" % [others, Game.key_text("journal")]
+	w.hud.set_objective(line)
 	_check_recover()
 
 

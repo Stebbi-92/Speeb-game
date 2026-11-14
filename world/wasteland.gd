@@ -1963,6 +1963,7 @@ func _physics_process(delta: float) -> void:
 		_reveal_t = 0.5
 		_reveal_around(player.global_position, 90.0)
 		_visit_check()
+		quests.refresh_hud()
 		if _my_vote and player.global_position.distance_to(_vote_spot) > 8.0:
 			vote_sleep(false)
 			hud.notify("You left the fire. Your wish to sleep is withdrawn.")
