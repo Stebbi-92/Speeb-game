@@ -5,6 +5,11 @@
 //   POST /announce  {name, port, players, max, level, proto, version}   (the host's address is taken from the request)
 //   POST /remove    {port}
 //   GET  /list      -> {servers: [{name, ip, port, players, max, level, proto, version}]}
+//   GET  /latest    -> {version, tag, name, notes, published, page, assets: {name: url}, news}
+//
+// /latest reads the newest release of the game's GitHub repository (GITHUB_REPO in wrangler.toml) and
+// keeps it for ten minutes, so thousands of players asking for updates cost GitHub one request.
+// "news" is the text of NEWS.txt on the repository's main branch, if there is one.
 
 const TTL_MS = 120_000;
 const MAX_SERVERS = 500;
@@ -75,8 +80,47 @@ export class Lobby {
   }
 }
 
+const LATEST_TTL_S = 600;
+
+async function latest(request, env, ctx) {
+  const cache = caches.default;
+  const key = new Request(new URL("/latest", request.url).toString());
+  const hit = await cache.match(key);
+  if (hit) return hit;
+
+  const repo = env.GITHUB_REPO || "Stebbi-92/Speeb-game";
+  const headers = { "user-agent": "brelm-lobby", accept: "application/vnd.github+json" };
+  if (env.GITHUB_TOKEN) headers.authorization = `Bearer ${env.GITHUB_TOKEN}`;
+
+  // /releases/latest skips pre-releases, and every alpha is one, so take the newest non-draft release
+  const r = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=10`, { headers });
+  if (!r.ok) return json({ error: `github ${r.status}` }, 502);
+  const list = await r.json();
+  const rel = (Array.isArray(list) ? list : []).find((x) => !x.draft);
+  const out = { version: "", tag: "", name: "", notes: "", published: "", page: "", assets: {}, news: "" };
+  if (rel) {
+    out.tag = clean(rel.tag_name, 40);
+    out.version = out.tag.replace(/^v/, "");
+    out.name = clean(rel.name, 80);
+    out.notes = String(rel.body ?? "").slice(0, 4000);
+    out.published = clean(rel.published_at, 40);
+    out.page = clean(rel.html_url, 200);
+    for (const a of rel.assets ?? []) out.assets[clean(a.name, 80)] = { url: a.browser_download_url, size: a.size };
+  }
+  try {
+    const n = await fetch(`https://raw.githubusercontent.com/${repo}/main/NEWS.txt`, { headers: { "user-agent": "brelm-lobby" } });
+    if (n.ok) out.news = (await n.text()).slice(0, 2000);
+  } catch {}
+
+  const res = json(out);
+  res.headers.set("cache-control", `public, max-age=${LATEST_TTL_S}`);
+  ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    if (new URL(request.url).pathname === "/latest" && request.method === "GET") return latest(request, env, ctx);
     const ip = request.headers.get("cf-connecting-ip") || "";
     const headers = new Headers(request.headers);
     headers.set("x-brelm-ip", ip);

@@ -883,6 +883,10 @@ func show_options() -> void:
 	_section("Sound")
 	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
+	_section("The Ashen Waste")
+	var every := [0, 1, 2, 5, 10]
+	_choice("Autosave", ["Only at key moments", "Every minute", "Every 2 minutes", "Every 5 minutes", "Every 10 minutes"],
+		maxi(every.find(Game.autosave_min), 0), func(i): Game.autosave_min = every[i]; Game.save())
 	_section("Trial")
 	if Net.online and not Net.is_host():
 		_options_list.add_child(_label("In a fellowship the host's difficulty holds for everyone.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))

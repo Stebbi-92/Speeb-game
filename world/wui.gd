@@ -68,6 +68,29 @@ func _ready() -> void:
 	_body.add_theme_constant_override("separation", 10)
 	_frame.add_child(_body)
 	w.inv.changed.connect(_on_inv)
+	_saved = _label("", 16, DIM)
+	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
+	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_saved.modulate.a = 0.0
+	add_child(_saved)
+
+
+var _saved: Label
+var _saved_tw: Tween
+
+
+## A quiet mark in the corner that the waste has been kept.
+func saved_mark(ok: bool) -> void:
+	if _saved == null:
+		return
+	_saved.text = "Saved" if ok else "Could not save"
+	_saved.add_theme_color_override("font_color", DIM if ok else Color(0.85, 0.35, 0.3))
+	if _saved_tw:
+		_saved_tw.kill()
+	_saved_tw = create_tween()
+	_saved_tw.tween_property(_saved, "modulate:a", 0.8, 0.3)
+	_saved_tw.tween_interval(1.6 if ok else 5.0)
+	_saved_tw.tween_property(_saved, "modulate:a", 0.0, 0.8)
 
 
 ## Fixes a control to a point of the screen, by anchor and offsets.

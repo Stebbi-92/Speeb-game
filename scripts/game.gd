@@ -58,6 +58,7 @@ var quality := 1
 var gilded := false
 var player_name := ""
 var lobby_url := ""
+var autosave_min := 2          ## minutes between autosaves in the waste
 ## The open waste: which world is walked, and whether we are walking it now.
 var world_slot := "1"
 var new_world_seed := 0
@@ -260,23 +261,65 @@ func lesser_count() -> int:
 	return n
 
 
+## Writes a save so that a crash or power cut mid-write can never ruin it: the text goes to a
+## .tmp file first, the old save is kept as .bak, and only then is the new one moved into place.
+static func write_safe(path: String, text: String) -> bool:
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(text)
+	f.flush()
+	f.close()
+	if FileAccess.get_file_as_string(tmp).length() != text.length():
+		DirAccess.remove_absolute(tmp)
+		return false
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path + ".bak")
+		DirAccess.rename_absolute(path, path + ".bak")
+	return DirAccess.rename_absolute(tmp, path) == OK
+
+
+## The texts a save might be read from, newest first: the save itself, then its backup.
+static func save_texts(path: String) -> Array[String]:
+	var out: Array[String] = []
+	for p in [path, path + ".bak", path + ".tmp"]:
+		if FileAccess.file_exists(p):
+			var t := FileAccess.get_file_as_string(p)
+			if t.strip_edges() != "":
+				out.append(t)
+	return out
+
+
+## Reads a var_to_str save, falling back to the backup if the newest is damaged.
+static func read_var_safe(path: String) -> Variant:
+	for t in save_texts(path):
+		var d = str_to_var(t)
+		if d is Dictionary:
+			return d
+	return null
+
+
 func save() -> void:
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
+	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
-			"player_name": player_name, "lobby_url": lobby_url}))
+			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min}))
 
 
 func load_save() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var d = null
+	for t in save_texts(SAVE_PATH):
+		d = JSON.parse_string(t)
+		if d is Dictionary:
+			break
+	if not d is Dictionary:
 		apply_volume()
 		return
-	var d = JSON.parse_string(FileAccess.open(SAVE_PATH, FileAccess.READ).get_as_text())
 	if d is Dictionary:
+		autosave_min = clampi(int(d.get("autosave_min", autosave_min)), 0, 10)
 		reached = int(d.get("reached", 0))
 		for c in d.get("found", []):
 			found[c] = true

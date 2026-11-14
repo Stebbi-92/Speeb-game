@@ -16,6 +16,7 @@ var ui: WUI
 var builder: WBuilder
 var quests: WQuests
 var slot := "1"
+var _owns_world := false   ## set once at build: only the host (or a lone survivor) ever writes the world file
 var world_uid := ""
 var clock := 7.0
 var day := 1
@@ -47,6 +48,8 @@ var _sync_t := 0.0
 var _wave_t := 20.0
 var _day_t := 30.0
 var _save_t := 120.0
+var _save_soon := -1.0     ## counts down to a save asked for by an event; -1 when none
+var _last_save := 0
 var _reveal_t := 0.0
 var _bleed_t := 0.0
 var _vigil_t := 0.0
@@ -80,13 +83,12 @@ func build() -> void:
 	quests.w = self
 	add_child(quests)
 	if Net.authority():
+		_owns_world = true
 		slot = Game.world_slot
 		DirAccess.make_dir_recursive_absolute("user://wasteland")
-		if FileAccess.file_exists(world_path(slot)):
-			var f := FileAccess.open(world_path(slot), FileAccess.READ)
-			var d = str_to_var(f.get_as_text())
-			if d is Dictionary:
-				_pending = d
+		var d = Game.read_var_safe(world_path(slot))
+		if d is Dictionary:
+			_pending = d
 		var sd := int(_pending.get("seed", 0)) if not _pending.is_empty() else Game.new_world_seed
 		if sd == 0:
 			sd = randi_range(10000, 99999999)
@@ -136,6 +138,7 @@ func intro() -> void:
 	ui = WUI.new()
 	ui.w = self
 	hud.root.add_child(ui)
+	inv.changed.connect(func(): if ready_world: autosave_soon(20.0))
 	player.weapon.reserve_max = 400
 	player.max_health = 100.0
 	if Net.authority():
@@ -555,6 +558,8 @@ func _w_vigil_end(i: int, ok: bool) -> void:
 
 
 func _light_beacon(i: int, on: bool) -> void:
+	if on and ready_world:
+		autosave_soon(1.0)
 	var b: Dictionary = beacon_nodes[i]
 	b.flame.visible = on
 	b.flame.scale = Vector3.ONE
@@ -1196,8 +1201,9 @@ func _physics_process(delta: float) -> void:
 		if _bleed_t <= 0.0:
 			_perish("You bled out in the dust before anyone could raise you.")
 	_save_t -= delta
-	if _save_t <= 0.0:
-		_save_t = 120.0
+	if _save_soon >= 0.0:
+		_save_soon -= delta
+	if _save_t <= 0.0 or (_save_soon >= 0.0 and _save_soon <= 0.0):
 		save_all()
 
 
@@ -1602,6 +1608,7 @@ func _w_snapshot(d: Dictionary) -> void:
 
 func net_left(id: int) -> void:
 	super.net_left(id)
+	autosave_soon(1.0)
 
 
 # ================================================================== keeping it
@@ -1662,7 +1669,7 @@ func apply_world(d: Dictionary) -> void:
 func char_data() -> Dictionary:
 	return {
 		"v": 1, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "hp": player.health,
-		"pos": player.global_position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
+		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "bedroll": bedroll, "milk": Game.milk,
 	}
 
@@ -1709,13 +1716,10 @@ func _load_character() -> void:
 	if world_uid == "":
 		while world_uid == "" and is_inside_tree():
 			await get_tree().process_frame
-	var path := _char_path()
-	if FileAccess.file_exists(path):
-		var f := FileAccess.open(path, FileAccess.READ)
-		var d = str_to_var(f.get_as_text())
-		if d is Dictionary:
-			apply_char(d)
-			return
+	var d = Game.read_var_safe(_char_path())
+	if d is Dictionary:
+		apply_char(d)
+		return
 	# Cast out with almost nothing
 	inv.from_data([])
 	inv.add("bandage", 2)
@@ -1726,27 +1730,52 @@ func _load_character() -> void:
 	player.weapon._ui()
 
 
+## Keeps the world (if this is the host) and this survivor's own character.
+## Both are written crash-safe, with the previous save kept as a backup.
 func save_all() -> void:
-	if world_uid == "" or player == null or not player.is_inside_tree():
+	# This also runs from _exit_tree, after the player has already left the tree; its data is still good
+	if world_uid == "" or not is_instance_valid(player):
 		return
 	DirAccess.make_dir_recursive_absolute("user://wasteland")
-	if Net.authority():
-		var f := FileAccess.open(world_path(slot), FileAccess.WRITE)
-		if f:
-			f.store_string(var_to_str(world_data()))
+	var ok := true
+	if _owns_world:
+		ok = Game.write_safe(world_path(slot), var_to_str(world_data())) and ok
 	if not Net.dedicated and not _pfail:
-		var g := FileAccess.open(_char_path(), FileAccess.WRITE)
-		if g:
-			g.store_string(var_to_str(char_data()))
+		ok = Game.write_safe(_char_path(), var_to_str(char_data())) and ok
+	_save_t = _save_every()
+	_save_soon = -1.0
+	_last_save = Time.get_ticks_msec()
+	if is_instance_valid(ui) and ui.is_inside_tree() and not Net.dedicated:
+		ui.saved_mark(ok)
+	if not ok:
+		push_warning("Wasteland: a save could not be written")
+
+
+func _save_every() -> float:
+	return 60.0 * Game.autosave_min if Game.autosave_min > 0 else 1e9
+
+
+## Asks for a save a few seconds from now: something worth keeping just happened. Several such
+## moments close together make one save.
+func autosave_soon(delay := 3.0) -> void:
+	if _save_soon < 0.0 or delay < _save_soon:
+		_save_soon = delay
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_CRASH:
+			if ready_world:
+				save_all()
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			# Alt-tabbing away: keep things, but not more than once every 20 seconds
+			if ready_world and Time.get_ticks_msec() - _last_save > 20000:
+				save_all()
 
 
 ## A short line for the title screen's list of worlds.
 static func describe(s: String) -> String:
-	var path := world_path(s)
-	if not FileAccess.file_exists(path):
-		return ""
-	var f := FileAccess.open(path, FileAccess.READ)
-	var d = str_to_var(f.get_as_text())
+	var d = Game.read_var_safe(world_path(s))
 	if not d is Dictionary:
 		return ""
 	return "Day %d, %d of 9 beacons burning, seed %d" % [int(d.get("day", 1)), d.get("lit", []).size(), int(d.get("seed", 1771))]
@@ -1764,6 +1793,8 @@ func _rq_unbuild(by: int, pid: int) -> void:
 
 func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 	builder._w_piece(pid, k, p, yaw, hp)
+	if ready_world:
+		autosave_soon(5.0)
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -1772,6 +1803,8 @@ func _w_piece_hp(pid: int, hp: float) -> void:
 
 func _w_piece_gone(pid: int) -> void:
 	builder._w_piece_gone(pid)
+	if ready_world:
+		autosave_soon(5.0)
 
 
 func _rq_door(pid: int) -> void:
@@ -1794,12 +1827,14 @@ func _w_quest(qid: String, q: Dictionary) -> void:
 	quests.refresh_hud()
 	if ui:
 		ui.journal_dirty = true
+	autosave_soon(2.0)
 
 
 func _w_qstep(qid: String, stage: int) -> void:
 	quests.step_done(qid, stage)
 	if ui:
 		ui.journal_dirty = true
+	autosave_soon(2.0)
 
 
 func _w_offers(o: Dictionary) -> void:

@@ -131,6 +131,7 @@ func _build_menu() -> void:
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
 	_menu.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex()))
 	_menu.add_child(_btn("Leave", func(): get_tree().quit()))
+	_build_update(box)
 	_chapters = VBoxContainer.new()
 	_chapters.visible = false
 	v.add_child(_chapters)
@@ -214,7 +215,8 @@ func _show_waste() -> void:
 			hb.add_child(seed_e)
 		if d != "":
 			hb.add_child(_btn("forget", func():
-				DirAccess.remove_absolute(Wasteland.world_path(slot))
+				for ext in ["", ".bak", ".tmp"]:
+					DirAccess.remove_absolute(Wasteland.world_path(slot) + ext)
 				_show_waste(), 16))
 		_waste.add_child(hb)
 	_waste.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 22))
@@ -223,6 +225,95 @@ func _show_waste() -> void:
 func _show_chapters() -> void:
 	_menu.visible = false
 	_chapters.visible = true
+
+
+# ------------------------------------------------------------------ a newer version
+
+var _upd: VBoxContainer
+var _upd_text: Label
+var _upd_btn: Button
+
+
+func _build_update(box: Control) -> void:
+	_upd = VBoxContainer.new()
+	_upd.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_upd.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_upd.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_upd.position = Vector2(-470, -150)
+	_upd.custom_minimum_size = Vector2(440, 0)
+	_upd.add_theme_constant_override("separation", 6)
+	box.add_child(_upd)
+	var ver: Label = _small("Alpha " + Updater.current.trim_suffix("-alpha"), Color(0.45, 0.43, 0.40), 15)
+	ver.custom_minimum_size.x = 440
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_upd.add_child(ver)
+	_upd_text = _small("", hud.GOLD, 17)
+	_upd_text.custom_minimum_size.x = 440
+	_upd_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_upd_text.visible = false
+	_upd.add_child(_upd_text)
+	_upd_btn = _btn("", _update_pressed, 20)
+	_upd_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_upd_btn.visible = false
+	_upd.add_child(_upd_btn)
+	Updater.checked.connect(_update_shown)
+	Updater.progress.connect(_update_progress)
+	Updater.finished.connect(_update_done)
+	_update_shown()
+
+
+func _update_shown() -> void:
+	if not is_instance_valid(_upd_text):
+		return
+	if Updater.staged != "":
+		_upd_text.text = "Version %s waits. Restart to walk it." % Updater.staged
+		_upd_btn.text = "Restart now"
+	elif Updater.can_patch:
+		var mb := int(Updater.latest.pack_size) / 1048576.0
+		_upd_text.text = "%s has come.%s" % [_vname(), (" (%.0f MB)" % mb) if mb > 0 else ""]
+		_upd_btn.text = "Update"
+	elif Updater.available:
+		_upd_text.text = "%s has come. This one must be downloaded whole." % _vname()
+		_upd_btn.text = "Open the download page"
+	else:
+		_upd_text.visible = false
+		_upd_btn.visible = false
+		return
+	_upd_text.visible = true
+	_upd_btn.visible = true
+	_upd_btn.disabled = false
+
+
+func _vname() -> String:
+	var n: String = Updater.latest.get("name", "")
+	return n if n != "" else "Version " + str(Updater.latest.get("version", ""))
+
+
+func _update_pressed() -> void:
+	if Updater.staged != "":
+		Updater.restart()
+	elif Updater.can_patch:
+		_upd_btn.disabled = true
+		_upd_text.text = "Fetching..."
+		Updater.download()
+	elif Updater.available and Updater.latest.get("page", "") != "":
+		OS.shell_open(Updater.latest.page)
+
+
+func _update_progress(done: int, total: int) -> void:
+	if is_instance_valid(_upd_text):
+		_upd_text.text = "Fetching... %d%%" % int(100.0 * done / maxi(total, 1))
+
+
+func _update_done(ok: bool, message: String) -> void:
+	if not is_instance_valid(_upd_text):
+		return
+	_upd_text.text = message
+	_upd_btn.disabled = false
+	if ok:
+		_upd_btn.text = "Restart now"
+	else:
+		_upd_btn.text = "Try again"
 
 
 func _process(delta: float) -> void:
