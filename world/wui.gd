@@ -460,7 +460,7 @@ func _talk(text: String) -> void:
 	var pd: Dictionary = WPlaces.PEOPLE[_talking]
 	_body.add_child(_title(pd.name))
 	_body.add_child(_label(pd.title + ("   ·   Standing: %d" % int(w.rep.get(pd.at, 0)) if int(w.rep.get(pd.at, 0)) > 0 else ""), 18, DIM))
-	var say := _wrap(text, 21, PALE)
+	var say := _wrap(WPlaces.words(text), 21, PALE)
 	say.custom_minimum_size = Vector2(1060, 0)
 	var sc := ScrollContainer.new()
 	sc.custom_minimum_size = Vector2(0, 330)
@@ -486,7 +486,7 @@ func _rumor() -> void:
 	var lines: Array = pd.rumors
 	var text: String = lines[randi() % lines.size()]
 	# Each telling marks some place on the map not yet seen
-	var home: Vector2 = WPlaces.SETTLEMENTS[pd.at].pos
+	var home: Vector2 = WPlaces.spos(pd.at)
 	var best = null
 	var bd := INF
 	for r in w.ruins:
@@ -511,7 +511,7 @@ func _offers() -> void:
 		v.add_child(_wrap("\"Nothing today. Come back after the dawn; there is always something after the dawn.\"", 21, PALE))
 	for o in list:
 		v.add_child(_label(o.title, 24, GOLD))
-		v.add_child(_wrap("\"%s\"" % o.pitch, 20, PALE))
+		v.add_child(_wrap("\"%s\"" % WPlaces.words(o.pitch), 20, PALE))
 		var r: Dictionary = o.reward
 		var rw := "%d salt" % int(r.salt)
 		for it in r.get("items", []):
@@ -657,7 +657,7 @@ func _draw_map() -> void:
 	hb.add_child(holder)
 	var side := VBoxContainer.new()
 	side.add_child(_title("The Ashen Waste"))
-	side.add_child(_wrap("Day %d. %d of 9 beacons burn.\n\n◆ your task    ● settlement    ▲ beacon (bright when burning)    ■ ruin    + your bed    ✕ what you left when you fell" % [w.day, w.lit.size()], 17, DIM))
+	side.add_child(_wrap("Seed %d. Day %d. %d of 9 beacons burn.\n\n◆ your task    ● settlement    ▲ beacon (bright when burning)    ■ ruin    + your bed    ✕ what you left when you fell" % [w.world_seed, w.day, w.lit.size()], 17, DIM))
 	if not w.quests.tracked.is_empty() and w.quests.quests.has(w.quests.tracked):
 		var q: Dictionary = w.quests.quests[w.quests.tracked]
 		side.add_child(_label("", 10, DIM))
@@ -770,7 +770,7 @@ class Compass extends Control:
 		for i in w.lit:
 			marks.append([w.beacon_nodes[i].pos, Color(1, 0.97, 0.85, 0.6), 4.0])
 		for k in w.visited:
-			marks.append([w.gpos(WPlaces.SETTLEMENTS[k].pos), Color(0.8, 0.6, 0.4, 0.7), 4.0])
+			marks.append([w.gpos(WPlaces.spos(k)), Color(0.8, 0.6, 0.4, 0.7), 4.0])
 		var me: Vector3 = w.player.global_position
 		for m in marks:
 			var p: Vector3 = m[0]
@@ -804,7 +804,7 @@ class MapDraw extends Control:
 					draw_string(font, p + Vector2(6, 4), r.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.85, 0.8, 0.7, 0.8))
 		for k in WPlaces.SETTLEMENTS:
 			var s: Dictionary = WPlaces.SETTLEMENTS[k]
-			var p3: Vector3 = w.gpos(s.pos)
+			var p3: Vector3 = w.gpos(WPlaces.spos(k))
 			if w.visited.has(k) or w.is_revealed(p3):
 				var p := _to(p3)
 				draw_circle(p, 6.0, Color(0.85, 0.6, 0.35))

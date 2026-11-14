@@ -17,15 +17,15 @@ var finds := {}
 
 ## The beacon road. Each step: t (reach, talk, kindle, count), and what is said.
 const MAIN := [
-	{"t": "reach", "at": "cinderwick", "text": "There is smoke to the north. Find shelter before nightfall."},
+	{"t": "reach", "at": "cinderwick", "text": "There is smoke to the <dir:S:cinderwick:start>. Find shelter before nightfall."},
 	{"t": "talk", "who": "maud", "text": "Speak with the elder of Cinderwick.",
 		"ask": "I was cast out. I have nowhere else to go.",
 		"say": "Then you are one of us. Everyone here was thrown away by somebody.\n\nListen. When I was a girl there were nine fires on the high places, tended by the Order, and the night did not come within sight of them. One by one they went dark. Now it comes everywhere.\n\nThere is a dead beacon on the ridge to the west. I have kept one jar of the old oil for forty years, waiting for someone foolish enough to carry it there. Take it. Pour it in the bowl, and keep the flame alive until it holds. Do not leave it, whatever comes.",
 		"give": [["beacon_oil", 1]]},
-	{"t": "kindle", "beacon": 0, "text": "Kindle the Beacon of Restraint, on the ridge west of Cinderwick, and keep the flame until it holds."},
+	{"t": "kindle", "beacon": 0, "text": "Kindle the Beacon of Restraint, <dir:B:0:cinderwick> of Cinderwick, and keep the flame until it holds."},
 	{"t": "talk", "who": "maud", "text": "Return to Maud.",
 		"ask": "The beacon burns.",
-		"say": "I saw it from the wall. I wept, and I am not ashamed of it.\n\nThere is no more of the old oil. But the Lantern Well still draws lamp oil from the deep, and Benedek the oilwright knows the measure his father used for the Order. Go to the Well, west and north of here. Ask him to teach you."},
+		"say": "I saw it from the wall. I wept, and I am not ashamed of it.\n\nThere is no more of the old oil. But the Lantern Well still draws lamp oil from the deep, and Benedek the oilwright knows the measure his father used for the Order. Go to the Well, <dir:S:lanternwell:cinderwick> of here. Ask him to teach you."},
 	{"t": "talk", "who": "benedek", "text": "Find Benedek the oilwright at the Lantern Well.",
 		"ask": "Maud sent me. I need beacon oil.",
 		"say": "So the ridge fire was you. I wondered who had been fool enough.\n\nThe measure is this: two of lamp oil, ten of salt to cleanse it, four of ash-bloom to make it burn white. Render it slowly, at a proper bench, with a fire close by. Here. Take what I have made, and learn to make the rest yourself. There are eight more bowls out there, and I am too old to carry anything up a hill.",
@@ -33,35 +33,35 @@ const MAIN := [
 	{"t": "count", "n": 4, "text": "Kindle more of the dead beacons. Render beacon oil at a workbench from lamp oil, salt and ash-bloom."},
 	{"t": "talk", "who": "ione", "text": "Something about the beacons is wrong. The gravekeeper of Mourner's Rest listens to the dead. Ask her.",
 		"ask": "The beacons were made to burn forever. Why did they go out?",
-		"say": "I asked the dead the same thing, the night your third fire was lit. They were very quiet for a long time.\n\nThen they told me. The beacons did not fail. They were put out, by hand, one by one, by living people who walked up to them with sand and wet sacking. The dead say the hands came from Gallowmere, on the dry lake to the north.\n\nGo carefully. People who will put out a light are people who have made a bargain with the dark."},
-	{"t": "talk", "who": "corvin", "text": "Go to Gallowmere, on the dry lake in the far north, and speak with its warden.",
+		"say": "I asked the dead the same thing, the night your third fire was lit. They were very quiet for a long time.\n\nThen they told me. The beacons did not fail. They were put out, by hand, one by one, by living people who walked up to them with sand and wet sacking. The dead say the hands came from Gallowmere, on the dry lake to the <dir:S:gallowmere:mourners>.\n\nGo carefully. People who will put out a light are people who have made a bargain with the dark."},
+	{"t": "talk", "who": "corvin", "text": "Go to Gallowmere, on the dry lake far to the <dir:S:gallowmere:cinderwick>, and speak with its warden.",
 		"ask": "You put out the beacons.",
-		"say": "Yes. I did. My father did. His father before him.\n\nYou think the night comes from nowhere. It comes up out of a mouth in the earth, north of here, where the ninth beacon stood. When the ninth was lit, the mouth was quiet. Then it swallowed the beacon whole, tower and bowl and keepers, and it began to speak.\n\nIt asked for the other eight. It said: put them out, and I will leave Gallowmere standing. So we did. And we are standing. Do you understand? Every fire you light, it will want back. Light all eight, and it will have to come up and take them itself. Perhaps then you can do what we could not."},
+		"say": "Yes. I did. My father did. His father before him.\n\nYou think the night comes from nowhere. It comes up out of a mouth in the earth, <dir:B:8:gallowmere> of here, where the ninth beacon stood. When the ninth was lit, the mouth was quiet. Then it swallowed the beacon whole, tower and bowl and keepers, and it began to speak.\n\nIt asked for the other eight. It said: put them out, and I will leave Gallowmere standing. So we did. And we are standing. Do you understand? Every fire you light, it will want back. Light all eight, and it will have to come up and take them itself. Perhaps then you can do what we could not."},
 	{"t": "count", "n": 8, "text": "Kindle all eight beacons that still stand. The ninth was swallowed; the mouth will have to answer."},
 	{"t": "talk", "who": "corvin", "text": "Eight fires burn. Return to the warden of Gallowmere.",
 		"ask": "Eight are burning. What now?",
-		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, north and west of here, choked with earth. Pour oil into it and it will take, and the thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
+		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth. Pour oil into it and it will take, and the thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
 		"give": [["beacon_oil", 2]]},
 	{"t": "kindle", "beacon": 8, "text": "Kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."},
 	{"t": "talk", "who": "maud", "text": "It is done. Return to Cinderwick.",
 		"ask": "The ninth burns. The mouth is quiet.",
-		"say": "I know. The whole camp came out to look. You can see it from here, a white thread in the north, like the one I remember.\n\nThe nights will still come. The waste is still the waste. Forms will still walk out of the dark where the fires do not reach. But they will not come for everything, and they will not come forever.\n\nThe waste is not saved, survivor. It is kept. And now there is someone to keep it."},
+		"say": "I know. The whole camp came out to look. You can see it from here, a white thread in the <dir:B:8:cinderwick>, like the one I remember.\n\nThe nights will still come. The waste is still the waste. Forms will still walk out of the dark where the fires do not reach. But they will not come for everything, and they will not come forever.\n\nThe waste is not saved, survivor. It is kept. And now there is someone to keep it."},
 ]
 
 ## The people's own stories. They are told once.
 const STORIES := {
 	"wagon": {"title": "The Gully Wagon", "giver": "tobin", "at": "cinderwick",
-		"pitch": "There is a wagon down in the gully east of here. I knew the driver. Will you go and look?",
+		"pitch": "There is a wagon down in the gully <dir:R:tobin_wagon:cinderwick> of here. I knew the driver. Will you go and look?",
 		"steps": [
-			{"t": "reach", "ruin": "tobin_wagon", "text": "Find the wagon in the gully, east of Cinderwick."},
+			{"t": "reach", "ruin": "tobin_wagon", "text": "Find the wagon in the gully, <dir:R:tobin_wagon:cinderwick> of Cinderwick."},
 			{"t": "recover", "crate": "tobin_wagon_0", "item": "keepsake", "text": "Search the wagon for anything of the driver's."},
 			{"t": "talk", "who": "tobin", "text": "Bring what you found to Tobin.", "ask": "I found these in the wagon. Prayer beads.",
 				"say": "Hers. She counted them every night on the road. Forty-one beads, one for every year she drove.\n\nI will put them with the salt. It keeps things. Thank you. Here, take this. It was hers too, and she would want it used.", "take": ["keepsake", 1]},
 		], "reward": {"salt": 40, "items": [["hatchet", 1]], "rep": 2}},
 	"piet": {"title": "Piet's Jar", "giver": "ysolde", "at": "kiln",
-		"pitch": "My brother Piet went to the dead beacon north of here. He never came back. I cannot make his jar until I know.",
+		"pitch": "My brother Piet went out <dir:R:piet_camp:kiln> of here, toward a dead beacon. He never came back. I cannot make his jar until I know.",
 		"steps": [
-			{"t": "reach", "ruin": "piet_camp", "text": "Find Piet's last camp, west of the Quiet Kiln."},
+			{"t": "reach", "ruin": "piet_camp", "text": "Find Piet's last camp, <dir:R:piet_camp:kiln> of the Quiet Kiln."},
 			{"t": "nest", "ruin": "piet_camp", "text": "Something has nested in the camp. Burn it out."},
 			{"t": "recover", "crate": "piet_camp_0", "item": "piet_ring", "text": "Search the camp for anything of Piet's."},
 			{"t": "talk", "who": "ysolde", "text": "Bring Piet's ring to Ysolde.", "ask": "I found this at his camp. He did not suffer long, I think.",
@@ -70,24 +70,24 @@ const STORIES := {
 	"seal": {"title": "The Inward Seal", "giver": "ione", "at": "mourners",
 		"pitch": "There is a vault in the hills where the Order put its dead. The dead in it are not quiet. Something was sealed in from the inside.",
 		"steps": [
-			{"t": "reach", "ruin": "sealed_vault", "text": "Find the Vault of the Inward Seal, west of Mourner's Rest."},
+			{"t": "reach", "ruin": "sealed_vault", "text": "Find the Vault of the Inward Seal, <dir:R:sealed_vault:mourners> of Mourner's Rest."},
 			{"t": "kill", "ruin": "sealed_vault", "n": 8, "text": "Undo the forms that keep the vault."},
 			{"t": "recover", "crate": "sealed_vault_1", "item": "order_seal", "text": "Force the iron chest within the vault (it wants a pry bar)."},
 			{"t": "talk", "who": "ione", "text": "Bring the seal to Ione.", "ask": "This was pressed into the door from the inside.",
 				"say": "The Silent Clerics who sealed themselves in. I had heard it, but not believed it.\n\nWhen the beacons began to die, some of the Order did not run. They walled themselves in with their dead and kept silence until the end, so that the dark would find nothing to speak to. The seal says: we did not answer.\n\nKeep the oil I give you. Light something with it. That is the only answer worth giving.", "take": ["order_seal", 1]},
 		], "reward": {"salt": 50, "items": [["beacon_oil", 1]], "rep": 3}},
 	"archive": {"title": "The Archive Tower", "giver": "hesk_marro", "at": "hesk",
-		"pitch": "The Order kept its records in a tower east of the Crossing. The ledgers would be worth a great deal to me. And to you.",
+		"pitch": "The Order kept its records in a tower <dir:R:order_tower:hesk> of the Crossing. The ledgers would be worth a great deal to me. And to you.",
 		"steps": [
-			{"t": "reach", "ruin": "order_tower", "text": "Find the Archive Tower, east of Saint Hesk's Crossing."},
+			{"t": "reach", "ruin": "order_tower", "text": "Find the Archive Tower, <dir:R:order_tower:hesk> of Saint Hesk's Crossing."},
 			{"t": "recover", "crate": "order_tower_0", "item": "keepsake", "text": "Search the tower for the Order's ledgers."},
 			{"t": "talk", "who": "hesk_marro", "text": "Bring the ledgers to Marro.", "ask": "Your ledgers.",
 				"say": "Hm. Accounts of oil carried, salt paid, and keepers fed, beacon by beacon. And here: a map of where each bowl stood, drawn by someone who had walked to every one.\n\nCopy it. You will want it more than I will. The rest I will sell to someone who misses the past.", "take": ["keepsake", 1], "reveal": "beacons"},
 		], "reward": {"salt": 80, "items": [["coin", 4]], "rep": 2}},
 	"caravans": {"title": "The Salt-Pan Caravans", "giver": "wren", "at": "cinderwick",
-		"pitch": "The caravans north of the camp died in one night. Forms roost in the wagons now. They come down at dusk and test our wall.",
+		"pitch": "The caravans <dir:R:salt_caravans:cinderwick> of the camp died in one night. Forms roost in the wagons now. They come down at dusk and test our wall.",
 		"steps": [
-			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Undo the forms roosting in the Salt-Pan Caravans, north of Cinderwick."},
+			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Undo the forms roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."},
 			{"t": "talk", "who": "wren", "text": "Tell Wren it is done.", "ask": "The caravans are clear.",
 				"say": "Good. I will not thank you; we are past that. Take these. You will need them more than I will, tonight."},
 		], "reward": {"salt": 30, "items": [["shells", 40], ["bandage", 2]], "rep": 2}},
@@ -153,7 +153,7 @@ func target_of(q: Dictionary):
 	match s.t:
 		"reach":
 			if s.has("at"):
-				return w.gpos(WPlaces.SETTLEMENTS[s.at].pos)
+				return w.gpos(WPlaces.spos(s.at))
 			if s.has("ruin"):
 				return _ruin_pos(s.ruin)
 			return s.get("pos")
@@ -179,7 +179,7 @@ func target_of(q: Dictionary):
 						best = w.beacon_nodes[i].pos
 			return best
 		"watch":
-			return w.gpos(WPlaces.SETTLEMENTS[s.at].pos)
+			return w.gpos(WPlaces.spos(s.at))
 	return null
 
 
@@ -194,7 +194,7 @@ func step_text(q: Dictionary) -> String:
 	var s := step_of(q)
 	if s.is_empty():
 		return ""
-	var t: String = s.text
+	var t: String = WPlaces.words(s.text)
 	match s.t:
 		"kill", "watch":
 			t += "   %d / %d" % [int(q.have), int(s.n)]
@@ -235,7 +235,7 @@ func on_event(kind: String, data: Dictionary) -> void:
 					if c != null and p.distance_to(c) < 70.0:
 						_progress(q.id, 1, int(s.n))
 				elif s.t == "watch" and w.night:
-					if Vector2(p.x, p.z).distance_to(WPlaces.SETTLEMENTS[s.at].pos) < 90.0:
+					if Vector2(p.x, p.z).distance_to(WPlaces.spos(s.at)) < 90.0:
 						_progress(q.id, 1, int(s.n))
 		"move":
 			var p: Vector3 = data.pos
@@ -322,15 +322,15 @@ func step_done(qid: String, stage: int) -> void:
 	if s.has("give"):
 		w.give(s.give)
 	if s.get("reveal", "") == "beacons":
-		for b in WPlaces.BEACONS:
-			w.reveal_place(b.pos, 60.0)
+		for bp in WPlaces.beacon_points():
+			w.reveal_place(bp, 60.0)
 		w.hud.notify("The beacons are marked on your map.")
 	if q.state == "done":
 		_finish(q)
 	else:
 		var nxt := step_of(q)
 		if not nxt.is_empty() and (q.id == tracked or q.get("main", false)):
-			w.hud.notify("%s\n%s" % [q.title, nxt.text])
+			w.hud.notify("%s\n%s" % [q.title, WPlaces.words(nxt.text)])
 		_place_things(qid)
 	refresh_hud()
 
@@ -398,7 +398,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			givers.append(pid)
 	var giver: String = givers[rr.randi() % givers.size()]
 	var gname: String = WPlaces.PEOPLE[giver].name
-	var home: Vector2 = WPlaces.SETTLEMENTS[k].pos
+	var home: Vector2 = WPlaces.spos(k)
 	var ruin: Dictionary = _ruin_near(home, 120.0, 520.0, rr)
 	var kinds := ["gather", "gather", "hunt", "recover", "deliver", "scout", "nest", "watch", "find"]
 	var kind: String = kinds[rr.randi() % kinds.size()]
@@ -444,7 +444,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			o.steps = [{"t": "deliver", "item": item, "who": to, "text": "Carry the %s to %s at %s." % [Items.iname(item).to_lower(), tp.name, WPlaces.SETTLEMENTS[tp.at].name],
 				"ask": "%s sent this, from %s." % [gname, WPlaces.SETTLEMENTS[k].name], "say": "From %s? I had thought them dead. Thank you for carrying it. Take this for the road." % gname, "take": [item, 1]}]
 			o.hands = [[item, 1]]
-			salt = 20 + int(home.distance_to(WPlaces.SETTLEMENTS[tp.at].pos) / 20.0)
+			salt = 20 + int(home.distance_to(WPlaces.spos(tp.at)) / 20.0)
 		"scout":
 			var far: Dictionary = _ruin_near(home, 300.0, 800.0, rr)
 			o.title = "A Look at %s" % far.name
@@ -602,13 +602,13 @@ func talk_options(pid: String) -> Array:
 			"talk":
 				var take: Array = s.get("take", [])
 				if take.is_empty() or w.inv.count(take[0]) >= int(take[1]):
-					out.append([s.ask, _turn_in.bind(q.id, int(q.stage), s)])
+					out.append([WPlaces.words(s.ask), _turn_in.bind(q.id, int(q.stage), s)])
 			"gather":
 				if w.inv.count(s.item) >= int(s.n):
-					out.append([s.ask, _turn_in.bind(q.id, int(q.stage), s)])
+					out.append([WPlaces.words(s.ask), _turn_in.bind(q.id, int(q.stage), s)])
 			"deliver":
 				if w.inv.count(s.item) > 0:
-					out.append([s.ask, _turn_in.bind(q.id, int(q.stage), s)])
+					out.append([WPlaces.words(s.ask), _turn_in.bind(q.id, int(q.stage), s)])
 	return out
 
 
@@ -623,4 +623,4 @@ func _turn_in(qid: String, stage: int, s: Dictionary) -> String:
 			elif s.t == "deliver":
 				w.inv.take(s.item, 1)
 	w.shared("_rq_qadvance", [qid, stage])
-	return s.get("say", "")
+	return WPlaces.words(s.get("say", ""))

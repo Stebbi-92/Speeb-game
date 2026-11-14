@@ -199,9 +199,19 @@ func _show_waste() -> void:
 		var d := Wasteland.describe(slot)
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 14)
+		var seed_e: LineEdit = null
+		if d == "":
+			seed_e = _field("", "seed (empty for a new land)", 220)
 		hb.add_child(_btn("World %s:  %s" % [["I", "II", "III"][i], d if d != "" else "unwalked"], func():
 			Game.world_slot = slot
+			Game.new_world_seed = 0
+			if seed_e and seed_e.text.strip_edges().is_valid_int():
+				Game.new_world_seed = absi(int(seed_e.text.strip_edges()))
+			elif seed_e and seed_e.text.strip_edges() != "":
+				Game.new_world_seed = absi(seed_e.text.strip_edges().hash()) % 99999999 + 1
 			Game.main.start_level(Game.WASTELAND), 22))
+		if seed_e:
+			hb.add_child(seed_e)
 		if d != "":
 			hb.add_child(_btn("forget", func():
 				DirAccess.remove_absolute(Wasteland.world_path(slot))

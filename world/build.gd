@@ -145,8 +145,8 @@ func _placement(k: String) -> Dictionary:
 		out.ok = false
 	if w.settlement_at(out.pos, 6.0) != "":
 		out.ok = false
-	for b in WPlaces.BEACONS:
-		if Vector2(out.pos.x, out.pos.z).distance_to(b.pos) < 14.0:
+	for bp in WPlaces.beacon_points():
+		if Vector2(out.pos.x, out.pos.z).distance_to(bp) < 14.0:
 			out.ok = false
 	return out
 

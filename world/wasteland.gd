@@ -9,7 +9,6 @@ const DAWN := 5.0
 const RUINS_N := 44
 const NODES_N := 900
 const REVEAL_N := 128
-const START_POS := Vector2(110, 790)
 
 var terrain: WTerrain
 var inv := Inventory.new()
@@ -74,13 +73,44 @@ func build() -> void:
 	sun.directional_shadow_max_distance = 90
 	_make_stars()
 	_materials()
+	builder = WBuilder.new()
+	builder.w = self
+	add_child(builder)
+	quests = WQuests.new()
+	quests.w = self
+	add_child(quests)
+	if Net.authority():
+		slot = Game.world_slot
+		DirAccess.make_dir_recursive_absolute("user://wasteland")
+		if FileAccess.file_exists(world_path(slot)):
+			var f := FileAccess.open(world_path(slot), FileAccess.READ)
+			var d = str_to_var(f.get_as_text())
+			if d is Dictionary:
+				_pending = d
+		var sd := int(_pending.get("seed", 0)) if not _pending.is_empty() else Game.new_world_seed
+		if sd == 0:
+			sd = randi_range(10000, 99999999)
+		_make_world(sd)
+	else:
+		spawn_pos = Vector3(0, 400, 0)
+	ambient("wind", -10)
+
+
+var world_seed := 0
+var _pending := {}
+
+
+## Raises the whole waste from its seed: the land and its six biomes, then the places upon it.
+func _make_world(sd: int) -> void:
+	world_seed = sd
 	terrain = WTerrain.new()
+	terrain.setup(sd)
+	WPlaces.lay_out(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
 	for k in WPlaces.SETTLEMENTS:
-		var s: Dictionary = WPlaces.SETTLEMENTS[k]
-		terrain.add_flat(s.pos, s.radius + 8.0)
-	for b in WPlaces.BEACONS:
-		terrain.add_flat(b.pos, 16.0)
-	terrain.add_flat(START_POS, 6.0)
+		terrain.add_flat(WPlaces.spos(k), WPlaces.SETTLEMENTS[k].radius + 8.0)
+	for bp in WPlaces.beacon_points():
+		terrain.add_flat(bp, 16.0)
+	terrain.add_flat(WPlaces.start, 6.0)
 	_plan_ruins()
 	for r in ruins:
 		terrain.add_flat(Vector2(r.pos.x, r.pos.z), 9.0)
@@ -97,15 +127,8 @@ func build() -> void:
 		_build_ruin(r)
 	_scatter_nodes()
 	_scatter_decor()
-	spawn_pos = gpos(START_POS) + Vector3(0, 0.2, 0)
-	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.SETTLEMENTS.cinderwick.pos))
-	ambient("wind", -10)
-	builder = WBuilder.new()
-	builder.w = self
-	add_child(builder)
-	quests = WQuests.new()
-	quests.w = self
-	add_child(quests)
+	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
+	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
 
 
 func intro() -> void:
@@ -118,18 +141,20 @@ func intro() -> void:
 	if Net.authority():
 		_load_world()
 		ready_world = true
+		_world_ready()
 		for by in _waiting_hello:
 			_rq_hello(by)
 		_waiting_hello.clear()
 	else:
 		hud.say("The waste is taking shape around you...", 4.0)
+		player.set_physics_process(false)
 		shared("_rq_hello", [Net.me()])
 	_load_character()
 	_apply_time(true)
 	if not flags.has("intro_seen_" + str(Net.me())) and quests.main_stage() == 0:
 		flags["intro_seen_" + str(Net.me())] = true
 		await hud.title_card("", "The Ashen Waste")
-		hud.say("You were cast out with nothing but a gun and the clothes on your back. There is smoke on the horizon, to the north.", 9.0)
+		hud.say(WPlaces.words("You were cast out with nothing but a gun and the clothes on your back. There is smoke on the horizon, to the <dir:S:cinderwick:start>."), 9.0)
 	else:
 		await hud.title_card("Day %d" % day, "The Ashen Waste")
 
@@ -198,10 +223,12 @@ func _process(_delta: float) -> void:
 ## Ruins are scattered where the land is level enough to have once been lived on.
 func _plan_ruins() -> void:
 	var r := RandomNumberGenerator.new()
-	r.seed = 4401
+	r.seed = world_seed + 4401
+	ruins.clear()
 	for k in WPlaces.NAMED_RUINS:
 		var d: Dictionary = WPlaces.NAMED_RUINS[k]
-		ruins.append({"id": k, "name": d.name, "kind": d.kind, "pos": Vector3(d.pos.x, 0, d.pos.y), "guard_day": 0})
+		var rp := WPlaces.rpos(k)
+		ruins.append({"id": k, "name": d.name, "kind": d.kind, "pos": Vector3(rp.x, 0, rp.y), "guard_day": 0})
 	var kinds := WPlaces.RUIN_KINDS.keys()
 	var tries := 0
 	while ruins.size() < RUINS_N + WPlaces.NAMED_RUINS.size() and tries < 4000:
@@ -213,6 +240,8 @@ func _plan_ruins() -> void:
 		if t > 0.22:
 			continue
 		var nm: String = WPlaces.RUIN_WORDS_A[r.randi() % WPlaces.RUIN_WORDS_A.size()] + " " + WPlaces.RUIN_WORDS_B[r.randi() % WPlaces.RUIN_WORDS_B.size()]
+		if ruins.any(func(o): return o.name == nm):
+			continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[r.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
 
 
@@ -227,15 +256,15 @@ func terrain_probe(p: Vector2) -> float:
 
 func _clear_of_places(p: Vector2, settle_r: float, other_r: float) -> bool:
 	for k in WPlaces.SETTLEMENTS:
-		if p.distance_to(WPlaces.SETTLEMENTS[k].pos) < settle_r:
+		if p.distance_to(WPlaces.spos(k)) < settle_r:
 			return false
-	for b in WPlaces.BEACONS:
-		if p.distance_to(b.pos) < other_r:
+	for bp in WPlaces.beacon_points():
+		if p.distance_to(bp) < other_r:
 			return false
 	for ru in ruins:
 		if p.distance_to(Vector2(ru.pos.x, ru.pos.z)) < other_r:
 			return false
-	if p.distance_to(START_POS) < 40.0:
+	if p.distance_to(WPlaces.start) < 40.0:
 		return false
 	return true
 
@@ -244,7 +273,7 @@ func _clear_of_places(p: Vector2, settle_r: float, other_r: float) -> bool:
 
 func _build_settlement(k: String) -> void:
 	var s: Dictionary = WPlaces.SETTLEMENTS[k]
-	var c := gpos(s.pos)
+	var c := gpos(WPlaces.spos(k))
 	var r: float = s.radius
 	var wall := mat(s.wall, 1.0, 0.35, 0.5)
 	var rr := RandomNumberGenerator.new()
@@ -376,7 +405,7 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 func settlement_at(p: Vector3, extra := 0.0) -> String:
 	for k in WPlaces.SETTLEMENTS:
 		var s: Dictionary = WPlaces.SETTLEMENTS[k]
-		if Vector2(p.x, p.z).distance_to(s.pos) < s.radius + extra:
+		if Vector2(p.x, p.z).distance_to(WPlaces.spos(k)) < s.radius + extra:
 			return k
 	return ""
 
@@ -385,7 +414,7 @@ func settlement_at(p: Vector3, extra := 0.0) -> String:
 
 func _build_beacon(i: int) -> void:
 	var b: Dictionary = WPlaces.BEACONS[i]
-	var c := gpos(b.pos)
+	var c := gpos(WPlaces.bpos(i))
 	var n := Node3D.new()
 	n.position = c
 	add_child(n)
@@ -536,7 +565,7 @@ func _light_beacon(i: int, on: bool) -> void:
 
 func safe_at(p: Vector3) -> bool:
 	for i in lit:
-		if Vector2(p.x, p.z).distance_to(WPlaces.BEACONS[i].pos) < WPlaces.BEACON_SAFE:
+		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
 			return true
 	return settlement_at(p, 6.0) == "mourners"
 
@@ -856,7 +885,7 @@ const NODE_KINDS := {
 
 func _scatter_nodes() -> void:
 	var r := RandomNumberGenerator.new()
-	r.seed = 9090
+	r.seed = world_seed + 9090
 	var tries := 0
 	while nodes.size() < NODES_N and tries < NODES_N * 6:
 		tries += 1
@@ -866,10 +895,10 @@ func _scatter_nodes() -> void:
 			continue
 		var near_settle := false
 		for k in WPlaces.SETTLEMENTS:
-			if p2.distance_to(WPlaces.SETTLEMENTS[k].pos) < WPlaces.SETTLEMENTS[k].radius + 8.0:
+			if p2.distance_to(WPlaces.spos(k)) < WPlaces.SETTLEMENTS[k].radius + 8.0:
 				near_settle = true
-		for b in WPlaces.BEACONS:
-			if p2.distance_to(b.pos) < 12.0:
+		for bp in WPlaces.beacon_points():
+			if p2.distance_to(bp) < 12.0:
 				near_settle = true
 		if near_settle:
 			continue
@@ -878,7 +907,7 @@ func _scatter_nodes() -> void:
 			continue
 		_make_node(nodes.size(), kinds, p, r)
 	# A few of each close by the first camp, so the cast-out are not lost entirely
-	var start := WPlaces.SETTLEMENTS.cinderwick.pos
+	var start := WPlaces.spos("cinderwick")
 	for kk in ["tree", "tree", "rock", "rock", "scrap", "scrap", "herb", "bone", "salt"]:
 		for t in 30:
 			var p2: Vector2 = start + Vector2(r.randf_range(-120, 120), r.randf_range(-20, 200))
@@ -887,17 +916,45 @@ func _scatter_nodes() -> void:
 				break
 
 
+## What each land yields, by weight.
+const BIOME_NODES := {
+	"ash": [["tree", 4], ["rock", 3], ["scrap", 2], ["herb", 1], ["bone", 1]],
+	"dunes": [["scrap", 5], ["bone", 2], ["rock", 1], ["herb", 1]],
+	"salt": [["salt", 6], ["scrap", 2], ["bone", 2]],
+	"forest": [["tree", 8], ["rock", 1], ["herb", 2], ["bone", 1]],
+	"basalt": [["rock", 7], ["scrap", 1], ["salt", 1], ["herb", 1]],
+	"marsh": [["herb", 4], ["bone", 3], ["tree", 2], ["scrap", 1]],
+}
+const BIOME_TEXT := {
+	"ash": "Gray dust to the horizon. Deadwood and old iron lie half buried in it.",
+	"dunes": "Red sand over red iron. The caravans died here, and their wreckage is everywhere.",
+	"salt": "White crust that cracks underfoot. Nothing hides here, and nothing can hide you.",
+	"forest": "Trees that died standing, close as a crowd. Good timber. Poor sight lines.",
+	"basalt": "Black stone, high and broken. The quarries of the waste, and the hardest walking.",
+	"marsh": "Black tar under a skin of water. It drags at your boots, and things live in it.",
+}
+## What the night sends, by land.
+const BIOME_FORMS := {
+	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol"],
+	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider"],
+	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher"],
+	"forest": ["rusher", "rusher", "spider", "spider", "idol"],
+	"basalt": ["idol", "idol", "rusher", "spitter", "spider"],
+	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher"],
+}
+
+
 func _node_kind(p: Vector2, r: RandomNumberGenerator) -> String:
-	var bio := terrain.biome_at(p.x, p.y)
-	var y := terrain.height_at(p.x, p.y)
-	var roll := r.randf()
-	if y < -9.0:
-		return "salt" if roll < 0.55 else ("scrap" if roll < 0.75 else ("bone" if roll < 0.85 else ""))
-	if bio > 0.1:
-		return "rock" if roll < 0.6 else ("tree" if roll < 0.75 else ("herb" if roll < 0.85 else ""))
-	if bio < -0.15:
-		return "scrap" if roll < 0.35 else ("bone" if roll < 0.5 else ("herb" if roll < 0.62 else ("rock" if roll < 0.72 else "")))
-	return "tree" if roll < 0.45 else ("rock" if roll < 0.62 else ("scrap" if roll < 0.75 else ("herb" if roll < 0.85 else "bone")))
+	var t: Array = BIOME_NODES[terrain.biome_name(p.x, p.y)]
+	var total := 0
+	for row in t:
+		total += int(row[1])
+	var roll := r.randi_range(1, total + 2)
+	for row in t:
+		roll -= int(row[1])
+		if roll <= 0:
+			return row[0]
+	return ""
 
 
 func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> void:
@@ -1053,7 +1110,7 @@ func _w_node(id: int, charges: int, back: int) -> void:
 ## Small stones and dry scrub, for the look of the land only.
 func _scatter_decor() -> void:
 	var r := RandomNumberGenerator.new()
-	r.seed = 3131
+	r.seed = world_seed + 3131
 	var specs := [
 		[SphereMesh.new(), _m.darkstone, 5000, Vector2(0.15, 0.6)],
 		[CylinderMesh.new(), _m.darkwood, 2500, Vector2(0.4, 1.2)],
@@ -1066,6 +1123,35 @@ func _scatter_decor() -> void:
 	specs[1][0].bottom_radius = 0.04
 	specs[1][0].height = 1.0
 	specs[1][0].radial_segments = 3
+	var tar := StandardMaterial3D.new()
+	tar.albedo_color = Color(0.03, 0.025, 0.02)
+	tar.metallic = 0.6
+	tar.roughness = 0.08
+	var pools := MultiMesh.new()
+	pools.transform_format = MultiMesh.TRANSFORM_3D
+	var disc := CylinderMesh.new()
+	disc.top_radius = 1.0
+	disc.bottom_radius = 1.0
+	disc.height = 0.05
+	disc.radial_segments = 14
+	pools.mesh = disc
+	var spots: Array = []
+	for i in 6000:
+		var x := r.randf_range(-950, 950)
+		var z := r.randf_range(-950, 950)
+		if terrain.biome_name(x, z) == "marsh":
+			spots.append(Vector3(x, terrain.height_at(x, z) + 0.03, z))
+		if spots.size() >= 900:
+			break
+	pools.instance_count = spots.size()
+	for i in spots.size():
+		var sc := r.randf_range(1.5, 5.0)
+		pools.set_instance_transform(i, Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, 1, sc * r.randf_range(0.5, 1.0))), spots[i]))
+	var pmi := MultiMeshInstance3D.new()
+	pmi.multimesh = pools
+	pmi.material_override = tar
+	pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(pmi)
 	for sp in specs:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1221,7 +1307,7 @@ func _night_wave() -> void:
 		if alive_count() >= cap:
 			return
 		var n := 2 + int(nights * 0.5) + randi() % 2
-		var roster := ["rusher", "rusher", "rusher", "spitter", "spider", "swarm", "swarm", "idol"]
+		var roster: Array = BIOME_FORMS[terrain.biome_name(t.global_position.x, t.global_position.z)]
 		for k in n:
 			_spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
 		if nights >= 2 and randf() < 0.12 + nights * 0.02:
@@ -1425,10 +1511,10 @@ func _perish(message: String) -> void:
 func respawn_point() -> Vector3:
 	if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0):
 		return bedroll + Vector3(0, 0.6, 1.2)
-	var best := gpos(WPlaces.SETTLEMENTS.cinderwick.pos)
+	var best := gpos(WPlaces.spos("cinderwick"))
 	var bd := INF
 	for k in visited:
-		var c := gpos(WPlaces.SETTLEMENTS[k].pos)
+		var c := gpos(WPlaces.spos(k))
 		var d := c.distance_to(player.global_position)
 		if d < bd:
 			bd = d
@@ -1466,7 +1552,16 @@ func is_revealed(p: Vector3) -> bool:
 	return revealed[j * REVEAL_N + i] != 0
 
 
+var _biome := ""
+
+
 func _visit_check() -> void:
+	var bn := terrain.biome_name(player.global_position.x, player.global_position.z)
+	if bn != _biome:
+		if _biome != "":
+			hud.notify("%s\n%s" % [WTerrain.BIOME_NAMES[bn], BIOME_TEXT[bn]])
+		_biome = bn
+	player.speed_cap = 3.6 if bn == "marsh" and settlement_at(player.global_position, 4.0) == "" else -1.0
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
@@ -1495,8 +1590,13 @@ func _rq_hello(by: int) -> void:
 
 
 func _w_snapshot(d: Dictionary) -> void:
+	if terrain == null:
+		_make_world(int(d.get("seed", 1771)))
+		player.place(spawn_pos, spawn_yaw)
 	apply_world(d)
 	ready_world = true
+	_world_ready()
+	player.set_physics_process(true)
 	hud.notify("You stand in the same waste as the fellowship. Day %d." % day)
 
 
@@ -1523,7 +1623,7 @@ func world_data() -> Dictionary:
 	for sid in satchels:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave]
 	return {
-		"v": 1, "uid": world_uid, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
+		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(),
 	}
@@ -1596,14 +1696,9 @@ func _char_path() -> String:
 
 
 func _load_world() -> void:
-	DirAccess.make_dir_recursive_absolute("user://wasteland")
-	slot = Game.world_slot
-	var path := world_path(slot)
-	if FileAccess.file_exists(path):
-		var f := FileAccess.open(path, FileAccess.READ)
-		var d = str_to_var(f.get_as_text())
-		if d is Dictionary:
-			apply_world(d)
+	if not _pending.is_empty():
+		apply_world(_pending)
+		_pending = {}
 	if world_uid == "":
 		world_uid = "%d%d" % [Time.get_unix_time_from_system(), randi() % 100000]
 		quests.start_new()
@@ -1654,7 +1749,7 @@ static func describe(s: String) -> String:
 	var d = str_to_var(f.get_as_text())
 	if not d is Dictionary:
 		return ""
-	return "Day %d, %d of 9 beacons burning" % [int(d.get("day", 1)), d.get("lit", []).size()]
+	return "Day %d, %d of 9 beacons burning, seed %d" % [int(d.get("day", 1)), d.get("lit", []).size(), int(d.get("seed", 1771))]
 
 
 # ================================================================== calls the fellowship shares, passed on to their keepers
@@ -1842,7 +1937,7 @@ func debug_report() -> void:
 
 ## Testing aid: walks the survivor through a day's work and prints what came of each step.
 func debug_play() -> void:
-	var c := gpos(WPlaces.SETTLEMENTS.cinderwick.pos)
+	var c := gpos(WPlaces.spos("cinderwick"))
 	player.place(c + Vector3(0, 0.5, 6), 0.0)
 	await get_tree().create_timer(1.5).timeout
 	print("PLAY at cinderwick, main stage ", quests.main_stage(), " visited ", visited.keys())
@@ -1905,9 +2000,9 @@ func debug_vigil() -> void:
 ## Testing aid: stands at the south gate of Cinderwick, then opens the map, then the talk of its elder.
 func debug_show() -> void:
 	print("UI size ", ui.size, " compass ", ui._compass.get_global_rect(), " clock ", ui._clock.get_global_rect(), " root ", hud.root.size)
-	var c := gpos(WPlaces.SETTLEMENTS.cinderwick.pos)
+	var c := gpos(WPlaces.spos("cinderwick"))
 	player.place(c + Vector3(0, 0.5, 44), 0.0)
-	reveal_place(WPlaces.SETTLEMENTS.cinderwick.pos, 260.0)
+	reveal_place(WPlaces.spos("cinderwick"), 260.0)
 	await get_tree().create_timer(7.0).timeout
 	ui.open_map()
 	await get_tree().create_timer(5.0).timeout
@@ -1922,8 +2017,8 @@ func debug_show() -> void:
 
 
 func debug_mapshot() -> void:
-	reveal_place(WPlaces.SETTLEMENTS.cinderwick.pos, 300.0)
-	reveal_place(WPlaces.BEACONS[0].pos, 120.0)
+	reveal_place(WPlaces.spos("cinderwick"), 300.0)
+	reveal_place(WPlaces.bpos(0), 120.0)
 	visited["cinderwick"] = true
 	ui.open_map()
 
@@ -1943,7 +2038,7 @@ func debug_nightshot() -> void:
 
 
 func debug_coop_host() -> void:
-	var p := gpos(WPlaces.SETTLEMENTS.cinderwick.pos) + Vector3(80, 0, 20)
+	var p := gpos(WPlaces.spos("cinderwick")) + Vector3(80, 0, 20)
 	builder._rq_build(1, "chest", p, 0.0)
 	_w_vigil_end(0, true)
 	await get_tree().create_timer(12.0).timeout
@@ -1964,3 +2059,22 @@ func debug_coop_join() -> void:
 	_gather(nd.id)
 	await get_tree().create_timer(3.0).timeout
 	print("JOIN node charges ", nodes[5].charges, " pack ", inv.to_data().filter(func(x): return x != null))
+
+
+
+func _world_ready() -> void:
+	if ui:
+		ui.map_dirty = true
+
+
+func debug_fullmap() -> void:
+	revealed.fill(1)
+	for k in WPlaces.SETTLEMENTS:
+		visited[k] = true
+	for r in ruins:
+		known_ruins[r.id] = true
+	ui.open_map()
+	var counts := {}
+	for nd in nodes:
+		counts[nd.kind] = counts.get(nd.kind, 0) + 1
+	print("SEED ", world_seed, " nodes ", counts)

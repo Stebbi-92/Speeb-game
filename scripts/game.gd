@@ -60,6 +60,7 @@ var player_name := ""
 var lobby_url := ""
 ## The open waste: which world is walked, and whether we are walking it now.
 var world_slot := "1"
+var new_world_seed := 0
 var wasteland := false
 ## Revelations: deeds the pilgrimage remembers.
 const REVELATIONS := {
