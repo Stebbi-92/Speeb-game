@@ -38,6 +38,7 @@ var servers := {}
 var last_error := ""
 var join_code := ""      ## six letters by which the internet list finds this fellowship
 var private := false     ## private fellowships are found only by their code or address
+var listed_public := false  ## shown in the internet list (otherwise found there only by its code)
 var password := ""       ## the word a pilgrim must give to join, if any
 var join_word := ""      ## the word this pilgrim gives when joining
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -140,7 +141,10 @@ func host(p: int, sname: String, listed: bool, headless := false, priv := false,
 	port = p
 	server_name = sname
 	private = priv and not listed
-	public = listed or private   # a private fellowship still tells the list its code, so that it may be found by it
+	listed_public = listed
+	# Every fellowship tells the internet list its code, so its join code always works; only a listed
+	# one is shown in the list itself
+	public = lobby_url() != ""
 	password = word.strip_edges()
 	join_code = ""
 	for k in 6:
@@ -721,7 +725,8 @@ func _open_discovery() -> void:
 func _info() -> Dictionary:
 	return {"name": server_name, "port": port, "players": players.size(), "max": MAX_PLAYERS,
 		"level": in_level, "proto": PROTOCOL, "version": str(ProjectSettings.get_setting("application/config/version", "")),
-		"code": join_code, "private": private, "locked": password != ""}
+		"code": join_code, "private": not listed_public, "locked": password != "",
+		"ip4": external_ip, "lan": local_addresses()}
 
 
 ## Is this text a join code rather than an address?
@@ -757,7 +762,18 @@ func _on_code(result: int, code: int, _headers: PackedStringArray, body: PackedB
 		last_error = "That fellowship walks a different version of Brelm (%s)." % data.get("version", "?")
 		_log(last_error)
 		return
-	join(str(data.ip), int(data.port))
+	join(best_address(data), int(data.port))
+
+
+## Where to reach a fellowship from the internet list: inside our own network if we share it with the
+## host (routers seldom loop back to their own public address), else its public IPv4 if the router told
+## it one (an IPv6 address only reaches pilgrims who have IPv6 too), else the address the list saw.
+static func best_address(s: Dictionary) -> String:
+	if s.get("same", false) and s.get("lan") is Array and not s.lan.is_empty():
+		return str(s.lan[0])
+	if str(s.get("ip4", "")) != "":
+		return str(s.ip4)
+	return str(s.get("ip", ""))
 
 
 ## Looks for fellowships on the local network and on the internet list.
@@ -789,6 +805,7 @@ func _on_list(result: int, code: int, _headers: PackedStringArray, body: PackedB
 	for s in data.servers:
 		if not (s is Dictionary) or not s.has("ip") or not s.has("port"):
 			continue
+		s["ip"] = best_address(s)
 		var key := "%s:%d" % [s.ip, int(s.port)]
 		if servers.has(key):
 			continue
@@ -858,6 +875,7 @@ func _upnp_done(u, state: String, ip: String) -> void:
 	_upnp = u
 	upnp_state = state
 	external_ip = ip
+	_announce_t = minf(_announce_t, 0.5)    # tell the list the address the router gave
 	_log(state + (" Internet address: %s:%d" % [ip, port] if ip != "" else ""))
 	roster_changed.emit()
 

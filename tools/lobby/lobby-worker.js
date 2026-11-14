@@ -2,9 +2,10 @@
 // Hosts announce themselves about once a minute; players fetch the list. Nothing is written to disk:
 // the list lives in one Durable Object's memory, and a host that stops announcing drops off after two minutes.
 //
-//   POST /announce  {name, port, players, max, level, proto, version}   (the host's address is taken from the request)
+//   POST /announce  {name, port, players, max, level, proto, version, code, private, locked, ip4, lan}   (the host's address is taken from the request)
 //   POST /remove    {port}
-//   GET  /list      -> {servers: [{name, ip, port, players, max, level, proto, version, locked}]}   (private ones are left out)
+//   GET  /list      -> {servers: [{name, ip, ip4, port, players, max, level, proto, version, locked, same, lan?}]}   (private ones are left out)
+//   (ip4 is the host's public IPv4 as its router told it; same/lan say whether the asker shares the host's network)
 //   GET  /code/XXXXXX -> {name, ip, port, players, max, level, proto, version, locked}   (a fellowship by its join code)
 //   GET  /latest    -> {version, tag, name, notes, published, page, assets: {name: url}, news}
 //
@@ -23,32 +24,71 @@ function json(data, status = 200) {
   });
 }
 
+const V4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+function ipv4(s) {
+  const m = V4.exec(String(s ?? ""));
+  return m && m.slice(1).every((x) => Number(x) <= 255) ? m[0] : "";
+}
+// A host's addresses on its own network, so that a pilgrim behind the same router can reach it there
+// (many routers will not loop a connection to their own public address back inside)
+function lanList(a) {
+  if (!Array.isArray(a)) return [];
+  return a.map(ipv4).filter((x) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(x)).slice(0, 4);
+}
+// Same network: the same public IPv4, or the same IPv6 /64
+function sameNet(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(":") && b.includes(":")) {
+    const p = (x) => x.toLowerCase().split(":").slice(0, 4).join(":");
+    return p(a) === p(b);
+  }
+  return false;
+}
+
 function clean(s, n) {
   return String(s ?? "").replace(/[\u0000-\u001f]/g, "").slice(0, n);
 }
 
 export class Lobby {
   constructor(state, env) {
+    this.state = state;
     this.servers = new Map();
+    // The list is kept in storage too, so it survives the object being put to sleep between visits
+    state.blockConcurrencyWhile(async () => {
+      const saved = await state.storage.get("servers");
+      if (Array.isArray(saved)) for (const [k, v] of saved) this.servers.set(k, v);
+    });
+  }
+
+  save() {
+    return this.state.storage.put("servers", [...this.servers.entries()]);
+  }
+
+  // What a pilgrim is told of a fellowship: its local addresses only if they share its network
+  view(s, ip) {
+    const { expires, private: _p, lan, ...out } = s;
+    out.same = sameNet(ip, s.ip) || sameNet(ip, s.ip4);
+    if (out.same) out.lan = lan || [];
+    return out;
   }
 
   async fetch(request) {
     const url = new URL(request.url);
     const ip = request.headers.get("x-brelm-ip") || "";
     const now = Date.now();
-    for (const [k, s] of this.servers) if (s.expires < now) this.servers.delete(k);
+    let dropped = false;
+    for (const [k, s] of this.servers) if (s.expires < now) { this.servers.delete(k); dropped = true; }
+    if (dropped) await this.save();
 
     if (url.pathname === "/list" && request.method === "GET") {
-      const servers = [...this.servers.values()].filter((s) => !s.private).map(({ expires, private: _p, ...s }) => s);
+      const servers = [...this.servers.values()].filter((s) => !s.private).map((s) => this.view(s, ip));
       return json({ servers });
     }
     if (url.pathname.startsWith("/code/") && request.method === "GET") {
       const code = clean(url.pathname.slice(6), 12).toUpperCase();
       for (const s of this.servers.values()) {
-        if (code.length >= 4 && s.code === code) {
-          const { expires, private: _p, ...out } = s;
-          return json(out);
-        }
+        if (code.length >= 4 && s.code === code) return json(this.view(s, ip));
       }
       return json({ error: "no fellowship has that code" }, 404);
     }
@@ -66,6 +106,7 @@ export class Lobby {
 
     if (url.pathname === "/remove") {
       this.servers.delete(key);
+      await this.save();
       return json({ ok: true });
     }
     if (url.pathname === "/announce") {
@@ -86,8 +127,11 @@ export class Lobby {
         code: clean(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
         private: !!body.private,
         locked: !!body.locked,
+        ip4: ipv4(body.ip4),
+        lan: lanList(body.lan),
         expires: now + TTL_MS,
       });
+      await this.save();
       return json({ ok: true, ip });
     }
     return json({ error: "not found" }, 404);
