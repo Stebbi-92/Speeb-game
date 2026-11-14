@@ -126,6 +126,7 @@ func _build_menu() -> void:
 		_menu.add_child(_btn("Return to a Trial", _show_chapters))
 	_menu.add_child(_btn("The Ashen Waste", _show_waste))
 	_menu.add_child(_btn("Walk Together", _show_together))
+	_menu.add_child(_btn("Arms", func(): hud.show_loadout()))
 	_menu.add_child(_btn("Options", func(): hud.show_options()))
 	if Game.tenth_unlocked():
 		_menu.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11)))
@@ -170,7 +171,7 @@ func _build_menu() -> void:
 	ver.position = Vector2(-140, 20)
 	ver.size = Vector2(110, 24)
 	box.add_child(ver)
-	var c: Label = hud._label("WASD walk  ·  Mouse look  ·  LMB use  ·  1–6 or wheel relics  ·  E interact  ·  Shift hasten  ·  Tab the Book of Emojis  ·  Esc stillness", 16, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	var c: Label = hud._label("WASD walk  ·  Mouse look  ·  LMB use  ·  RMB aim  ·  1–6 or wheel relics  ·  X change gun  ·  Z melee  ·  G grenade  ·  T gadget  ·  E interact  ·  Shift hasten  ·  Tab the Book of Emojis  ·  Esc stillness", 16, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
 	c.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	c.position = Vector2(110, -60)
 	c.size = Vector2(1200, 30)
@@ -236,17 +237,12 @@ var _upd_btn: Button
 
 func _build_update(box: Control) -> void:
 	_upd = VBoxContainer.new()
-	_upd.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_upd.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_upd.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_upd.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_upd.position = Vector2(-470, -150)
+	_upd.position = Vector2(-470, 50)
 	_upd.custom_minimum_size = Vector2(440, 0)
 	_upd.add_theme_constant_override("separation", 6)
 	box.add_child(_upd)
-	var ver: Label = _small("Alpha " + Updater.current.trim_suffix("-alpha"), Color(0.45, 0.43, 0.40), 15)
-	ver.custom_minimum_size.x = 440
-	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_upd.add_child(ver)
 	_upd_text = _small("", hud.GOLD, 17)
 	_upd_text.custom_minimum_size.x = 440
 	_upd_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -507,6 +503,13 @@ func _on_roster() -> void:
 			o.add_theme_font_size_override("font_size", 18)
 			o.item_selected.connect(func(i): Game.difficulty = i; Game.save())
 			_lobby.add_child(o)
+			var ua := CheckBox.new()
+			ua.text = "Unlimited ammunition"
+			ua.button_pressed = Game.unlimited_ammo
+			ua.add_theme_font_size_override("font_size", 18)
+			ua.tooltip_text = "Guns are still reloaded, but never spend their reserve. For everyone in the fellowship."
+			ua.toggled.connect(func(on): Game.unlimited_ammo = on; Game.save(); Net.send_rules())
+			_lobby.add_child(ua)
 		var grid := GridContainer.new()
 		grid.columns = 2
 		_lobby.add_child(grid)

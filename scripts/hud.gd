@@ -37,6 +37,8 @@ var codex_list: VBoxContainer
 var codex_count: Label
 var menu_box: Control
 var ammo_label: Label
+var kit_label: Label
+var scope_view: Control
 var health_bar: ProgressBar
 var hotbar: Hotbar
 var streak_label: Label
@@ -210,6 +212,17 @@ func _ready() -> void:
 	ammo_label.add_theme_constant_override("shadow_offset_x", 2)
 	ammo_label.add_theme_constant_override("shadow_offset_y", 2)
 	root.add_child(ammo_label)
+	kit_label = _label("", 15, Color(PALE, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
+	kit_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	kit_label.position = Vector2(-636, -30)
+	kit_label.size = Vector2(600, 24)
+	root.add_child(kit_label)
+	scope_view = ScopeView.new()
+	scope_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scope_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scope_view.visible = false
+	root.add_child(scope_view)
+	root.move_child(scope_view, 0)
 	health_bar = ProgressBar.new()
 	health_bar.show_percentage = false
 	health_bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -366,11 +379,14 @@ func set_meter(label: String, value: float) -> void:
 func set_ammo(n: int, cap: int, reserve := 0) -> void:
 	if n < 0:
 		ammo_label.text = ""
+		kit_label.text = ""
 		return
 	var s := ""
-	for i in cap:
-		s += "|" if i < n else "·"
-	ammo_label.text = s + "   %d  /  %d" % [n, reserve]
+	if cap <= 12:
+		for i in cap:
+			s += "|" if i < n else "·"
+		s += "   "
+	ammo_label.text = s + "%d  /  %s" % [n, "∞" if reserve == -2 else str(reserve)]
 	ammo_label.add_theme_color_override("font_color", PALE if reserve > 0 or n > 0 else Color(0.8, 0.3, 0.25))
 
 
@@ -384,6 +400,58 @@ func _ensure_marks() -> void:
 		_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_marks)
 		root.move_child(_marks, fade.get_index())
+
+
+## Opens the choosing of arms over everything else.
+func show_loadout() -> LoadoutUI:
+	var ui := LoadoutUI.new()
+	ui.hud = self
+	root.add_child(ui)
+	return ui
+
+
+## The line beneath the ammunition: the gun, its sight, grenades and the gadget.
+func set_kit(text: String) -> void:
+	kit_label.text = text
+
+
+func set_scope(on: bool) -> void:
+	if scope_view.visible != on:
+		scope_view.visible = on
+
+
+## Looking through glass: a dark ring around a clear circle, and fine crosshairs.
+class ScopeView extends Control:
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.42
+		var dark := Color(0, 0, 0, 0.96)
+		var pts := PackedVector2Array()
+		for i in 65:
+			var a := i * TAU / 64.0
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		# Everything outside the circle is dark: four rectangles and the corners between circle and box
+		draw_rect(Rect2(0, 0, c.x - r, size.y), dark)
+		draw_rect(Rect2(c.x + r, 0, size.x - c.x - r, size.y), dark)
+		for i in 64:
+			var a0 := i * TAU / 64.0
+			var a1 := (i + 1) * TAU / 64.0
+			var p0 := c + Vector2(cos(a0), sin(a0)) * r
+			var p1 := c + Vector2(cos(a1), sin(a1)) * r
+			var edge := Vector2(p0.x, 0.0 if p0.y < c.y else size.y)
+			var edge1 := Vector2(p1.x, 0.0 if p1.y < c.y else size.y)
+			draw_colored_polygon(PackedVector2Array([p0, p1, edge1, edge]), dark)
+		draw_polyline(pts, Color(0, 0, 0, 1), 6.0)
+		var ln := Color(0, 0, 0, 0.85)
+		draw_line(c - Vector2(r, 0), c - Vector2(14, 0), ln, 2.0)
+		draw_line(c + Vector2(14, 0), c + Vector2(r, 0), ln, 2.0)
+		draw_line(c - Vector2(0, r), c - Vector2(0, 14), ln, 2.0)
+		draw_line(c + Vector2(0, 14), c + Vector2(0, r), ln, 2.0)
+		draw_circle(c, 1.6, Color(0.8, 0.1, 0.1, 0.9))
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_RESIZED:
+			queue_redraw()
 
 
 func hitmarker(kill: bool) -> void:
@@ -874,7 +942,7 @@ func show_options() -> void:
 		if Game.main.level and Game.main.level.has_method("apply_quality"):
 			Game.main.level.apply_quality())
 	if Game.revealed.has("hundred"):
-		_choice("Shotgun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, func(i): Game.gilded = i == 1; Game.save())
+		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, func(i): Game.gilded = i == 1; Game.save())
 	else:
 		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded shotgun.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	_section("Controls")

@@ -242,6 +242,9 @@ func current() -> String:
 func select(i: int) -> void:
 	if i < 0 or i >= Game.RELICS.size() or not Game.has_relic(Game.RELICS[i]):
 		return
+	if i == 0 and slot == 0 and player.armed and player.weapon:
+		player.weapon.swap()     # pressing 1 again changes between the primary and secondary gun
+		return
 	if i != slot:
 		_raise = 1.0
 	slot = i

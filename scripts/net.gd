@@ -39,6 +39,7 @@ var last_error := ""
 
 var _joining := false
 var _own_difficulty := -1
+var host_unlimited := false   ## the host's rule: guns never spend their reserve
 var _join_t := 0.0
 var _disc: PacketPeerUDP
 var _probe: PacketPeerUDP
@@ -197,6 +198,7 @@ func leave(reason := "") -> void:
 	if _own_difficulty >= 0:
 		Game.difficulty = _own_difficulty
 		_own_difficulty = -1
+	host_unlimited = false
 	if was:
 		roster_changed.emit()
 		session_ended.emit(reason)
@@ -271,6 +273,7 @@ func _hello(pname: String, proto: String, version: String) -> void:
 	_roster.rpc(players, leader)
 	roster_changed.emit()
 	_welcome.rpc_id(id, server_name, Game.difficulty)
+	_rules.rpc_id(id, Game.unlimited_ammo)
 	if in_level >= 0:
 		_begin.rpc_id(id, in_level, seq, Game.difficulty)
 	var lvl = _level()
@@ -292,6 +295,21 @@ func _welcome(sname: String, difficulty: int) -> void:
 	Game.difficulty = difficulty
 	_log("Joined \"%s\"." % sname)
 	roster_changed.emit()
+
+
+## Whether guns spend their reserve. Offline it is the player's own choice; in a fellowship, the host's.
+func unlimited_ammo() -> bool:
+	return host_unlimited if online and not multiplayer.is_server() else Game.unlimited_ammo
+
+
+func send_rules() -> void:
+	if online and multiplayer.is_server():
+		_rules.rpc(Game.unlimited_ammo)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rules(unlimited: bool) -> void:
+	host_unlimited = unlimited
 
 
 @rpc("authority", "call_remote", "reliable")

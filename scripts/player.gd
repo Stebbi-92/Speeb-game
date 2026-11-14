@@ -15,6 +15,7 @@ var walk_speed := 3.4
 var run_speed := 5.8
 var soft_speed := 1.3
 var speed_cap := -1.0
+var carry_slow := 1.0      ## a heavy gun in hand slows the step
 var can_run := true
 var can_jump := true
 var gravity := 14.0
@@ -31,7 +32,7 @@ var dash_cd := 0.0
 var rift_cd := 0.0
 var ward_ready := true
 var ward_cd := 0.0
-var weapon: Shotgun
+var weapon: Arms
 var relics: Relics
 var armed := false
 var grappling := false
@@ -80,7 +81,7 @@ func _ready() -> void:
 func set_armed(on: bool) -> void:
 	armed = on
 	if on and weapon == null:
-		weapon = Shotgun.new()
+		weapon = Arms.new()
 		weapon.player = self
 		cam.add_child(weapon)
 	if relics == null:
@@ -104,10 +105,7 @@ func grapple(to: Vector3) -> void:
 
 func weapon_reset() -> void:
 	if weapon:
-		weapon.shells = Shotgun.CAPACITY
-		weapon.reserve = 24
-		if weapon.enabled:
-			weapon._ui()
+		weapon.refill()
 
 
 func place(pos: Vector3, facing_yaw: float) -> void:
@@ -185,6 +183,7 @@ func _physics_process(delta: float) -> void:
 		sp = soft_speed
 	if Game.blessed("floofspeeb"):
 		sp *= 1.12
+	sp *= carry_slow
 	if speed_cap > 0.0:
 		sp = minf(sp, speed_cap)
 	var dir := (transform.basis * Vector3(input.x, 0, input.y))

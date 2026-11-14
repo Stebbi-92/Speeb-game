@@ -104,7 +104,34 @@ func _ready() -> void:
 	_place_story()
 	if Net.online and not Net.is_host():
 		Net.ask_checkpoint()
+	if armed and not Net.dedicated and OS.get_cmdline_user_args().is_empty():
+		_choose_arms()
 	intro()
+
+
+## Before each trial the pilgrim chooses what to carry. Alone, the world waits; in a fellowship it does not.
+func _choose_arms() -> void:
+	await get_tree().create_timer(0.6).timeout
+	if not is_inside_tree() or player == null:
+		return
+	var ui: LoadoutUI = hud.show_loadout()
+	var hold := not Net.online
+	if hold:
+		get_tree().paused = true
+	player.input_locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	await ui.done
+	if hold:
+		get_tree().paused = false
+	if not is_inside_tree():
+		return
+	if player.weapon:
+		player.weapon.equip_loadout()
+		if not Game.wasteland:
+			player.weapon.refill()
+		player.relics.refresh()
+	player.input_locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func build() -> void:
@@ -396,7 +423,7 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 		shared("_drop", ["shells", e.global_position, 8])
 		hud.notify("The saucer falls silent and is undone.")
 	elif not e.kind in ["swarm", "mite"] or randf() < 0.3:
-		var low: bool = player.weapon and player.weapon.reserve < 8
+		var low: bool = player.weapon and player.weapon.low_ammo()
 		if randf() < (0.7 if low else 0.35):
 			shared("_drop", ["shells", e.global_position, 4])
 
@@ -1781,6 +1808,8 @@ func fade_ambient(to_db: float, dur := 2.0) -> void:
 
 ## The Meowifestation descends. Its decree is spoken. Then Brelm goes on.
 func reveal(code: String, pos: Vector3, size := 3.0, descend := true, then := Callable(), present: Emoji3D = null) -> Emoji3D:
+	if not completed and not Net.dedicated:
+		Game.gain_pxp(400)
 	completed = true
 	if downed:
 		_rise(1.0)
@@ -1995,6 +2024,34 @@ func net_left(id: int) -> void:
 
 func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 	var av = avatars.get(id)
+	if kind.begins_with("gun:"):
+		# Another pilgrim's shot: its sound, its flash, and where it struck
+		var parts := kind.split(":")
+		var g: Dictionary = ArmsDB.GUNS.get(parts[1], ArmsDB.GUNS.shotgun)
+		var quiet := parts.size() > 2
+		sfx("supp" if quiet else str(g.sound), -14 if quiet else -6, a)
+		if av and is_instance_valid(av) and not quiet:
+			av.muzzle()
+		if g.mode == "rocket":
+			var r := Arms.Rocket.new()
+			r.shown_only = true
+			r.vel = b * float(g.speed)
+			add_child(r)
+			r.global_position = a + b * 0.9
+			return
+		var space := get_world_3d().direct_space_state
+		var q := PhysicsRayQueryParameters3D.create(a, a + b * minf(float(g.range), 120.0), 1)
+		var r2 := space.intersect_ray(q)
+		if not r2.is_empty():
+			puff(r2.position, r2.normal)
+		return
+	if kind.begins_with("throw:"):
+		var t := Arms.Thrown.make(self, kind.substr(6), a, b, true)
+		t.fuse = {"grenade": 2.2, "fire": 1.4, "flare": 45.0, "mine": 600.0}.get(kind.substr(6), 3.0)
+		if kind == "throw:mine":
+			# A fellow's mine shows until its burst is seen
+			get_tree().create_timer(120.0, false).timeout.connect(func(): if is_instance_valid(t): t.queue_free())
+		return
 	match kind:
 		"shot":
 			sfx("shotgun", -6, a)
@@ -2005,6 +2062,8 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 			var r := space.intersect_ray(q)
 			if not r.is_empty():
 				puff(r.position, r.normal)
+		"blast":
+			Arms.blast_fx(self, a, b.x)
 		"pray":
 			sfx("choir", -2, a)
 			if player.relics:
@@ -2383,3 +2442,81 @@ func debug_drop() -> void:
 		if c is Area3D and c.get_child_count() > 2 and c.has_signal("body_entered") and c.get_children().any(func(k): return k is OmniLight3D and k.light_color == Color(1.0, 0.75, 0.4)):
 			n += 1
 	print("DROPS SEEN ", n)
+
+
+## Testing aid: tries every gun, the melee, a grenade and each gadget against forms set before Brelm.
+func debug_arms() -> void:
+	await get_tree().create_timer(1.0).timeout
+	Game.plevel = ArmsDB.MAX_LEVEL
+	var w: Arms = player.weapon
+	var fwd := -player.global_transform.basis.z
+	for g in ArmsDB.GUNS:
+		Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
+		Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
+		Game.loadout.mounts = {g: ArmsDB.GUNS[g].mounts[0]} if not ArmsDB.GUNS[g].mounts.is_empty() else {}
+		w.equip_loadout()
+		w.refill()
+		if w.gun() != g:
+			w.swap()
+		var e := spawn_at("idol" if g == "rocket" else "rusher", player.global_position + fwd * 8.0)
+		combat_frozen = true
+		await get_tree().create_timer(0.3).timeout
+		var hp0: float = e.hp
+		for i in 12:
+			if not is_instance_valid(e) or not e.is_alive():
+				break
+			_debug_aim(e.global_position + Vector3(0, 0.5, 0))
+			w._spin = 1.0
+			w._cool = 0.0
+			w._try_fire()
+			await get_tree().create_timer(0.05).timeout
+		await get_tree().create_timer(1.2).timeout
+		var alive: bool = is_instance_valid(e) and e.is_alive()
+		print("ARMS %s (%s): mag %d reserve %d, form hp %.0f -> %s" % [g, Game.mount_of(g), w.shells, w.reserve, hp0, ("%.0f" % e.hp) if alive else "slain"])
+		if is_instance_valid(e):
+			e.queue_free()
+	var e2 := spawn_at("idol", player.global_position + fwd * 2.0)
+	combat_frozen = true
+	_debug_aim(e2.global_position + Vector3(0, 0.5, 0))
+	await get_tree().create_timer(0.1).timeout
+	var h := e2.hp
+	w.strike()
+	await get_tree().create_timer(0.5).timeout
+	print("ARMS melee %s: %.0f -> %s" % [w.melee, h, ("%.0f" % e2.hp) if is_instance_valid(e2) else "slain"])
+	if is_instance_valid(e2):
+		_debug_aim(e2.global_position + Vector3(0, -1.5, 0))
+		h = e2.hp
+	w.throw_grenade()
+	await get_tree().create_timer(3.5).timeout
+	print("ARMS grenade: %.0f -> %s, player hp %.0f, grenades left %d" % [h, ("%.0f" % e2.hp) if is_instance_valid(e2) and e2.is_alive() else "slain", player.health, w.grenades])
+	for gd in ArmsDB.GADGETS:
+		w.gadget = gd
+		w.charges = 2
+		player.health = 50.0
+		w.use_gadget()
+		await get_tree().create_timer(2.0).timeout
+		print("ARMS gadget %s: charges %d hp %.0f" % [gd, w.charges, player.health])
+	w.shells = 0
+	w._st[w.gun()].reserve = 0
+	w._quiet = 10.0
+	await get_tree().create_timer(12.0).timeout
+	print("ARMS dry %s comes back to reserve %d" % [w.gun(), w.reserve])
+	get_tree().quit()
+
+
+func _debug_aim(at: Vector3) -> void:
+	var d := at - player.cam.global_position
+	player.yaw = atan2(-d.x, -d.z)
+	player.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+	player.rotation.y = player.yaw
+	player.head.rotation.x = player.pitch
+
+
+func debug_loadoutshot() -> void:
+	Game.plevel = 7
+	Game.loadout.primary = "machine_gun"
+	Game.loadout.mounts = {"machine_gun": "red_dot"}
+	player.weapon.equip_loadout()
+	player.relics.refresh()
+	await get_tree().create_timer(4.0).timeout
+	hud.show_loadout()

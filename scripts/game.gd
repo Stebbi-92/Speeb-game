@@ -22,7 +22,7 @@ const BLESSINGS := {
 const SAVE_PATH := "user://brelm.save"
 ## The hotbar. The shotgun and the Praying Hands are given at the vow; the rest are found on the road.
 const RELICS := ["shotgun", "hands", "lantern", "claw", "censer", "milk"]
-const RELIC_NAMES := {"shotgun": "Shotgun", "hands": "Praying Hands", "lantern": "Lantern of Vigil", "claw": "Claw of Ascent", "censer": "Censer", "milk": "Bowl of Milk"}
+const RELIC_NAMES := {"shotgun": "Arms", "hands": "Praying Hands", "lantern": "Lantern of Vigil", "claw": "Claw of Ascent", "censer": "Censer", "milk": "Bowl of Milk"}
 const RELIC_TEXT := {
 	"lantern": "Its flame parts the dark that the eye cannot. Use it to light or quench it.",
 	"claw": "Cast it at a ring of old iron and it will draw you up to it.",
@@ -58,6 +58,10 @@ var quality := 1
 var gilded := false
 var player_name := ""
 var lobby_url := ""
+var unlimited_ammo := false   ## a hosting choice: guns never spend their reserve
+var pxp := 0                 ## profile experience, earned in every mode; unlocks arms
+var plevel := 1
+var loadout := ArmsDB.DEFAULT.duplicate(true)
 var autosave_min := 2          ## minutes between autosaves in the waste
 ## The open waste: which world is walked, and whether we are walking it now.
 var world_slot := "1"
@@ -140,12 +144,20 @@ func _setup_input() -> void:
 	_bind("reload", [KEY_R])
 	_bind("dash", [KEY_Q])
 	_bind("riftwalk", [KEY_V])
+	_bind("swap_gun", [KEY_X])
+	_bind("melee", [KEY_Z])
+	_bind("grenade", [KEY_G])
+	_bind("gadget", [KEY_T])
 	for i in RELICS.size():
 		_bind("slot_%d" % (i + 1), [KEY_1 + i])
 	InputMap.add_action("fire")
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("fire", click)
+	InputMap.add_action("aim")
+	var rclick := InputEventMouseButton.new()
+	rclick.button_index = MOUSE_BUTTON_RIGHT
+	InputMap.action_add_event("aim", rclick)
 
 
 func _bind(action: String, keys: Array) -> void:
@@ -220,6 +232,7 @@ func reveal_deed(id: String) -> void:
 
 func add_kill(kind: String) -> void:
 	stats.kills += 1
+	gain_pxp(60 if kind in ["elite", "saucer"] else 10)
 	reveal_deed("first_blood")
 	if stats.kills >= 100:
 		if not revealed.has("hundred"):
@@ -300,13 +313,63 @@ static func read_var_safe(path: String) -> Variant:
 	return null
 
 
+# ------------------------------------------------------------------ the pilgrim's arms and their growing
+
+## Adds profile experience; returns the levels gained. Every mode feeds it.
+func add_pxp(n: int) -> int:
+	if n <= 0 or plevel >= ArmsDB.MAX_LEVEL:
+		return 0
+	pxp += n
+	var ups := 0
+	while plevel < ArmsDB.MAX_LEVEL and pxp >= ArmsDB.need(plevel):
+		pxp -= ArmsDB.need(plevel)
+		plevel += 1
+		ups += 1
+	return ups
+
+
+## Profile experience with a word on screen when a new rank is reached.
+func gain_pxp(n: int) -> void:
+	var ups := add_pxp(n)
+	if ups <= 0 or main == null or main.hud == null:
+		return
+	var got: Array = []
+	for lv in range(plevel - ups + 1, plevel + 1):
+		got.append_array(ArmsDB.unlocked_at(lv))
+	main.hud.notify("Rank %d.%s" % [plevel, (" Now yours: " + ", ".join(got) + ". Choose it before the next trial.") if not got.is_empty() else ""])
+	save()
+
+
+func unlocked(t: Dictionary, id: String) -> bool:
+	return t.has(id) and int(t[id].unlock) <= plevel
+
+
+## Puts anything not yet earned (or no longer known) back to the defaults.
+func _fix_loadout() -> void:
+	for k in ["primary", "secondary", "melee", "grenade", "gadget"]:
+		var t := ArmsDB.table(k)
+		if not unlocked(t, str(loadout.get(k, ""))) or (k in ["primary", "secondary"] and t[loadout[k]].slot != k):
+			loadout[k] = ArmsDB.DEFAULT[k]
+	if not loadout.get("mounts") is Dictionary:
+		loadout.mounts = {}
+	for g in loadout.mounts.keys():
+		var m: String = loadout.mounts[g]
+		if not ArmsDB.GUNS.has(g) or not m in ArmsDB.GUNS[g].mounts or not unlocked(ArmsDB.ATTACHMENTS, m):
+			loadout.mounts.erase(g)
+
+
+func mount_of(gun: String) -> String:
+	return str(loadout.get("mounts", {}).get(gun, ""))
+
+
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
-			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min}))
+			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min,
+			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo}))
 
 
 func load_save() -> void:
@@ -320,6 +383,15 @@ func load_save() -> void:
 		return
 	if d is Dictionary:
 		autosave_min = clampi(int(d.get("autosave_min", autosave_min)), 0, 10)
+		pxp = maxi(0, int(d.get("pxp", 0)))
+		unlimited_ammo = bool(d.get("unlimited_ammo", false))
+		plevel = clampi(int(d.get("plevel", 1)), 1, ArmsDB.MAX_LEVEL)
+		var lo = d.get("loadout", {})
+		if lo is Dictionary:
+			for k in ArmsDB.DEFAULT:
+				if lo.has(k) and typeof(lo[k]) == typeof(ArmsDB.DEFAULT[k]):
+					loadout[k] = lo[k]
+		_fix_loadout()
 		reached = int(d.get("reached", 0))
 		for c in d.get("found", []):
 			found[c] = true

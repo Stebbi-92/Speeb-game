@@ -1294,6 +1294,7 @@ func award(kind: String, mult := 1.0) -> void:
 		return
 	var amount := int(round(WSkills.XP[kind] * mult))
 	var ups := skills.gain(amount)
+	Game.gain_pxp(maxi(1, amount / 2))
 	if ui:
 		ui.xp_gained(amount)
 	if ups > 0:
@@ -1568,7 +1569,7 @@ func _perish(message: String) -> void:
 		_rise(1.0)
 	player.place(respawn_point(), player.yaw)
 	player.health = player.max_health
-	player.weapon.shells = Shotgun.CAPACITY
+	player.weapon.shells = player.weapon.capacity()
 	player.weapon.add_shells(12)
 	hud.set_health(1.0, true)
 	player.input_locked = false
@@ -1736,7 +1737,7 @@ func apply_world(d: Dictionary) -> void:
 
 func char_data() -> Dictionary:
 	return {
-		"v": 1, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "hp": player.health,
+		"v": 1, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk,
 	}
@@ -1747,8 +1748,9 @@ func apply_char(d: Dictionary) -> void:
 	_apply_skills()
 	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
 	inv.from_data(d.get("inv", []))
-	player.weapon.shells = int(d.get("shells", Shotgun.CAPACITY))
+	player.weapon.shells = int(d.get("shells", player.weapon.capacity()))
 	player.weapon.reserve = int(d.get("reserve", 18))
+	player.weapon.set_ammo_state(d.get("arms"))
 	player.health = clampf(float(d.get("hp", 100.0)), 20.0, player.max_health)
 	hud.set_health(player.health / player.max_health, true)
 	var p = d.get("pos")
@@ -1796,7 +1798,7 @@ func _load_character() -> void:
 	inv.add("bandage", 2)
 	inv.add("meat", 2)
 	inv.add("salt", 12)
-	player.weapon.shells = Shotgun.CAPACITY
+	player.weapon.shells = player.weapon.capacity()
 	player.weapon.reserve = 18
 	player.weapon._ui()
 

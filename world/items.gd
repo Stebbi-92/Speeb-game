@@ -16,7 +16,7 @@ const DB := {
 	"meat": {"name": "Salted Meat", "kind": "food", "stack": 10, "value": 4, "color": Color(0.55, 0.25, 0.2), "heal": 15.0, "text": "Do not ask from what. Restores a little health."},
 	"bandage": {"name": "Bandage", "kind": "medicine", "stack": 10, "value": 5, "color": Color(0.85, 0.82, 0.75), "heal": 35.0, "text": "Clean cloth, boiled. Restores health."},
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
-	"shells": {"name": "Shells", "kind": "ammo", "stack": 999, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Shotgun shells. Carried on your belt."},
+	"shells": {"name": "Ammunition", "kind": "ammo", "stack": 999, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Rounds and shells, for whatever gun is in your hands. Carried on your belt."},
 	"pick": {"name": "Pick", "kind": "tool", "stack": 1, "value": 25, "color": Color(0.4, 0.4, 0.42), "text": "Stone and salt come away twice as fast."},
 	"hatchet": {"name": "Hatchet", "kind": "tool", "stack": 1, "value": 20, "color": Color(0.4, 0.4, 0.42), "text": "Deadwood comes away twice as fast."},
 	"prybar": {"name": "Pry Bar", "kind": "tool", "stack": 1, "value": 30, "color": Color(0.35, 0.35, 0.38), "text": "Opens what was sealed: iron chests and vault doors."},
