@@ -60,6 +60,10 @@ var _trickle := 0.0
 var _gren_t := 0.0
 var _gadget_t := 0.0
 var _melee_cool := 0.0
+var blade_out := false       ## the blade is in hand: fire swings it, a long hold swings hard, aim guards
+var guarding := false
+var _charge := -1.0          ## seconds the fire button has been held with the blade out; -1 when not held
+var _heavy := false          ## the swing under way is a heavy one
 var _swing := 0.0
 var _switch := 0.0
 var _aim := 0.0
@@ -235,12 +239,46 @@ func _unhandled_input(e: InputEvent) -> void:
 
 ## Takes the long gun (0) or the side arm (1) in hand.
 func draw_gun(i: int) -> void:
+	if blade_out:
+		_sheathe()
+		if cur != i:
+			cur = i
+			_show_model()
+		return
 	if cur != i:
 		swap()
 
 
+## Takes the blade in hand. Fire swings it; held a moment longer, it swings hard.
+func draw_blade() -> void:
+	if blade_out or _switch > 0.0:
+		return
+	blade_out = true
+	_reloading = false
+	_spin = 0.0
+	_switch = 0.25
+	_charge = -1.0
+	_show_melee()
+	_holder.visible = false
+	player.get_parent().sfx("swing", -16, null, 1.4)
+	_ui()
+
+
+func _sheathe() -> void:
+	blade_out = false
+	guarding = false
+	_charge = -1.0
+	_switch = 0.3
+	_holder.visible = true
+	player.get_parent().sfx("shell", -12)
+	_ui()
+
+
 func swap() -> void:
 	if _switch > 0.0:
+		return
+	if blade_out:
+		_sheathe()
 		return
 	_reloading = false
 	cur = 1 - cur
@@ -252,7 +290,7 @@ func swap() -> void:
 
 
 func _start_reload() -> void:
-	if shells >= capacity() or reserve <= 0 or _reloading:
+	if blade_out or shells >= capacity() or reserve <= 0 or _reloading:
 		return
 	_reloading = true
 	_reload_t = float(spec().reload_t) * reload_mult
@@ -284,7 +322,7 @@ func _process(delta: float) -> void:
 		_pump.position.z = phase * (0.1 if s.mode == "pump" else 0.06)
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
-	var aiming := debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0
+	var aiming := not blade_out and (debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
 	_set_aim(1.0 if aiming else 0.0, delta)
 	# Aiming brings the sights onto the eye's own line
 	var aim_off := Vector3.ZERO
@@ -295,16 +333,35 @@ func _process(delta: float) -> void:
 	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4
 	if _swing > 0.0:
 		_swing = maxf(0.0, _swing - delta)
-		var k := 1.0 - _swing / 0.35
+		var len := 0.5 if _heavy else 0.35
+		var k := 1.0 - _swing / len
 		_melee_holder.visible = true
-		_melee_holder.rotation = Vector3(-1.4 + k * 2.4, 0.5 - k * 1.2, 0.3)
+		if _heavy:
+			# Over the shoulder and down
+			_melee_holder.position = Vector3(-0.05, 0.05, 0.1)
+			_melee_holder.rotation = Vector3(0.9 - k * 2.6, 0.15, 0.1 - k * 0.3)
+		else:
+			_melee_holder.position = Vector3(-0.05, 0.0, 0.1)
+			_melee_holder.rotation = Vector3(-1.4 + k * 2.4, 0.5 - k * 1.2, 0.3)
 		_holder.position.y -= 0.25
+	elif blade_out:
+		_melee_holder.visible = true
+		var wind := clampf(_charge / HEAVY_HOLD, 0.0, 1.0) if _charge >= 0.0 else 0.0
+		var g := 1.0 if guarding else 0.0
+		var rest := Vector3(0.12, -0.16 + bob * 2.0 - _switch * 0.8, 0.02)
+		var guard_at := Vector3(-0.02, -0.02, -0.02)
+		_melee_holder.position = rest.lerp(guard_at, g) + Vector3(0.04, 0.12, 0.14) * wind + Vector3(_sway.x, _sway.y, 0)
+		_melee_holder.rotation = Vector3(-0.55 + wind * 1.0, 0.45, -0.3).lerp(Vector3(0.1, 0.15, 1.35), g)
 	else:
 		_melee_holder.visible = false
 	# Minigun: it must spin before it speaks, and it weighs on the one who carries it
 	if hold_fire and not Input.is_action_pressed("fire"):
 		hold_fire = false
 	var holding := not hold_fire and Input.is_action_pressed("fire") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not get_tree().paused
+	if blade_out:
+		_blade_tick(delta, holding)
+		_trickle_back(delta)
+		return
 	if s.mode == "spin":
 		_spin = move_toward(_spin, 1.0 if holding and shells > 0 and not _reloading else 0.0, delta / float(s.spin))
 		if _pump:
@@ -404,17 +461,21 @@ func _set_aim(target: float, delta: float) -> void:
 		player.cam.fov = f
 	var scoped := enabled and _aim > 0.85 and zoom >= 2.4
 	Game.main.hud.set_scope(scoped)
-	_holder.visible = not scoped
+	_holder.visible = not scoped and not blade_out
 
 
 func _ui() -> void:
 	if not enabled:
 		return
 	var hud = Game.main.hud
-	hud.set_ammo(shells, capacity(), reserve if not Net.unlimited_ammo() else -2)
 	var line := "%s" % spec().name
-	for m in Game.mounts_of(gun()):
-		line += " · " + ArmsDB.ATTACHMENTS[m].name
+	if blade_out:
+		hud.set_ammo(-1, 0)
+		line = "%s   hold to swing hard, aim to guard" % ArmsDB.MELEE[melee].name
+	else:
+		hud.set_ammo(shells, capacity(), reserve if not Net.unlimited_ammo() else -2)
+		for m in Game.mounts_of(gun()):
+			line += " · " + ArmsDB.ATTACHMENTS[m].name
 	line += "     %s %d     %s %d" % [ArmsDB.GRENADES[grenade].name.split(" ")[0], grenades, ArmsDB.GADGETS[gadget].name, charges]
 	var ready = player.get_parent().get("streaks_ready")
 	if ready is Array and not ready.is_empty():
@@ -667,20 +728,50 @@ static func blast_fx(lvl: Node, at: Vector3, radius: float) -> void:
 
 # ------------------------------------------------------------------ melee, grenades, gadgets
 
-func strike() -> void:
+const HEAVY_HOLD := 0.4       ## hold fire this long with the blade out, and the swing is a heavy one
+const LIGHT_COST := 8.0
+const HEAVY_COST := 24.0
+
+
+## The blade in hand: a short press swings, a long hold winds up and swings hard on release.
+## Aim raises the blade to guard: blows are turned aside for stamina.
+func _blade_tick(delta: float, holding: bool) -> void:
+	guarding = Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
+	if guarding:
+		_charge = -1.0
+		return
+	if holding and _switch <= 0.0:
+		if _charge < 0.0:
+			_charge = 0.0
+		else:
+			_charge += delta
+		if _charge >= HEAVY_HOLD and _charge - delta < HEAVY_HOLD:
+			player.get_parent().sfx("tick", -14, null, 0.6)
+	elif _charge >= 0.0:
+		strike(_charge >= HEAVY_HOLD)
+		_charge = -1.0
+
+
+func strike(heavy := false) -> void:
 	if _melee_cool > 0.0 or _swing > 0.0:
 		return
-	var m: Dictionary = ArmsDB.MELEE[melee]
-	_melee_cool = float(m.rate)
-	_swing = 0.35
+	if not player.spend(HEAVY_COST if heavy else LIGHT_COST):
+		return
+	var m: Dictionary = ArmsDB.MELEE[melee].duplicate()
+	_heavy = heavy
+	if heavy:
+		m.dmg = float(m.dmg) * 2.2
+		m.reach = float(m.reach) + 0.4
+	_melee_cool = float(m.rate) * (1.5 if heavy else 1.0)
+	_swing = 0.5 if heavy else 0.35
 	_reloading = false
 	_show_melee()
 	var lvl = player.get_parent()
-	lvl.sfx("swing", -6, null, randf_range(0.9, 1.1) * (0.8 if melee == "sledge" else 1.0))
-	get_tree().create_timer(0.12, false).timeout.connect(func(): _melee_hit(m))
+	lvl.sfx("swing", -4 if heavy else -6, null, randf_range(0.9, 1.1) * (0.8 if melee == "sledge" else 1.0) * (0.8 if heavy else 1.0))
+	get_tree().create_timer(0.24 if heavy else 0.12, false).timeout.connect(func(): _melee_hit(m, heavy))
 
 
-func _melee_hit(m: Dictionary) -> void:
+func _melee_hit(m: Dictionary, heavy := false) -> void:
 	if not is_instance_valid(player):
 		return
 	var lvl = player.get_parent()
@@ -700,8 +791,8 @@ func _melee_hit(m: Dictionary) -> void:
 		if to.length() < float(m.reach) + 0.6 and fwd.dot(to.normalized()) > 0.6:
 			hits[e] = float(m.dmg) * damage_mult
 	if not hits.is_empty():
-		lvl.sfx("chop", -4, null, randf_range(0.85, 1.1))
-		player.shake(0.15)
+		lvl.sfx("chop", -1 if heavy else -4, null, randf_range(0.85, 1.1) * (0.8 if heavy else 1.0))
+		player.shake(0.3 if heavy else 0.15)
 		Arms.deal(hits, fwd, "blade")
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)

@@ -43,6 +43,7 @@ var ammo_label: Label
 var kit_label: Label
 var scope_view: Control
 var health_bar: ProgressBar
+var stamina_bar: ProgressBar   ## the waste: breath for running, dodging and heavy blows
 var hotbar: Hotbar
 var streak_label: Label
 var _deed_box: PanelContainer
@@ -238,6 +239,23 @@ func _ready() -> void:
 	health_bar.add_theme_stylebox_override("fill", _flat(Color(0.75, 0.2, 0.15)))
 	health_bar.visible = false
 	root.add_child(health_bar)
+	stamina_bar = ProgressBar.new()
+	stamina_bar.show_percentage = false
+	# Low in the middle, where the eye already is in a fight
+	stamina_bar.anchor_left = 0.5
+	stamina_bar.anchor_right = 0.5
+	stamina_bar.anchor_top = 1.0
+	stamina_bar.anchor_bottom = 1.0
+	stamina_bar.offset_left = -120
+	stamina_bar.offset_right = 120
+	stamina_bar.offset_top = -96
+	stamina_bar.offset_bottom = -91
+	stamina_bar.max_value = 1.0
+	stamina_bar.value = 1.0
+	stamina_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.12)))
+	stamina_bar.add_theme_stylebox_override("fill", _flat(Color(0.86, 0.80, 0.55)))
+	stamina_bar.visible = false
+	root.add_child(stamina_bar)
 	hotbar = Hotbar.new()
 	hotbar.font = title_font
 	hotbar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -659,6 +677,13 @@ func set_health(v: float, show: bool) -> void:
 	health_bar.value = v
 
 
+## Shown only while it is not full. Red while winded, until the breath comes back.
+func set_stamina(v: float, show: bool, winded := false) -> void:
+	stamina_bar.visible = show and v < 0.999
+	stamina_bar.value = v
+	stamina_bar.add_theme_stylebox_override("fill", _flat(Color(0.8, 0.35, 0.25) if winded else Color(0.86, 0.80, 0.55)))
+
+
 var blessing_label: Label
 
 
@@ -869,6 +894,7 @@ func clear_all() -> void:
 	name_label.text = ""
 	ammo_label.text = ""
 	health_bar.visible = false
+	stamina_bar.visible = false
 	hotbar.visible = false
 	relic_hint.text = ""
 	streak_label.text = ""
@@ -1352,9 +1378,9 @@ class Hotbar extends Control:
 	func _draw_waste() -> void:
 		var gold := Color(0.86, 0.80, 0.66)
 		var cells := [
-			["1", "shotgun" if arms.guns[0] != "minigun" else "shotgun", ArmsDB.GUNS[arms.guns[0]].name, slot == 0 and arms.cur == 0, ""],
-			["2", "pistol", ArmsDB.GUNS[arms.guns[1]].name, slot == 0 and arms.cur == 1, ""],
-			["3", "blade", ArmsDB.MELEE[arms.melee].name, false, ""],
+			["1", "shotgun" if arms.guns[0] != "minigun" else "shotgun", ArmsDB.GUNS[arms.guns[0]].name, slot == 0 and arms.cur == 0 and not arms.blade_out, ""],
+			["2", "pistol", ArmsDB.GUNS[arms.guns[1]].name, slot == 0 and arms.cur == 1 and not arms.blade_out, ""],
+			["3", "blade", ArmsDB.MELEE[arms.melee].name, slot == 0 and arms.blade_out, ""],
 			["4", "hands", "Prayer", slot == 1, ""],
 			["5", "lantern", "Lantern", slot == 2, ""],
 			["6", "milk", "Milk", slot == 5, str(milk)],

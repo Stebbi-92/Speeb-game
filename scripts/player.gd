@@ -30,6 +30,14 @@ var bob_amount := 1.0
 var health := 100.0
 var max_health := 100.0
 var dash_cd := 0.0
+## Stamina, in the waste only: running, dodging and heavy blows spend it; it comes back after a breath.
+## At empty you are winded and cannot run or dodge until it is a quarter full again.
+const STAMINA_MAX := 100.0
+var stamina := STAMINA_MAX
+var winded := false
+var _breath := 0.0            ## seconds until stamina starts to come back
+var stamina_mult := 1.0       ## how fast it comes back (food, rest and gear change it)
+var _breath_note := -10000
 var dodge_t := 0.0   ## a dodge in the waste: for this long, bites and blows pass by
 var rift_cd := 0.0
 var ward_ready := true
@@ -192,7 +200,8 @@ func _physics_process(delta: float) -> void:
 	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var sp := walk_speed
-	if can_run and Input.is_action_pressed("run"):
+	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded)
+	if running:
 		sp = run_speed
 	if Input.is_action_pressed("soft"):
 		sp = soft_speed
@@ -218,6 +227,7 @@ func _physics_process(delta: float) -> void:
 	_blessings(delta, dir)
 	move_and_slide()
 	cur_speed = Vector2(velocity.x, velocity.z).length()
+	_stamina_tick(delta, running and cur_speed > walk_speed * 0.8)
 
 	if on_floor and cur_speed > 0.3:
 		_bob_t += delta * cur_speed * 2.2
@@ -251,7 +261,7 @@ func _blessings(delta: float, dir: Vector3) -> void:
 			ward_ready = true
 	if input_locked or not armed:
 		return
-	if Game.wasteland and not Game.blessed("speebyeet") and Input.is_action_just_pressed("dash") and dash_cd <= 0.0 and is_on_floor():
+	if Game.wasteland and not Game.blessed("speebyeet") and Input.is_action_just_pressed("dash") and dash_cd <= 0.0 and is_on_floor() and spend(22.0):
 		# A quick step aside, the way you are moving (or back, standing still); a bite in that moment misses
 		dash_cd = 1.1
 		dodge_t = 0.3
@@ -268,6 +278,41 @@ func _blessings(delta: float, dir: Vector3) -> void:
 	if Game.blessed("glitchspeeb") and Input.is_action_just_pressed("riftwalk") and rift_cd <= 0.0:
 		rift_cd = 18.0
 		get_parent().riftwalk()
+
+
+## Spends stamina. Outside the waste there is none to spend, so everything is free.
+## Returns false, and spends nothing, when winded or when there is not enough.
+func spend(n: float) -> bool:
+	if not Game.wasteland:
+		return true
+	if winded or stamina < n * 0.5:
+		if Game.main and Game.main.hud and Time.get_ticks_msec() - _breath_note > 3000:
+			_breath_note = Time.get_ticks_msec()
+			Game.main.hud.notify("You are out of breath.")
+		return false
+	stamina = maxf(0.0, stamina - n)
+	_breath = 0.9
+	if stamina <= 0.0:
+		winded = true
+	return true
+
+
+func _stamina_tick(delta: float, running: bool) -> void:
+	if not Game.wasteland:
+		return
+	if running and is_on_floor():
+		stamina = maxf(0.0, stamina - 11.0 * delta)
+		_breath = 0.6
+		if stamina <= 0.0:
+			winded = true
+	else:
+		_breath = maxf(0.0, _breath - delta)
+		if _breath <= 0.0:
+			stamina = minf(STAMINA_MAX, stamina + 24.0 * stamina_mult * delta)
+	if winded and stamina >= STAMINA_MAX * 0.25:
+		winded = false
+	if Game.main and Game.main.hud:
+		Game.main.hud.set_stamina(stamina / STAMINA_MAX, armed, winded)
 
 
 func reset_max_health() -> void:

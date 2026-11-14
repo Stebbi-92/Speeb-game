@@ -900,6 +900,8 @@ func _needs_tick(delta: float) -> void:
 	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
 	player.walk_speed = 3.4 * skills.speed_mult() * slow
 	player.run_speed = 5.8 * skills.speed_mult() * slow
+	# Breath comes back slower when weary or starving, and slower still under heavy plate
+	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
 	if food <= 0.0:
 		_starve_t -= delta
 		if _starve_t <= 0.0:
@@ -2666,8 +2668,22 @@ func damage_player(amount: float, from: Vector3) -> void:
 		# Stepped aside in time
 		hud.hitmarker(false, true)
 		return
-	player.shake(0.45)
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
+	var wpn = player.weapon
+	if wpn and wpn.guarding and wpn.enabled:
+		# The blade is raised: a blow from the front is turned, and it costs breath
+		var to := from - player.global_position
+		to.y = 0
+		var fwd := -player.global_transform.basis.z
+		if to.length() < 0.1 or fwd.dot(to.normalized()) > 0.3:
+			if player.spend(minf(40.0, 6.0 + amount * 0.6)):
+				amount *= 0.25
+				sfx("chop", -8, null, 1.5)
+				player.shake(0.15)
+				hud.hitmarker(false, true)
+				if amount < 1.0:
+					return
+	player.shake(0.45)
 	if skills.rank("last_light") > 0:
 		for i in lit:
 			if player.global_position.distance_to(beacon_nodes[i].pos) < 150.0:
@@ -4512,6 +4528,68 @@ func debug_combat() -> void:
 	var o: Vector3 = wp[0] + Vector3(0, 0, 5)
 	print("COMBAT head ray hits=%s body ray hits=%s" % [Arms._ray_near(o, Vector3(0, 0, -1), wp[0], wp[1]), Arms._ray_near(o + Vector3(0, -1.0, 0), Vector3(0, 0, -1), wp[0], wp[1])])
 	get_tree().quit()
+
+
+## Testing aid: the blade in hand, heavy blows, the guard and stamina.
+func debug_blade() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn = player.weapon
+	wpn.draw_blade()
+	await get_tree().create_timer(0.4).timeout
+	var e := spawn_at("rusher", player.global_position - player.global_transform.basis.z * 2.0 + Vector3(0, 0.5, 0))
+	e._attack_cd = 99.0
+	e.hp = 1000.0
+	e.set_meta("raid", true)
+	await get_tree().create_timer(0.3).timeout
+	var hp0: float = e.hp
+	var st0: float = player.stamina
+	wpn.strike(false)
+	await get_tree().create_timer(0.8).timeout
+	var light: float = hp0 - e.hp
+	var st1: float = player.stamina
+	wpn._melee_cool = 0.0
+	e.die(false)
+	e = spawn_at("rusher", player.global_position - player.global_transform.basis.z * 2.0 + Vector3(0, 0.5, 0))
+	e._attack_cd = 99.0
+	e.hp = 1000.0
+	e.set_meta("raid", true)
+	await get_tree().create_timer(0.3).timeout
+	hp0 = e.hp
+	wpn.strike(true)
+	await get_tree().create_timer(0.9).timeout
+	var heavy: float = hp0 - e.hp
+	print("BLADE out=%s light=%.0f heavy=%.0f stamina %.0f -> %.0f" % [wpn.blade_out, light, heavy, st0, st1])
+	# A guarded blow from the front
+	player.stamina = 100.0
+	player.health = 100.0
+	wpn.guarding = true
+	var front: Vector3 = player.global_position - player.global_transform.basis.z * 2.0
+	damage_player(20.0, front)
+	var guarded: float = 100.0 - player.health
+	wpn.guarding = false
+	player.health = 100.0
+	damage_player(20.0, front)
+	var open_hit: float = 100.0 - player.health
+	print("BLADE guarded=%.1f open=%.1f stamina_after_guard<100=%s" % [guarded, open_hit, player.stamina < 100.0])
+	# Spending to empty leaves you winded
+	player.stamina = 10.0
+	player.spend(20.0)
+	var w1: bool = player.winded
+	var can: bool = player.spend(5.0)
+	print("BLADE winded=%s refused=%s" % [w1, not can])
+	wpn.draw_gun(0)
+	print("BLADE sheathed=%s" % (not wpn.blade_out))
+	get_tree().quit()
+
+
+## Testing aid: the blade held, for a picture.
+func debug_bladeshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.weapon.draw_blade()
+	player.stamina = 55.0
+	player._breath = 99.0
 
 
 ## Testing aid: the world's settings take hold, are saved, and show in their dialog.

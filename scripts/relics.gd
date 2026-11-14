@@ -281,8 +281,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				elif i == 2:
 					if slot != 0:
 						select(0)
-					if player.weapon and player.weapon.enabled:
-						player.weapon.strike()
+					if player.weapon:
+						player.weapon.draw_blade()
 				else:
 					var r: int = [1, 2, 5, 3, 4][i - 3]
 					if not Game.has_relic(Game.RELICS[r]) and r in [3, 4]:
