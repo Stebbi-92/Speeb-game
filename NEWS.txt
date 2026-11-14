@@ -1,0 +1,23 @@
+Brelm alpha 0.3
+
+One game holds it all now: the nine trials alone, the trials with a fellowship, and the Ashen Waste alone or together.
+
+The Ashen Waste
+- An open world of seven lands, with settlements, ruins, beacons, crafting and building.
+- Experience, levels to 30 and four skill trees: Survival, Arms, Craft and Faith (K).
+- The world saves itself every few minutes, on events, and when the game closes.
+
+Arms
+- Seven guns, three blades, two grenades and three gadgets, chosen before each trial.
+- Sights and a suppressor that are earned with rank, up to rank 40.
+- Kill streaks: an airstrike, a gun run and a gunship (H).
+- The host of a fellowship may grant unlimited ammunition.
+
+Appearance
+- Choose how the fellowship sees you, from the title screen.
+
+The lesser forms
+- They now wear the heads of cats. The old emoji masks remain in Options.
+- In later trials and on waste nights, something else walks that can hardly be seen. Do not look away from it.
+
+The game now updates itself from the title screen.
