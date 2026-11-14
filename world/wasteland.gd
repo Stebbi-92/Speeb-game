@@ -3923,3 +3923,7 @@ func debug_askshot() -> void:
 	hud.ask("Leave the game?", "Leave", func(): pass)
 	await get_tree().create_timer(1.0).timeout
 	print("ASK root vis ", hud.root.visible, " kids ", hud.root.get_child_count(), " last ", hud.root.get_child(hud.root.get_child_count() - 1))
+
+
+func debug_loadshot() -> void:
+	hud.show_loading("The Ashen Waste", "The waste is raised")

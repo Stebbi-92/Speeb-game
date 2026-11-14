@@ -275,6 +275,7 @@ func _ready() -> void:
 	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fade)
+	_build_loading()
 
 	_build_pause()
 	_build_codex()
@@ -647,6 +648,98 @@ func raise_text(up: bool) -> void:
 		narration.position.y = -190
 		narration.size.y = 150
 		narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+
+
+# ------------------------------------------------------------------ loading
+
+var loading: Control
+var _load_title: Label
+var _load_tip: Label
+var _load_dots: Label
+var _load_t := 0.0
+
+## Things worth knowing, shown while a land is raised. Short and plain.
+const TIPS := [
+	"A lit campfire makes a base. No forms rise near it.",
+	"Fires burn wood. One piece lasts a day.",
+	"Hunt hares, goats and tuskers for meat and hide. Cook meat before you eat it.",
+	"Make, fit and improve guns at a workbench.",
+	"Aim down the sights. Firing from the hip is less sure.",
+	"Flares show what moves. The Censer's smoke shows and slows forms.",
+	"The Claw of Ascent grips any wall or rock.",
+	"Roads join the towns. Follow the signposts.",
+	"Two waystones with the same name are joined.",
+	"A bell rings before a camp is raided at night.",
+	"Talk to the people of the towns. They have work, and news of the road.",
+	"Eat and sleep at camp, or hunger and weariness wear you down.",
+	"Lie down by a fire together to skip the night.",
+	"Name your chests to tell your stores apart.",
+]
+
+
+func _build_loading() -> void:
+	loading = ColorRect.new()
+	(loading as ColorRect).color = Color(0.03, 0.028, 0.025)
+	loading.set_anchors_preset(Control.PRESET_FULL_RECT)
+	loading.mouse_filter = Control.MOUSE_FILTER_STOP
+	loading.visible = false
+	# Its own layer, above everything a land may add to the screen while it is raised
+	var top := CanvasLayer.new()
+	top.layer = 100
+	add_child(top)
+	top.add_child(loading)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 22)
+	loading.add_child(v)
+	_load_title = _label("", 64, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	_load_title.add_theme_font_override("font", title_font)
+	v.add_child(_load_title)
+	var rule := ColorRect.new()
+	rule.color = Color(GOLD, 0.35)
+	rule.custom_minimum_size = Vector2(220, 1)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(rule)
+	_load_tip = _label("", 22, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	_load_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_load_tip.custom_minimum_size = Vector2(760, 0)
+	_load_tip.add_theme_font_override("font", serif)
+	_load_tip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(_load_tip)
+	_load_dots = _label("", 18, Color(GOLD, 0.7), HORIZONTAL_ALIGNMENT_CENTER)
+	_load_dots.add_theme_font_override("font", serif)
+	_load_dots.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_load_dots.position.y -= 70
+	_load_dots.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	loading.add_child(_load_dots)
+
+
+## Shows the loading screen and waits until it is really on the screen, so the work that follows
+## (which may hold the game still for a while) happens behind it rather than behind a black window.
+func show_loading(title: String, what := "The land is raised") -> void:
+	_load_title.text = title
+	_load_tip.text = TIPS[randi() % TIPS.size()]
+	_load_dots.text = what + "..."
+	_load_dots.set_meta("what", what)
+	loading.visible = true
+	loading.modulate.a = 1.0
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+
+func set_loading(what: String) -> void:
+	if loading.visible:
+		_load_dots.text = what + "..."
+		_load_dots.set_meta("what", what)
+
+
+func hide_loading() -> void:
+	if not loading.visible:
+		return
+	var tw := create_tween()
+	tw.tween_property(loading, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(func(): loading.visible = false)
 
 
 func clear_all() -> void:

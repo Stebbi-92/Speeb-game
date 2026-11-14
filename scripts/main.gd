@@ -205,8 +205,15 @@ func start_level(i: int, from_net := false) -> void:
 		await hud.fade_to(1.0, 1.2)
 	hud.clear_all()
 	_state = "game"
+	var lname: String = Game.LEVEL_NAMES[i] if i < Game.LEVEL_NAMES.size() else ["The Forgotten Cave", "The Tenth Trial", "The Ashen Waste"][i - 10]
+	if not Net.dedicated and DisplayServer.get_name() != "headless":
+		await hud.show_loading(lname, "The waste is raised" if i == 12 else "The land is raised")
 	var script: GDScript = load("res://levels/%s.gd" % Game.LEVELS[i])
 	await _swap(script.new())
+	if hud.loading.visible:
+		# Let the land settle a moment behind the screen, then lift it
+		await get_tree().create_timer(0.4).timeout
+		hud.hide_loading()
 	_busy = false
 
 
