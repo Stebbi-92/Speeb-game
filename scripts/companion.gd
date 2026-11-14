@@ -13,6 +13,7 @@ var _has_pose := false
 var _body: Node3D
 var _gun: Node3D
 var _gun_model: Node3D
+var _gun_key := ""
 var _gun_id := ""
 var _tip := Vector3(0, -0.2, 1.2)
 var _label: Label3D
@@ -114,8 +115,13 @@ func pose(data: Array) -> void:
 	_gun.visible = armed
 	_fig.hold = armed
 	_fig.arms_forward = armed or data[5] != ""
-	if data.size() > 8 and str(data[8]) != _gun_id:
-		_show_gun(str(data[8]))
+	if data.size() > 8:
+		# What they have fitted shows too: the same gun with the same sights, grips and magazine
+		var mn: Array = (data[9] as Array).slice(0, 8) if data.size() > 9 and data[9] is Array else []
+		var key := str(data[8]) + "|" + ",".join(mn)
+		if key != _gun_key:
+			_gun_key = key
+			_show_gun(str(data[8]), mn)
 	_lamp.light_energy = 2.0 if data[7] else 0.0
 	if not _has_pose or global_position.distance_to(_to) > 6.0:
 		global_position = _to
@@ -128,14 +134,14 @@ func pose(data: Array) -> void:
 
 
 ## Builds the gun they hold, the same shape the holder sees, turned to face the way they face.
-func _show_gun(g: String) -> void:
+func _show_gun(g: String, mn: Array = []) -> void:
 	if not ArmsDB.GUNS.has(g):
 		return
 	_gun_id = g
 	if _gun_model:
 		_gun_model.queue_free()
 	var maker := Arms.new()
-	_gun_model = maker._build(g, [])
+	_gun_model = maker._build(g, mn.duplicate())
 	maker.free()
 	_gun_model.rotation.y = PI
 	_gun_model.position = Figure.GRIP - Vector3(0, Figure.SHOULDER_Y, 0) + Vector3(0, 0.06, 0.02)

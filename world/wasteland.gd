@@ -1115,14 +1115,20 @@ func _crop_look(pid: int) -> void:
 # ------------------------------------------------------------------ waystones
 
 func _rq_portal_name(pid: int, name: String) -> void:
-	if Net.authority() and pieces.has(pid) and pieces[pid].kind == "portal":
+	if Net.authority() and pieces.has(pid) and pieces[pid].kind in ["portal", "chest"]:
 		shared("_w_portal_name", [pid, name.strip_edges().left(24)])
 
 
 func _w_portal_name(pid: int, name: String) -> void:
-	if not pieces.has(pid) or pieces[pid].kind != "portal":
+	if not pieces.has(pid) or not pieces[pid].kind in ["portal", "chest"]:
 		return
 	pieces[pid].name = name
+	if pieces[pid].kind == "chest":
+		_chest_label(pid)
+		if is_instance_valid(ui):
+			ui.container_changed("p%d" % pid)
+		autosave_soon(5.0)
+		return
 	for q in pieces:
 		_portal_look(q)
 	if is_instance_valid(ui):
@@ -1139,6 +1145,26 @@ func portal_pair(pid: int) -> int:
 		if q != pid and pieces[q].kind == "portal" and str(pieces[q].get("name", "")).to_lower() == str(pc.name).to_lower():
 			return q
 	return -1
+
+
+## A named chest shows its name above it, so a base's stores can be told apart.
+func _chest_label(pid: int) -> void:
+	var pc: Dictionary = pieces[pid]
+	if not is_instance_valid(pc.node):
+		return
+	var lab: Label3D = pc.node.get_meta("label") if pc.node.has_meta("label") else null
+	if lab == null:
+		lab = Label3D.new()
+		lab.font_size = 34
+		lab.pixel_size = 0.005
+		lab.position = Vector3(0, 1.25, 0)
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lab.modulate = Color(0.95, 0.88, 0.7)
+		lab.outline_size = 6
+		lab.visibility_range_end = 12.0
+		pc.node.add_child(lab)
+		pc.node.set_meta("label", lab)
+	lab.text = str(pc.name)
 
 
 func _portal_look(pid: int) -> void:
@@ -3084,6 +3110,10 @@ func debug_nightshot() -> void:
 
 
 func debug_coop_host() -> void:
+	var am: Dictionary = Game.arms_now()
+	if not am.has("mounts") or not (am.mounts is Dictionary):
+		am["mounts"] = {}
+	am.mounts[player.weapon.gun()] = ["red_dot", "ext_mag"]
 	var p := gpos(WPlaces.spos("cinderwick")) + Vector3(80, 0, 20)
 	builder._rq_build(1, "chest", p, 0.0)
 	_w_vigil_end(0, true)
@@ -3120,6 +3150,8 @@ func debug_coop_join() -> void:
 		ui._put(slot)
 		await get_tree().create_timer(3.0).timeout
 		print("JOIN put %s: pack %d -> %d, crate has %d" % [it.id, before, inv.count(it.id), _cont_count(cid, it.id)])
+	for a in avatars.values():
+		print("JOIN sees host gun ", a._gun_key)
 
 
 func _cont_count(cid: String, item: String) -> int:

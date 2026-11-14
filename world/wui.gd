@@ -918,7 +918,25 @@ func _draw_container() -> void:
 		_body.add_child(_label("...", 20, DIM))
 		return
 	var name := "Chest" if _cont_id.begins_with("p") else ("Satchel" if _cont_id.begins_with("s") else "Searched")
+	var cpid := int(_cont_id.substr(1)) if _cont_id.begins_with("p") else -1
+	if cpid >= 0 and str(w.pieces.get(cpid, {}).get("name", "")) != "":
+		name = str(w.pieces[cpid].name)
 	_body.add_child(_title(name))
+	if cpid >= 0 and w.pieces.has(cpid):
+		# A chest may be named, and the name shows above it
+		var nh := HBoxContainer.new()
+		nh.add_theme_constant_override("separation", 10)
+		var field := LineEdit.new()
+		field.text = str(w.pieces[cpid].get("name", ""))
+		field.placeholder_text = "Name this chest"
+		field.max_length = 24
+		field.custom_minimum_size = Vector2(300, 0)
+		field.add_theme_font_size_override("font_size", 18)
+		nh.add_child(field)
+		var save := func(): w.shared("_rq_portal_name", [cpid, field.text])
+		field.text_submitted.connect(func(_t): save.call())
+		nh.add_child(_btn("Name it", save, 18, PALE))
+		_body.add_child(nh)
 	_body.add_child(_label("Click on either side to move a thing across.", 16, DIM))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 30)
