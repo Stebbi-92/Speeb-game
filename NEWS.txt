@@ -1,3 +1,17 @@
+Brelm alpha 0.5.1
+
+World settings
+- Each world has its own settings: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, ammunition, and whether you drop your pack when you fall.
+- Choose them with Settings next to Begin. The host can change them any time from the pause menu.
+
+Screens
+- Talking: clearer layout, and number keys choose what to say.
+- Work offers show their rewards plainly.
+- Trading: buy one, five or all you can afford; sell one or all; sell all trinkets at once.
+- Journal: a details column, and Show on the map.
+- Skills: cards for each skill, with a level bar.
+- Resting, planters, waystones and the beacon road open in a smaller window.
+
 Brelm alpha 0.5
 
 Polish and first steps. Everything here is in the Ashen Waste unless it says otherwise.

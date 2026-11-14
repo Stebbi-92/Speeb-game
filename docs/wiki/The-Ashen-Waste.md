@@ -2,6 +2,10 @@
 
 An open world, about four kilometres across, made fresh from a seed. Each world keeps its own save, and up to four can walk it together.
 
+## World settings
+
+Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, and whether you drop your pack when you fall.
+
 ## Days and nights
 
 A day passes in about forty minutes. By day the waste is quiet. At night the creatures rise, and each night is a little worse than the last. Light keeps them off: no creature rises within 40 paces of a burning campfire, or 15 of a torch, or inside a settlement's walls.

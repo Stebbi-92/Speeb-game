@@ -2,6 +2,11 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.5.1
+
+- World settings for each world: difficulty, enemy skill, enemy numbers, resources, hunger, air support, ammunition and what you drop when you fall.
+- Talking, trading, the journal and skills redone.
+
 ## 0.5 (polish and first steps)
 
 - New title screen: Continue, the waste first, trials and arms in their own menus; worlds can be exported and deleted.
