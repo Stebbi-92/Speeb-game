@@ -508,6 +508,16 @@ func mount_of(gun: String) -> String:
 
 
 ## How far a gun has been worked on in the waste (0 to 3).
+## What the parts and their traits do to a gun, in the waste. Elsewhere nothing changes.
+func gun_mods(gun: String) -> Dictionary:
+	if wasteland and not warms.is_empty():
+		return WArms.mods(warms, gun)
+	var out := {}
+	for k in WArms.MOD_KEYS:
+		out[k] = 1.0
+	return out
+
+
 func tier_of(gun: String) -> int:
 	if not wasteland:
 		return 0

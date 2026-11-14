@@ -5,7 +5,7 @@ extends RefCounted
 
 const START := {
 	"owned": ["shotgun", "pistol"], "blades": ["hatchet"], "thrown": ["frag"], "kits": ["bandages"],
-	"parts": {}, "mounts": {}, "tier": {},
+	"parts": {}, "mounts": {}, "tier": {}, "grade": {},
 	"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
 	"wear": {}, "relics": [],
 }
@@ -64,7 +64,126 @@ const PARTS := {
 	"suppressor": {"scrap": 8, "cloth": 2},
 	"ext_mag": {"scrap": 8},
 	"scope": {"scrap": 10, "oil": 2},
+	"long_barrel": {"scrap": 12, "oil": 1},
+	"sawn_barrel": {"scrap": 6},
+	"heavy_barrel": {"scrap": 16, "stone": 4},
+	"light_stock": {"scrap": 8, "cloth": 1},
+	"padded_stock": {"wood": 6, "hide": 2},
+	"heavy_stock": {"wood": 12, "scrap": 2},
+	"rapid_receiver": {"scrap": 14, "oil": 2},
+	"heavy_receiver": {"scrap": 18, "bone": 4},
+	"smooth_receiver": {"scrap": 10, "oil": 3},
 }
+
+## Which of the waste's own parts each gun can take.
+const FRAME := {
+	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
+	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
+	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver"],
+	"rocket": ["smooth_receiver"],
+	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver"],
+	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
+	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver"],
+}
+
+## Grades of a part. A part made plainly at the bench is Plain; fittings found in the waste rework it
+## into a better grade, each with more traits, drawn at random.
+const GRADES := [
+	{"name": "Plain", "color": Color(0.85, 0.83, 0.78), "traits": 0, "power": 0.0},
+	{"name": "Fine", "color": Color(0.45, 0.8, 0.4), "traits": 1, "power": 1.0},
+	{"name": "Rare", "color": Color(0.4, 0.62, 0.95), "traits": 2, "power": 1.3},
+	{"name": "Storied", "color": Color(0.95, 0.75, 0.3), "traits": 3, "power": 1.6},
+]
+## The fittings that rework a part into each grade (by grade index).
+const FITTINGS := {1: "fittings_fine", 2: "fittings_rare", 3: "fittings_storied"}
+
+## Traits a graded part may carry. Each pushes one thing a little; a higher grade pushes it further.
+const TRAITS := {
+	"keen": {"name": "Keen", "mods": {"dmg": 1.07}, "text": "harm"},
+	"swift": {"name": "Swift", "mods": {"rate": 0.94}, "text": "fire rate"},
+	"steady": {"name": "Steady", "mods": {"kick": 0.85}, "text": "less kick"},
+	"true": {"name": "True", "mods": {"spread": 0.88}, "text": "tighter spread"},
+	"far": {"name": "Far-reaching", "mods": {"range": 1.15}, "text": "range"},
+	"nimble": {"name": "Nimble", "mods": {"reload": 0.88}, "text": "faster loading"},
+	"ready": {"name": "Ready", "mods": {"aim": 1.15}, "text": "faster aim"},
+	"deadeye": {"name": "Deadeye", "mods": {"crit": 1.12}, "text": "head shots"},
+	"deep": {"name": "Deep", "mods": {"mag": 1.15}, "text": "rounds held"},
+}
+## Storied parts take a name of their own.
+const STORIED := ["Ashwalker's", "Cinder-wife's", "The Hermit's", "Saltborn", "Last Light", "Ninth Vision", "Old Iron", "Dawnkeeper's", "Graveborn", "Wellspring"]
+const MOD_KEYS := ["dmg", "rate", "spread", "range", "reload", "kick", "aim", "crit", "mag"]
+
+
+## Every part a gun can take here: its trial mounts and the waste's own.
+static func mounts_for(g: String) -> Array:
+	var out: Array = ArmsDB.GUNS[g].mounts.duplicate()
+	out.append_array(FRAME.get(g, []))
+	return out
+
+
+## The grade of one part on one gun: {"r": grade, "t": [traits], "n": storied name}.
+static func grade_of(a: Dictionary, g: String, m: String) -> Dictionary:
+	var gr = a.get("grade", {}).get("%s/%s" % [g, m], {})
+	return gr if gr is Dictionary else {}
+
+
+static func part_name(a: Dictionary, g: String, m: String) -> String:
+	var gr := grade_of(a, g, m)
+	var nm: String = ArmsDB.ATTACHMENTS[m].name
+	return "%s %s" % [gr.n, nm] if str(gr.get("n", "")) != "" else nm
+
+
+## Draws a new grade for a part: its traits, and a name if it is storied.
+static func roll_grade(r: int, rng: RandomNumberGenerator = null) -> Dictionary:
+	if rng == null:
+		rng = RandomNumberGenerator.new()
+		rng.randomize()
+	var pool: Array = TRAITS.keys()
+	var t: Array = []
+	for i in int(GRADES[r].traits):
+		var k: String = pool[rng.randi() % pool.size()]
+		pool.erase(k)
+		t.append(k)
+	var out := {"r": r, "t": t}
+	if r >= 3:
+		out["n"] = STORIED[rng.randi() % STORIED.size()]
+	return out
+
+
+## What everything fitted to a gun does to it, as multipliers (1.0 is unchanged).
+static func mods(a: Dictionary, g: String) -> Dictionary:
+	var out := {}
+	for k in MOD_KEYS:
+		out[k] = 1.0
+	if not ArmsDB.GUNS.has(g):
+		return out
+	for m in a.get("mounts", {}).get(g, []):
+		var at: Dictionary = ArmsDB.ATTACHMENTS.get(m, {})
+		var md: Dictionary = at.get("mods", {})
+		for k in md:
+			out[k] *= float(md[k])
+		var gr := grade_of(a, g, m)
+		var pw: float = GRADES[clampi(int(gr.get("r", 0)), 0, 3)].power
+		for tid in gr.get("t", []):
+			var tm: Dictionary = TRAITS.get(tid, {}).get("mods", {})
+			for k in tm:
+				out[k] *= 1.0 + (float(tm[k]) - 1.0) * pw
+	return out
+
+
+## Plain words for a set of mods, e.g. "+8% harm, -15% kick".
+static func mods_text(md: Dictionary) -> String:
+	var words := {"dmg": "harm", "rate": "fire rate", "spread": "spread", "range": "range", "reload": "loading", "kick": "kick", "aim": "aim speed", "crit": "head shots", "mag": "rounds"}
+	var parts: Array = []
+	for k in MOD_KEYS:
+		var v := float(md.get(k, 1.0))
+		if is_equal_approx(v, 1.0):
+			continue
+		var pct := (v - 1.0) * 100.0
+		if k in ["rate", "reload"]:
+			pct = (1.0 / v - 1.0) * 100.0   # less time is more speed
+		parts.append("%+d%% %s" % [int(round(pct)), words[k]])
+	return ", ".join(parts)
 
 const TIERS := ["Worn", "Cleaned", "Tempered", "Master-worked"]
 const KINDS := [["blades", "melee", "Blade"], ["thrown", "grenade", "Thrown"], ["kits", "gadget", "Kit"]]
@@ -107,7 +226,7 @@ static func clean(d) -> Dictionary:
 					continue
 				var keep: Array = []
 				for m in src[g]:
-					if m in ArmsDB.GUNS[g].mounts and not m in keep and (key == "parts" or m in a.parts.get(g, [])):
+					if m in mounts_for(g) and not m in keep and (key == "parts" or m in a.parts.get(g, [])):
 						keep.append(m)
 				if not keep.is_empty():
 					a[key][g] = keep
@@ -119,6 +238,21 @@ static func clean(d) -> Dictionary:
 		for slot in wr:
 			if WEAR.has(str(wr[slot])) and WEAR[str(wr[slot])].slot == slot:
 				a.wear[slot] = str(wr[slot])
+	var gd = d.get("grade", {})
+	if gd is Dictionary:
+		for key in gd:
+			var bits := str(key).split("/")
+			var v = gd[key]
+			if bits.size() == 2 and bits[1] in a.parts.get(bits[0], []) and v is Dictionary:
+				var r := clampi(int(v.get("r", 0)), 0, 3)
+				var tr: Array = []
+				for x in v.get("t", []):
+					if TRAITS.has(str(x)) and not str(x) in tr:
+						tr.append(str(x))
+				var keep := {"r": r, "t": tr}
+				if str(v.get("n", "")) != "":
+					keep["n"] = str(v.n)
+				a.grade[str(key)] = keep
 	var t = d.get("tier", {})
 	if t is Dictionary:
 		for g in t:

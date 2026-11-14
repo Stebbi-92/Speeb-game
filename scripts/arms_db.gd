@@ -57,8 +57,19 @@ const ATTACHMENTS := {
 	"suppressor": {"name": "Suppressor", "slot": "muzzle", "unlock": 5, "text": "Quiets the shot and hides the flash. A little less force."},
 	"ext_mag": {"name": "Long Magazine", "slot": "mag", "unlock": 6, "text": "Holds half as many rounds again."},
 	"scope": {"name": "Scope", "slot": "sight", "unlock": 7, "text": "Looks further when you aim."},
+	# The waste's own parts, made at a workbench. "mods" multiply the gun: dmg, rate (time between
+	# shots), spread, range, reload (time), kick, aim (how fast it is raised), crit, mag.
+	"long_barrel": {"name": "Long Barrel", "slot": "barrel", "unlock": 99, "mods": {"range": 1.35, "dmg": 1.08, "spread": 0.85, "aim": 0.85}, "text": "Reaches further and hits a little harder. Slower to raise."},
+	"sawn_barrel": {"name": "Sawn Barrel", "slot": "barrel", "unlock": 99, "mods": {"aim": 1.3, "spread": 1.2, "range": 0.75, "dmg": 1.06}, "text": "Quick to raise, and wild. For close work."},
+	"heavy_barrel": {"name": "Heavy Barrel", "slot": "barrel", "unlock": 99, "mods": {"kick": 0.7, "spread": 0.9, "aim": 0.9}, "text": "Thick walled. It barely climbs."},
+	"light_stock": {"name": "Light Stock", "slot": "stock", "unlock": 99, "mods": {"aim": 1.25, "kick": 1.1}, "text": "A frame of bent rod. Up to the eye in a blink."},
+	"padded_stock": {"name": "Padded Stock", "slot": "stock", "unlock": 99, "mods": {"kick": 0.75}, "text": "Hide over the butt. Softens the kick."},
+	"heavy_stock": {"name": "Heavy Stock", "slot": "stock", "unlock": 99, "mods": {"kick": 0.65, "spread": 0.9, "aim": 0.85}, "text": "Solid wood. Steady, and slow."},
+	"rapid_receiver": {"name": "Rapid Receiver", "slot": "receiver", "unlock": 99, "mods": {"rate": 0.87, "dmg": 0.95}, "text": "A lighter action. Fires faster, a little weaker."},
+	"heavy_receiver": {"name": "Heavy Receiver", "slot": "receiver", "unlock": 99, "mods": {"dmg": 1.15, "rate": 1.12, "kick": 1.1}, "text": "Takes a heavier load. Harder hits, slower shots."},
+	"smooth_receiver": {"name": "Smooth Action", "slot": "receiver", "unlock": 99, "mods": {"reload": 0.8}, "text": "Polished and oiled. Loads faster."},
 }
-const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine"}
+const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine", "barrel": "Barrel", "stock": "Stock", "receiver": "Receiver"}
 
 ## What the right mouse does to the view and the spread, per sight.
 const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15}}

@@ -710,7 +710,7 @@ func _draw_pack() -> void:
 
 const FILTERS := [["all", "All"], ["food", "Food and aid"], ["material", "Materials"], ["gear", "Gear and ammo"], ["keep", "Keepsakes"]]
 const KIND_NAMES := {"material": "Material", "food": "Food", "medicine": "Medicine", "aid": "Aid", "seed": "Seed", "tool": "Tool",
-	"ammo": "Ammunition", "wear": "Clothing", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand"}
+	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand"}
 var _filter := "all"
 
 
@@ -721,7 +721,7 @@ func _kinds_of(f: String) -> Array:
 		"material":
 			return ["material"]
 		"gear":
-			return ["tool", "ammo", "wear"]
+			return ["tool", "ammo", "wear", "part"]
 		"keep":
 			return ["trinket", "trophy", "quest"]
 	return []

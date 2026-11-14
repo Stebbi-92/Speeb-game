@@ -11,6 +11,9 @@ const DB := {
 	"cloth": {"name": "Cloth", "kind": "material", "stack": 40, "value": 2, "color": Color(0.6, 0.55, 0.45), "text": "Rags, sacking and old vestments."},
 	"herb": {"name": "Ash-bloom", "kind": "material", "stack": 40, "value": 3, "color": Color(0.7, 0.72, 0.6), "text": "A pale flower of the lee slopes. Bitter, and it heals."},
 	"bone": {"name": "Bone", "kind": "material", "stack": 40, "value": 1, "color": Color(0.85, 0.82, 0.72), "text": "There is no shortage of it."},
+	"fittings_fine": {"name": "Fine Fittings", "kind": "part", "stack": 10, "value": 25, "color": Color(0.45, 0.8, 0.4), "text": "Springs, pins and good steel. At a workbench, rework a gun part into a Fine one."},
+	"fittings_rare": {"name": "Rare Fittings", "kind": "part", "stack": 10, "value": 60, "color": Color(0.4, 0.62, 0.95), "text": "Machined before the fall. At a workbench, rework a gun part into a Rare one."},
+	"fittings_storied": {"name": "Storied Fittings", "kind": "part", "stack": 5, "value": 150, "color": Color(0.95, 0.75, 0.3), "text": "Fittings with a name and a past. At a workbench, rework a gun part into a Storied one."},
 	"oil": {"name": "Lamp Oil", "kind": "material", "stack": 20, "value": 6, "color": Color(0.75, 0.55, 0.2), "text": "Drawn from the Well. It burns yellow and smoky."},
 	"beacon_oil": {"name": "Beacon Oil", "kind": "quest", "stack": 5, "value": 40, "color": Color(1.0, 0.95, 0.75), "text": "Oil rendered in the old measure. It burns white, and the night draws back from it."},
 	"raw_meat": {"name": "Raw Meat", "kind": "food", "stack": 10, "value": 3, "color": Color(0.7, 0.28, 0.26), "heal": -4.0, "food": 10.0, "text": "From a hunted beast. Cook it first."},
@@ -105,11 +108,11 @@ const GROUPS := ["Camp", "Frame", "Defence"]
 
 ## Loot tables: [item, weight, min, max]
 const LOOT := {
-	"caravan": [["tuber_seed", 2, 2, 5], ["herb_seed", 1, 1, 3], ["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2]],
+	"caravan": [["tuber_seed", 2, 2, 5], ["herb_seed", 1, 1, 3], ["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2], ["fittings_fine", 1, 1, 1]],
 	"shrine": [["coin", 4, 1, 5], ["icon", 2, 1, 1], ["herb", 3, 2, 4], ["bell", 1, 1, 1], ["cloth", 2, 1, 3], ["salve", 1, 1, 1]],
-	"order": [["rifle", 2, 20, 50], ["rounds", 2, 10, 24], ["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3]],
-	"camp": [["tuber_seed", 2, 2, 4], ["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5]],
-	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24], ["milk", 1, 1, 1]],
+	"order": [["rifle", 2, 20, 50], ["rounds", 2, 10, 24], ["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3], ["fittings_fine", 2, 1, 2], ["fittings_rare", 1, 1, 1]],
+	"camp": [["tuber_seed", 2, 2, 4], ["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5], ["fittings_fine", 1, 1, 1]],
+	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24], ["milk", 1, 1, 1], ["fittings_rare", 2, 1, 1], ["fittings_storied", 1, 1, 1]],
 	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
 }
 
@@ -117,7 +120,7 @@ const LOOT := {
 const STOCK := {
 	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
-	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets"],
+	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets", "fittings_fine"],
 	"healer": ["bandage", "salve", "salts", "herb", "herb_seed", "milk"],
 	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
 }
