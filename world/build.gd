@@ -218,6 +218,10 @@ func place() -> void:
 	w.sfx("carve", -4, _plan.pos)
 	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
 	w.award("build")
+	if k == "bedroll":
+		w.bedroll = _plan.pos
+		w.hud.notify("You will wake at this bedroll if you fall.")
+		w.autosave_soon(2.0)
 
 
 func dismantle() -> void:
