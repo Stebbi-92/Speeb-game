@@ -55,7 +55,7 @@ func _hint() -> void:
 	if active:
 		var k := kind()
 		var p: Dictionary = Items.PIECES[k]
-		w.ui.set_build_bar("%s   (%s)" % [p.name, Items.cost_text(p.cost)], "[Wheel] choose   [R] turn   [Click] build   [Right click] take down   [B] done")
+		w.ui.set_build_bar("%s   (%s)" % [p.name, Items.cost_text(w.skills.cost(p.cost))], "[Wheel] choose   [R] turn   [Click] build   [Right click] take down   [B] done")
 	else:
 		w.ui.set_build_bar("", "")
 
@@ -76,7 +76,7 @@ func _process(_delta: float) -> void:
 		return
 	ghost.global_position = _plan.pos
 	ghost.rotation.y = _plan.yaw
-	var ok: bool = _plan.ok and w.inv.has_all(Items.PIECES[k].cost)
+	var ok: bool = _plan.ok and w.inv.has_all(w.skills.cost(Items.PIECES[k].cost))
 	for mi in ghost.find_children("*", "MeshInstance3D", true, false):
 		mi.material_override = _ok_m if ok else _bad_m
 
@@ -210,13 +210,14 @@ func place() -> void:
 		w.sfx("deny", -10)
 		return
 	var k: String = _plan.kind
-	var cost: Dictionary = Items.PIECES[k].cost
+	var cost: Dictionary = w.skills.cost(Items.PIECES[k].cost)
 	if not w.inv.pay(cost):
 		w.hud.notify("You lack the makings: %s." % Items.cost_text(cost))
 		w.sfx("deny", -10)
 		return
 	w.sfx("carve", -4, _plan.pos)
-	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw])
+	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
+	w.award("build")
 
 
 func dismantle() -> void:
@@ -250,7 +251,7 @@ func key_of(k: String, p: Vector3, yaw: float) -> String:
 	return "free:%d:%d:%s" % [roundi(p.x * 2.0), roundi(p.z * 2.0), k]
 
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float) -> void:
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
 	if not Net.authority():
 		return
 	var key := key_of(k, p, yaw)
@@ -259,7 +260,7 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float) -> void:
 		return
 	var pid: int = w.piece_next
 	w.piece_next += 1
-	w.shared("_w_piece", [pid, k, p, yaw, float(Items.PIECES[k].hp)])
+	w.shared("_w_piece", [pid, k, p, yaw, float(Items.PIECES[k].hp) * clampf(hm, 1.0, 1.6)])
 	if k == "chest":
 		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
 

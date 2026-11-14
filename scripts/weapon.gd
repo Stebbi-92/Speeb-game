@@ -14,6 +14,8 @@ var player: Player
 var shells := CAPACITY
 var reserve := 24
 var reserve_max := 48
+var damage_mult := 1.0     ## raised by skills in the waste
+var reload_mult := 1.0
 var _cool := 0.0
 var _reloading := false
 var _reload_t := 0.0
@@ -118,7 +120,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		return
 	if e.is_action_pressed("reload") and shells < CAPACITY and reserve > 0:
 		_reloading = true
-		_reload_t = SHELL_TIME
+		_reload_t = SHELL_TIME * reload_mult
 
 
 func _process(delta: float) -> void:
@@ -146,7 +148,7 @@ func _process(delta: float) -> void:
 			reserve -= 1
 			_ui()
 			player.get_parent().sfx("shell", -6)
-			_reload_t = SHELL_TIME * (0.65 if Game.blessed("speebchef") else 1.0)
+			_reload_t = SHELL_TIME * reload_mult * (0.65 if Game.blessed("speebchef") else 1.0)
 			if shells >= CAPACITY:
 				_reloading = false
 				player.get_parent().sfx("pump", -4)
@@ -181,7 +183,7 @@ func _try_fire() -> void:
 			return
 		if not _reloading:
 			_reloading = true
-			_reload_t = SHELL_TIME
+			_reload_t = SHELL_TIME * reload_mult
 		return
 	if _reloading:
 		_reloading = false
@@ -218,7 +220,7 @@ func _try_fire() -> void:
 			continue
 		var target = r.collider
 		var dist := origin.distance_to(r.position)
-		var dmg := DAMAGE * clampf(1.4 - dist / 25.0, 0.35, 1.0) * (1.3 if Game.blessed("speebsnek") else 1.0)
+		var dmg := DAMAGE * clampf(1.4 - dist / 25.0, 0.35, 1.0) * (1.3 if Game.blessed("speebsnek") else 1.0) * damage_mult
 		if target and target.has_method("hurt"):
 			hits[target] = hits.get(target, 0.0) + dmg
 		else:

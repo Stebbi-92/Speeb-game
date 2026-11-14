@@ -49,7 +49,7 @@ func _ready() -> void:
 	_pin(_build_hint, 0.5, 1.0, Rect2(-500, -116, 1000, 28))
 	_build_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_build_hint)
-	_keys = _label("[I] Pack    [M] Map    [J] Journal    [B] Build", 15, Color(DIM, 0.7))
+	_keys = _label("[I] Pack    [M] Map    [J] Journal    [K] Skills    [B] Build", 15, Color(DIM, 0.7))
 	_pin(_keys, 0.0, 1.0, Rect2(36, -100, 600, 24))
 	add_child(_keys)
 	_frame = PanelContainer.new()
@@ -68,6 +68,25 @@ func _ready() -> void:
 	_body.add_theme_constant_override("separation", 10)
 	_frame.add_child(_body)
 	w.inv.changed.connect(_on_inv)
+	_xp_bar = ProgressBar.new()
+	_xp_bar.show_percentage = false
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.45)
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = Color(GOLD, 0.75)
+	_xp_bar.add_theme_stylebox_override("background", bg)
+	_xp_bar.add_theme_stylebox_override("fill", fg)
+	_pin(_xp_bar, 0.0, 1.0, Rect2(36, -108, 300, 4))
+	_xp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_xp_bar)
+	_xp_text = _label("", 15, Color(DIM, 0.8))
+	_pin(_xp_text, 0.0, 1.0, Rect2(36, -132, 420, 22))
+	add_child(_xp_text)
+	_xp_pop = _label("", 17, GOLD)
+	_pin(_xp_pop, 0.0, 1.0, Rect2(344, -117, 120, 22))
+	_xp_pop.modulate.a = 0.0
+	add_child(_xp_pop)
+	skills_changed()
 	_saved = _label("", 16, DIM)
 	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
 	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -77,6 +96,93 @@ func _ready() -> void:
 
 var _saved: Label
 var _saved_tw: Tween
+var _xp_bar: ProgressBar
+var _xp_text: Label
+var _xp_pop: Label
+var _xp_tw: Tween
+var _xp_sum := 0
+
+
+## The thin bar of experience at the lower left, and the level beside it.
+func skills_changed() -> void:
+	if _xp_bar == null:
+		return
+	var s: WSkills = w.skills
+	_xp_bar.max_value = WSkills.need(s.level)
+	_xp_bar.value = s.xp
+	var extra := "    %d to spend  [K]" % s.points if s.points > 0 else ""
+	_xp_text.text = ("Level %d" % s.level) + ("   (the most there is)" if s.level >= WSkills.MAX_LEVEL else "") + extra
+	if _panel_name == "skills":
+		_draw_skills()
+
+
+func xp_gained(n: int) -> void:
+	if _xp_pop == null or n <= 0:
+		return
+	if _xp_tw and _xp_tw.is_running():
+		_xp_tw.kill()
+		_xp_sum += n
+	else:
+		_xp_sum = n
+	_xp_pop.text = "+%d" % _xp_sum
+	_xp_pop.modulate.a = 1.0
+	_xp_tw = create_tween()
+	_xp_tw.tween_interval(1.4)
+	_xp_tw.tween_property(_xp_pop, "modulate:a", 0.0, 0.8)
+
+
+# ------------------------------------------------------------------ what has been learned
+
+func open_skills() -> void:
+	_open("skills")
+
+
+func _draw_skills() -> void:
+	_clear()
+	var s: WSkills = w.skills
+	_body.add_child(_title("What You Have Learned"))
+	var head := "Level %d.   %d of %d toward the next.   " % [s.level, s.xp, WSkills.need(s.level)] if s.level < WSkills.MAX_LEVEL else "Level %d, the most there is.   " % s.level
+	head += ("%d point%s to spend." % [s.points, "" if s.points == 1 else "s"]) if s.points > 0 else "Nothing to spend. Experience comes from the forms you fell, the work you do, the places you find and the beacons you light."
+	var hl := _label(head, 17, GOLD if s.points > 0 else DIM)
+	hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_body.add_child(hl)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	_body.add_child(row)
+	for t in WSkills.TREES:
+		var tr: Dictionary = WSkills.TREES[t]
+		var col := VBoxContainer.new()
+		col.custom_minimum_size.x = 250
+		col.add_theme_constant_override("separation", 6)
+		row.add_child(col)
+		col.add_child(_label("%s   %d" % [tr.name, s.spent_in(t)], 24, GOLD))
+		var tl := _label(tr.text, 14, DIM)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tl.custom_minimum_size.x = 250
+		col.add_child(tl)
+		col.add_child(HSeparator.new())
+		for id in tr.skills:
+			var sk: Dictionary = WSkills.SKILLS[id]
+			var r := s.rank(id)
+			var why := s.blocked(id)
+			var pips := ""
+			for i in int(sk.ranks):
+				pips += "●" if i < r else "○"
+			var b := _btn("%s  %s" % [sk.name, pips], func(): _learn(id), 19, PALE if why == "" else (GOLD if r > 0 else DIM))
+			b.focus_mode = Control.FOCUS_NONE
+			b.tooltip_text = sk.text + ("" if why == "" else "\n" + why)
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			col.add_child(b)
+			var line := _label(sk.text if why == "" or why == "Mastered" or why == "No points to spend" else why, 13, Color(DIM, 0.85))
+			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			line.custom_minimum_size.x = 250
+			col.add_child(line)
+
+
+func _learn(id: String) -> void:
+	if w.skills.learn(id):
+		w.sfx("bell", -8)
+		w.autosave_soon(1.0)
 
 
 ## A quiet mark in the corner that the waste has been kept.
@@ -203,6 +309,12 @@ func _input(e: InputEvent) -> void:
 				else:
 					open_journal()
 				accept_event()
+			KEY_K:
+				if _panel_name == "skills":
+					close_all()
+				else:
+					open_skills()
+				accept_event()
 			KEY_B:
 				if _panel == null:
 					w.builder.toggle()
@@ -273,6 +385,8 @@ func _redraw() -> void:
 			_draw_map()
 		"travel":
 			_draw_travel()
+		"skills":
+			_draw_skills()
 
 
 # ------------------------------------------------------------------ the strip along the top
@@ -397,8 +511,9 @@ func _draw_craft() -> void:
 	for r in Items.RECIPES:
 		if r.has("needs") and not w.flags.has(r.needs):
 			continue
-		var ok: bool = w.inv.has_all(r.cost) and (bench or not r.bench)
-		var t := "Make %d %s      %s%s" % [r.n, Items.iname(r.id), Items.cost_text(r.cost), "      (workbench)" if r.bench else ""]
+		var cost: Dictionary = w.skills.cost(r.cost)
+		var ok: bool = w.inv.has_all(cost) and (bench or not r.bench)
+		var t := "Make %d %s      %s%s" % [r.n + w.skills.make_bonus(r.id), Items.iname(r.id), Items.cost_text(cost), "      (workbench)" if r.bench else ""]
 		var b := _btn(t, func(): _make(r), 20, PALE if ok else DIM)
 		b.disabled = not ok
 		b.tooltip_text = Items.info(r.id).text
@@ -406,10 +521,11 @@ func _draw_craft() -> void:
 
 
 func _make(r: Dictionary) -> void:
-	if not w.inv.pay(r.cost):
+	if not w.inv.pay(w.skills.cost(r.cost)):
 		return
 	w.sfx("carve", -6)
-	w.give([[r.id, int(r.n)]])
+	w.give([[r.id, int(r.n) + w.skills.make_bonus(r.id)]])
+	w.award("make")
 	_redraw()
 
 
@@ -550,14 +666,14 @@ func _discount(at: String) -> float:
 
 
 func buy_price(id: String, at: String) -> int:
-	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at))))
+	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult()))
 
 
 func sell_price(id: String) -> int:
 	var info: Dictionary = Items.info(id)
 	if info.kind == "quest" or id == "salt":
 		return 0
-	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6)))
+	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
 
 
 func _trade() -> void:
@@ -794,6 +910,10 @@ class Compass extends Control:
 			marks.append([w.beacon_nodes[i].pos, Color(1, 0.97, 0.85, 0.6), 4.0])
 		for k in w.visited:
 			marks.append([w.gpos(WPlaces.spos(k)), Color(0.8, 0.6, 0.4, 0.7), 4.0])
+		if w.night and w.skills.rank("witness") > 0:
+			for e in w.enemies:
+				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
+					marks.append([e.global_position, Color(0.85, 0.25, 0.2, 0.85), 3.5])
 		var me: Vector3 = w.player.global_position
 		for m in marks:
 			var p: Vector3 = m[0]

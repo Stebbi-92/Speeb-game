@@ -12,6 +12,8 @@ const REVEAL_N := 128
 
 var terrain: WTerrain
 var inv := Inventory.new()
+var skills := WSkills.new()
+var seen_biomes := {}
 var ui: WUI
 var builder: WBuilder
 var quests: WQuests
@@ -139,6 +141,7 @@ func intro() -> void:
 	ui.w = self
 	hud.root.add_child(ui)
 	inv.changed.connect(func(): if ready_world: autosave_soon(20.0))
+	skills.changed.connect(_apply_skills)
 	player.weapon.reserve_max = 400
 	player.max_health = 100.0
 	if Net.authority():
@@ -511,13 +514,13 @@ func _beacon_touched(i: int) -> void:
 		hud.say("The bowl is cold and dry. It wants beacon oil, rendered in the old measure.", 4.5)
 		return
 	inv.take("beacon_oil", 1)
-	shared("_rq_kindle", [Net.me(), i])
+	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult()])
 
 
-func _rq_kindle(_by: int, i: int) -> void:
+func _rq_kindle(_by: int, i: int, vm := 1.0) -> void:
 	if not Net.authority() or i in lit or vigils.has(i):
 		return
-	shared("_w_vigil", [i, 90.0 if i < 8 else 150.0])
+	shared("_w_vigil", [i, (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)])
 
 
 ## The oil is poured and the flame taken; now the night comes for it, and the flame must be kept.
@@ -537,6 +540,8 @@ func _w_vigil(i: int, t: float) -> void:
 
 func _w_vigil_end(i: int, ok: bool) -> void:
 	vigils.erase(i)
+	if ok:
+		award("beacon")
 	var b: Dictionary = beacon_nodes[i]
 	if ok:
 		if not i in lit:
@@ -1096,7 +1101,12 @@ func _w_gathered(id: int, out: Array) -> void:
 		for it in out:
 			if it[0] in ["wood", "stone", "salt"]:
 				it[1] = int(it[1]) * 2
+	if skills.gather_mult() > 1.0:
+		for it in out:
+			if it[0] != "coin":
+				it[1] = int(ceil(int(it[1]) * skills.gather_mult()))
 	_w_give(out)
+	award("gather")
 	quests.on_event("gathered", {})
 
 
@@ -1259,6 +1269,7 @@ func _w_dawn(d: int) -> void:
 				e.die(false)
 		_dawn_world()
 	quests.on_event("dawn", {})
+	award("dawn")
 	save_all()
 
 
@@ -1273,6 +1284,41 @@ func _dawn_world() -> void:
 		if nd.charges <= 0 and day >= int(nd.back):
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
 	quests.refresh_offers()
+
+
+# ================================================================== growing
+
+## Gives this survivor experience for a deed (see WSkills.XP).
+func award(kind: String, mult := 1.0) -> void:
+	if Net.dedicated or _pfail or not WSkills.XP.has(kind):
+		return
+	var amount := int(round(WSkills.XP[kind] * mult))
+	var ups := skills.gain(amount)
+	if ui:
+		ui.xp_gained(amount)
+	if ups > 0:
+		sfx("choir", -4)
+		hud.title_card("Level %d" % skills.level, "You have learned something of the waste")
+		hud.notify("A point to spend. Press K to see what you might learn.")
+		autosave_soon(2.0)
+
+
+func _apply_skills() -> void:
+	if player == null or player.weapon == null:
+		return
+	var full := player.health >= player.max_health - 0.01
+	player.max_health = skills.health_max()
+	player.health = player.max_health if full else minf(player.health, player.max_health)
+	player.walk_speed = 3.4 * skills.speed_mult()
+	player.run_speed = 5.8 * skills.speed_mult()
+	player.weapon.reserve_max = skills.reserve_max()
+	player.weapon.damage_mult = skills.damage_mult()
+	player.weapon.reload_mult = skills.reload_mult()
+	inv.grow(skills.pack_size())
+	if not Net.dedicated:
+		hud.set_health(player.health / player.max_health, true)
+	if ui:
+		ui.skills_changed()
 
 
 func _apply_time(force: bool) -> void:
@@ -1379,8 +1425,10 @@ func _combat_tick(delta: float) -> void:
 	_regen_wait -= delta
 	if _regen_wait <= 0.0 and player.health < player.max_health and not downed and not Net.dedicated:
 		var rate := 0.6
-		if builder.near_kind(player.global_position, "campfire", 6.0) or settlement_at(player.global_position) != "":
+		var by_fire: bool = builder.near_kind(player.global_position, "campfire", 6.0) or settlement_at(player.global_position) != ""
+		if by_fire:
 			rate = 3.0
+		rate *= skills.regen_mult(by_fire)
 		player.health = minf(player.max_health, player.health + rate * Game.difficulty_scale("regen") * delta)
 		hud.set_health(player.health / player.max_health, true)
 	enemies = enemies.filter(func(e): return is_instance_valid(e))
@@ -1421,8 +1469,9 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	hud.set_streak(streak)
 	if player.relics:
 		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.1)
-	shared("_w_slain", [e.global_position, e.kind])
-	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12):
+	shared("_w_slain", [e.global_position, e.kind, Net.me()])
+	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
+	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12) + skills.drop_bonus():
 		shared("_rq_satchel", [Net.me(), e.global_position, Items.roll("corpse", 2 if e.kind in ["elite", "saucer"] else 1, _gen), false])
 
 
@@ -1430,8 +1479,11 @@ func team_kill(e: LesserSpeeb) -> void:
 	team_kills += 1
 
 
-func _w_slain(p: Vector3, kind: String) -> void:
+func _w_slain(p: Vector3, kind: String, by := 0) -> void:
 	quests.on_event("kill", {"pos": p, "kind": kind})
+	# A fellow's kill close by teaches a little too
+	if by != 0 and by != Net.me() and not Net.dedicated and player.global_position.distance_to(p) < 40.0:
+		award("assist")
 
 
 # ================================================================== falling, and rising again
@@ -1440,8 +1492,18 @@ func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated:
 		return
 	player.shake(0.45)
-	amount *= Game.difficulty_scale("damage")
+	amount *= Game.difficulty_scale("damage") * skills.harm_mult()
+	if skills.rank("last_light") > 0:
+		for i in lit:
+			if player.global_position.distance_to(beacon_nodes[i].pos) < 150.0:
+				amount *= 0.5
+				break
 	player.health -= amount
+	if player.health <= 0.0 and skills.rank("second_wind") > 0 and skills.second_wind_day != day:
+		skills.second_wind_day = day
+		player.health = player.max_health / 3.0
+		sfx("bell", -6)
+		hud.say("The blow should have ended you. Something in you refuses.", 4.0)
 	_regen_wait = 7.0
 	var local := player.global_transform.basis.inverse() * (from - player.global_position)
 	hud.damage_from(atan2(local.x, -local.z))
@@ -1567,17 +1629,23 @@ func _visit_check() -> void:
 		if _biome != "":
 			hud.notify("%s\n%s" % [WTerrain.BIOME_NAMES[bn], BIOME_TEXT[bn]])
 		_biome = bn
+		if not seen_biomes.has(bn):
+			seen_biomes[bn] = true
+			if seen_biomes.size() > 1:
+				award("biome")
 	player.speed_cap = 3.6 if bn == "marsh" and settlement_at(player.global_position, 4.0) == "" else -1.0
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
 		hud.title_card("", WPlaces.SETTLEMENTS[k].name)
 		hud.notify(WPlaces.SETTLEMENTS[k].blurb)
+		award("settlement")
 		quests.on_event("reach", {})
 	for r in ruins:
 		if not known_ruins.has(r.id) and player.global_position.distance_to(r.pos) < 40.0:
 			known_ruins[r.id] = true
 			hud.notify(r.name)
+			award("ruin")
 	quests.on_event("move", {"pos": player.global_position})
 
 
@@ -1670,11 +1738,14 @@ func char_data() -> Dictionary:
 	return {
 		"v": 1, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "bedroll": bedroll, "milk": Game.milk,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "milk": Game.milk,
 	}
 
 
 func apply_char(d: Dictionary) -> void:
+	skills.from_data(d.get("skills", {}))
+	_apply_skills()
+	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
 	inv.from_data(d.get("inv", []))
 	player.weapon.shells = int(d.get("shells", Shotgun.CAPACITY))
 	player.weapon.reserve = int(d.get("reserve", 18))
@@ -1783,8 +1854,8 @@ static func describe(s: String) -> String:
 
 # ================================================================== calls the fellowship shares, passed on to their keepers
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float) -> void:
-	builder._rq_build(by, k, p, yaw)
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
+	builder._rq_build(by, k, p, yaw, hm)
 
 
 func _rq_unbuild(by: int, pid: int) -> void:
@@ -1834,6 +1905,7 @@ func _w_qstep(qid: String, stage: int) -> void:
 	quests.step_done(qid, stage)
 	if ui:
 		ui.journal_dirty = true
+	award("step_main" if qid == "main" else "step")
 	autosave_soon(2.0)
 
 
@@ -2113,3 +2185,24 @@ func debug_fullmap() -> void:
 	for nd in nodes:
 		counts[nd.kind] = counts.get(nd.kind, 0) + 1
 	print("SEED ", world_seed, " nodes ", counts)
+
+
+## Testing aid: earns a few levels, learns some skills, and checks that they take hold and are kept.
+func debug_skills() -> void:
+	await get_tree().create_timer(1.0).timeout
+	print("SKILLS start level %d xp %d points %d hp %.0f pack %d" % [skills.level, skills.xp, skills.points, player.max_health, inv.slots.size()])
+	if skills.level == 1:
+		award("beacon", 4.0)
+		print("SKILLS after 1000 xp: level %d xp %d points %d" % [skills.level, skills.xp, skills.points])
+		for id in ["hardy", "hardy", "scavenger", "light_step", "steady_hand", "thrift", "deep_pockets"]:
+			print("SKILLS learn %s: %s (%s)" % [id, skills.learn(id), skills.blocked(id)])
+		print("SKILLS hp %.0f speed %.2f pack %d dmg %.2f cost floor %s" % [player.max_health, player.walk_speed, inv.slots.size(), player.weapon.damage_mult, skills.cost(Items.PIECES["floor"].cost)])
+	await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+
+func debug_skillshot() -> void:
+	award("beacon", 6.0)
+	for id in ["hardy", "hardy", "steady_hand"]:
+		skills.learn(id)
+	ui.open_skills()

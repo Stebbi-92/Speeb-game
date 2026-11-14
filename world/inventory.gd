@@ -99,6 +99,13 @@ func is_empty() -> bool:
 	return true
 
 
+## Makes room for more (never less): a deeper pack.
+func grow(n: int) -> void:
+	if n > slots.size():
+		slots.resize(n)
+		changed.emit()
+
+
 func to_data() -> Array:
 	var out: Array = []
 	for s in slots:

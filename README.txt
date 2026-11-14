@@ -140,6 +140,8 @@ THE ASHEN WASTE (open world, alone or with up to four)
   I or Tab   your pack, and what you can make
   M          the map; it fills in as you walk
   J          the journal; click a task to follow it on the compass
+  K          what you have learned: spend a point each level in four trees
+             of skills (Survival, Arms, Craft, Faith)
   B          build: wheel to choose, R to turn, click to build,
              right click to take a piece down, B or Esc to stop
   E (hold)   gather wood, stone, scrap, salt, ash-bloom and bone;
