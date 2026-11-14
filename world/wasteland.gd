@@ -4569,3 +4569,9 @@ func debug_menushot2() -> void:
 	await get_tree().create_timer(4.0).timeout
 	ui.close_all()
 	ui.open_skills()
+
+
+func debug_restshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	ui.ask_rest("bed")

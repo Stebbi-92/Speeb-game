@@ -472,9 +472,16 @@ func _input(e: InputEvent) -> void:
 var _panel_name := ""
 
 
+const SMALL := ["rest", "planter", "portal", "travel"]
+
+
 func _open(name: String) -> void:
 	_panel_name = name
 	_panel = _frame
+	# The small screens sit in a smaller frame
+	var sz := Vector2(640, 440) if name in SMALL else Vector2(1120, 700)
+	_frame.custom_minimum_size = sz
+	_pin(_frame, 0.5, 0.5, Rect2(-sz.x * 0.5, -sz.y * 0.5, sz.x, sz.y))
 	_frame.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	w.player.input_locked = true
@@ -2017,8 +2024,8 @@ func _draw_travel() -> void:
 	_body.add_child(_wrap("Burning beacons see one another. Walk their light to any of them.", 19, DIM))
 	for i in w.lit:
 		var b: Dictionary = WPlaces.BEACONS[i]
-		_body.add_child(_btn(b.name, func(): _travel(i), 22, PALE))
-	_body.add_child(_btn("Stay here", close_all, 20))
+		_body.add_child(_action(b.name, func(): _travel(i)))
+	_body.add_child(_action("Stay here", close_all, "Esc", DIM))
 
 
 func _travel(i: int) -> void:
@@ -2045,7 +2052,7 @@ func _fuel_row(pid: int) -> HBoxContainer:
 	hb.add_theme_constant_override("separation", 18)
 	var left: float = w.fuel_left(pid)
 	hb.add_child(_label(("Burns for %s more." % w._days_text(left)) if left > 0.0 else "The fire is out.", 18, PALE if left > 24.0 else GOLD))
-	var b := _btn("Add wood (have %d)" % w.inv.count("wood"), func(): w.add_wood(pid); _redraw(), 18, PALE)
+	var b := _action("Add wood  (you have %d)" % w.inv.count("wood"), func(): w.add_wood(pid); _redraw())
 	b.disabled = w.inv.count("wood") <= 0 or left > Wasteland.FUEL_MAX - Wasteland.WOOD_HOURS
 	b.tooltip_text = "Each piece of wood burns for a day."
 	hb.add_child(b)
@@ -2069,7 +2076,7 @@ func _draw_rest() -> void:
 		_body.add_child(_fuel_row(_rest_pid))
 		if not w.burning(_rest_pid):
 			_body.add_child(_wrap("Add wood before you rest.", 20, PALE))
-			_body.add_child(_btn("Not now", close_all, 20))
+			_body.add_child(_action("Not now", close_all, "Esc", DIM))
 			return
 	var near := 0
 	for e in w.enemies:
@@ -2081,15 +2088,15 @@ func _draw_rest() -> void:
 		var t := "Sleep until dawn?" if not Net.online else "Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes."
 		_body.add_child(_wrap(t, 20, PALE))
 		if w._my_vote:
-			_body.add_child(_btn("Get up", func(): w.vote_sleep(false); _draw_rest(), 22, PALE))
+			_body.add_child(_action("Get up", func(): w.vote_sleep(false); _draw_rest()))
 		else:
-			_body.add_child(_btn("Sleep until dawn", func(): w.vote_sleep(true); _draw_rest(), 22, PALE))
+			_body.add_child(_action("Sleep until dawn", func(): w.vote_sleep(true); _draw_rest(), "", GOLD))
 		_vote_label = _label("", 18, GOLD)
 		_body.add_child(_vote_label)
 	else:
 		_body.add_child(_wrap("It is day. A short sleep will leave you rested.", 20, PALE))
-		_body.add_child(_btn("Sleep a while", func(): close_all(); w.nap(), 22, PALE))
-	_body.add_child(_btn("Not now", close_all, 20))
+		_body.add_child(_action("Sleep a while", func(): close_all(); w.nap(), "", GOLD))
+	_body.add_child(_action("Not now", close_all, "Esc", DIM))
 
 
 func sleep_count(have: int, of: int) -> void:
@@ -2124,9 +2131,9 @@ func _draw_planter() -> void:
 		for id in Items.DB:
 			if Items.info(id).kind == "seed" and w.inv.count(id) > 0:
 				any = true
-				var b := _btn("Plant %s  (you have %d)" % [Items.iname(id), w.inv.count(id)], func():
+				var b := _action("Plant %s  (you have %d)" % [Items.iname(id), w.inv.count(id)], func():
 					if w.inv.take(id, 1) == 1:
-						w.shared("_rq_plant", [Net.me(), _pid, id]), 20, PALE)
+						w.shared("_rq_plant", [Net.me(), _pid, id]))
 				b.tooltip_text = Items.info(id).text
 				_body.add_child(b)
 		if not any:
@@ -2138,8 +2145,8 @@ func _draw_planter() -> void:
 			_body.add_child(_wrap("%s, growing. Ready in about %d hours." % [grows, ceili(left)], 20, PALE))
 		else:
 			_body.add_child(_wrap("%s, ready to lift." % grows, 20, PALE))
-			_body.add_child(_btn("Harvest", func(): w.shared("_rq_harvest", [Net.me(), _pid]), 22, GOLD))
-	_body.add_child(_btn("Close", close_all, 20))
+			_body.add_child(_action("Harvest", func(): w.shared("_rq_harvest", [Net.me(), _pid]), "", GOLD))
+	_body.add_child(_action("Close", close_all, "Esc", DIM))
 
 
 # ------------------------------------------------------------------ the waystone
@@ -2167,12 +2174,12 @@ func _draw_portal() -> void:
 	hb.add_child(field)
 	var save := func(): w.shared("_rq_portal_name", [_pid, field.text])
 	field.text_submitted.connect(func(_t): save.call())
-	hb.add_child(_btn("Name it", save, 20, PALE))
+	hb.add_child(_chip("Name it", false, save))
 	_body.add_child(hb)
 	var to: int = w.portal_pair(_pid)
 	if to >= 0:
 		var d := int(pc.pos.distance_to(w.pieces[to].pos))
-		_body.add_child(_btn("Step through  (%d m)" % d, func(): close_all(); w.step_through(_pid), 22, GOLD))
+		_body.add_child(_action("Step through  (%d m)" % d, func(): close_all(); w.step_through(_pid), "", GOLD))
 	elif str(pc.name) != "":
 		_body.add_child(_wrap("No other waystone bears this name yet.", 18, DIM))
 	var names := {}
@@ -2184,7 +2191,7 @@ func _draw_portal() -> void:
 		for n in names:
 			parts.append("%s%s" % [n, "" if names[n] > 1 else " (alone)"])
 		_body.add_child(_wrap("Named waystones: " + ", ".join(parts), 16, DIM))
-	_body.add_child(_btn("Close", close_all, 20))
+	_body.add_child(_action("Close", close_all, "Esc", DIM))
 
 
 # ------------------------------------------------------------------ the build guide
