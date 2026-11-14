@@ -4102,3 +4102,23 @@ func debug_basestock() -> void:
 	var ok := stock_pay({"scrap": 7})
 	print("STOCK paid %s: pack %d chest %d" % [ok, inv.count("scrap"), _cont_count(cid, "scrap")])
 	get_tree().quit()
+
+
+func debug_floors() -> void:
+	var o := player.global_position + Vector3(30, 0, 30)
+	var ci0 := floori(o.x / WBuilder.GRID)
+	var cj0 := floori(o.z / WBuilder.GRID)
+	var hs := {}
+	for i in 4:
+		for j in 4:
+			var b: float = builder._cell_base(ci0 + i, cj0 + j)
+			var p := Vector3((ci0 + i + 0.5) * WBuilder.GRID, b, (cj0 + j + 0.5) * WBuilder.GRID)
+			builder._rq_build(1, "floor", p, 0.0)
+			hs[snappedf(b, 0.01)] = true
+	print("FLOORS distinct heights %d: %s slope %.2f" % [hs.size(), hs.keys(), builder._slope(ci0, cj0)])
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()
+		return
+	var c := Vector3((ci0 + 2) * WBuilder.GRID, 0, (cj0 + 2) * WBuilder.GRID)
+	player.place(c + Vector3(-9, terrain.height_at(c.x - 9, c.z - 9) + 2.0 - c.y, -9), 0.0)
+	player.face(c + Vector3(0, 6, 0))

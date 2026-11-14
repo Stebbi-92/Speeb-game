@@ -102,8 +102,12 @@ func _placement(k: String) -> Dictionary:
 			out.pos = Vector3(cell_c.x, base + (3.0 if k == "roof" else 0.0), cell_c.z)
 			out.yaw = 0.0
 			out.key = "%s:%d:%d" % ["roof" if k == "roof" else "floor", ci, cj]
-			if k == "floor" and _slope(ci, cj) > 1.2:
-				out.ok = false
+			if k == "floor" and _floor_top(ci, cj) == INF:
+				var hs: Array = []
+				for c in [[0, 0], [1, 0], [0, 1], [1, 1]]:
+					hs.append(w.terrain.height_at((ci + c[0]) * GRID, (cj + c[1]) * GRID))
+				if base < hs.max() - 0.3 or base - hs.min() > 3.0:
+					out.ok = false
 		"wall", "stonewall", "doorway", "window", "palisade":
 			var lx := at.x - cell_c.x
 			var lz := at.z - cell_c.z
@@ -149,6 +153,18 @@ func _placement(k: String) -> Dictionary:
 	return out
 
 
+## A floor held level above falling ground stands on posts down to it.
+func _stilts(n: Node3D, p: Vector3) -> void:
+	var under := p.y - 1.05
+	for c in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var x: float = p.x + c.x * (GRID * 0.5 - 0.2)
+		var z: float = p.z + c.y * (GRID * 0.5 - 0.2)
+		var g: float = w.terrain.height_at(x, z)
+		var h := under - g
+		if h > 0.05:
+			_part(n, null, Vector3(0.22, h + 0.1, 0.22), Vector3(c.x * (GRID * 0.5 - 0.2), -1.05 - h * 0.5, c.y * (GRID * 0.5 - 0.2)), w._m.darkwood, false)
+
+
 func _cell_base(ci: int, cj: int) -> float:
 	var hs: Array = []
 	for c in [[0, 0], [1, 0], [0, 1], [1, 1]]:
@@ -156,7 +172,19 @@ func _cell_base(ci: int, cj: int) -> float:
 	var fl := _floor_top(ci, cj)
 	if fl != INF:
 		return fl
-	return hs.max()
+	# A floor beside another lies level with it when the ground lets it: it may stand on posts up to
+	# three metres over falling ground, and the ground may rise a little above it before it shows
+	var top: float = hs.max()
+	var low: float = hs.min()
+	var best := INF
+	for d in [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]:
+		var nb := _floor_top(ci + d[0], cj + d[1])
+		if nb != INF and top <= nb + 0.3 and nb - low <= 3.0 and (best == INF or absf(nb - top) < absf(best - top)):
+			best = nb
+	if best != INF:
+		return best
+	# Alone, it is raised to the next quarter metre, so floors laid apart still tend to meet level
+	return ceilf(top * 4.0) / 4.0
 
 
 func _slope(ci: int, cj: int) -> float:
@@ -329,6 +357,8 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 	n.rotation.y = yaw
 	w.pieces[pid] = {"kind": k, "pos": p, "yaw": yaw, "hp": hp, "node": n, "key": key_of(k, p, yaw), "open": false, "name": "", "crop": "", "sown": 0.0}
 	w.piece_next = maxi(w.piece_next, pid + 1)
+	if k == "floor":
+		_stilts(n, p)
 	for b in n.find_children("*", "StaticBody3D", true, false):
 		b.set_meta("piece", pid)
 	var body: StaticBody3D = n.get_meta("body")
