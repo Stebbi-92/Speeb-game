@@ -960,6 +960,7 @@ func show_options() -> void:
 		_options_list.add_child(_label("In a fellowship the host's difficulty holds for everyone.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	else:
 		_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
+	_choice("Lesser forms", ["Flesh: cat heads", "Masks: their emojis"], Game.forms_style, func(i): Game.forms_style = i; Game.save())
 	_section("Fellowship")
 	_line("Your name among the fellowship", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
 	_line("Internet list address", Game.lobby_url, Net.DEFAULT_LOBBY if Net.DEFAULT_LOBBY != "" else "https://... (optional)", func(t): Game.lobby_url = t.strip_edges(); Game.save())

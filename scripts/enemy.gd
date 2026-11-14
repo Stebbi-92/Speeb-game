@@ -6,6 +6,7 @@ extends CharacterBody3D
 ## swarm: small and quick, comes in numbers.  elite: a great form, one to a land.
 ## spider: a cat head on eight legs; it skitters along the ground and leaps.
 ## saucer: a disc of the lesser that hovers out of reach and lets down mites, small forms that swarm.
+## unseen: a tall thing that is barely there. It does not move while it is looked upon.
 
 signal died
 
@@ -18,6 +19,7 @@ const KINDS := {
 	"saucer": {"hp": 150.0, "size": 1.0, "speed": 4.5, "bite": 0.0, "radius": 1.6},
 	"mite": {"hp": 9.0, "size": 0.42, "speed": 7.6, "bite": 5.0, "radius": 0.22},
 	"spider": {"hp": 44.0, "size": 0.8, "speed": 7.2, "bite": 15.0, "radius": 0.55},
+	"unseen": {"hp": 140.0, "size": 1.3, "speed": 5.0, "bite": 34.0, "radius": 0.6},
 }
 const IDOL_CODES := ["goldspeeb", "marblespeeb", "jadespeeb", "obsidianspeeb", "fossilspeeb"]
 
@@ -39,6 +41,10 @@ var _disc: Node3D
 var _beam: MeshInstance3D
 var _mites: Array = []
 var _cry_cd := 0.0
+var _shimmer: ShaderMaterial
+var _seen := 0.08
+var _watched := false
+var _breath_cd := 0.0
 # In a fellowship the host runs every form; the others see puppets that follow what the host tells them
 var net_id := 0
 var puppet := false
@@ -83,9 +89,12 @@ func _ready() -> void:
 	add_child(head)
 	if kind == "idol":
 		head.set_gild(1.0)
+	if kind == "unseen":
+		_build_unseen()
 	var l := OmniLight3D.new()
+	l.visible = kind != "unseen"
 	l.light_color = Color(1.0, 0.15, 0.08)
-	l.light_energy = 2.5 if kind == "elite" else 1.2
+	l.light_energy = (2.5 if kind == "elite" else 1.2) * (0.45 if Game.forms_style == 0 else 1.0)
 	l.omni_range = 3.5 * spec.size
 	l.position = Vector3(0, 0.2, 0.9) * spec.size
 	add_child(l)
@@ -123,6 +132,9 @@ func _ready() -> void:
 		add_child(hum)
 	elif kind == "spider":
 		_cry("critter_%d" % (randi() % 3), -2)
+	elif kind == "unseen":
+		level.sfx("unseen_call", 2, global_position, randf_range(0.9, 1.05))
+		_cry_cd = randf_range(12.0, 20.0)
 	elif kind != "mite":
 		_cry("growl_%d" % (randi() % 3), -4)
 
@@ -183,11 +195,25 @@ func _physics_process(delta: float) -> void:
 			"elite":
 				want = dir * speed if dist > 4.0 else dir.cross(Vector3.UP) * _strafe * 3.0
 				want.y += (target.y + 0.8 - global_position.y) * 1.0
+			"unseen":
+				# Still as a post while it is watched; when the eye leaves it, it comes on fast
+				var w := dist < 30.0 and _is_watched(p)
+				if w and not _watched and dist < 22.0:
+					level.sfx("unseen_click", -3, global_position, randf_range(0.9, 1.1))
+				_watched = w
+				if not w:
+					want = dir * speed * (1.7 if dist > 9.0 else 1.0)
+					want.y = (target.y - 0.2 - global_position.y) * 2.0
 			_:
 				want = dir * speed
 				want += dir.cross(Vector3.UP) * sin(_t * 2.0 + _strafe) * (2.5 if kind == "swarm" else 1.2)
-	want.y += sin(_t * 2.6) * 0.4
-	velocity = velocity.lerp(want, minf(1.0, delta * 3.0)) + _knock
+	if kind == "unseen":
+		_shade_tick(delta, dist)
+		if _watched:
+			velocity = Vector3.ZERO
+	else:
+		want.y += sin(_t * 2.6) * 0.4
+	velocity = velocity.lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
 	var real_v := velocity
 	velocity *= level.enemy_time
@@ -202,6 +228,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_attack_cd -= delta
 	_cry_cd -= delta
+	if kind == "unseen":
+		_unseen_noise(delta, dist)
 	# The forms scream as they close on him
 	if _cry_cd <= 0.0 and dist < 16.0:
 		match kind:
@@ -221,7 +249,10 @@ func _physics_process(delta: float) -> void:
 	if spec.bite > 0.0 and dist < reach and _attack_cd <= 0.0:
 		_attack_cd = 1.3 if kind == "idol" else 0.9
 		level.sfx("bite", -2, global_position)
-		if randf() < 0.5:
+		if kind == "unseen":
+			level.sfx("unseen_scream", 2, global_position, randf_range(0.9, 1.1))
+			_seen = 1.0
+		elif randf() < 0.5:
 			_cry("growl_%d" % (randi() % 3), 0)
 		level.hurt_target(p, spec.bite, global_position)
 		_knock = -dir * 6.0
@@ -589,6 +620,10 @@ func _puppet_tick(delta: float) -> void:
 	head.set_flash(_flash)
 	if kind == "saucer" and _disc:
 		_disc.rotation.y += delta * 2.5
+	if kind == "unseen":
+		var d := global_position.distance_to(level.player.global_position)
+		_shade_tick(delta, d)
+		_unseen_noise(delta, d)
 	if kind == "spider":
 		var pace := Vector2(_net_v.x, _net_v.z).length()
 		for leg in _legs:
@@ -598,7 +633,7 @@ func _puppet_tick(delta: float) -> void:
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	_cry_cd -= delta
 	var dist := global_position.distance_to(level.player.global_position)
-	if _cry_cd <= 0.0 and dist < 16.0 and not level.combat_frozen:
+	if _cry_cd <= 0.0 and dist < 16.0 and not level.combat_frozen and kind != "unseen":
 		_cry_cd = randf_range(3.5, 7.0)
 		match kind:
 			"rusher", "swarm", "idol":
@@ -611,6 +646,64 @@ func _puppet_tick(delta: float) -> void:
 				_cry("growl_%d" % (randi() % 3), -2)
 			"spider":
 				_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
+
+
+## The unseen: a long dark figure of bent light, arms to its knees, a narrow head with no face.
+func _build_unseen() -> void:
+	head.visible = false
+	_shimmer = ShaderMaterial.new()
+	_shimmer.shader = load("res://scripts/shimmer.gdshader")
+	var parts := [
+		[CapsuleMesh, Vector3(0, -0.25, 0), Vector3(0.34, 2.3, 0), Vector3.ZERO],
+		[CapsuleMesh, Vector3(0, 1.2, 0.04), Vector3(0.19, 0.62, 0), Vector3(0.2, 0, 0)],
+		[CapsuleMesh, Vector3(0.42, -0.35, 0.1), Vector3(0.07, 2.1, 0), Vector3(0.15, 0, 0.12)],
+		[CapsuleMesh, Vector3(-0.42, -0.35, 0.1), Vector3(0.07, 2.1, 0), Vector3(0.15, 0, -0.12)],
+	]
+	for pt in parts:
+		var mi := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = pt[2].x
+		cm.height = pt[2].y
+		mi.mesh = cm
+		mi.position = pt[1]
+		mi.rotation = pt[3]
+		mi.material_override = _shimmer
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+
+
+## Does the one it hunts look upon it?
+func _is_watched(p: Node3D) -> bool:
+	var face: Vector3 = -p.global_transform.basis.z if p is Player else p.global_transform.basis.z
+	if p is Player and p.cam:
+		face = -p.cam.global_transform.basis.z
+	var to_it := global_position - (p.global_position + Vector3(0, 1.5, 0))
+	face.y = 0.0
+	to_it.y = 0.0
+	return face.normalized().dot(to_it.normalized()) > 0.85
+
+
+## Near, or struck, it shows plainly; otherwise it is only a bending of the air.
+func _shade_tick(delta: float, dist: float) -> void:
+	var want := 0.08
+	if dist < 7.0:
+		want = lerpf(1.0, 0.08, dist / 7.0)
+	want = maxf(want, _flash)
+	_seen = lerpf(_seen, want, minf(1.0, delta * 3.0))
+	_shimmer.set_shader_parameter("seen", _seen)
+	_shimmer.set_shader_parameter("flash", _flash)
+	# It sways where it stands, as if listening
+	rotation.z = sin(_t * 0.7) * 0.04
+
+
+func _unseen_noise(delta: float, dist: float) -> void:
+	_breath_cd -= delta
+	if _cry_cd <= 0.0:
+		level.sfx("unseen_call", 0, global_position, randf_range(0.85, 1.05))
+		_cry_cd = randf_range(12.0, 20.0)
+	if dist < 12.0 and _breath_cd <= 0.0:
+		level.sfx("unseen_breath", -4, global_position, randf_range(0.9, 1.1))
+		_breath_cd = randf_range(3.0, 5.0)
 
 
 ## A spat bolt of burning light.

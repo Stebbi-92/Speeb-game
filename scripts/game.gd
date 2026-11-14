@@ -58,6 +58,7 @@ var quality := 1
 var gilded := false
 var player_name := ""
 var lobby_url := ""
+var forms_style := 0      ## the lesser forms: 0 flesh (cat heads), 1 masks (their emojis)
 var look := Figure.DEFAULT.duplicate()   ## how this pilgrim appears to others
 var unlimited_ammo := false   ## a hosting choice: guns never spend their reserve
 var pxp := 0                 ## profile experience, earned in every mode; unlocks arms
@@ -371,7 +372,7 @@ func save() -> void:
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min,
-			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look}))
+			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
 
 
 func load_save() -> void:
@@ -388,6 +389,7 @@ func load_save() -> void:
 		pxp = maxi(0, int(d.get("pxp", 0)))
 		unlimited_ammo = bool(d.get("unlimited_ammo", false))
 		look = Figure.clean(d.get("look", {}))
+		forms_style = clampi(int(d.get("forms_style", 0)), 0, 1)
 		plevel = clampi(int(d.get("plevel", 1)), 1, ArmsDB.MAX_LEVEL)
 		var lo = d.get("loadout", {})
 		if lo is Dictionary:

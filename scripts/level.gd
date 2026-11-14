@@ -300,6 +300,8 @@ func _begin_wave(n: int, saucer: bool) -> void:
 			roster.append("idol")
 		elif r < 0.42:
 			roster.append("spider" if spiders else "rusher")
+		elif r < 0.47 and Game.level_index >= 5 and not roster.has("unseen"):
+			roster.append("unseen")
 		else:
 			roster.append("spitter" if randf() < spitter_chance else "rusher")
 	_wave_queue.append_array(roster)
@@ -2615,3 +2617,56 @@ func debug_figures() -> void:
 		f.global_position = player.global_position + fwd * 4.5 + side * (i - 2) * 1.1
 		f.look_at(player.global_position, Vector3.UP)
 		f.rotate_y(PI)
+
+
+func debug_catshot() -> void:
+	combat_frozen = true
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	var ks := ["rusher", "idol", "spitter"]
+	for i in 3:
+		var e := LesserSpeeb.new().setup(Game.lesser.keys()[(i * 17 + 5) % Game.lesser.size()], ks[i], self)
+		add_child(e)
+		enemies.append(e)
+		e.global_position = player.global_position + fwd * 2.6 + side * (i - 1) * 1.1 + Vector3(0, 1.5, 0)
+		e.look_at(player.global_position + Vector3(0, 1.5, 0), Vector3.UP)
+		e.rotate_y(PI)
+
+
+## Test: an unseen form must hold still while looked upon and come on when the eye turns away.
+func debug_unseen() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized()
+	var sp = open_spot_near(player.global_position, 14.0, 20.0)
+	var e := spawn_at("unseen", sp if sp != null else player.global_position + fwd * 18.0 + Vector3(0, 1.5, 0))
+	fwd = (e.global_position - player.global_position) * Vector3(1, 0, 1)
+	fwd = fwd.normalized()
+	_debug_aim(e.global_position)
+	await get_tree().create_timer(2.0).timeout
+	var a := e.global_position
+	await get_tree().create_timer(2.0).timeout
+	var watched_move := e.global_position.distance_to(a)
+	print("UNSEEN frozen=%s targets=%d watched=%s" % [combat_frozen, targets().size(), e._watched])
+	_debug_aim(player.global_position - fwd * 10.0 + Vector3(0, 1.5, 0))
+	await get_tree().create_timer(1.5).timeout
+	var b := e.global_position
+	print("UNSEEN after turn watched=%s vel=%s et=%s idle=%s" % [e._watched, e.velocity, enemy_time, nearest_target(e.global_position)])
+	await get_tree().create_timer(0.8).timeout
+	var away_move := e.global_position.distance_to(b) if is_instance_valid(e) else -1.0
+	print("UNSEEN watched_move=%.2f away_move=%.2f dist=%.1f" % [watched_move, away_move, e.global_position.distance_to(player.global_position) if is_instance_valid(e) else -1.0])
+	get_tree().quit()
+
+
+func debug_unseenshot() -> void:
+	combat_frozen = true
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0
+	fwd = fwd.normalized()
+	var e := spawn_at("unseen", player.global_position + fwd * 4.0 + player.global_transform.basis.x * 0.8 + Vector3(0, 1.4, 0))
+	e.look_at(player.global_position + Vector3(0, 1.4, 0), Vector3.UP)
+	e.rotate_y(PI)
+	var f := spawn_at("unseen", player.global_position + fwd * 12.0 - player.global_transform.basis.x * 3.0 + Vector3(0, 1.4, 0))
+	f.look_at(player.global_position + Vector3(0, 1.4, 0), Vector3.UP)
+	f.rotate_y(PI)

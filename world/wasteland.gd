@@ -1375,6 +1375,21 @@ func _night_wave() -> void:
 		if nights >= 4 and randf() < 0.06 + nights * 0.01:
 			_spawn_near("elite", t.global_position, 35.0, 45.0)
 			hud.notify("Something greater walks tonight.")
+		# Some nights, in the dark country, something follows that is hardly there at all
+		var bio: String = terrain.biome_name(t.global_position.x, t.global_position.z)
+		var dark := 0.1 if bio in ["forest", "marsh", "basalt"] else 0.04
+		if nights >= 1 and randf() < dark + nights * 0.01 and _unseen_count() < tg.size():
+			_spawn_near("unseen", t.global_position, 34.0, 46.0)
+		if randf() < 0.25:
+			sfx("horror_deep", -10, t.global_position + Vector3(randf_range(-40, 40), 0, randf_range(-40, 40)), randf_range(0.8, 1.0))
+
+
+func _unseen_count() -> int:
+	var n := 0
+	for e in foes.values():
+		if is_instance_valid(e) and e.kind == "unseen" and e.is_alive():
+			n += 1
+	return n
 
 
 ## By day the waste is quieter, but the ruins are not empty, and the roads are not always clear.
@@ -2217,3 +2232,23 @@ func debug_skillshot() -> void:
 	for id in ["hardy", "hardy", "steady_hand"]:
 		skills.learn(id)
 	ui.open_skills()
+
+
+## Testing aid: many nights' waves far from shelter, counting what comes that can hardly be seen.
+func debug_unseen_nights() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(300, 0, 300)
+	at.y = terrain.height_at(at.x, at.z) + 2.0
+	player.place(at, 0.0)
+	await get_tree().create_timer(1.0).timeout
+	nights = 6
+	print("UNSEEN pre targets=%d safe=%s pos=%s" % [targets().size(), safe_at(player.global_position), player.global_position])
+	for k in 40:
+		_night_wave()
+		await get_tree().process_frame
+		for e in foes.values():
+			if is_instance_valid(e) and e.kind != "unseen":
+				e.die(false)
+	await get_tree().create_timer(1.0).timeout
+	print("UNSEEN NIGHTS count=%d alive=%d" % [_unseen_count(), alive_count()])
+	get_tree().quit()
