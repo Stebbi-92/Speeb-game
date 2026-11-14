@@ -1,10 +1,12 @@
 class_name WPlaces
 extends RefCounted
 ## The Ashen Waste: where its people dwell, where its beacons stand dead, and what lies broken between them.
-## Positions are on the ground plane (x, z). The waste runs from -1024 to 1024 on each side.
+## Positions are on the ground plane (x, z). The waste runs from -2048 to 2048 on each side.
+## The old middle (to a thousand paces out) holds the story; the far reaches beyond it hold more to find.
 
-const SIZE := 2048.0
-const HALF := 1024.0
+const SIZE := 4096.0
+const HALF := 2048.0
+const OLD_HALF := 1000.0   ## the rim of the waste as it was first known
 
 ## The settlements. Each keeps a few souls worth speaking with.
 const SETTLEMENTS := {
@@ -31,6 +33,19 @@ const SETTLEMENTS := {
 	"gallowmere": {
 		"name": "Gallowmere", "pos": Vector2(20, -720), "radius": 34.0, "wall": Color(0.28, 0.24, 0.22),
 		"blurb": "A hard outpost on the dry bed of a lake. Its people put out the beacons, and they know it.",
+	},
+	# The far reaches, beyond the old rim
+	"saltreach": {
+		"name": "Saltreach", "pos": Vector2(1400, 600), "radius": 30.0, "wall": Color(0.46, 0.42, 0.38), "far": true,
+		"blurb": "The last salt-camp before nothing. The caravans used to turn back here.",
+	},
+	"emberhollow": {
+		"name": "Ember Hollow", "pos": Vector2(-1400, -600), "radius": 30.0, "wall": Color(0.3, 0.24, 0.22), "far": true,
+		"blurb": "Coal-diggers in a crater that has stayed warm since the fall.",
+	},
+	"lastlight": {
+		"name": "Last Light", "pos": Vector2(0, 1500), "radius": 28.0, "wall": Color(0.38, 0.34, 0.3), "far": true,
+		"blurb": "A watchtower at the far rim that never let its lamp go out.",
 	},
 }
 
@@ -133,6 +148,57 @@ const PEOPLE := {
 		"about": "Gallowmere keeps the old bargain. We give the night what it asks, and it leaves us standing. You think that is cowardice. Come back when you have buried as many as I have.",
 		"rumors": [
 			"There is a mouth in the earth <dir:B:8:gallowmere> of here. The ninth beacon stands over it. That one was not put out. It was swallowed.",
+		],
+	},
+	"brannoch": {
+		"name": "Brannoch", "title": "Salt-boss of Saltreach", "at": "saltreach", "off": Vector2(0, -8), "role": "trader", "robe": Color(0.52, 0.48, 0.42),
+		"greet": "Far from home, are you? Everyone here is.",
+		"about": "I came out to dig the deep pans. Nobody else would. The salt is cleaner here and the forms are hungrier.",
+		"rumors": [
+			"The Crossing is <dir:S:hesk:saltreach> of here. They pay half what it is worth.",
+			"Out past the pans there are wrecks nobody has picked over. Bring a big pack.",
+		],
+	},
+	"tamsin": {
+		"name": "Tamsin", "title": "Bone-setter", "at": "saltreach", "off": Vector2(-11, 6), "role": "healer", "robe": Color(0.6, 0.56, 0.5),
+		"greet": "Sit. Show me where it hurts. It always hurts somewhere.",
+		"about": "I set bones for diggers who fall into the pans. Most of them climb back out. I count that as a good year.",
+		"rumors": [
+			"Brine closes a wound faster than you would think. It also stings worse than you would think.",
+		],
+	},
+	"gorm": {
+		"name": "Gorm", "title": "Coal-master", "at": "emberhollow", "off": Vector2(0, -7), "role": "smith", "robe": Color(0.24, 0.2, 0.18),
+		"greet": "Mind your step. The ground is warm for a reason.",
+		"about": "The crater burns underneath. We dig the coal it has not eaten yet. It forges the best iron in the waste.",
+		"rumors": [
+			"The Kiln is <dir:S:kiln:emberhollow> of here. Hal and I trade iron when the roads are quiet.",
+			"Something big sleeps in the hot rock. The forms walk around the Hollow, never through it.",
+		],
+	},
+	"pell": {
+		"name": "Pell", "title": "Lamp-trimmer", "at": "emberhollow", "off": Vector2(11, 5), "role": "oilwright", "robe": Color(0.46, 0.36, 0.22),
+		"greet": "Coal smoke, lamp oil. You get used to both.",
+		"about": "I trim the lamps down the shafts so the diggers can see. When a lamp goes out down there, someone has to go and find out why.",
+		"rumors": [
+			"Oil burns longer if you strain it through salt. Old trick from the Well.",
+		],
+	},
+	"aud": {
+		"name": "Aud", "title": "Keeper of the Lamp", "at": "lastlight", "off": Vector2(0, -7), "role": "warden", "robe": Color(0.3, 0.3, 0.34),
+		"greet": "You came a long way to see a lamp.",
+		"about": "My mother kept this lamp. Hers before her. Nobody told us to stop, so we never did.",
+		"rumors": [
+			"Cinderwick is <dir:S:cinderwick:lastlight> of here. The cast-out always come from that way.",
+			"From the top of the tower you can see the whole rim. It is very empty, and not as empty as it looks.",
+		],
+	},
+	"fen": {
+		"name": "Fen", "title": "Provisioner", "at": "lastlight", "off": Vector2(-10, 6), "role": "quartermaster", "robe": Color(0.4, 0.36, 0.3),
+		"greet": "Shells, meat, cloth. Pick fast, the wind is coming.",
+		"about": "I keep the tower fed. The road out here is long and the carts come twice a year if we are lucky.",
+		"rumors": [
+			"A waystone at each end saves the walk. Name them the same and step through.",
 		],
 	},
 	"ash_lena": {
@@ -261,13 +327,106 @@ static func lay_out(seed: int, probe: Callable) -> void:
 		all.append(p)
 
 
+## The old roads: [from, to, points]. Neighbouring towns are joined, as people joined them before the fall.
+static var roads: Array = []
+
+
+## Lays the roads: the shortest web that joins every town, and a few more between near neighbours.
+## Each road winds a little and keeps off steep ground where it can.
+static func plan_roads(seed: int, probe: Callable) -> void:
+	roads.clear()
+	var keys: Array = settle_at.keys()
+	var pairs: Array = []
+	var linked := [keys[0]]
+	while linked.size() < keys.size():
+		var best := []
+		var bd := INF
+		for a in linked:
+			for b in keys:
+				if b in linked:
+					continue
+				var d: float = settle_at[a].distance_to(settle_at[b])
+				if d < bd:
+					bd = d
+					best = [a, b]
+		pairs.append(best)
+		linked.append(best[1])
+	var extra: Array = []
+	for a in keys:
+		for b in keys:
+			if str(a) < str(b) and not pairs.any(func(pp): return (pp[0] == a and pp[1] == b) or (pp[0] == b and pp[1] == a)):
+				extra.append([a, b, settle_at[a].distance_to(settle_at[b])])
+	extra.sort_custom(func(x, y): return x[2] < y[2])
+	for k in mini(3, extra.size()):
+		if extra[k][2] < 1300.0:
+			pairs.append([extra[k][0], extra[k][1]])
+	var r := RandomNumberGenerator.new()
+	r.seed = seed * 4049 + 7
+	for pp in pairs:
+		roads.append([pp[0], pp[1], _wind(r, probe, settle_at[pp[0]], settle_at[pp[1]], SETTLEMENTS[pp[0]].radius, SETTLEMENTS[pp[1]].radius)])
+
+
+static func _wind(r: RandomNumberGenerator, probe: Callable, a: Vector2, b: Vector2, ra: float, rb: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var p := a + (b - a).normalized() * (ra - 4.0)
+	pts.append(p)
+	var heading := (b - a).angle()
+	for guard in 400:
+		if p.distance_to(b) < rb + 30.0:
+			break
+		var want := (b - p).angle()
+		var best := want
+		var best_cost := INF
+		for k in 7:
+			var ang := want + (k - 3) * 0.18 + r.randf_range(-0.05, 0.05)
+			var q := p + Vector2(cos(ang), sin(ang)) * 30.0
+			var hs: Vector2 = probe.call(q)
+			var here: Vector2 = probe.call(p)
+			var cost := absf(hs.x - here.x) * 1.5 + hs.y * 120.0 + absf(wrapf(ang - want, -PI, PI)) * 6.0 + absf(wrapf(ang - heading, -PI, PI)) * 4.0
+			if cost < best_cost:
+				best_cost = cost
+				best = ang
+		heading = best
+		p += Vector2(cos(best), sin(best)) * 30.0
+		pts.append(p)
+	pts.append(b + (p - b).normalized() * (rb - 4.0))
+	# Round off the corners
+	for pass_i in 2:
+		var sm := PackedVector2Array([pts[0]])
+		for k in pts.size() - 1:
+			sm.append(pts[k].lerp(pts[k + 1], 0.25))
+			sm.append(pts[k].lerp(pts[k + 1], 0.75))
+		sm.append(pts[pts.size() - 1])
+		pts = sm
+	return pts
+
+
+## The far settlements stand beyond the old rim, spread apart around it. Drawn from their own dice so that
+## a world begun before the waste grew keeps every place it had.
+static func lay_out_far(seed: int, probe: Callable) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed * 6271 + 29
+	var turn := r.randf() * TAU
+	var i := 0
+	for k in SETTLEMENTS:
+		if not SETTLEMENTS[k].get("far", false):
+			continue
+		var a := turn + i * TAU / 3.0
+		settle_at[k] = _good(r, probe, func():
+			var aa := a + r.randf_range(-0.4, 0.4)
+			var d := Vector2(cos(aa), sin(aa))
+			# Out beyond the rim on whichever face it points to
+			return d / maxf(absf(d.x), absf(d.y)) * r.randf_range(1250.0, 1700.0), [], 0.0, [], 0.0, 1800.0)
+		i += 1
+
+
 ## A point from make() that is level, not too high, inside the waste, and far enough from what is already placed.
-static func _good(r: RandomNumberGenerator, probe: Callable, make: Callable, near: Array, apart: float, avoid: Array = [], avoid_r := 0.0) -> Vector2:
+static func _good(r: RandomNumberGenerator, probe: Callable, make: Callable, near: Array, apart: float, avoid: Array = [], avoid_r := 0.0, bound := 860.0) -> Vector2:
 	var best := Vector2.ZERO
 	var best_score := -INF
 	for attempt in 300:
 		var p: Vector2 = make.call()
-		p = p.clamp(Vector2(-860, -860), Vector2(860, 860))
+		p = p.clamp(Vector2(-bound, -bound), Vector2(bound, bound))
 		var hs: Vector2 = probe.call(p)
 		var score := -hs.y * 40.0 - maxf(hs.x - 30.0, 0.0)
 		var ok := hs.y < 0.18 and hs.x < 45.0

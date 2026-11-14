@@ -1129,7 +1129,7 @@ func open_map() -> void:
 func _draw_map() -> void:
 	_clear()
 	if _map_tex == null:
-		_map_tex = ImageTexture.create_from_image(w.terrain.map_image(512))
+		_map_tex = ImageTexture.create_from_image(w.terrain.map_image(640))
 		_fog_img = Image.create(Wasteland.REVEAL_N, Wasteland.REVEAL_N, false, Image.FORMAT_RGBA8)
 		_fog_tex = ImageTexture.create_from_image(_fog_img)
 		map_dirty = true

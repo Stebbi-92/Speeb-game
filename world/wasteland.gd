@@ -8,7 +8,9 @@ const DUSK := 20.0
 const DAWN := 5.0
 const RUINS_N := 44
 const NODES_N := 900
-const REVEAL_N := 128
+const RUINS_FAR := 140      ## ruins in the far reaches, beyond the old rim
+const NODES_FAR := 2700
+const REVEAL_N := 256
 
 var terrain: WTerrain
 var inv := Inventory.new()
@@ -116,7 +118,8 @@ func _make_world(sd: int) -> void:
 	world_seed = sd
 	terrain = WTerrain.new()
 	terrain.setup(sd)
-	WPlaces.lay_out(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
+	WPlaces.lay_out(sd, func(p: Vector2) -> Vector2: return Vector2(terrain.legacy_raw(p.x, p.y), terrain_probe(p)))
+	WPlaces.lay_out_far(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
 	for k in WPlaces.SETTLEMENTS:
 		terrain.add_flat(WPlaces.spos(k), WPlaces.SETTLEMENTS[k].radius + 8.0)
 	for bp in WPlaces.beacon_points():
@@ -126,6 +129,9 @@ func _make_world(sd: int) -> void:
 	for r in ruins:
 		terrain.add_flat(Vector2(r.pos.x, r.pos.z), 9.0)
 	_plan_lairs()
+	WPlaces.plan_roads(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
+	for rd in WPlaces.roads:
+		terrain.add_road(rd[2])
 	terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
@@ -137,12 +143,20 @@ func _make_world(sd: int) -> void:
 		_build_settlement(k)
 	for i in WPlaces.BEACONS.size():
 		_build_beacon(i)
+	var before := get_child_count()
 	for r in ruins:
 		_build_ruin(r)
+	for i in range(before, get_child_count()):
+		_fade_far(get_child(i), 700.0)
 	for l in lairs:
 		_build_lair(l)
 	_scatter_nodes()
+	for nd in nodes:
+		_off_the_road(nd)
+		_fade_far(nd.node, 420.0)
+	_build_signposts()
 	_scatter_decor()
+	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
 
@@ -276,14 +290,100 @@ func _plan_ruins() -> void:
 		if ruins.any(func(o): return o.name == nm):
 			continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[r.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
+	# The far reaches: more ruins, picked over by no one. Their own dice, so older worlds keep theirs.
+	var fr := RandomNumberGenerator.new()
+	fr.seed = world_seed + 5503
+	var far := 0
+	tries = 0
+	while far < RUINS_FAR and tries < 8000:
+		tries += 1
+		var p := far_point(fr)
+		if not _clear_of_places(p, 110.0, 70.0) or terrain_probe(p) > 0.22:
+			continue
+		var nm: String = WPlaces.RUIN_WORDS_A[fr.randi() % WPlaces.RUIN_WORDS_A.size()] + " " + WPlaces.RUIN_WORDS_B[fr.randi() % WPlaces.RUIN_WORDS_B.size()]
+		if ruins.any(func(o): return o.name == nm):
+			nm = "Far " + nm
+			if ruins.any(func(o): return o.name == nm):
+				continue
+		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[fr.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
+		far += 1
+
+
+## A tree or a rock that fell on a road is moved to its verge.
+func _off_the_road(nd: Dictionary) -> void:
+	var p: Vector3 = nd.pos
+	if terrain.road_at(p.x, p.z) < 0.2:
+		return
+	for k in 8:
+		var a := k * TAU / 8.0
+		var q := p + Vector3(cos(a), 0, sin(a)) * 7.0
+		if terrain.road_at(q.x, q.z) < 0.05:
+			q.y = terrain.height_at(q.x, q.z)
+			nd.pos = q
+			nd.node.position = q
+			return
+
+
+## Where a road leaves a town, a post names where it goes.
+func _build_signposts() -> void:
+	for rd in WPlaces.roads:
+		var pts: PackedVector2Array = rd[2]
+		for end in [0, 1]:
+			var here: String = rd[end]
+			var there: String = rd[1 - end]
+			var k := 6 if end == 0 else pts.size() - 7
+			var nxt := k + (1 if end == 0 else -1)
+			if k < 0 or k >= pts.size() or nxt < 0 or nxt >= pts.size():
+				continue
+			var at: Vector2 = pts[k]
+			var dir: Vector2 = (pts[nxt] - at).normalized()
+			var side := Vector2(-dir.y, dir.x) * 4.5
+			var n := Node3D.new()
+			n.position = gpos(at + side)
+			add_child(n)
+			_add(n, box(Vector3.ZERO, Vector3(0.18, 2.6, 0.18), _m.darkwood, true), Vector3(0, 1.3, 0))
+			var arm := Node3D.new()
+			arm.rotation.y = atan2(-dir.y, dir.x)
+			_add(n, arm, Vector3(0, 2.1, 0))
+			_add(arm, box(Vector3.ZERO, Vector3(1.6, 0.34, 0.06), _m.wood, false), Vector3(0.7, 0, 0))
+			for face in [1.0, -1.0]:
+				var l := Label3D.new()
+				l.text = WPlaces.SETTLEMENTS[there].name
+				l.font_size = 40
+				l.pixel_size = 0.004
+				l.modulate = Color(0.95, 0.9, 0.8)
+				l.outline_size = 6
+				l.position = Vector3(0.7, 0, 0.04 * face)
+				l.rotation.y = 0.0 if face > 0 else PI
+				l.width = 380.0
+				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				l.visibility_range_end = 60.0
+				arm.add_child(l)
+
+
+## Small things are not drawn from far off: the waste is wide, and the eye cannot hold it all.
+func _fade_far(n: Node, dist: float) -> void:
+	if n is GeometryInstance3D and n.visibility_range_end <= 0.0:
+		n.visibility_range_end = dist
+	for c in n.get_children():
+		_fade_far(c, dist)
+
+
+## A point in the far reaches: beyond the old rim, inside the new one.
+static func far_point(r: RandomNumberGenerator, inner := 1010.0, outer := 1860.0) -> Vector2:
+	while true:
+		var p := Vector2(r.randf_range(-outer, outer), r.randf_range(-outer, outer))
+		if maxf(absf(p.x), absf(p.y)) > inner:
+			return p
+	return Vector2.ZERO
 
 
 ## How steep the raw land is at a point, before any flattening.
 func terrain_probe(p: Vector2) -> float:
-	var a := terrain._raw(p.x - 6, p.y)
-	var b := terrain._raw(p.x + 6, p.y)
-	var c := terrain._raw(p.x, p.y - 6)
-	var d := terrain._raw(p.x, p.y + 6)
+	var a := terrain.legacy_raw(p.x - 6, p.y)
+	var b := terrain.legacy_raw(p.x + 6, p.y)
+	var c := terrain.legacy_raw(p.x, p.y - 6)
+	var d := terrain.legacy_raw(p.x, p.y + 6)
 	return maxf(absf(a - b), absf(c - d)) / 12.0
 
 
@@ -1316,7 +1416,7 @@ func _scatter_nodes() -> void:
 		if near_settle:
 			continue
 		var p := gpos(p2)
-		if terrain.normal_at(p.x, p.z).y < 0.8:
+		if _legacy_normal(p2).y < 0.8:
 			continue
 		_make_node(nodes.size(), kinds, p, r)
 	# A few of each close by the first camp, so the cast-out are not lost entirely
@@ -1327,6 +1427,32 @@ func _scatter_nodes() -> void:
 			if p2.distance_to(start) > 50.0:
 				_make_node(nodes.size(), kk, gpos(p2), r)
 				break
+	# The far reaches, with their own dice: what is gathered there is added after all the rest
+	var fr := RandomNumberGenerator.new()
+	fr.seed = world_seed + 9191
+	var far := 0
+	tries = 0
+	while far < NODES_FAR and tries < NODES_FAR * 6:
+		tries += 1
+		var p2 := far_point(fr)
+		var kinds := _node_kind(p2, fr)
+		if kinds == "" or not _clear_of_places(p2, 45.0, 12.0):
+			continue
+		var p := gpos(p2)
+		if terrain.normal_at(p.x, p.z).y < 0.8:
+			continue
+		_make_node(nodes.size(), kinds, p, fr)
+		far += 1
+
+
+## The lie of the land as it was before the waste grew, so that the old middle is gathered from as it was.
+func _legacy_normal(p2: Vector2) -> Vector3:
+	if maxf(absf(p2.x), absf(p2.y)) < 800.0:
+		var p := gpos(p2)
+		return terrain.normal_at(p.x, p.z)
+	var e := WTerrain.CELL
+	var lr := func(x: float, z: float) -> float: return terrain.legacy_raw(x, z)
+	return Vector3(lr.call(p2.x - e, p2.y) - lr.call(p2.x + e, p2.y), 2.0 * e, lr.call(p2.x, p2.y - e) - lr.call(p2.x, p2.y + e)).normalized()
 
 
 ## What each land yields, by weight.
@@ -1589,6 +1715,41 @@ func _scatter_decor() -> void:
 		mi.material_override = sp[1]
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
+	# The far reaches, a tile at a time so that only the near ones are drawn
+	var fr := RandomNumberGenerator.new()
+	fr.seed = world_seed + 3737
+	var tile := 512.0
+	var tn := int(WPlaces.SIZE / tile)
+	for tj in tn:
+		for ti in tn:
+			var x0 := -WPlaces.HALF + ti * tile
+			var z0 := -WPlaces.HALF + tj * tile
+			for sp in specs:
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.mesh = sp[0]
+				var pts: Array = []
+				for i in int(sp[2] * 0.07):
+					var x := x0 + fr.randf() * tile
+					var z := z0 + fr.randf() * tile
+					if maxf(absf(x), absf(z)) > 955.0 and maxf(absf(x), absf(z)) < 1900.0:
+						pts.append(Vector2(x, z))
+				if pts.is_empty():
+					continue
+				mm.instance_count = pts.size()
+				for i in pts.size():
+					var q: Vector2 = pts[i]
+					var sc := fr.randf_range(sp[3].x, sp[3].y)
+					var b := Basis(Vector3.UP, fr.randf() * TAU).scaled(Vector3(sc, sc * fr.randf_range(0.5, 1.0), sc))
+					if sp[1] == _m.darkwood:
+						b = Basis.from_euler(Vector3(fr.randf_range(-0.6, 0.6), fr.randf() * TAU, fr.randf_range(-0.6, 0.6))).scaled(Vector3.ONE * sc)
+					mm.set_instance_transform(i, Transform3D(b, Vector3(q.x, terrain.height_at(q.x, q.y), q.y)))
+				var mi := MultiMeshInstance3D.new()
+				mi.multimesh = mm
+				mi.material_override = sp[1]
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				mi.visibility_range_end = 900.0
+				add_child(mi)
 
 
 # ================================================================== time, and the night
@@ -1813,6 +1974,7 @@ func _unseen_count() -> int:
 
 ## By day the waste is quieter, but the ruins are not empty, and the roads are not always clear.
 func _day_watch() -> void:
+	_road_tick(6.0)
 	var tg := targets()
 	for t in tg:
 		var p: Vector3 = t.global_position
@@ -2220,6 +2382,11 @@ func apply_char(d: Dictionary) -> void:
 		var raw := Marshalls.base64_to_raw(rv)
 		if raw.size() == revealed.size():
 			revealed = raw
+		elif raw.size() == 128 * 128:
+			# Drawn before the waste grew: the old map is the middle of the new one, cell for cell
+			for j in 128:
+				for i in 128:
+					revealed[(j + 64) * REVEAL_N + i + 64] = raw[j * 128 + i]
 	visited = d.get("visited", {})
 	known_ruins = d.get("known", {})
 	bedroll = d.get("bedroll", null)
@@ -3155,3 +3322,194 @@ func debug_latesync() -> void:
 	bag.from_data(d.get("inv", []))
 	print("LATESYNC saved pos ", d.get("pos"), " scrap ", bag.count("scrap"), " level ", d.get("skills", {}).get("level", "?"))
 	Engine.get_main_loop().quit()
+
+
+
+# ================================================================== the road between: landmarks and what is met on the way
+
+## Great shapes on the skyline, seen from far off: the bones of something huge, spires of rock,
+## the stumps of old towers. They give the eye somewhere to walk toward. Their own dice; nothing saved.
+func _scatter_landmarks() -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = world_seed + 6161
+	var placed: Array = []
+	var tries := 0
+	while placed.size() < 70 and tries < 3000:
+		tries += 1
+		var p := Vector2(r.randf_range(-1850, 1850), r.randf_range(-1850, 1850))
+		if not _clear_of_places(p, 160.0, 60.0) or placed.any(func(q): return q.distance_to(p) < 260.0):
+			continue
+		if lairs.any(func(l): return Vector2(l.pos.x, l.pos.z).distance_to(p) < 120.0):
+			continue
+		placed.append(p)
+		var n := Node3D.new()
+		n.position = gpos(p) + Vector3(0, -0.4, 0)
+		n.rotation.y = r.randf() * TAU
+		add_child(n)
+		match ["bones", "spire", "tower", "arch", "bones", "spire"][r.randi() % 6]:
+			"bones":
+				# A ribcage half sunk in the ground, and the long spine running from it
+				var len := r.randf_range(18.0, 30.0)
+				_add(n, box(Vector3.ZERO, Vector3(1.4, 1.4, len), _m.bone, true, Vector3(0.05, 0, 0)), Vector3(0, 1.2, 0))
+				for k in int(len / 3.0):
+					var z := -len * 0.5 + 1.5 + k * 3.0
+					var hgt := 7.0 * sin(PI * (k + 0.5) / (len / 3.0)) + 3.0
+					for side in [-1.0, 1.0]:
+						var rib := box(Vector3.ZERO, Vector3(0.7, hgt, 0.7), _m.bone, true, Vector3(0, 0, side * 0.35))
+						_add(n, rib, Vector3(side * (hgt * 0.17 + 0.6), hgt * 0.5, z))
+				_add(n, box(Vector3.ZERO, Vector3(4.0, 3.0, 5.0), _m.bone, true, Vector3(0.3, 0.2, 0)), Vector3(0, 1.2, len * 0.5 + 2.0))
+			"spire":
+				var hgt := r.randf_range(28.0, 52.0)
+				for k in 4:
+					var w := (1.0 - k * 0.22) * r.randf_range(5.0, 8.0)
+					_add(n, box(Vector3.ZERO, Vector3(w, hgt * 0.27, w * 0.8), _m.darkstone, true, Vector3(r.randf_range(-0.06, 0.06), r.randf() * TAU, r.randf_range(-0.06, 0.06))), Vector3(r.randf_range(-0.6, 0.6), hgt * 0.27 * (k + 0.5), r.randf_range(-0.6, 0.6)))
+			"tower":
+				var hgt := r.randf_range(14.0, 26.0)
+				_add(n, cyl(Vector3.ZERO, 4.0, hgt, _m.stone, true, 3.4, 10), Vector3(0, hgt * 0.5, 0))
+				_add(n, box(Vector3.ZERO, Vector3(2.0, 2.6, 0.6), _m.cold, false), Vector3(0, hgt * 0.6, 3.6))
+				for k in 5:
+					var a := k * TAU / 5.0 + r.randf()
+					_add(n, box(Vector3.ZERO, Vector3(1.6, 1.0, 1.2), _m.stone, true, Vector3(r.randf(), r.randf(), r.randf())), Vector3(cos(a) * 7.0, 0.4, sin(a) * 7.0))
+			"arch":
+				var hgt := r.randf_range(10.0, 16.0)
+				for side in [-1.0, 1.0]:
+					_add(n, box(Vector3.ZERO, Vector3(2.4, hgt, 2.4), _m.stone, true), Vector3(side * 5.0, hgt * 0.5, 0))
+				_add(n, box(Vector3.ZERO, Vector3(13.0, 2.2, 2.6), _m.stone, true), Vector3(0, hgt + 1.0, 0))
+
+
+var _road_t := 50.0
+
+
+## Out on the open road, now and then, something is met: smoke from a camp left cold, a traveler who
+## did not make it, a pack of forms crossing, a cairn over something buried. The host decides; all see it.
+func _road_tick(step: float) -> void:
+	_road_t -= step
+	if _road_t > 0.0:
+		return
+	_road_t = randf_range(70.0, 130.0)
+	var tg := targets()
+	tg.shuffle()
+	for t in tg:
+		var p: Vector3 = t.global_position
+		if safe_at(p) or settlement_at(p, 150.0) != "" or base_at(p, 80.0) >= 0:
+			continue
+		if ruins.any(func(ru): return p.distance_to(ru.pos) < 60.0):
+			continue
+		var fwd: Vector3 = -t.global_transform.basis.z
+		fwd.y = 0
+		fwd = fwd.normalized() if fwd.length() > 0.1 else Vector3.FORWARD
+		var at := p + fwd.rotated(Vector3.UP, randf_range(-0.7, 0.7)) * randf_range(55.0, 95.0)
+		at = ground_below(Vector3(at.x, terrain.height_at(at.x, at.z) + 2.0, at.z))
+		if terrain.normal_at(at.x, at.z).y < 0.75 or safe_at(at):
+			continue
+		_road_event(at, p)
+		return
+
+
+func _road_event(at: Vector3, seen_from: Vector3) -> void:
+	var rr := RandomNumberGenerator.new()
+	rr.randomize()
+	var roll := rr.randf()
+	var kind := "camp"
+	if roll < 0.28:
+		kind = "camp"
+	elif roll < 0.52:
+		kind = "fallen"
+	elif roll < 0.74:
+		kind = "pack"
+	elif roll < 0.9:
+		kind = "attack"
+	else:
+		kind = "cairn"
+	match kind:
+		"camp":
+			shared("_rq_satchel", [0, at + Vector3(1.5, 0, 0), Items.roll("camp", 3, rr), false])
+		"fallen":
+			shared("_rq_satchel", [0, at, Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr), false])
+		"pack":
+			for k in 3 + rr.randi() % 3:
+				_spawn_near(["rusher", "spider", "howler", "lurker"][rr.randi() % 4], at, 2.0, 8.0, true)
+		"attack":
+			shared("_rq_satchel", [0, at, Items.roll("caravan", 3, rr), false])
+			for k in 2 + rr.randi() % 3:
+				_spawn_near(["rusher", "spitter", "brute", "bloater"][rr.randi() % 4], at, 4.0, 10.0, true)
+		"cairn":
+			shared("_rq_satchel", [0, at, Items.roll("vault", 3, rr), false])
+	shared("_w_road_sign", [at, kind, Vector2(seen_from.x, seen_from.z)])
+
+
+## What marks the spot, seen from afar, and a word to those near enough to notice.
+func _w_road_sign(at: Vector3, kind: String, from: Vector2) -> void:
+	var n := Node3D.new()
+	add_child(n)
+	n.global_position = at
+	var smoke := CPUParticles3D.new()
+	smoke.amount = 40
+	smoke.lifetime = 7.0
+	smoke.direction = Vector3.UP
+	smoke.spread = 8.0
+	smoke.initial_velocity_min = 2.0
+	smoke.initial_velocity_max = 3.5
+	smoke.gravity = Vector3(0.4, 0.3, 0)
+	smoke.scale_amount_min = 2.0
+	smoke.scale_amount_max = 5.0
+	var q := QuadMesh.new()
+	var sm := StandardMaterial3D.new()
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	sm.albedo_texture = LesserSpeeb.smoke_tex()
+	sm.albedo_color = Color(0.25, 0.23, 0.22, 0.55) if kind != "cairn" else Color(0.75, 0.7, 0.6, 0.4)
+	q.material = sm
+	smoke.mesh = q
+	smoke.position.y = 1.0
+	n.add_child(smoke)
+	match kind:
+		"camp", "attack":
+			_add(n, cyl(Vector3.ZERO, 0.9, 0.25, _m.cold, false), Vector3(0, 0.12, 0))
+			var e := cyl(Vector3.ZERO, 0.45, 0.2, _m.ember, false)
+			_add(n, e, Vector3(0, 0.25, 0))
+			var l := OmniLight3D.new()
+			l.light_color = Color(1.0, 0.55, 0.25)
+			l.light_energy = 2.0
+			l.omni_range = 12.0
+			l.position.y = 1.0
+			n.add_child(l)
+		"cairn":
+			for k in 5:
+				_add(n, box(Vector3.ZERO, Vector3(1.0 - k * 0.15, 0.5, 0.9 - k * 0.12), _m.stone, k == 0, Vector3(0, k * 0.7, 0)), Vector3(1.6, 0.25 + k * 0.45, 0))
+		"pack":
+			smoke.emitting = false
+	if kind != "pack":
+		var tw := n.create_tween()
+		tw.tween_interval(240.0)
+		tw.tween_callback(n.queue_free)
+	else:
+		n.queue_free()
+	if player.global_position.distance_to(at) < 160.0 and not Net.dedicated:
+		var dir := WPlaces.dir_word(Vector2(player.global_position.x, player.global_position.z), Vector2(at.x, at.z))
+		hud.notify({
+			"camp": "Smoke to the %s. Someone made camp there.",
+			"fallen": "Smoke to the %s. A traveler lies still beside it.",
+			"pack": "Forms crossing to the %s.",
+			"attack": "Shouting to the %s, then silence. Smoke rises.",
+			"cairn": "A cairn of stones to the %s. Something is buried there.",
+		}[kind] % dir)
+
+
+## Test: the far reaches, and something met on the road.
+func debug_far() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var far_ruins := ruins.filter(func(ru): return maxf(absf(ru.pos.x), absf(ru.pos.z)) > 1000.0).size()
+	var far_nodes := nodes.filter(func(nd): return maxf(absf(nd.pos.x), absf(nd.pos.z)) > 1000.0).size()
+	print("FAR ruins ", ruins.size(), " far ", far_ruins, " nodes ", nodes.size(), " far ", far_nodes)
+	for k in WPlaces.SETTLEMENTS:
+		print("FAR town ", k, " at ", WPlaces.spos(k), " h ", snappedf(terrain.height_at(WPlaces.spos(k).x, WPlaces.spos(k).y), 0.1))
+	print("FAR start ", WPlaces.start, " cinderwick ", WPlaces.spos("cinderwick"), " beacon0 ", WPlaces.bpos(0))
+	print("FAR roads ", WPlaces.roads.map(func(rd): return "%s-%s %d" % [rd[0], rd[1], rd[2].size()]))
+	for kind in ["camp", "fallen", "pack", "attack", "cairn"]:
+		_road_event(player.global_position + Vector3(60, 0, 0), player.global_position)
+	await get_tree().create_timer(1.0).timeout
+	print("FAR satchels ", satchels.size(), " alive ", alive_count())
+	if DisplayServer.get_name() == "headless":
+		get_tree().quit()

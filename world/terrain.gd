@@ -4,7 +4,7 @@ extends Node3D
 ## The shape is the same every time; the waste is one place, and it is learned.
 
 const CELL := 4.0
-const N := 512
+const N := 1024
 const CHUNK := 16
 var seed := 1771
 
@@ -17,6 +17,7 @@ const BIOME_COLORS := {
 }
 
 var h := PackedFloat32Array()
+var road := PackedFloat32Array()   ## how much of a worn road lies on each point of the grid, 0 to 1
 var shade := PackedFloat32Array()
 var flats: Array = []
 var _a := FastNoiseLite.new()
@@ -88,6 +89,42 @@ func biome_at(x: float, z: float) -> float:
 	return _t.get_noise_2d(x, z)
 
 
+## Wears a road into the land along a line of points: it is drawn in dust, and the ground under it is eased.
+func add_road(pts: PackedVector2Array, width := 5.0) -> void:
+	var w := N + 1
+	if road.size() != w * w:
+		road.resize(w * w)
+		road.fill(0.0)
+	var half := N * CELL * 0.5
+	var reach := width * 0.5 + 3.0
+	var cr := int(ceil(reach / CELL))
+	for k in pts.size() - 1:
+		var a: Vector2 = pts[k]
+		var b: Vector2 = pts[k + 1]
+		var steps := maxi(1, int(a.distance_to(b) / 2.0))
+		for st in steps + 1:
+			var p := a.lerp(b, float(st) / steps)
+			var ci := int(round((p.x + half) / CELL))
+			var cj := int(round((p.y + half) / CELL))
+			for j in range(cj - cr, cj + cr + 1):
+				for i in range(ci - cr, ci + cr + 1):
+					if i < 0 or j < 0 or i > N or j > N:
+						continue
+					var d := Vector2(-half + i * CELL, -half + j * CELL).distance_to(p)
+					var v := 1.0 - smoothstep(width * 0.5, reach, d)
+					if v > road[j * w + i]:
+						road[j * w + i] = v
+
+
+func road_at(x: float, z: float) -> float:
+	if road.is_empty():
+		return 0.0
+	var half := N * CELL * 0.5
+	var i := clampi(int(round((x + half) / CELL)), 0, N)
+	var j := clampi(int(round((z + half) / CELL)), 0, N)
+	return road[j * (N + 1) + i]
+
+
 ## A flat place: [centre, radius]. Its height is the land's own at the centre.
 func add_flat(c: Vector2, radius: float) -> void:
 	flats.append([c, radius])
@@ -110,8 +147,18 @@ func _raw(x: float, z: float) -> float:
 	for i in 6:
 		y += hs[i] * w[i]
 	var e := maxf(absf(x), absf(z))
-	var edge := smoothstep(840.0, 1000.0, e) * (110.0 + ridge * 90.0)
+	var edge := smoothstep(1840.0, 2000.0, e) * (110.0 + ridge * 90.0)
 	return y + edge
+
+
+## The land as it was laid out before the waste grew: the old rim of mountains at a thousand paces.
+## Places in the old middle are still chosen by it, so worlds begun before keep their towns and ruins.
+func legacy_raw(x: float, z: float) -> float:
+	var e := maxf(absf(x), absf(z))
+	if e > 1000.0:
+		return _raw(x, z)
+	var ridge := pow((_r.get_noise_2d(x, z) + 1.0) * 0.5, 2.2)
+	return _raw(x, z) + smoothstep(840.0, 1000.0, e) * (110.0 + ridge * 90.0)
 
 
 func generate() -> void:
@@ -137,6 +184,19 @@ func generate() -> void:
 				var k := 1.0 - smoothstep(radius, outer, d)
 				if k > 0.0:
 					h[j * w + i] = lerpf(h[j * w + i], target, k)
+	# Roads ease the ground under them: a little of the lumps and hollows worn away
+	if road.size() == h.size():
+		var src := h.duplicate()
+		for j in range(2, N - 1):
+			for i in range(2, N - 1):
+				var v := road[j * w + i]
+				if v <= 0.05:
+					continue
+				var sum := 0.0
+				for dj in range(-2, 3):
+					for di in range(-2, 3):
+						sum += src[(j + dj) * w + i + di]
+				h[j * w + i] = lerpf(src[j * w + i], sum / 25.0, v * 0.8)
 
 
 func height_at(x: float, z: float) -> float:
@@ -168,6 +228,10 @@ func _vcolor(x: float, z: float, y: float, n: Vector3) -> Color:
 	var rock := Color(0.24, 0.22, 0.21)
 	c = c.lerp(rock, smoothstep(0.86, 0.68, n.y) * 0.8)
 	c = c.lerp(rock.darkened(0.2), smoothstep(60.0, 110.0, y))
+	var rd := road_at(x, z)
+	if rd > 0.0:
+		var dirt := Color(0.38, 0.32, 0.25) if c.get_luminance() < 0.6 else Color(0.62, 0.58, 0.5)
+		c = c.lerp(dirt, rd * 0.8)
 	var speck := _d.get_noise_2d(x * 7.0, z * 7.0) * 0.06
 	return Color(c.r + speck, c.g + speck, c.b + speck)
 
@@ -247,5 +311,10 @@ func map_image(px := 512) -> Image:
 			var n := normal_at(x, z)
 			var c := _vcolor(x, z, y, n)
 			var s := clampf(n.dot(light) * 1.3, 0.35, 1.15)
-			img.set_pixel(i, j, Color(c.r * s, c.g * s, c.b * s))
+			c = Color(c.r * s, c.g * s, c.b * s)
+			# Roads stand out on the map as pale worn lines
+			var rd := maxf(road_at(x, z), maxf(road_at(x + step * 0.5, z), road_at(x, z + step * 0.5)))
+			if rd > 0.3:
+				c = c.lerp(Color(0.86, 0.74, 0.52), 0.8)
+			img.set_pixel(i, j, c)
 	return img
