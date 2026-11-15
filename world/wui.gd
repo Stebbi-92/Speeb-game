@@ -1103,6 +1103,9 @@ func _draw_arms() -> void:
 		rail.add_child(_rail_btn(g[1], 0, g[0] == _acat, func(): _acat = g[0]; _asel = ""; _redraw()))
 	var grid := _card_grid()
 	split.add_child(grid.get_parent())
+	if _acat == "guns":
+		grid.columns = 1
+		grid.get_parent().custom_minimum_size.x = 284
 	var side := _side_panel(split)
 	side.custom_minimum_size.x = 250
 	var rows: Array = []   # [id, title, sub, sub colour, cost, button, callback, enabled]
@@ -1160,7 +1163,7 @@ func _draw_arms() -> void:
 		_asel = rows[0][0]
 	for r in rows:
 		var id: String = r[0]
-		grid.add_child(_card(id, r[1], r[2], r[3], r[4], r[5], r[6], r[7], id == _asel, func(): _asel = id; _redraw()))
+		grid.add_child(_card(id, r[1], r[2], r[3], r[4], r[5], r[6], r[7], id == _asel, func(): _asel = id; _psel = ""; _redraw()))
 	_arms_side(side, a, bench)
 
 
@@ -1168,6 +1171,9 @@ func _draw_arms() -> void:
 func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 	var id := _asel
 	if id == "":
+		return
+	if ArmsDB.GUNS.has(id) and id in a.owned:
+		_gun_view(side, a, id, bench)
 		return
 	side.add_child(WGlyph.make(id, 72))
 	if ArmsDB.GUNS.has(id):
@@ -1229,6 +1235,222 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 	if info.has("guard"):
 		_stat(side, "Turns aside", "%d%%" % int(round(float(info.guard) * 100.0)), clampf(float(info.guard) / 0.25, 0.05, 1.0))
 	side.add_child(_wrap(_waste_text(str(info.get("text", ""))), 15, Color(PALE, 0.8), 220))
+
+
+var _psel := ""      ## the chosen part in the gun view
+
+
+## The gun view: the gun turning slowly as it is now fitted, its measures, every part it can take
+## by place, and the chosen part with its grade, traits and what reworking it costs.
+func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> void:
+	var sp: Dictionary = Arms.spec_of(g)
+	var t: int = int(a.tier.get(g, 0))
+	side.add_child(_gun_preview(g, Vector2(540, 170)))
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	head.add_child(_label(sp.name, 23, PALE))
+	var tl := _label(WArms.TIERS[t], 15, GOLD)
+	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(tl)
+	side.add_child(head)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 20)
+	side.add_child(cols)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 4)
+	left.custom_minimum_size.x = 250
+	cols.add_child(left)
+	var dmg := float(sp.dmg) * (1.0 + 0.12 * t)
+	_stat(left, "Harm", "%d%s" % [int(round(dmg)), " × %d" % int(sp.pellets) if int(sp.pellets) > 1 else ""], clampf(dmg * float(sp.pellets) / 150.0, 0.05, 1.0))
+	_stat(left, "Shots a second", "%.1f" % (1.0 / float(sp.rate)), clampf((1.0 / float(sp.rate)) / 12.0, 0.05, 1.0))
+	_stat(left, "Reach", "%d m" % int(sp.range), clampf(float(sp.range) / 400.0, 0.05, 1.0))
+	_stat(left, "Steadiness", "%d" % int(round(100.0 / maxf(0.2, float(sp.kick)))), clampf(0.6 / maxf(0.2, float(sp.kick)), 0.05, 1.0))
+	_stat(left, "Aim speed", "%d%%" % int(round(float(sp.aim) * 100.0)), clampf(float(sp.aim) / 1.6, 0.05, 1.0))
+	_stat(left, "Holds", str(Arms.mag_of(g)), clampf(Arms.mag_of(g) / 60.0, 0.05, 1.0))
+	if t < 3:
+		var c: Dictionary = w.skills.cost(WArms.tier_cost(t + 1))
+		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
+		left.add_child(wb)
+		left.add_child(_cost_line(c))
+	# Every part it can take, by place on the gun
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 3)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(right)
+	var parts: Array = WArms.mounts_for(g)
+	if parts.is_empty():
+		right.add_child(_label("Takes no parts.", 15, DIM))
+		return
+	var have: Array = a.parts.get(g, [])
+	var on: Array = a.mounts.get(g, [])
+	if _psel == "" or not _psel in parts:
+		_psel = on[0] if not on.is_empty() else parts[0]
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(0, 210)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	right.add_child(sc)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 2)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(list)
+	var last_slot := ""
+	var order: Array = parts.duplicate()
+	var slot_order := ["sight", "muzzle", "barrel", "grip", "stock", "receiver", "mag"]
+	order.sort_custom(func(x, y): return slot_order.find(ArmsDB.ATTACHMENTS[x].slot) < slot_order.find(ArmsDB.ATTACHMENTS[y].slot))
+	for m in order:
+		var at: Dictionary = ArmsDB.ATTACHMENTS[m]
+		if at.slot != last_slot:
+			last_slot = at.slot
+			list.add_child(_label(ArmsDB.SLOT_NAMES[at.slot], 13, DIM))
+		var gr := WArms.grade_of(a, g, m)
+		var r := int(gr.get("r", 0)) if m in have else 0
+		var row := Button.new()
+		row.focus_mode = Control.FOCUS_NONE
+		row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		row.custom_minimum_size = Vector2(0, 30)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GOLD, 0.12) if m == _psel else Color(1, 1, 1, 0.03)
+		sb.border_color = WArms.GRADES[r].color if m in on else Color(0, 0, 0, 0)
+		sb.border_width_left = 3
+		sb.set_corner_radius_all(3)
+		row.add_theme_stylebox_override("normal", sb)
+		var hs := sb.duplicate()
+		hs.bg_color = Color(1, 1, 1, 0.08)
+		row.add_theme_stylebox_override("hover", hs)
+		row.add_theme_stylebox_override("pressed", hs)
+		var hb := HBoxContainer.new()
+		hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		hb.offset_left = 8
+		hb.offset_right = -8
+		hb.add_theme_constant_override("separation", 6)
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var nm := _label(WArms.part_name(a, g, m), 15, WArms.GRADES[r].color if m in have else Color(DIM, 0.7))
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hb.add_child(nm)
+		var state := _label("Fitted" if m in on else ("Owned" if m in have else ""), 12, GOLD if m in on else DIM)
+		state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hb.add_child(state)
+		row.add_child(hb)
+		row.pressed.connect(func(): _psel = m; _redraw())
+		list.add_child(row)
+	# The chosen part
+	var m2 := _psel
+	var at2: Dictionary = ArmsDB.ATTACHMENTS[m2]
+	var gr2 := WArms.grade_of(a, g, m2)
+	var r2 := int(gr2.get("r", 0)) if m2 in have else 0
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	side.add_child(box)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 10)
+	line.add_child(_label(WArms.part_name(a, g, m2), 18, WArms.GRADES[r2].color))
+	if m2 in have:
+		line.add_child(_label(WArms.GRADES[r2].name, 14, WArms.GRADES[r2].color))
+	box.add_child(line)
+	var md: Dictionary = at2.get("mods", {}).duplicate()
+	var words := WArms.mods_text(md)
+	box.add_child(_wrap(at2.text + ("  " + words + "." if words != "" else ""), 14, Color(PALE, 0.8), 540))
+	if m2 in have and not gr2.get("t", []).is_empty():
+		var tn: Array = []
+		for tid in gr2.t:
+			tn.append("%s (%s)" % [WArms.TRAITS[tid].name, WArms.TRAITS[tid].text])
+		box.add_child(_wrap("Traits: " + ", ".join(tn), 14, WArms.GRADES[r2].color, 540))
+	var acts := HBoxContainer.new()
+	acts.add_theme_constant_override("separation", 8)
+	box.add_child(acts)
+	if m2 in have:
+		acts.add_child(_primary("Take off" if m2 in on else "Fit", func(): _fit(g, m2), true, 15))
+		# Rework with fittings: to a higher grade, or the same grade again for new traits
+		for rr in [1, 2, 3]:
+			if rr < r2:
+				continue
+			var fid: String = WArms.FITTINGS[rr]
+			var n: int = w.stock_count(fid)
+			if n <= 0 and rr != r2 + 1:
+				continue
+			var b := _secondary("%s %s  (%d)" % ["Rework" if rr == r2 else "Make", WArms.GRADES[rr].name, n], func(): _rework(g, m2, rr), bench and n > 0, 14)
+			b.tooltip_text = "Uses one %s." % Items.iname(fid)
+			acts.add_child(b)
+	else:
+		var c: Dictionary = w.skills.cost(WArms.PARTS[m2])
+		acts.add_child(_primary("Make", func(): _arms_pay(WArms.PARTS[m2], func():
+			if not a.parts.has(g):
+				a.parts[g] = []
+			a.parts[g].append(m2)
+			_fit(g, m2, false)), bench and w.stock_has_all(c), 15))
+		acts.add_child(_cost_line(c))
+
+
+## Reworks a part with fittings: a new grade and fresh traits.
+func _rework(g: String, m: String, r: int) -> void:
+	var fid: String = WArms.FITTINGS[r]
+	if not w.stock_pay({fid: 1}):
+		return
+	w.arms.grade["%s/%s" % [g, m]] = WArms.roll_grade(r)
+	w.sfx("carve", -4, null, 1.2)
+	if r >= 3:
+		w.sfx("bell", -10)
+	w.rearm()
+	_redraw()
+
+
+## The gun as it is fitted, turning slowly in a small room of its own.
+func _gun_preview(g: String, sz: Vector2) -> SubViewportContainer:
+	var box := SubViewportContainer.new()
+	box.stretch = true
+	box.custom_minimum_size = sz
+	var vp := SubViewport.new()
+	vp.size = Vector2i(sz)
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.msaa_3d = Viewport.MSAA_4X
+	box.add_child(vp)
+	var cam := Camera3D.new()
+	cam.fov = 26
+	vp.add_child(cam)
+	var key := DirectionalLight3D.new()
+	key.rotation = Vector3(-0.7, 0.6, 0)
+	key.light_energy = 2.2
+	vp.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation = Vector3(-0.2, -2.4, 0)
+	fill.light_energy = 0.5
+	fill.light_color = Color(0.85, 0.8, 1.0)
+	vp.add_child(fill)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_CLEAR_COLOR
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.5, 0.48, 0.45)
+	e.ambient_light_energy = 1.4
+	env.environment = e
+	vp.add_child(env)
+	var turn := Node3D.new()
+	vp.add_child(turn)
+	var model: Node3D = w.player.weapon._build(g, Game.mounts_of(g))
+	turn.add_child(model)
+	# Frame it: the gun lies along z, so look at it from the side
+	var aabb := AABB()
+	var first := true
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var bb: AABB = (mi as MeshInstance3D).get_aabb()
+		bb = (mi as MeshInstance3D).transform * bb
+		var p: Node = mi.get_parent()
+		while p != model and p is Node3D:
+			bb = (p as Node3D).transform * bb
+			p = p.get_parent()
+		aabb = bb if first else aabb.merge(bb)
+		first = false
+	model.position = -aabb.get_center()
+	var reach := maxf(aabb.size.z, aabb.size.y * 2.5)
+	cam.position = Vector3(reach * 1.2, reach * 0.3, 0)
+	cam.basis = Basis.looking_at(-cam.position, Vector3.UP)
+	turn.rotation.y = -0.35
+	var tw := turn.create_tween().set_loops()
+	tw.tween_property(turn, "rotation:y", 0.35, 4.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(turn, "rotation:y", -0.35, 4.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return box
 
 
 ## A labelled bar for one measure of a thing.

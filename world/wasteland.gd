@@ -4797,6 +4797,16 @@ func debug_screen() -> void:
 		inv.add(it[0], it[1])
 	skills.points = 2
 	ui.debug_bench = true
+	if which == "arms":
+		inv.add("fittings_rare", 2)
+		var g: String = arms.primary if arms.primary != "" else arms.owned[0]
+		arms.parts[g] = WArms.mounts_for(g).slice(0, 3)
+		arms.grade["%s/%s" % [g, arms.parts[g][0]]] = WArms.roll_grade(3)
+		arms.grade["%s/%s" % [g, arms.parts[g][1]]] = WArms.roll_grade(1)
+		arms.mounts[g] = [arms.parts[g][0], arms.parts[g][1]]
+		rearm()
+		ui._acat = "guns"
+		ui._asel = g
 	match which:
 		"pack", "craft", "arms", "build":
 			ui.open_inventory(which)
