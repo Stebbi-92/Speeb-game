@@ -4574,6 +4574,32 @@ func debug_combat() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the kick pattern repeats, the view settles back, and the sights hold tighter than the hip.
+func debug_recoil() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn = player.weapon
+	wpn.shells = 99
+	var runs: Array = []
+	for run in 2:
+		player.yaw = 0.0
+		player.pitch = 0.0
+		var ys: Array = []
+		for i in 4:
+			wpn._cool = 0.0
+			wpn._try_fire()
+			ys.append(snappedf(player.yaw, 0.0001))
+			await get_tree().create_timer(0.05).timeout
+		var top: float = player.pitch
+		await get_tree().create_timer(1.2).timeout
+		runs.append([ys, top, player.pitch])
+	var hip: float = wpn.shot_spread()
+	wpn._aim = 1.0
+	var ads: float = wpn.shot_spread()
+	print("RECOIL same=%s lifted=%.3f settled=%.3f hip=%.4f ads=%.4f" % [runs[0][0] == runs[1][0], runs[0][1], runs[0][2], hip, ads])
+	get_tree().quit()
+
+
 ## Testing aid: the blade in hand, heavy blows, the guard and stamina.
 func debug_blade() -> void:
 	while not ready_world:

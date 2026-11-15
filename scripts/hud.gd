@@ -30,6 +30,8 @@ var _boss_box: VBoxContainer
 var _boss_name: Label
 var _boss_bar: ProgressBar
 var crosshair: ColorRect
+var _ticks: Array = []   ## four short marks around the dot that open as shots wander
+var _gap := 0.0
 var reveal_box: VBoxContainer
 var reveal_num: Label
 var reveal_epithet: Label
@@ -94,6 +96,14 @@ func _ready() -> void:
 	crosshair.position = Vector2(-2, -2)
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(crosshair)
+	for i in 4:
+		var t := ColorRect.new()
+		t.color = Color(1, 1, 1, 0.5)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.set_anchors_preset(Control.PRESET_CENTER)
+		t.size = Vector2(2, 7) if i < 2 else Vector2(7, 2)
+		root.add_child(t)
+		_ticks.append(t)
 
 	prompt = _label("", 22, PALE, HORIZONTAL_ALIGNMENT_CENTER)
 	prompt.set_anchors_preset(Control.PRESET_CENTER)
@@ -567,6 +577,34 @@ func set_kit(text: String) -> void:
 func set_scope(on: bool) -> void:
 	if scope_view.visible != on:
 		scope_view.visible = on
+
+
+## The spread of the gun in hand (an angle), shown as the gap of the marks around the dot.
+func set_spread(angle: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or angle <= 0.0:
+		_gap = 0.0
+		return
+	var h := get_viewport().get_visible_rect().size.y
+	_gap = tan(angle) / tan(deg_to_rad(cam.fov) * 0.5) * h * 0.5
+
+
+func _place_ticks(d: float) -> void:
+	var on := crosshair.visible and _gap > 0.0
+	for i in 4:
+		var t: ColorRect = _ticks[i]
+		t.visible = on
+	if not on:
+		return
+	var g := clampf(_gap, 5.0, 160.0) + 3.0
+	var at := [Vector2(-1, -g - 7), Vector2(-1, g), Vector2(-g - 7, -1), Vector2(g, -1)]
+	for i in 4:
+		var t: ColorRect = _ticks[i]
+		var p: Vector2 = t.position.lerp(at[i], minf(1.0, d * 18.0)) if t.position != Vector2.ZERO else at[i]
+		t.offset_left = p.x
+		t.offset_top = p.y
+		t.offset_right = p.x + t.size.x
+		t.offset_bottom = p.y + t.size.y
 
 
 ## Looking through glass: a dark ring around a clear circle, and fine crosshairs.
@@ -1295,6 +1333,7 @@ func toggle_codex() -> void:
 
 func _process(d: float) -> void:
 	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused
+	_place_ticks(d)
 	if _hurt > 0.0:
 		_hurt = maxf(0.0, _hurt - d * 2.0)
 		set_fx("hurt", _hurt)

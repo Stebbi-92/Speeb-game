@@ -69,6 +69,10 @@ var _swing := 0.0
 var _switch := 0.0
 var _aim := 0.0
 var _climb := 0.0
+var _bloom := 0.0     ## how far shots wander from firing in a string (mostly from the hip)
+var _string := 0      ## shots in the current string, for the gun's kick pattern
+var _pull := 0.0      ## how far the kick has lifted the view; most comes back when you stop
+var spread_now := 0.0 ## the spread a shot would have right now, for the crosshair
 var _heal_left := 0.0
 var _sway := Vector2.ZERO
 var debug_aim := false
@@ -318,6 +322,36 @@ func _start_reload() -> void:
 	_reload_t = float(spec().reload_t) * reload_mult
 
 
+
+## How far a shot may wander right now: wide from the hip and wider as shots pile up, tight down the sights.
+func shot_spread() -> float:
+	var s := spec()
+	var spread := float(s.spread)
+	# From the hip a gun wanders; down the sights it holds true
+	var hip := 1.3 if s.mode == "pump" else (2.6 if s.mode == "bolt" else 1.9)
+	spread = maxf(spread, 0.006) * lerpf(hip, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
+	if mount() == "red_dot":
+		spread *= 0.85
+	if fitted("foregrip"):
+		spread *= 0.85
+	if player.cur_speed > 3.0:
+		spread *= 1.4
+	if s.mode in ["auto", "spin"]:
+		spread *= 1.0 + _climb * 0.6
+	spread *= 1.0 + _bloom * (1.0 - 0.8 * _aim)
+	return spread
+
+
+## A gun's sideways kick, shot by shot: the same every time for that gun.
+static func kick_pattern(g: String) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(g + "kick")
+	var lean := rng.randf_range(-0.6, 0.6)
+	var out: Array = []
+	for i in 12:
+		out.append(clampf(lean + sin(i * 0.9 + rng.randf() * 0.5) * 0.7 + rng.randf_range(-0.25, 0.25), -1.0, 1.0))
+	return out
+
 # ------------------------------------------------------------------ each frame
 
 func _process(delta: float) -> void:
@@ -327,6 +361,17 @@ func _process(delta: float) -> void:
 	_switch = maxf(0.0, _switch - delta)
 	_kick = move_toward(_kick, 0.0, delta * 4.0)
 	_climb = move_toward(_climb, 0.0, delta * 1.5)
+	_bloom = move_toward(_bloom, 0.0, delta * (2.2 + 2.0 * _aim))
+	spread_now = shot_spread() if enabled and not blade_out and spec().mode != "rocket" else 0.0
+	if Game.main and Game.main.hud:
+		var glass := _aim > 0.85 and float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).zoom) >= 2.4
+		Game.main.hud.set_spread(0.0 if glass else spread_now)
+	if _quiet > 0.32:
+		_string = 0
+	if _quiet > 0.1 and _pull > 0.0:
+		var back := minf(_pull, delta * maxf(0.4, _pull * 5.0))
+		player.pitch -= back * 0.6
+		_pull -= back
 	_quiet += delta
 	_recharge(delta)
 	_heal(delta)
@@ -542,7 +587,14 @@ func _try_fire() -> void:
 	if s.mode in ["auto", "spin"]:
 		_climb += 0.1
 		climb = (0.008 + 0.006 * _climb) * steady
+	var was := player.pitch
 	player.pitch = minf(player.pitch + climb, 1.45)
+	_pull = minf(_pull + player.pitch - was, 0.4)
+	# Each gun pulls sideways in its own fixed way, so the pull can be learned and held against
+	var pat := kick_pattern(gun())
+	player.yaw += float(pat[_string % pat.size()]) * float(s.kick) * 0.011 * (1.0 - 0.45 * _aim) * steady
+	_string += 1
+	_bloom = minf(1.6, _bloom + float(s.kick) * (0.12 if s.mode in ["auto", "spin"] else 0.45))
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor")
 	lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2)
@@ -572,18 +624,8 @@ func _try_fire() -> void:
 		r.global_position = origin + fwd * 0.9 + cam.global_transform.basis.x * 0.15 - cam.global_transform.basis.y * 0.1
 		return
 	var space := get_world_3d().direct_space_state
-	var spread := float(s.spread)
-	# From the hip a gun wanders; down the sights it holds true
-	var hip := 1.3 if s.mode == "pump" else (2.6 if s.mode == "bolt" else 1.9)
-	spread = maxf(spread, 0.006) * lerpf(hip, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
-	if mount() == "red_dot":
-		spread *= 0.85
-	if fitted("foregrip"):
-		spread *= 0.85
-	if player.cur_speed > 3.0:
-		spread *= 1.4
-	if s.mode in ["auto", "spin"]:
-		spread *= 1.0 + _climb * 0.6
+	var spread := 0.0
+	spread = shot_spread()
 	var hits := {}
 	var crits := {}
 	var dmg_m := damage_mult * tier_mult() * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0)
