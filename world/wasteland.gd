@@ -3984,6 +3984,7 @@ func debug_bossshot() -> void:
 func debug_greatones() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	clock = 12.0   # midday, so that no dawn unmakes the test's foes
 	player.health = 999999.0
 	player.max_health = 999999.0
 	var names := ["boss_ash", "boss_dunes"]
@@ -4916,7 +4917,7 @@ func debug_minds() -> void:
 		for i in 16:
 			var a2 := i * TAU / 16.0
 			var q: Vector3 = player.global_position + Vector3(cos(a2), 0, sin(a2)) * rr
-			if not found and settlement_at(q, TOWN_SAFE + 4.0) == "" and base_at(q, 6.0) < 0:
+			if not found and settlement_at(q, TOWN_SAFE + 4.0) == "" and base_at(q, 6.0) < 0 and absf(gpos(Vector2(q.x, q.z)).y - player.global_position.y) < 3.0:
 				spot = q
 				found = true
 	var c := spawn_at("unlit_gun", Vector3(spot.x, gpos(Vector2(spot.x, spot.z)).y + 1.0, spot.z))
@@ -4978,7 +4979,6 @@ func debug_blood() -> void:
 func debug_knock() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
-	clock = 12.0   # midday, so that no dawn unmakes the test's foes and sight is at its full
 	for k in ["idol", "rusher"]:
 		var fwd: Vector3 = -player.global_transform.basis.z
 		var e := spawn_at(k, player.global_position + fwd * 12.0 + Vector3(0, 0.5, 0))
@@ -5223,6 +5223,29 @@ func debug_screen() -> void:
 			var e := spawn_at("unlit_gun", player.global_position + f.normalized() * 30.0 + Vector3(0, 1.0, 0))
 			e.set_meta("raid", true)
 			e._attack_cd = 999.0
+		"reload":
+			# A reload held still at one moment (k=0..1), on the gun named by gun=
+			var g := "machine_gun"
+			var k := 0.3
+			for a2 in OS.get_cmdline_user_args():
+				if a2.begins_with("gun="):
+					g = a2.substr(4)
+				if a2.begins_with("k="):
+					k = float(a2.substr(2))
+			if not g in arms.owned:
+				arms.owned.append(g)
+			arms[ArmsDB.GUNS[g].slot] = g
+			rearm()
+			var w = player.weapon
+			if ArmsDB.GUNS[g].slot == "secondary" and w.cur == 0:
+				w.cur = 1
+				w.equip_loadout()
+			inv.add(Items.AMMO[g], 99)
+			w.shells = 0
+			w._start_reload()
+			w._reload_len = 10000.0
+			w._reload_t = 10000.0 * (1.0 - k)
+			w._ui()
 		"warn":
 			var f := -player.global_transform.basis.z
 			f.y = 0.0

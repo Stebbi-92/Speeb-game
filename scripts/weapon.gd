@@ -53,6 +53,10 @@ var pack: Inventory            ## in the waste, rounds are carried in the pack, 
 var _cool := 0.0
 var _reloading := false
 var _reload_t := 0.0
+var _reload_len := 1.0   ## how long this reload (or this one shell) takes, for the hands' motion
+var _rl_out := false     ## the old magazine is out (its sound played)
+var _rl_in := false      ## the fresh one is in
+var _shell_mesh: MeshInstance3D
 var _kick := 0.0
 var _spin := 0.0
 var _quiet := 0.0              ## seconds since the last shot, for the reserve's slow return
@@ -366,6 +370,9 @@ func _start_reload() -> void:
 		return
 	_reloading = true
 	_reload_t = float(spec().reload_t) * reload_mult
+	_reload_len = _reload_t
+	_rl_out = false
+	_rl_in = false
 
 
 
@@ -483,15 +490,92 @@ func _process(delta: float) -> void:
 	else:
 		player.carry_slow = 1.0
 	if _reloading:
-		_holder.rotation.z = lerpf(_holder.rotation.z, 0.5, delta * 8.0)
+		_reload_pose(1.0 - _reload_t / maxf(_reload_len, 0.01), delta)
 		_reload_t -= delta
 		if _reload_t <= 0.0:
 			_reload_step()
 	else:
-		_holder.rotation.z = lerpf(_holder.rotation.z, 0.0, delta * 8.0)
+		_reload_rest(delta)
 	if holding and _switch <= 0.0 and _swing <= 0.0 and (s.mode != "semi" or Input.is_action_just_pressed("fire")):
 		_try_fire()
 	_trickle_back(delta)
+
+
+## The hands at work on a reload, k from 0 to 1: the gun tips toward you, the old magazine drops,
+## a fresh one goes up and home with a slap, and the action is worked. A shotgun is fed shell by shell;
+## a launcher takes a new rocket in at the front.
+func _reload_pose(k: float, delta: float) -> void:
+	var s := spec()
+	var lvl = player.get_parent()
+	var tilt := smoothstep(0.0, 0.18, k) * (1.0 - smoothstep(0.86, 1.0, k))
+	var mag: Node3D = _model.get_meta("mag") if _model and _model.has_meta("mag") else null
+	if s.reload == "shell":
+		# Rolled over to show the loading port, brought up before the eye
+		_holder.rotation.z = lerpf(_holder.rotation.z, 0.9, delta * 10.0)
+		_holder.rotation.x += 0.25
+		_holder.position += Vector3(-0.08, 0.1, 0.06) + Vector3(0, sin(k * PI) * 0.01, 0)
+		if _shell_mesh == null:
+			_shell_mesh = MeshInstance3D.new()
+			var c := CylinderMesh.new()
+			c.top_radius = 0.009
+			c.bottom_radius = 0.009
+			c.height = 0.06
+			_shell_mesh.mesh = c
+			_shell_mesh.material_override = _mat(Color(0.7, 0.2, 0.15), 0.2, 0.5)
+			_shell_mesh.rotation.x = PI / 2
+		if _shell_mesh.get_parent() != _model:
+			if _shell_mesh.get_parent():
+				_shell_mesh.get_parent().remove_child(_shell_mesh)
+			_model.add_child(_shell_mesh)
+		_shell_mesh.visible = k < 0.85
+		_shell_mesh.position = Vector3(0, -0.11, 0.06).lerp(Vector3(0, -0.035, -0.04), smoothstep(0.1, 0.8, k))
+		return
+	# Brought up and rolled over, so the eye sees the magazine well
+	_holder.rotation.z = 0.75 * tilt
+	_holder.rotation.x += 0.32 * tilt
+	_holder.position += Vector3(-0.09, 0.11, 0.06) * tilt
+	if s.mode == "rocket" and _pump:
+		# The spent tube's head goes, and a new rocket slides in at the front
+		var out_k := smoothstep(0.12, 0.4, k)
+		var in_k := smoothstep(0.5, 0.82, k)
+		_pump.visible = k < 0.4 or k > 0.5
+		_pump.position.z = -0.45 * (out_k if k < 0.45 else 1.0 - in_k)
+	elif mag:
+		var drop := Vector3(0, -0.32, 0.06)
+		if k < 0.5:
+			var d := smoothstep(0.12, 0.38, k)
+			mag.position = drop * d
+			mag.visible = d < 0.98
+		else:
+			var r := 1.0 - smoothstep(0.5, 0.78, k)
+			mag.position = drop * r
+			mag.visible = true
+	if not _rl_out and k >= 0.14:
+		_rl_out = true
+		lvl.sfx("mag_out", -8, null, randf_range(0.95, 1.08))
+		if s.mode != "rocket":
+			lvl.sfx("mag_grab", -14)
+	if not _rl_in and k >= 0.78:
+		_rl_in = true
+		lvl.sfx("mag_in", -6, null, randf_range(0.95, 1.05))
+		_kick = maxf(_kick, 0.25)
+	# Working the action home after the fresh one is in
+	if _pump and s.mode in ["auto", "semi", "bolt"] and k > 0.84:
+		_pump.position.z = sin(clampf((k - 0.84) / 0.16, 0.0, 1.0) * PI) * (0.06 if s.mode == "bolt" else 0.04)
+
+
+## Back to rest once a reload is over or broken off: the magazine in its place, the gun upright.
+func _reload_rest(delta: float) -> void:
+	_holder.rotation.z = lerpf(_holder.rotation.z, 0.0, delta * 8.0)
+	if _shell_mesh:
+		_shell_mesh.visible = false
+	var mag: Node3D = _model.get_meta("mag") if _model and _model.has_meta("mag") else null
+	if mag and mag.position != Vector3.ZERO:
+		mag.position = Vector3.ZERO
+		mag.visible = true
+	if _pump and spec().mode == "rocket" and (_pump.position.z != 0.0 or not _pump.visible):
+		_pump.position.z = 0.0
+		_pump.visible = true
 
 
 func _reload_step() -> void:
@@ -506,6 +590,7 @@ func _reload_step() -> void:
 			reserve -= 1
 		lvl.sfx("shell", -6)
 		_reload_t = float(s.reload_t) * reload_mult * (0.65 if Game.blessed("speebchef") else 1.0)
+		_reload_len = _reload_t
 		if shells >= capacity():
 			_reloading = false
 			lvl.sfx("pump", -4)
@@ -1090,6 +1175,14 @@ func _tube(r: float, length: float, pos: Vector3, m: Material, parent: Node3D, r
 	return mi
 
 
+## A node for the magazine, so a reload can pull it out and put a fresh one in.
+func _mag_node(n: Node3D) -> Node3D:
+	var m := Node3D.new()
+	n.add_child(m)
+	n.set_meta("mag", m)
+	return m
+
+
 ## The sniper's own long glass. In the trials it always has it; in the waste it is a part to make and fit.
 static func built_glass(g: String, fit: Array) -> bool:
 	return g == "sniper" and (not Game.wasteland or "scope" in fit)
@@ -1157,8 +1250,9 @@ func _build(g: String, mnts = null) -> Node3D:
 			_box(Vector3(0.02, 0.036, 0.022), Vector3(0, 0.024, -0.5), dark, n)
 			_tube(0.016, 0.055, Vector3(0, 0.012, -0.665), metal, n)
 			# Magazine, curved; longer when extended
-			_box(Vector3(0.03, 0.1, 0.062), Vector3(0, -0.095, -0.055), dark, n, Vector3(0.12, 0, 0))
-			_box(Vector3(0.03, 0.09 if not ext else 0.16, 0.06), Vector3(0, -0.175 if not ext else -0.2, -0.078 if not ext else -0.09), dark, n, Vector3(0.34, 0, 0))
+			var magn := _mag_node(n)
+			_box(Vector3(0.03, 0.1, 0.062), Vector3(0, -0.095, -0.055), dark, magn, Vector3(0.12, 0, 0))
+			_box(Vector3(0.03, 0.09 if not ext else 0.16, 0.06), Vector3(0, -0.175 if not ext else -0.2, -0.078 if not ext else -0.09), dark, magn, Vector3(0.34, 0, 0))
 			# Grip, trigger, stock
 			_box(Vector3(0.034, 0.1, 0.044), Vector3(0, -0.09, 0.125), olive, n, Vector3(-0.3, 0, 0))
 			_box(Vector3(0.008, 0.006, 0.07), Vector3(0, -0.066, 0.06), dark, n)
@@ -1183,7 +1277,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			_box(Vector3(0.042, 0.1, 0.24), Vector3(0, -0.06, 0.37), wood, n, Vector3(-0.08, 0, 0))
 			_box(Vector3(0.036, 0.03, 0.14), Vector3(0, 0.0, 0.35), wood2, n)
 			_box(Vector3(0.044, 0.115, 0.016), Vector3(0, -0.068, 0.495), dark, n)
-			_box(Vector3(0.03, 0.05 if not ext else 0.1, 0.07), Vector3(0, -0.07 if not ext else -0.095, -0.02), dark, n)
+			_box(Vector3(0.03, 0.05 if not ext else 0.1, 0.07), Vector3(0, -0.07 if not ext else -0.095, -0.02), dark, _mag_node(n))
 			_box(Vector3(0.008, 0.006, 0.07), Vector3(0, -0.07, 0.085), dark, n)
 			top = 0.034
 			rear_z = 0.1
@@ -1226,7 +1320,7 @@ func _build(g: String, mnts = null) -> Node3D:
 		"minigun":
 			_box(Vector3(0.13, 0.13, 0.26), Vector3(0, -0.02, 0.12), dark, n)
 			_box(Vector3(0.1, 0.1, 0.06), Vector3(0, -0.02, -0.03), metal, n)
-			_box(Vector3(0.09, 0.14, 0.16), Vector3(-0.11, -0.07, 0.1), olive, n)
+			_box(Vector3(0.09, 0.14, 0.16), Vector3(-0.11, -0.07, 0.1), olive, _mag_node(n))
 			_box(Vector3(0.03, 0.02, 0.1), Vector3(-0.07, 0.02, 0.02), brass, n, Vector3(0, 0, 0.5))
 			# Carried by a handle above and a grip behind
 			_box(Vector3(0.02, 0.05, 0.02), Vector3(0, 0.07, 0.03), metal, n)
@@ -1248,8 +1342,11 @@ func _build(g: String, mnts = null) -> Node3D:
 			_box(Vector3(0.028, 0.026, 0.17), Vector3(0, 0.01, -0.065), metal, n)
 			_box(Vector3(0.03, 0.105, 0.046), Vector3(0, -0.05, 0.005), dark, n, Vector3(-0.2, 0, 0))
 			_box(Vector3(0.033, 0.07, 0.03), Vector3(0, -0.05, 0.007), wood2, n, Vector3(-0.2, 0, 0))
+			# The magazine sits up in the grip; only its base shows, or all of it while it is changed
+			var pm := _mag_node(n)
+			_box(Vector3(0.024, 0.09, 0.032), Vector3(0, -0.06, 0.006), metal, pm, Vector3(-0.2, 0, 0))
 			if ext:
-				_box(Vector3(0.024, 0.06, 0.036), Vector3(0, -0.125, 0.022), metal, n, Vector3(-0.2, 0, 0))
+				_box(Vector3(0.024, 0.06, 0.036), Vector3(0, -0.125, 0.022), metal, pm, Vector3(-0.2, 0, 0))
 			_box(Vector3(0.007, 0.005, 0.06), Vector3(0, -0.035, -0.05), dark, n)
 			_box(Vector3(0.007, 0.03, 0.005), Vector3(0, -0.02, -0.08), dark, n)
 			_box(Vector3(0.004, 0.018, 0.004), Vector3(0, -0.018, -0.04), brass, n, Vector3(0.3, 0, 0))
