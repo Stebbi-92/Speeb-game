@@ -1,3 +1,10 @@
+Brelm alpha 0.5.3
+
+- The hotbar shows again in the Ashen Waste. It had been drawn off the screen. It now sits low in the middle, with the stamina bar just above it.
+- The current quest shows as a card at the top left: its name, what to do and how far.
+- Soft shade in the corners of the screen keeps the words readable against a bright sky.
+- A firmer health bar.
+
 Brelm alpha 0.5.2
 
 Screens

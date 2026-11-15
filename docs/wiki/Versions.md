@@ -2,6 +2,11 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.5.3
+
+- Fixed: the hotbar was missing in the Ashen Waste. It now sits low in the middle with stamina above it.
+- A quest card at the top left, and a cleaner health bar.
+
 ## 0.5.2
 
 - New look for every screen: drawn pictures for every item, a new frame with tabs and a close button, and the world dimmed behind it.
