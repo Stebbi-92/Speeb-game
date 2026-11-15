@@ -214,6 +214,7 @@ func _draw_skills() -> void:
 	top.add_child(lv)
 	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
 	_body.add_child(top)
+	_close_and_rule(top)
 	if s.points == 0:
 		_body.add_child(_label("Experience comes from what you undo, make, build and find, and from the beacons you light.", 15, DIM))
 	var row := HBoxContainer.new()
@@ -670,6 +671,28 @@ func _header(title: String, tabs: Array, current: String, pick: Callable, right:
 	x.focus_mode = Control.FOCUS_NONE
 	hb.add_child(x)
 	_body.add_child(hb)
+	var rule := ColorRect.new()
+	rule.color = Color(1, 1, 1, 0.08)
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_body.add_child(rule)
+
+
+## Ends a screen's top row: a close button on the right and a thin rule beneath.
+func _close_and_rule(top: HBoxContainer) -> void:
+	var has_fill := false
+	for c in top.get_children():
+		if c is Control and c.size_flags_horizontal & Control.SIZE_EXPAND:
+			has_fill = true
+	if not has_fill:
+		var fill := Control.new()
+		fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top.add_child(fill)
+	var x := _btn("✕  Esc", func(): close_all(), 15, DIM)
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	x.focus_mode = Control.FOCUS_NONE
+	top.add_child(x)
 	var rule := ColorRect.new()
 	rule.color = Color(1, 1, 1, 0.08)
 	rule.custom_minimum_size.y = 1
@@ -1759,6 +1782,7 @@ func _draw_container() -> void:
 				_redraw_after_typing = false
 				_redraw.call_deferred())
 	_body.add_child(top)
+	_close_and_rule(top)
 	_body.add_child(_label("Click a thing to move it across.", 16, DIM))
 	var bag := Inventory.new(w.containers[_cont_id].size())
 	bag.from_data(w.containers[_cont_id])
@@ -1890,6 +1914,7 @@ func _speaker_head(pd: Dictionary) -> void:
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		top.add_child(c)
 	_body.add_child(top)
+	_close_and_rule(top)
 
 
 func _rumor() -> void:
@@ -1985,6 +2010,7 @@ func _trade() -> void:
 	salt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	top.add_child(salt)
 	_body.add_child(top)
+	_close_and_rule(top)
 	var disc := int(round(_discount(pd.at) * 100.0))
 	_body.add_child(_label(("Your standing in %s takes %d%% off." % [WPlaces.SETTLEMENTS[pd.at].name, disc]) if disc > 0 else "Better standing with %s brings better prices." % WPlaces.SETTLEMENTS[pd.at].name, 16, DIM))
 	var split := HBoxContainer.new()
@@ -2176,6 +2202,7 @@ func _draw_journal() -> void:
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	top.add_child(st)
 	_body.add_child(top)
+	_close_and_rule(top)
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 22)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2413,7 +2440,10 @@ func open_travel() -> void:
 
 func _draw_travel() -> void:
 	_clear()
-	_body.add_child(_title("The Beacon Road"))
+	var top := HBoxContainer.new()
+	top.add_child(_title("The Beacon Road"))
+	_body.add_child(top)
+	_close_and_rule(top)
 	_body.add_child(_wrap("Burning beacons see one another. Walk their light to any of them.", 19, DIM))
 	for i in w.lit:
 		var b: Dictionary = WPlaces.BEACONS[i]
@@ -2461,7 +2491,10 @@ func ask_rest(kind := "fire", pid := -1) -> void:
 
 func _draw_rest() -> void:
 	_clear()
-	_body.add_child(_title("The Fire" if _rest_kind == "fire" else "The Bedroll"))
+	var top := HBoxContainer.new()
+	top.add_child(_title("The Fire" if _rest_kind == "fire" else "The Bedroll"))
+	_body.add_child(top)
+	_close_and_rule(top)
 	_body.add_child(_label("Food %d     Rest %d" % [int(w.food), int(w.rest)], 18, DIM))
 	if _rest_kind == "bed":
 		_body.add_child(_wrap("You will wake here if you fall.", 18, DIM))
@@ -2514,7 +2547,10 @@ func planter_changed(pid: int) -> void:
 
 func _draw_planter() -> void:
 	_clear()
-	_body.add_child(_title("Planter Box"))
+	var top := HBoxContainer.new()
+	top.add_child(_title("Planter Box"))
+	_body.add_child(top)
+	_close_and_rule(top)
 	var pc: Dictionary = w.pieces.get(_pid, {})
 	if pc.is_empty():
 		return
@@ -2551,7 +2587,10 @@ func open_portal(pid: int) -> void:
 
 func _draw_portal() -> void:
 	_clear()
-	_body.add_child(_title("Waystone"))
+	var top := HBoxContainer.new()
+	top.add_child(_title("Waystone"))
+	_body.add_child(top)
+	_close_and_rule(top)
 	var pc: Dictionary = w.pieces.get(_pid, {})
 	if pc.is_empty():
 		return
