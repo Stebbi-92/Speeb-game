@@ -2645,7 +2645,10 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 		return
 	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
 	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12) + skills.drop_bonus():
-		shared("_rq_satchel", [Net.me(), e.global_position, Items.roll("corpse", 2 if e.kind in ["elite", "saucer"] else 1, _gen), false])
+		var drop: Array = Items.roll("corpse", 2 if e.kind in ["elite", "saucer"] else 1, _gen)
+		if e.kind in ["elite", "saucer"] and _gen.randf() < 0.3:
+			drop.append(["fittings_fine" if _gen.randf() < 0.75 else "fittings_rare", 1])
+		shared("_rq_satchel", [Net.me(), e.global_position, drop, false])
 
 
 func team_kill(e: LesserSpeeb) -> void:
@@ -3862,7 +3865,9 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		if l.id == land and l.has("glow") and is_instance_valid(l.glow):
 			l.glow.light_energy = 0.2
 	if Net.authority():
-		_rq_satchel(1, at, Items.roll("corpse", 6, _gen) + [["t_" + land, 1]], false)
+		# A great one always leaves fittings: rare ones, and now and then storied
+		var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
+		_rq_satchel(1, at, Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]], false)
 		autosave_soon(2.0)
 	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
 		award("kill_boss")

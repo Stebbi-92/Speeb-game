@@ -60,6 +60,7 @@ var _trickle := 0.0
 var _gren_t := 0.0
 var _gadget_t := 0.0
 var _melee_cool := 0.0
+var _spec_cache := {}
 var blade_out := false       ## the blade is in hand: fire swings it, a long hold swings hard, aim guards
 var guarding := false
 var _charge := -1.0          ## seconds the fire button has been held with the blade out; -1 when not held
@@ -111,6 +112,7 @@ func _ready() -> void:
 
 ## Takes up whatever the loadout says, full of ammunition.
 func equip_loadout() -> void:
+	_spec_cache.clear()
 	var lo: Dictionary = Game.arms_now()
 	for k in _models:
 		_models[k].queue_free()
@@ -136,8 +138,27 @@ func gun() -> String:
 	return guns[cur]
 
 
+## The gun in hand, as its parts and their traits have made it.
 func spec() -> Dictionary:
-	return ArmsDB.GUNS[gun()]
+	var g := gun()
+	if not _spec_cache.has(g):
+		_spec_cache[g] = spec_of(g)
+	return _spec_cache[g]
+
+
+static func spec_of(g: String) -> Dictionary:
+	var s: Dictionary = ArmsDB.GUNS[g].duplicate()
+	var md: Dictionary = Game.gun_mods(g)
+	s.dmg = float(s.dmg) * md.dmg
+	s.rate = float(s.rate) * md.rate
+	s.spread = float(s.spread) * md.spread
+	s.range = float(s.range) * md.range
+	s.falloff = float(s.falloff) * md.range
+	s.reload_t = float(s.reload_t) * md.reload
+	s.kick = float(s.kick) * md.kick
+	s["aim"] = md.aim
+	s["crit"] = md.crit
+	return s
 
 
 func capacity() -> int:
@@ -149,6 +170,7 @@ static func mag_of(g: String) -> int:
 	var m := float(ArmsDB.GUNS[g].mag)
 	if Game.has_mount(g, "ext_mag"):
 		m *= 1.5
+	m *= float(Game.gun_mods(g).mag)
 	return maxi(1, int(round(m * (1.0 + 0.15 * Game.tier_of(g)))))
 
 
@@ -452,7 +474,7 @@ func _heal(delta: float) -> void:
 
 ## Looking down the sight narrows the view; a scope narrows it far, and darkens the edges.
 func _set_aim(target: float, delta: float) -> void:
-	_aim = move_toward(_aim, target, delta * 6.0)
+	_aim = move_toward(_aim, target, delta * 6.0 * (float(spec().aim) if enabled else 1.0))
 	var zoom := float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).zoom) if enabled else 1.0
 	if enabled and gun() == "sniper":
 		zoom = maxf(zoom, float(spec().zoom))
@@ -586,7 +608,7 @@ func _try_fire() -> void:
 			# A shot to the head does more, and is marked so
 			var wp: Array = target.weak_point()
 			if not wp.is_empty() and _ray_near(origin, dir, wp[0], wp[1]):
-				dmg *= HEAD_MULT
+				dmg *= HEAD_MULT * float(s.crit)
 				crits[target] = true
 		if target and target.has_method("hurt"):
 			hits[target] = hits.get(target, 0.0) + dmg
@@ -1104,6 +1126,8 @@ func _build(g: String, mnts = null) -> Node3D:
 			top = 0.046
 			rear_z = 0.03
 			front = Vector3(0, 0.0435, -0.24)
+	_frame_parts(g, fit, n, tip)
+	tip = n.get_meta("tip_after", tip)
 	var eye := top + 0.012
 	var sight := ""
 	for m in fit:
@@ -1153,6 +1177,67 @@ func _build(g: String, mnts = null) -> Node3D:
 	n.set_meta("tip", tip)
 	n.set_meta("eye", eye)
 	return n
+
+
+## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
+const BUTT := {"shotgun": Vector3(0, -0.07, 0.5), "machine_gun": Vector3(0, -0.014, 0.432), "sniper": Vector3(0, -0.068, 0.495)}
+const SIDE := {"shotgun": Vector3(0.027, 0.0, 0.03), "machine_gun": Vector3(0.026, 0.012, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
+	"rocket": Vector3(0.06, -0.06, 0.2), "minigun": Vector3(0.066, -0.02, 0.12), "pistol": Vector3(0.016, -0.01, -0.0), "revolver": Vector3(0.016, 0.014, -0.01)}
+
+
+## Barrels, stocks and receivers, each shown on the gun; a graded part carries a band of its grade's colour.
+func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
+	var dark := _mat(Color(0.07, 0.07, 0.075), 0.5, 0.5)
+	var metal := _metal()
+	var a: Dictionary = Game.arms_now()
+	for m in fit:
+		if not ArmsDB.ATTACHMENTS.has(m) or not ArmsDB.ATTACHMENTS[m].slot in ["barrel", "stock", "receiver"]:
+			continue
+		var at := Vector3.ZERO
+		match m:
+			"long_barrel":
+				_tube(0.011, 0.16, tip + Vector3(0, 0, -0.08), metal, n)
+				_tube(0.014, 0.02, tip + Vector3(0, 0, -0.16), dark, n)
+				tip += Vector3(0, 0, -0.16)
+				at = tip + Vector3(0, 0, 0.05)
+			"sawn_barrel":
+				_tube(0.019, 0.035, tip + Vector3(0, 0, -0.01), dark, n)
+				for i in 3:
+					_box(Vector3(0.042, 0.004, 0.006), tip + Vector3(0, 0.006, -0.002 - i * 0.01), metal, n)
+				tip += Vector3(0, 0, -0.03)
+				at = tip + Vector3(0, 0, 0.02)
+			"heavy_barrel":
+				_tube(0.021, 0.22, tip + Vector3(0, 0, 0.12), dark, n)
+				for i in 4:
+					_tube(0.023, 0.008, tip + Vector3(0, 0, 0.05 + i * 0.045), metal, n)
+				at = tip + Vector3(0, 0, 0.22)
+			"padded_stock", "light_stock", "heavy_stock":
+				var b: Vector3 = BUTT.get(g, Vector3(0, -0.04, 0.45))
+				match m:
+					"padded_stock":
+						_box(Vector3(0.05, 0.115, 0.03), b + Vector3(0, 0, 0.02), _mat(Color(0.32, 0.16, 0.1), 0.0, 0.9), n)
+					"light_stock":
+						_box(Vector3(0.008, 0.008, 0.2), b + Vector3(0, 0.03, -0.06), metal, n)
+						_box(Vector3(0.008, 0.008, 0.2), b + Vector3(0, -0.04, -0.06), metal, n)
+						_box(Vector3(0.03, 0.1, 0.012), b + Vector3(0, -0.005, 0.04), dark, n)
+					"heavy_stock":
+						_box(Vector3(0.052, 0.13, 0.18), b + Vector3(0, -0.01, -0.06), _mat(Color(0.22, 0.12, 0.07), 0.0, 0.6), n)
+				at = b + Vector3(0, 0.04, -0.06)
+			"rapid_receiver", "heavy_receiver", "smooth_receiver":
+				var sd: Vector3 = SIDE.get(g, Vector3(0.026, 0, 0.03))
+				var c := {"rapid_receiver": Color(0.12, 0.16, 0.28), "heavy_receiver": Color(0.7, 0.55, 0.3), "smooth_receiver": Color(0.8, 0.8, 0.82)}[m]
+				for sx in [-1, 1]:
+					_box(Vector3(0.004, 0.034, 0.11), Vector3(sd.x * sx, sd.y, sd.z), _mat(c, 0.85, 0.3), n)
+				at = sd + Vector3(0.003, 0.02, 0)
+		var gr := WArms.grade_of(a, g, m) if Game.wasteland else {}
+		var r := int(gr.get("r", 0))
+		if r > 0:
+			var glow := _mat(WArms.GRADES[r].color)
+			glow.emission_enabled = true
+			glow.emission = WArms.GRADES[r].color
+			glow.emission_energy_multiplier = 0.6 + r * 0.3
+			_box(Vector3(0.012, 0.006, 0.03), at, glow, n)
+	n.set_meta("tip_after", tip)
 
 
 func _build_melee(id: String) -> Node3D:
