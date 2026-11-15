@@ -293,7 +293,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		if e.is_action_pressed("slot_%d" % (i + 1)):
 			select(i)
 			return
-	if e is InputEventMouseButton and e.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if e is InputEventMouseButton and e.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not (Game.main and Game.main.hud and (Game.main.hud.pause_panel.visible or Game.main.hud.options_panel.visible)):
 		var dir := 0
 		if e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			dir = 1

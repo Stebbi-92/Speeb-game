@@ -121,6 +121,12 @@ func weapon_reset() -> void:
 		weapon.refill()
 
 
+## Whether a menu is open over the world (in a fellowship the world does not pause for it).
+func _menu_up() -> bool:
+	var h = Game.main.hud if Game.main else null
+	return h != null and ((h.pause_panel and h.pause_panel.visible) or (h.options_panel and h.options_panel.visible) or (h.codex_panel and h.codex_panel.visible))
+
+
 func place(pos: Vector3, facing_yaw: float) -> void:
 	# In a fellowship each pilgrim stands a little apart, by their place in it
 	if Net.online and not Net.dedicated:
@@ -165,10 +171,12 @@ func _unhandled_input(e: InputEvent) -> void:
 			pitch = clampf(pitch - e.relative.y * sens * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
 			if Game.main and Game.main.hud:
 				Game.main.hud.scope_nudge(e.relative)
-	elif e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked:
+	elif e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
+			and not get_tree().paused and not input_locked and not _menu_up():
+		# A click back into the world takes the mouse again; a scroll, or a click while a menu is up, does not
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif e.is_action_pressed("interact"):
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked and not _menu_up():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		interact_pressed.emit()
 		if not input_locked and target and target.has_meta("on_interact") and target.get_meta("hold", 0.0) <= 0.0:

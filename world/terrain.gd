@@ -17,6 +17,7 @@ const BIOME_COLORS := {
 }
 
 var h := PackedFloat32Array()
+var _bcols: Array = BIOMES.map(func(b): return BIOME_COLORS[b])   ## the lands' colours in order (safe to read from the map's thread)
 var road := PackedFloat32Array()   ## how much of a worn road lies on each point of the grid, 0 to 1
 var shade := PackedFloat32Array()
 var flats: Array = []
@@ -224,7 +225,7 @@ func _vcolor(x: float, z: float, y: float, n: Vector3) -> Color:
 	var w := weights(x, z)
 	var c := Color(0, 0, 0)
 	for i in 6:
-		c += BIOME_COLORS[BIOMES[i]] * w[i]
+		c += _bcols[i] * w[i]
 	var rock := Color(0.24, 0.22, 0.21)
 	c = c.lerp(rock, smoothstep(0.86, 0.68, n.y) * 0.8)
 	c = c.lerp(rock.darkened(0.2), smoothstep(60.0, 110.0, y))

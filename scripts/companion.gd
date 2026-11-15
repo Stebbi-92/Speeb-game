@@ -130,20 +130,30 @@ func pose(data: Array) -> void:
 			_gun_key = key
 			_show_gun(str(data[8]), mn)
 	# Riding: their cat under them, with its face and barding
+	# Not riding, their cat waits where they left it, and friends see it there too
 	var ride := str(data[10]) if data.size() > 10 else ""
-	if ride != _ride_key:
-		_ride_key = ride
+	var bits := ride.split("|")
+	var parked := bits.size() >= 7 and bits[2] == "@"
+	var key := "|".join(bits.slice(0, 3))
+	if key != _ride_key:
+		_ride_key = key
 		if _cat:
 			_cat.queue_free()
 			_cat = null
-		var bits := ride.split("|")
 		if ride != "" and bits[0] in WCat.FACES and WCat.BARDING.has(bits[1] if bits.size() > 1 else ""):
 			_cat = WCat.new().setup(null, bits[0], false)
 			_cat.barding = bits[1] if bits.size() > 1 else ""
-			_cat.ridden = true
+			_cat.ridden = not parked
 			_cat.puppet = true
-			add_child(_cat)
-	if _cat:
+			if parked:
+				get_parent().add_child(_cat)
+			else:
+				add_child(_cat)
+	if _cat and parked:
+		var at := Vector3(float(bits[3]), float(bits[4]), float(bits[5]))
+		_cat.global_position = _cat.global_position.lerp(at, 0.5) if _cat.global_position.distance_to(at) < 6.0 else at
+		_cat.rotation.y = float(bits[6])
+	if _cat and not parked:
 		_body.position.y = 0.75
 	elif _body.position.y != 0.0:
 		_body.position.y = 0.0
@@ -210,7 +220,9 @@ func _process(delta: float) -> void:
 	_body.rotation.x = lerpf(_body.rotation.x, -PI / 2 * lie, minf(1.0, delta * 5.0))
 	_body.position.y = lerpf(_body.position.y, 0.25 * lie, minf(1.0, delta * 5.0))
 	if not downed:
-		_body.position.y = absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0)
+		# Riding, they sit up in the saddle, not down inside the cat
+		var lift := 0.75 if _cat and _cat.ridden else 0.0
+		_body.position.y = lift + absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0) * (0.0 if lift > 0.0 else 1.0)
 		_body.rotation.z = sin(_walk * 0.5) * 0.03 * clampf(speed / 3.0, 0.0, 1.0)
 	_fig.walk = _walk
 	_fig.stride = 0.0 if downed else clampf(speed / 3.0, 0.0, 1.0)
@@ -222,3 +234,9 @@ func _relook() -> void:
 		_look = l.duplicate()
 		_fig.look = Figure.clean(l)
 		_fig.rebuild()
+
+
+func _exit_tree() -> void:
+	# A friend's waiting cat goes with them when they leave
+	if _cat and is_instance_valid(_cat) and _cat.get_parent() != self:
+		_cat.queue_free()

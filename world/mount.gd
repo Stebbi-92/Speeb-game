@@ -20,6 +20,7 @@ const WALK := 1.18        ## times the rider's walking pace
 const SPRINT := 2.1       ## times the rider's walking pace, on the cat's breath
 const BREATH_MAX := 100.0
 const HP_MAX := 160.0
+const REST_HURT := 30.0   ## seconds a hurt-out cat sulks before it will carry you again (meat ends it at once)
 
 var w                       ## the wasteland
 var face := "_speeb"
@@ -180,7 +181,12 @@ func pace(sprint: bool, delta: float) -> float:
 func _process(delta: float) -> void:
 	_t += delta
 	_shy = maxf(0.0, _shy - delta)
-	_rest = maxf(0.0, _rest - delta)
+	if _rest > 0.0:
+		_rest = maxf(0.0, _rest - delta)
+		if not puppet and not wild and _label:
+			_label.text = "%s (hurt: rests %ds, or feed it meat)" % [cat_name, ceili(_rest)]
+			if _rest <= 0.0:
+				_refresh()
 	if puppet:
 		pass
 	elif not ridden or w.player.cur_speed < w.player.walk_speed * 1.3:
@@ -261,7 +267,7 @@ func take(amount: float) -> bool:
 	hp -= amount * (1.0 - float(BARDING.get(barding, {}).get("guard", 0.0)))
 	if hp <= 0.0:
 		hp = HP_MAX * 0.5
-		_rest = 90.0
+		_rest = REST_HURT
 		return true
 	return false
 

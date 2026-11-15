@@ -51,7 +51,7 @@ const SKILLS := {
 const XP := {
 	"kill": 6, "kill_elite": 30, "kill_boss": 400, "assist": 2, "gather": 1, "make": 3, "build": 2,
 	"step": 30, "step_main": 60, "quest": 80, "beacon": 250, "dawn": 60,
-	"settlement": 50, "ruin": 25, "biome": 20,
+	"settlement": 50, "ruin": 25, "biome": 20, "rumour": 10,
 }
 
 var xp := 0

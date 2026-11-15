@@ -30,6 +30,7 @@ var _boss_box: VBoxContainer
 var _boss_name: Label
 var _boss_bar: ProgressBar
 var crosshair: ColorRect
+var ads := false            ## aiming down the sights: the screen's dot and spread marks are hidden
 var _ticks: Array = []   ## four short marks around the dot that open as shots wander
 var _gap := 0.0
 var reveal_box: VBoxContainer
@@ -128,7 +129,7 @@ func _ready() -> void:
 	narration = _label("", 26, PALE, HORIZONTAL_ALIGNMENT_CENTER)
 	narration.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	narration.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	narration.position = Vector2(-560, -190)
+	narration.position = Vector2(-560, -340)   # above the hotbar and the stamina bar
 	narration.size = Vector2(1120, 150)
 	narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	narration.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
@@ -244,7 +245,7 @@ func _ready() -> void:
 
 	reveal_box = VBoxContainer.new()
 	reveal_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	reveal_box.position = Vector2(-620, -330)
+	reveal_box.position = Vector2(-620, -480)
 	reveal_box.size = Vector2(1240, 310)
 	reveal_box.alignment = BoxContainer.ALIGNMENT_END
 	reveal_box.add_theme_constant_override("separation", 6)
@@ -910,7 +911,7 @@ func raise_text(up: bool) -> void:
 	else:
 		root.move_child(narration, fade.get_index())
 		root.move_child(card_box, fade.get_index())
-		narration.position.y = -190
+		narration.position.y = -340
 		narration.size.y = 150
 		narration.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
@@ -1388,7 +1389,7 @@ func toggle_codex() -> void:
 
 
 func _process(d: float) -> void:
-	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused
+	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused and not ads
 	_place_ticks(d)
 	if _hurt > 0.0:
 		_hurt = maxf(0.0, _hurt - d * 2.0)

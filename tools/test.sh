@@ -34,6 +34,8 @@ check hitbox    debug_hitbox   "HITBOX all=true heads=true"
 check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"
 check build     debug_build    "BUILD up=true kept=true bed=true stove=true shelf=true snug=true"
+check inn       debug_inn      "INN towns=true meal=true talk=true snug=true walls=true"
+check fixes     debug_fixes    "FIXES map_ready=true map_open_fast=true slept=true woke=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

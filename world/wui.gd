@@ -27,6 +27,15 @@ var _cont_id := ""
 var _tab := "pack"
 var _desc: Label
 var _map_tex: ImageTexture
+var _map_task := -1           ## the map's picture, drawn on a worker thread once the world stands
+var _map_img: Image
+
+
+## Draws the map's picture in the background, so the first look at the map does not stall the game.
+func prepare_map() -> void:
+	if _map_task >= 0 or _map_tex != null or w.terrain == null:
+		return
+	_map_task = WorkerThreadPool.add_task(func(): _map_img = w.terrain.map_image(1024), false, "map picture")
 var _fog_img: Image
 var _fog_tex: ImageTexture
 var _map_draw: MapDraw
@@ -2569,7 +2578,11 @@ const MAP_VIEW := 640.0
 func _draw_map() -> void:
 	_clear()
 	if _map_tex == null:
-		_map_tex = ImageTexture.create_from_image(w.terrain.map_image(1024))
+		if _map_task >= 0:
+			WorkerThreadPool.wait_for_task_completion(_map_task)
+			_map_task = -1
+		_map_tex = ImageTexture.create_from_image(_map_img if _map_img else w.terrain.map_image(1024))
+		_map_img = null
 		_fog_img = Image.create(Wasteland.REVEAL_N, Wasteland.REVEAL_N, false, Image.FORMAT_RGBA8)
 		_fog_tex = ImageTexture.create_from_image(_fog_img)
 		map_dirty = true
@@ -2752,7 +2765,7 @@ func ask_rest(kind := "fire", pid := -1) -> void:
 func _draw_rest() -> void:
 	_clear()
 	var top := HBoxContainer.new()
-	top.add_child(_title("The Fire" if _rest_kind == "fire" else "The Bedroll"))
+	top.add_child(_title({"fire": "The Fire", "inn": "The Inn"}.get(_rest_kind, "The Bedroll")))
 	_body.add_child(top)
 	_close_and_rule(top)
 	_body.add_child(_label("Food %d     Rest %d" % [int(w.food), int(w.rest)], 18, DIM))

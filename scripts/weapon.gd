@@ -444,6 +444,8 @@ func _process(delta: float) -> void:
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
 	var aiming := not blade_out and (debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
 	_set_aim(1.0 if aiming else 0.0, delta)
+	if Game.main and Game.main.hud:
+		Game.main.hud.ads = _aim > 0.35   # down the sights, the dot on the screen gives way to the gun's own
 	# Aiming brings the sights onto the eye's own line
 	var aim_off := Vector3.ZERO
 	var ease_aim := smoothstep(0.0, 1.0, _aim)

@@ -105,7 +105,7 @@ func _done() -> bool:
 		"walk":
 			return Vector2(w.player.global_position.x - _from.x, w.player.global_position.z - _from.z).length() > 12.0
 		"dodge":
-			return w.player.dodge_t > 0.0
+			return _seen.has("dodge")
 		"gather":
 			return w.inv.count("wood") + w.inv.count("stone") >= _base + 5
 		"pack":
@@ -133,6 +133,9 @@ func _process(delta: float) -> void:
 		return
 	if not visible:
 		_enter()
+	# A dodge lasts less than a check's wait, so the key is watched every frame
+	if STEPS[step][0] == "dodge" and (w.player.dodge_t > 0.0 or Input.is_action_just_pressed("dash")):
+		_seen["dodge"] = true
 	# Kept out of the way of open screens
 	_box.visible = w.ui == null or not w.ui.is_open() or STEPS[step][0] in ["make", "pack"]
 	_t -= delta

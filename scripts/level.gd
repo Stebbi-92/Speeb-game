@@ -2060,6 +2060,17 @@ func _ghost_tick() -> void:
 			return
 
 
+## Your cat as friends see it: under you while you ride ("face|barding"), or where it waits ("face|barding|@|x|y|z|turn").
+func _cat_pose() -> String:
+	if player.mount:
+		return "%s|%s" % [player.mount.face, player.mount.barding]
+	var c = get("cat")
+	if c != null and is_instance_valid(c) and c.is_inside_tree():
+		var p: Vector3 = c.global_position
+		return "%s|%s|@|%.2f|%.2f|%.2f|%.2f" % [c.face, c.barding, p.x, p.y, p.z, c.rotation.y]
+	return ""
+
+
 func _net_tick(delta: float) -> void:
 	_pose_t -= delta
 	if _pose_t <= 0.0 and not Net.dedicated:
@@ -2069,7 +2080,7 @@ func _net_tick(delta: float) -> void:
 			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
 			player.weapon.gun() if player.weapon else "shotgun",
 			Game.mounts_of(player.weapon.gun()) if player.weapon else [],
-			"%s|%s" % [player.mount.face, player.mount.barding] if player.mount else ""])
+			_cat_pose()])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:

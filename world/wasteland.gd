@@ -147,6 +147,8 @@ func _make_world(sd: int) -> void:
 	WPlaces.plan_roads(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
 	for rd in WPlaces.roads:
 		terrain.add_road(rd[2])
+	for k in WPlaces.SETTLEMENTS:
+		_town_paths(k)
 	terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
@@ -485,16 +487,9 @@ func _build_settlement(k: String) -> void:
 			cyl(p + Vector3(0, 2.4, 0), 0.3, 5.2, _m.darkwood, true, -1.0, 8)
 			sphere(p + Vector3(0, 4.9, 0), 0.18, _m.ember)
 			omni(p + Vector3(0, 4.6, 0), Color(1.0, 0.65, 0.35), 1.2, 9.0)
-	# Huts about the edge, a fire at the heart
-	var huts := 5 + rr.randi() % 3
-	for i in huts:
-		var a := TAU * (i + 0.5) / huts + rr.randf_range(-0.2, 0.2)
-		if absf(wrapf(a - PI * 0.5, -PI, PI)) < 0.45 or absf(wrapf(a + PI * 0.5, -PI, PI)) < 0.45:
-			continue
-		var d := r * rr.randf_range(0.55, 0.7)
-		var p := c + Vector3(cos(a) * d, 0, sin(a) * d)
-		p.y = terrain.height_at(p.x, p.z)
-		_hut(p, -a + PI * 0.5, rr)
+	# Houses you can walk into about the edge, an inn, and a fire at the heart
+	for b in _town_plan(k):
+		_town_house(k, c, b)
 	cyl(c + Vector3(0, 0.15, 0), 1.3, 0.3, _m.stone, true, -1.0, 10)
 	for i in 5:
 		var lg := box(c + Vector3(0, 0.35, 0), Vector3(0.22, 0.22, 1.6), _m.darkwood, false)
@@ -583,6 +578,207 @@ func _hut(p: Vector3, yaw: float, rr: RandomNumberGenerator) -> void:
 	var win := box(Vector3.ZERO, Vector3(0.6, 0.5, 0.1), _m.ember, false)
 	win.reparent(n, false)
 	win.position = Vector3(w * 0.3, 1.6, d * 0.5 + 0.05)
+
+
+# ------------------------------------------------------------------ the towns' houses and inns
+
+const INN_NAMES := ["The Banked Ember", "The Last Lamp", "The Dry Cup", "The Crooked Kettle", "The Bone and Bowl",
+	"The Sleeping Cat", "The White Hearth", "The Salt Cellar", "The Long Night"]
+const INN_MEALS := ["stew", "broth", "tea", "pie", "roast"]
+var inn_beds: Array = []      ## where the inns' beds stand: a night there is the snuggest rest in the waste
+var _rumoured := {}           ## ruins already told of at an inn, this session
+
+
+## Where a town's buildings stand, the same every time: an inn toward the middle and houses about the
+## edge, kept clear of the gates and of the people who stand there. Each: {kind, off, yaw, w, d} in cells.
+func _town_plan(k: String) -> Array:
+	var s: Dictionary = WPlaces.SETTLEMENTS[k]
+	var r: float = s.radius
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash(k) + 77
+	var folk: Array = []
+	for pid in WPlaces.PEOPLE:
+		if WPlaces.PEOPLE[pid].at == k:
+			folk.append(WPlaces.PEOPLE[pid].off)
+	var clear := func(off: Vector2, room: float) -> bool:
+		for f in folk:
+			if (f as Vector2).distance_to(off) < room:
+				return false
+		return true
+	var out: Array = []
+	var inn_a := INF
+	for a in [0.0, PI, 0.5, PI - 0.5, -0.5, PI + 0.5, 1.0, PI - 1.0]:
+		var off := Vector2(cos(a), sin(a)) * r * 0.52
+		if clear.call(off, 7.5):
+			inn_a = a
+			out.append({"kind": "inn", "off": off, "yaw": atan2(-off.x, -off.y), "w": 3, "d": 2})
+			break
+	var n := 9 + rr.randi() % 2
+	for i in n:
+		var a := TAU * (i + 0.5) / n + rr.randf_range(-0.08, 0.08)
+		if absf(wrapf(a - PI * 0.5, -PI, PI)) < 0.38 or absf(wrapf(a + PI * 0.5, -PI, PI)) < 0.38:
+			continue
+		if inn_a != INF and absf(wrapf(a - inn_a, -PI, PI)) < 0.62:
+			continue
+		for dk in [0.68, 0.6]:
+			var off: Vector2 = Vector2(cos(a), sin(a)) * r * float(dk)
+			if clear.call(off, 5.5):
+				out.append({"kind": "house", "off": off, "yaw": atan2(-off.x, -off.y), "w": 2, "d": 2})
+				break
+	return out
+
+
+## Footpaths worn from the gates through the middle, and from each door to the fire.
+func _town_paths(k: String) -> void:
+	var c := WPlaces.spos(k)
+	var r: float = WPlaces.SETTLEMENTS[k].radius
+	terrain.add_road(PackedVector2Array([c + Vector2(0, -r - 4.0), c, c + Vector2(0, r + 4.0)]), 3.2)
+	for b in _town_plan(k):
+		var to_c: Vector2 = -(b.off as Vector2).normalized()
+		var door: Vector2 = c + b.off + to_c * (float(b.d) * WBuilder.GRID * 0.5 + 1.0)
+		terrain.add_road(PackedVector2Array([door, c + to_c * -2.5]), 2.2)
+
+
+## A house of the kit, its door toward the fire: floor, walls, a roof, and what people keep inside.
+## An inn is larger, with tables, a counter for hot meals and talk, and beds to rent.
+func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
+	var G := WBuilder.GRID
+	var W: float = float(b.w) * G
+	var D: float = float(b.d) * G
+	var n := Node3D.new()
+	add_child(n)
+	var at := c + Vector3(b.off.x, 0, b.off.y)
+	n.position = Vector3(at.x, terrain.height_at(at.x, at.z) + 0.15, at.z)
+	n.rotation.y = b.yaw
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash(k) + int(b.off.x * 13.0) + int(b.off.y * 7.0)
+	var tier := 1 if k in ["kiln", "hesk", "gallowmere", "lastlight"] else 0
+	var inn: bool = b.kind == "inn"
+	# The floor: one slab, its top at the house's ground
+	var fb := StaticBody3D.new()
+	fb.collision_layer = 1
+	n.add_child(fb)
+	builder._part(n, fb, Vector3(W, 1.0, D), Vector3(0, -0.5, 0), _m.stone if tier else _m.darkwood, false)
+	builder._kit(n, "planks", Vector3(W, 1.0, D), Vector3(0, -0.02, 0), 0.0)
+	# The walls, cell by cell; the door in the middle of the front, toward the fire
+	var door_i := int(b.w) / 2
+	for i in int(b.w):
+		var x := -W * 0.5 + (i + 0.5) * G
+		_town_wall(n, "doorway" if i == door_i else ("window" if rr.randf() < 0.6 else "wall"), Vector3(x, 0, D * 0.5), 0.0, tier)
+		_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, 0, -D * 0.5), 0.0, tier)
+	for j in int(b.d):
+		var z := -D * 0.5 + (j + 0.5) * G
+		for side in [-1.0, 1.0]:
+			_town_wall(n, "window" if rr.randf() < 0.35 else "wall", Vector3(side * W * 0.5, 0, z), PI * 0.5, tier)
+	# A ceiling, and a pitched roof of thatch over it
+	builder._part(n, fb, Vector3(W + 0.3, 0.12, D + 0.3), Vector3(0, 3.06, 0), _m.darkwood, false)
+	var roof := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(W + 1.0, 1.7, D + 1.0)
+	roof.mesh = pm
+	roof.material_override = _m.thatch
+	roof.position = Vector3(0, 3.12 + 0.85, 0)
+	n.add_child(roof)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(1.0, 0.72, 0.42)
+	lamp.light_energy = 1.4 if inn else 0.9
+	lamp.omni_range = 8.0 if inn else 5.5
+	lamp.position = Vector3(0, 2.4, 0)
+	n.add_child(lamp)
+	if inn:
+		_inn_inside(k, n, W, D)
+	else:
+		_furnish(n, "bed", Vector3(W * 0.5 - 1.1, 0, -D * 0.5 + 1.3), 0.0)
+		_furnish(n, "table", Vector3(-W * 0.5 + 1.4, 0, -0.3), PI * 0.5)
+		_furnish(n, "chair", Vector3(-W * 0.5 + 1.4, 0, 0.8), PI)
+		_furnish(n, "shelf", Vector3(-W * 0.5 + 0.6, 0, -D * 0.5 + 0.5), PI * 0.5)
+		_furnish(n, "rug", Vector3(0.3, 0.02, 0.6), rr.randf() * 0.3)
+	_fade_far(n, 260.0)
+
+
+func _town_wall(n: Node3D, kind: String, pos: Vector3, yaw: float, tier: int) -> void:
+	var wl := builder._make(kind, false, tier)
+	wl.position = pos
+	wl.rotation.y = yaw
+	n.add_child(wl)
+
+
+func _furnish(n: Node3D, kind: String, pos: Vector3, yaw: float) -> StaticBody3D:
+	var f := builder._make(kind, false)
+	f.position = pos
+	f.rotation.y = yaw
+	n.add_child(f)
+	return f.get_meta("body")
+
+
+## The inn's room: tables and chairs before the door, a counter at one end, and beds at the back.
+func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
+	var name: String = INN_NAMES[absi(hash(k)) % INN_NAMES.size()]
+	var sign_l := label3d(name, Vector3.ZERO, 0.7, Color(0.95, 0.82, 0.55))
+	sign_l.reparent(n, false)
+	sign_l.position = Vector3(0, 3.9, D * 0.5 + 0.7)
+	sign_l.rotation = Vector3.ZERO
+	sign_l.visibility_range_end = 60.0
+	for x in [-2.3, 0.8]:
+		_furnish(n, "table", Vector3(x, 0, 0.9), 0.0)
+		_furnish(n, "chair", Vector3(x - 0.2, 0, 0.1), PI)
+		_furnish(n, "chair", Vector3(x + 0.6, 0, 1.8), 0.0)
+	_furnish(n, "stove", Vector3(W * 0.5 - 0.7, 0, 1.6), -PI * 0.5)
+	_furnish(n, "rug", Vector3(-0.8, 0.02, -0.6), 0.0)
+	# The counter: hot meals and the talk of the road
+	var counter := _furnish(n, "table", Vector3(W * 0.5 - 1.2, 0, -0.2), PI * 0.5)
+	personal_interactable(counter, "Buy a hot meal (6 salt)", func(): inn_meal())
+	var talk := _furnish(n, "table", Vector3(-2.3, 0, 0.9), 0.0)
+	personal_interactable(talk, "Listen to the talk", func(): inn_talk(k))
+	for x in [-W * 0.5 + 1.0, -W * 0.5 + 3.2]:
+		var bed := _furnish(n, "bed", Vector3(x, 0, -D * 0.5 + 1.2), 0.0)
+		personal_interactable(bed, "Rent a bed (4 salt)", func(): inn_bed())
+		inn_beds.append(n.to_global(Vector3(x, 0, -D * 0.5 + 1.2)) if n.is_inside_tree() else n.position)
+
+
+## A hot meal from the inn's pot, for salt.
+func inn_meal() -> void:
+	if inv.count("salt") < 6:
+		hud.notify("A hot meal costs 6 salt.")
+		return
+	var id: String = INN_MEALS[randi() % INN_MEALS.size()]
+	if inv.add(id, 1) > 0:
+		hud.notify("Your pack is full.")
+		return
+	inv.take("salt", 6)
+	sfx("drink", -6)
+	hud.notify("You buy %s. Eat it while it is hot." % String(Items.info(id).name).to_lower())
+
+
+## What people say over their cups: where a ruin lies that you have not found, marked on your map.
+func inn_talk(k: String) -> void:
+	var c := WPlaces.spos(k)
+	var best = null
+	var bd := INF
+	for r in ruins:
+		if known_ruins.has(r.id) or _rumoured.has(r.id):
+			continue
+		var d := Vector2(r.pos.x, r.pos.z).distance_to(c)
+		if d < bd:
+			bd = d
+			best = r
+	if best == null:
+		hud.notify("The talk is of nothing you do not already know.")
+		return
+	_rumoured[best.id] = true
+	known_ruins[best.id] = true
+	var dir := WPlaces.dir_word(c, Vector2(best.pos.x, best.pos.z))
+	hud.notify("They say %s lies about %d paces to the %s. It is marked on your map." % [best.name, int(bd / 10.0) * 10, dir])
+	award("rumour")
+
+
+## A night in an inn's bed: the snuggest rest in the waste. You do not wake here if you fall.
+func inn_bed() -> void:
+	if inv.count("salt") < 4:
+		hud.notify("A bed costs 4 salt.")
+		return
+	inv.take("salt", 4)
+	ui.ask_rest("inn")
 
 
 ## A soul of the waste, who may be spoken with.
@@ -1166,6 +1362,9 @@ func _meal_stats() -> void:
 func comfort(at: Vector3) -> int:
 	var c := 1
 	if settlement_at(at) != "":
+		for ib in inn_beds:
+			if (ib as Vector3).distance_to(at) < 4.0:
+				return 8
 		return 5
 	var fire := false
 	for pid in pieces:
@@ -2377,6 +2576,9 @@ func _gather(id: int) -> void:
 	var nd: Dictionary = nodes[id]
 	if nd.charges <= 0:
 		return
+	if player.mount:
+		hud.notify("Get down from your cat to gather.")
+		return
 	shared("_rq_gather", [Net.me(), id])
 	var nk: Dictionary = NODE_KINDS[nd.kind]
 	sfx("crumble" if nd.kind in ["rock", "salt"] else "carve", -6, nd.pos, randf_range(0.9, 1.15))
@@ -3012,7 +3214,17 @@ func cat_used(c: WCat) -> void:
 	if c != cat:
 		return
 	if not c.can_ride():
-		hud.notify("%s is hurt and will not carry you yet." % c.cat_name)
+		# Meat soothes a hurt cat at once
+		for f in ["roast", "meat", "raw_meat"]:
+			if inv.count(f) > 0:
+				inv.take(f, 1)
+				c._rest = 0.0
+				c.hp = minf(WCat.HP_MAX, c.hp + 40.0)
+				c._refresh()
+				hud.notify("%s eats, and lets you up again." % c.cat_name)
+				ride()
+				return
+		hud.notify("%s is hurt and will not carry you for %d seconds. Meat would soothe it." % [c.cat_name, ceili(c._rest)])
 		return
 	ride()
 
@@ -3077,6 +3289,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	if player.mount and cat:
 		if cat.take(amount * 0.5):
 			dismount()
+			hud.notify("%s throws you and will not carry you for %d seconds. Meat would soothe it." % [cat.cat_name, int(WCat.REST_HURT)])
 			hud.say("%s throws you and bolts. It will be back when it has licked its wounds." % cat.cat_name, 4.0)
 			cat.call_to(player)
 			cat._call = false
@@ -3969,6 +4182,7 @@ func _cont_count(cid: String, item: String) -> int:
 func _world_ready() -> void:
 	if ui:
 		ui.map_dirty = true
+		ui.prepare_map()
 
 
 func debug_fullmap() -> void:
@@ -4280,24 +4494,52 @@ func _build_lair(l: Dictionary) -> void:
 	glow.position = Vector3(0, 1.0, 0)
 	n.add_child(glow)
 	l["glow"] = glow
+	# The stone at the heart: hold to call the great one out
+	var lid = l.id
+	var call_stone := cyl(l.pos + Vector3(0, 0.6, 0), 0.5, 1.2, _m.stone, false, 0.35, 6)
+	call_stone.material_override = _m.stone
+	interact_area(l.pos + Vector3(0, 0.8, 0), 2.2, "Call out the great one", func():
+		if not lair_ready(l):
+			hud.notify("Nothing answers. It has not come back yet.")
+			return
+		hud.notify("You strike the stone. Something stirs. Get back.")
+		shared("_rq_lair_call", [lid]), 1.0, false)
 
 
-## The host wakes a great one when a pilgrim comes into its ring.
+## A great one sleeps until someone calls it out at the heart of its ring: walking near does not wake it.
+var _lair_called := {}
+var _lair_told := {}
+
+
+## The host wakes a great one once a pilgrim has called it out and is still near.
 func _lair_tick() -> void:
 	for l in lairs:
 		var e = _lair_boss.get(l.id)
 		if e != null and (not is_instance_valid(e) or not e.is_alive()):
 			_lair_boss.erase(l.id)
 			e = null
-		if e != null or not lair_ready(l):
+		# Coming near a sleeping great one for the first time, you are told how to wake it
+		if e == null and lair_ready(l) and not _lair_told.has(l.id) and not Net.dedicated and player.global_position.distance_to(l.pos) < 40.0:
+			_lair_told[l.id] = true
+			hud.notify("%s sleeps here. Hold %s at the stone in the middle to call it out, when you are ready." % [LesserSpeeb.BOSSES[l.boss].name, Game.key_text("interact")])
+		if e != null or not lair_ready(l) or not _lair_called.has(l.id):
 			continue
+		_lair_called.erase(l.id)
 		for t in targets():
-			if t.global_position.distance_to(l.pos) < 30.0:
+			if t.global_position.distance_to(l.pos) < 45.0:
 				var b := spawn_at(l.boss, l.pos + Vector3(0, 3.0, 0))
 				if b:
 					_lair_boss[l.id] = b
 					shared("_w_lair_wake", [l.boss])
 				break
+
+
+func _rq_lair_call(id) -> void:
+	if not Net.authority():
+		return
+	for l in lairs:
+		if str(l.id) == str(id) and lair_ready(l) and _lair_boss.get(l.id) == null:
+			_lair_called[l.id] = true
 
 
 func _w_lair_wake(b: String) -> void:
@@ -5653,6 +5895,25 @@ func debug_screen() -> void:
 			var e := spawn_at("unlit_gun", player.global_position + f.normalized() * 30.0 + Vector3(0, 1.0, 0))
 			e.set_meta("raid", true)
 			e._attack_cd = 999.0
+		"say":
+			hud.say("There is smoke to the east. Find shelter before nightfall.", 60.0)
+			player.weapon.debug_aim = true
+		"town", "inn":
+			var tk := "cinderwick"
+			var c := gpos(WPlaces.spos(tk))
+			var inn_b: Dictionary = _town_plan(tk)[0]
+			var ib := c + Vector3(inn_b.off.x, 0, inn_b.off.y)
+			var eye := c + (ib - c) * (-0.25) if which == "town" else ib + (c - ib).normalized() * 1.5
+			if which == "inn":
+				eye = ib + (c - ib).normalized() * 0.8
+			eye.y = terrain.height_at(eye.x, eye.z) + 0.5
+			var to := ib - eye
+			if which == "inn":
+				to = -to
+				eye = ib + (c - ib).normalized() * 1.6
+				eye.y = terrain.height_at(eye.x, eye.z) + 0.5
+				to = ib - eye
+			player.place(eye, atan2(-to.x, -to.z))
 		"house", "house_in":
 			_debug_house(which == "house_in")
 		"cat", "ride":
@@ -5934,4 +6195,84 @@ func debug_build() -> void:
 			shelf = true
 	var snug := comfort(player.global_position)
 	print("BUILD up=%s kept=%s bed=%s stove=%s shelf=%s snug=%s" % [up, kept, bed, stove, shelf, snug >= 4])
+	get_tree().quit()
+
+
+## Towns: every town has an inn and houses; the inn sells a meal, tells of a ruin, and rents its snug beds;
+## a house's wall stops you, and its doorway lets you in.
+func debug_inn() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	inv.from_data([])
+	var inns := 0
+	var houses := 0
+	for k in WPlaces.SETTLEMENTS:
+		for b in _town_plan(k):
+			if b.kind == "inn":
+				inns += 1
+			else:
+				houses += 1
+	var all_inns := inns == WPlaces.SETTLEMENTS.size() and houses >= WPlaces.SETTLEMENTS.size() * 3
+	inv.add("salt", 20)
+	inn_meal()
+	var meal := false
+	for id in INN_MEALS:
+		if inv.count(id) > 0:
+			meal = true
+	meal = meal and inv.count("salt") == 14
+	var known0 := known_ruins.size()
+	inn_talk("cinderwick")
+	var talk := known_ruins.size() == known0 + 1
+	var snug := false
+	for ib in inn_beds:
+		if comfort(ib) == 8:
+			snug = true
+	# A ray across a house from its front, at chest height: it meets the wall, unless through the doorway
+	var c := gpos(WPlaces.spos("cinderwick"))
+	var plan := _town_plan("cinderwick")
+	var hb: Dictionary = plan[plan.size() - 1]
+	var hc := c + Vector3(hb.off.x, 0, hb.off.y)
+	var to_c := (c - hc)
+	to_c.y = 0.0
+	to_c = to_c.normalized()
+	var yw: float = hb.yaw
+	var side := Vector3(cos(yw), 0, -sin(yw))   # the house's own x: the door is the cell at +1.5 for a house two cells wide
+	var space := get_world_3d().direct_space_state
+	var y := terrain.height_at(hc.x, hc.z) + 1.2
+	var door_r := PhysicsRayQueryParameters3D.create(Vector3(hc.x, y, hc.z) + to_c * 6.0 + side * 1.5, Vector3(hc.x, y, hc.z) + side * 1.5, 1)
+	var wall_r := PhysicsRayQueryParameters3D.create(Vector3(hc.x, y + 1.5, hc.z) + to_c * 6.0 - side * 1.5, Vector3(hc.x, y + 1.5, hc.z) - side * 1.5, 1)
+	var dh := space.intersect_ray(door_r)
+	var wh := space.intersect_ray(wall_r)
+	var walls := dh.is_empty() and not wh.is_empty()
+	print("INN towns=%s meal=%s talk=%s snug=%s walls=%s" % [all_inns, meal, talk, snug, walls])
+	get_tree().quit()
+
+
+## Playtest fixes: the map's picture is ready before the map is first opened; a great one does not rise
+## when a pilgrim walks into its ring, only when called out at its stone.
+func debug_fixes() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var t0 := Time.get_ticks_msec()
+	while ui._map_img == null and Time.get_ticks_msec() - t0 < 60000:
+		await get_tree().create_timer(0.2).timeout
+	var t1 := Time.get_ticks_msec()
+	ui.open_map()
+	var open_ms := Time.get_ticks_msec() - t1
+	ui.close_all()
+	var l: Dictionary = lairs[0]
+	flags.erase("lair_" + str(l.id))
+	player.place(l.pos + Vector3(8, 1.0, 0), 0.0)
+	for i in 6:
+		_lair_tick()
+		await get_tree().create_timer(0.3).timeout
+	var slept: bool = _lair_boss.get(l.id) == null
+	_rq_lair_call(l.id)
+	_lair_tick()
+	var woke: bool = _lair_boss.get(l.id) != null
+	print("FIXES map_ready=%s map_open_fast=%s slept=%s woke=%s" % [ui._map_tex != null, open_ms < 400, slept, woke])
 	get_tree().quit()
