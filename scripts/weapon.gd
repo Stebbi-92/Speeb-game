@@ -1225,7 +1225,7 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 				at = b + Vector3(0, 0.04, -0.06)
 			"rapid_receiver", "heavy_receiver", "smooth_receiver":
 				var sd: Vector3 = SIDE.get(g, Vector3(0.026, 0, 0.03))
-				var c := {"rapid_receiver": Color(0.12, 0.16, 0.28), "heavy_receiver": Color(0.7, 0.55, 0.3), "smooth_receiver": Color(0.8, 0.8, 0.82)}[m]
+				var c: Color = {"rapid_receiver": Color(0.12, 0.16, 0.28), "heavy_receiver": Color(0.7, 0.55, 0.3), "smooth_receiver": Color(0.8, 0.8, 0.82)}[m]
 				for sx in [-1, 1]:
 					_box(Vector3(0.004, 0.034, 0.11), Vector3(sd.x * sx, sd.y, sd.z), _mat(c, 0.85, 0.3), n)
 				at = sd + Vector3(0.003, 0.02, 0)

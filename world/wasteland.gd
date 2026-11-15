@@ -4652,6 +4652,23 @@ func debug_knock() -> void:
 	get_tree().quit()
 
 
+## Testing aid: parts change a gun, grades add traits, and saved arms come back the same.
+func debug_parts() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var base: Dictionary = Arms.spec_of("shotgun")
+	arms.parts["shotgun"] = ["long_barrel", "padded_stock", "heavy_receiver"]
+	arms.mounts["shotgun"] = ["long_barrel", "padded_stock", "heavy_receiver"]
+	arms.grade["shotgun/long_barrel"] = WArms.roll_grade(3)
+	rearm()
+	var now: Dictionary = Arms.spec_of("shotgun")
+	print("PARTS range %.0f -> %.0f dmg %.1f -> %.1f kick %.2f -> %.2f" % [base.range, now.range, base.dmg, now.dmg, base.kick, now.kick])
+	print("PARTS grade traits=%d name=%s text=%s" % [arms.grade["shotgun/long_barrel"].t.size(), WArms.part_name(arms, "shotgun", "long_barrel"), WArms.mods_text(WArms.mods(arms, "shotgun"))])
+	var back := WArms.clean(JSON.parse_string(JSON.stringify(arms)))
+	print("PARTS saved same=%s" % [back.mounts.get("shotgun", []) == arms.mounts["shotgun"] and back.grade.get("shotgun/long_barrel", {}).get("t", []) == arms.grade["shotgun/long_barrel"].t])
+	get_tree().quit()
+
+
 ## Testing aid: the blade held, for a picture.
 func debug_bladeshot() -> void:
 	while not ready_world:
