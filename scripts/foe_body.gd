@@ -47,8 +47,6 @@ static func make(kind: String) -> FoeBody:
 	b.anim = m.find_children("*", "AnimationPlayer", true, false)[0] if not m.find_children("*", "AnimationPlayer", true, false).is_empty() else null
 	b.hand = m.find_child("arm-right", true, false)
 	b.head_node = m.find_child("head", true, false)
-	if kind.begins_with("unlit"):
-		b._ears(float(look[2]))
 	match look[3]:
 		"rifle":
 			b._rifle()

@@ -1,7 +1,7 @@
 """Makes the skins of the waste's new foes from Kenney's CC0 character textures.
 
 The Unlit (raiders) are recoloured from the blocky characters: ash-dark cloth, a rust or ochre sash,
-and a bone-white cat mask painted over the face in mockery of Speeb. The graveyard characters become
+and a Speeb face (one of the game's own emoji) worn as a mask, in mockery of Speeb. The graveyard characters become
 the Hollowed (ash-grey skin, ember eyes), the Salt-Bones (salt white) and the Lost Vigil (pale gold).
 Run: python3 tools/retexture.py
 """
@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "models", "foes")
 TEX = os.path.join(HERE, "Textures")
 OUT = os.path.join(HERE, "skins")
+EMOJI = os.path.join(HERE, "..", "..", "emoji")
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -27,7 +28,7 @@ def ramp(t, stops):
 	return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
 
 
-def unlit(base, accent, name):
+def unlit(base, accent, name, emoji):
 	im = Image.open(os.path.join(TEX, base)).convert("RGBA")
 	px = im.load()
 	w, h = im.size
@@ -50,22 +51,9 @@ def unlit(base, accent, name):
 	hood = (34, 30, 32, 255)
 	for box in [(128, 0, 256, 128), (0, 128, 128, 256), (256, 128, 384, 256), (384, 128, 512, 256), (128, 256, 256, 384)]:
 		d.rectangle([int(v * s) for v in box], fill=hood)
-	fx, fy = 128 * s, 128 * s
-	u = 128 * s / 16.0   # the face is 16 small units across
-	bone = (226, 218, 198, 255)
-	d.polygon([(fx + 1 * u, fy + 3 * u), (fx + 4 * u, fy + 0.5 * u), (fx + 6 * u, fy + 3 * u), (fx + 10 * u, fy + 3 * u),
-		(fx + 12 * u, fy + 0.5 * u), (fx + 15 * u, fy + 3 * u), (fx + 15 * u, fy + 11 * u), (fx + 8 * u, fy + 15 * u),
-		(fx + 1 * u, fy + 11 * u)], fill=bone)
-	ember = (255, 120, 40, 255)
-	for ex in (4.0, 12.0):
-		d.polygon([(fx + (ex - 2.2) * u, fy + 6.2 * u), (fx + (ex + 2.2) * u, fy + 5.6 * u), (fx + (ex + 1.4) * u, fy + 7.6 * u), (fx + (ex - 1.6) * u, fy + 7.6 * u)], fill=(20, 16, 16, 255))
-		d.ellipse([fx + (ex - 0.6) * u, fy + 6.2 * u, fx + (ex + 0.6) * u, fy + 7.2 * u], fill=ember)
-	d.polygon([(fx + 7 * u, fy + 9 * u), (fx + 9 * u, fy + 9 * u), (fx + 8 * u, fy + 10.2 * u)], fill=(40, 30, 30, 255))
-	for side in (-1, 1):
-		for k in range(3):
-			y0 = fy + (10.4 + k * 0.9) * u
-			d.line([(fx + (8 + side * 2.2) * u, y0), (fx + (8 + side * 6.5) * u, y0 + (k - 1) * 0.6 * u)], fill=(120, 108, 96, 255), width=max(1, int(u * 0.25)))
-	d.rectangle([fx + 1 * u, fy + 3.6 * u, fx + 15 * u, fy + 4.4 * u], fill=accent + (255,))   # a stripe of ochre or rust across the brow
+	# On the front, a Speeb face worn as a mask: one of Steve's own emoji, over the hood
+	face = Image.open(os.path.join(EMOJI, emoji + ".png")).convert("RGBA").resize((int(128 * s), int(128 * s)), Image.LANCZOS)
+	im.alpha_composite(face, (int(128 * s), int(128 * s)))
 	im.save(os.path.join(OUT, name))
 	print(name)
 
@@ -104,9 +92,9 @@ def warden(hh, ll, ss):
 	return ramp(ll, [(18, 16, 16), (46, 42, 40), (92, 86, 80), (150, 144, 134)])
 
 
-unlit("texture-a.png", (150, 52, 30), "unlit_rust.png")
-unlit("texture-k.png", (190, 140, 40), "unlit_ochre.png")
-unlit("texture-m.png", (200, 196, 180), "unlit_bone.png")
+unlit("texture-a.png", (150, 52, 30), "unlit_rust.png", "emberspeeb")
+unlit("texture-k.png", (190, 140, 40), "unlit_ochre.png", "wrathspeeb")
+unlit("texture-m.png", (200, 196, 180), "unlit_bone.png", "negaspeeb")
 tint("hollow.png", hollow)
 tint("saltbone.png", saltbone)
 tint("vigil.png", vigil)
