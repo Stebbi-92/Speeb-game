@@ -6,7 +6,9 @@ D=$(mktemp -d)
 pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
-	XDG_DATA_HOME=$D timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
+	local data=$D
+	[ "$name" = minds ] && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
 	for p in "$@"; do grep -qE "$p" "$D/$name.log" || ok=0; done
@@ -16,7 +18,6 @@ check take_all   debug_takeall  "TAKEALL asked=3 hide=3 meat=2 bone=6 satchel_go
 check combat     debug_combat   "COMBAT wind frames=[1-9]" "COMBAT dodged hp ([0-9]+) -> \\1$" "COMBAT staggered=true wind_cancelled=true" "head ray hits=true body ray hits=false"
 check guide      debug_guide    "GUIDE start step=0" "GUIDE saved step=[1-9]"
 check base_stock debug_basestock "STOCK paid true"
-check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 check knock      debug_knock    "KNOCK idol start=[0-9.]+ furthest=(1[0-2]|[0-9])\\." "KNOCK rusher start=[0-9.]+ furthest=(1[0-3]|[0-9])\\."
 check chest_name debug_chestname "CHESTNAME .*panel=container saved=mjikbr"
 check blade      debug_blade    "BLADE out=true light=[1-9][0-9]* heavy=[1-9][0-9]*" "BLADE guarded=[0-9.]+ open=[0-9.]+ stamina_after_guard<100=true" "BLADE winded=true refused=true" "BLADE sheathed=true"
@@ -28,5 +29,6 @@ check foes      debug_foes     "FOES gunman shot=true" "FOES parried=true guarde
 check armour    debug_armour   "ARMOUR foe plate=120 body=[0-9]+ head=40 pierce=[0-9]+ broken=true" "ARMOUR worn left=[0-9]+ took=[0-9]+ mend=\{ \"scrap\": [0-9]+ \} whole=120 kept=7"
 check minds     debug_minds    "MINDS calm=calm quiet=calm loud=(search|hunt) band=(search|hunt) saw=hunt hurt=flee back=hunt"
 check glass     debug_glass    "GLASS old=true new=false"
+check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
