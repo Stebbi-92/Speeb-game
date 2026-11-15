@@ -35,6 +35,7 @@ var level_index := 0
 var reached := 0
 var found := {}
 var sensitivity := 0.0025
+var aim_sens := 1.0   ## looking while aiming, against what the zoom alone would give (1 = the same feel at every zoom)
 var volume := 0.8
 ## The mixer: each kind of sound on its own line, with its own volume.
 const BUSES := ["Guns", "Creatures", "World", "Interface"]
@@ -531,7 +532,7 @@ func tier_of(gun: String) -> int:
 
 
 func save() -> void:
-	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "bus_vol": bus_vol, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
+	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "blood": blood, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
@@ -566,6 +567,7 @@ func load_save() -> void:
 		for c in d.get("found", []):
 			found[c] = true
 		sensitivity = float(d.get("sensitivity", sensitivity))
+		aim_sens = clampf(float(d.get("aim_sens", aim_sens)), 0.2, 2.0)
 		volume = float(d.get("volume", volume))
 		var bv = d.get("bus_vol", {})
 		if bv is Dictionary:

@@ -573,7 +573,8 @@ func _set_aim(target: float, delta: float) -> void:
 	if absf(player.cam.fov - f) > 0.01:
 		player.cam.fov = f
 	var scoped := enabled and _aim > 0.85 and zoom >= 2.4
-	Game.main.hud.set_scope(scoped)
+	scoped_now = scoped
+	_scope_drift(delta, scoped)
 	_holder.visible = not scoped and not blade_out
 
 
@@ -596,6 +597,45 @@ func _ui() -> void:
 	hud.set_kit(line)
 	hud.hotbar.arms = self
 	hud.hotbar.queue_redraw()
+
+
+## How much a turn of the mouse moves the view now: slower as the view narrows, so the crosshair
+## moves across the world at the same pace on screen, times the player's own aiming setting.
+func look_scale() -> float:
+	if _aim <= 0.0 or not enabled or blade_out:
+		return 1.0
+	var zoomed := player.cam.fov / maxf(1.0, Game.fov)
+	return lerpf(1.0, zoomed * Game.aim_sens, _aim)
+
+
+var scoped_now := false   ## looking through a scope (Hasten then holds the breath instead)
+var _breath := 1.0     ## held breath behind a scope: steadies the drift, then runs out
+var _gasp := 0.0       ## out of breath: the drift grows until it is drawn back
+var _drift_t := 0.0
+var _drift := Vector2.ZERO
+
+
+## Behind a scope the aim drifts with the breath. Hold Hasten to stop breathing and steady it.
+func _scope_drift(delta: float, scoped: bool) -> void:
+	var holding := scoped and Input.is_action_pressed("run") and _gasp <= 0.0 and _breath > 0.0
+	if holding:
+		_breath = maxf(0.0, _breath - delta / 4.0)
+		if _breath <= 0.0:
+			_gasp = 2.0
+	else:
+		_breath = minf(1.0, _breath + delta / 3.0)
+		_gasp = maxf(0.0, _gasp - delta)
+	var amp := 0.0
+	if scoped:
+		amp = 0.0 if holding else (0.0016 if _gasp <= 0.0 else 0.005)
+		amp *= 1.0 if player.velocity.length() < 1.0 else 2.2
+	_drift_t += delta
+	var want := Vector2(sin(_drift_t * 1.1) * 1.0, sin(_drift_t * 2.2) * 0.6) * amp
+	var step := want - _drift
+	_drift = want
+	player.yaw += step.x
+	player.pitch += step.y
+	Game.main.hud.set_scope(scoped, _breath)
 
 
 func sway(rel: Vector2) -> void:

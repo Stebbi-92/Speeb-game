@@ -585,9 +585,19 @@ func set_kit(text: String) -> void:
 	kit_label.text = text
 
 
-func set_scope(on: bool) -> void:
+func set_scope(on: bool, breath := 1.0) -> void:
 	if scope_view.visible != on:
 		scope_view.visible = on
+		if on:
+			scope_view.fade = 1.0
+			scope_view.shift = Vector2.ZERO
+	scope_view.breath = breath
+
+
+## The scope lags a little behind the turn of the head, so the glass seems to sit in front of the eye.
+func scope_nudge(rel: Vector2) -> void:
+	if scope_view.visible:
+		scope_view.shift = (scope_view.shift - rel * 0.35).limit_length(40.0)
 
 
 ## The spread of the gun in hand (an angle), shown as the gap of the marks around the dot.
@@ -620,32 +630,55 @@ func _place_ticks(d: float) -> void:
 
 ## Looking through glass: a dark ring around a clear circle, and fine crosshairs.
 class ScopeView extends Control:
+	var shift := Vector2.ZERO   ## where the glass has been pushed by a turn; it settles back
+	var fade := 0.0             ## black as the eye comes to the glass, clearing quickly
+	var breath := 1.0           ## the held breath left (1 = full); shown as a thin arc below
+
+	func _process(d: float) -> void:
+		if not visible:
+			return
+		shift = shift.lerp(Vector2.ZERO, minf(1.0, d * 9.0))
+		fade = maxf(0.0, fade - d * 5.0)
+		queue_redraw()
+
 	func _draw() -> void:
-		var c := size * 0.5
-		var r := minf(size.x, size.y) * 0.42
-		var dark := Color(0, 0, 0, 0.96)
-		var pts := PackedVector2Array()
-		for i in 65:
-			var a := i * TAU / 64.0
-			pts.append(c + Vector2(cos(a), sin(a)) * r)
-		# Everything outside the circle is dark: four rectangles and the corners between circle and box
-		draw_rect(Rect2(0, 0, c.x - r, size.y), dark)
-		draw_rect(Rect2(c.x + r, 0, size.x - c.x - r, size.y), dark)
-		for i in 64:
-			var a0 := i * TAU / 64.0
-			var a1 := (i + 1) * TAU / 64.0
-			var p0 := c + Vector2(cos(a0), sin(a0)) * r
-			var p1 := c + Vector2(cos(a1), sin(a1)) * r
-			var edge := Vector2(p0.x, 0.0 if p0.y < c.y else size.y)
-			var edge1 := Vector2(p1.x, 0.0 if p1.y < c.y else size.y)
-			draw_colored_polygon(PackedVector2Array([p0, p1, edge1, edge]), dark)
-		draw_polyline(pts, Color(0, 0, 0, 1), 6.0)
-		var ln := Color(0, 0, 0, 0.85)
-		draw_line(c - Vector2(r, 0), c - Vector2(14, 0), ln, 2.0)
-		draw_line(c + Vector2(14, 0), c + Vector2(r, 0), ln, 2.0)
-		draw_line(c - Vector2(0, r), c - Vector2(0, 14), ln, 2.0)
-		draw_line(c + Vector2(0, 14), c + Vector2(0, r), ln, 2.0)
-		draw_circle(c, 1.6, Color(0.8, 0.1, 0.1, 0.9))
+		var c := size * 0.5 + shift
+		var r := minf(size.x, size.y) * 0.44
+		var dark := Color(0.01, 0.01, 0.012, 1.0)
+		# Outside the glass: dark, as one broad ring reaching past the corners
+		var reach := size.length() + shift.length() + 60.0
+		draw_arc(c, r + reach * 0.5 - 1.0, 0, TAU, 128, dark, reach)
+		# The glass: a faint cool tint, and the rim shading into the tube
+		draw_circle(c, r, Color(0.35, 0.5, 0.55, 0.05))
+		for k in 14:
+			var t := k / 13.0
+			draw_arc(c, r - t * r * 0.16, 0, TAU, 96, Color(0, 0, 0, 0.55 * pow(1.0 - t, 1.6)), r * 0.016, true)
+		draw_arc(c, r, 0, TAU, 96, Color(0.08, 0.07, 0.06, 1), 5.0, true)
+		# A glint on the glass, high on the left
+		draw_arc(c, r * 0.86, PI * 1.08, PI * 1.32, 24, Color(1, 1, 1, 0.06), r * 0.03, true)
+		# The reticle: heavy posts from the rim, fine lines to the middle, and dots to judge the drop
+		var ink := Color(0.02, 0.02, 0.02, 0.95)
+		var post := r * 0.42
+		for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.DOWN]:
+			draw_line(c + dir * r, c + dir * post, ink, maxf(4.0, r * 0.018))
+		draw_line(c + Vector2.UP * r, c + Vector2.UP * post, ink, maxf(2.0, r * 0.008))
+		for dir in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+			draw_line(c + dir * post, c + dir * 3.0, ink, 1.4, true)
+			for i in range(1, 5):
+				draw_circle(c + dir * (post * i / 5.0), maxf(1.6, r * 0.007), ink)
+		# Holdover marks below the middle: wider for each step of drop
+		for i in range(1, 4):
+			var y := post * (i / 5.0)
+			var w := r * 0.025 * (i + 1)
+			draw_line(c + Vector2(-w, y), c + Vector2(-w * 0.4, y), Color(ink, 0.7), 1.2, true)
+			draw_line(c + Vector2(w * 0.4, y), c + Vector2(w, y), Color(ink, 0.7), 1.2, true)
+		draw_circle(c, 2.0, Color(0.9, 0.15, 0.1, 0.95))
+		# The held breath: a thin arc under the glass while it is being held or drawn back
+		if breath < 0.999:
+			var col := Color(0.86, 0.8, 0.55, 0.8) if breath > 0.25 else Color(0.9, 0.3, 0.2, 0.85)
+			draw_arc(c, r + 12.0, PI * 0.5 - 0.35 * breath, PI * 0.5 + 0.35 * breath, 32, col, 3.0, true)
+		if fade > 0.0:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, fade))
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_RESIZED:
@@ -1680,6 +1713,7 @@ func show_options() -> void:
 		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded shotgun.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	_section("Controls")
 	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
+	_slider("Aiming and scope sensitivity", 0.2, 2.0, 0.05, Game.aim_sens, func(x): Game.aim_sens = x; Game.save(), "%d%%", 100.0)
 	_toggle("Invert mouse Y", Game.invert_y, func(on): Game.invert_y = on; Game.save())
 	_options_list.add_child(_label("Click a key to change it, then press the new key or mouse button. Esc leaves it as it was.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	for c in Game.CONTROLS:

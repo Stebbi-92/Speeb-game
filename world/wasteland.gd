@@ -5131,6 +5131,17 @@ func debug_screen() -> void:
 					e._fb.play("holding-both")
 				if ks[i] == "unlit_blade":
 					e._fb.act("attack-melee-right", 0.3)
+		"scope":
+			if not "sniper" in arms.owned:
+				arms.owned.append("sniper")
+			arms.primary = "sniper"
+			rearm()
+			player.weapon.debug_aim = true
+			var f := -player.global_transform.basis.z
+			f.y = 0.0
+			var e := spawn_at("unlit_gun", player.global_position + f.normalized() * 30.0 + Vector3(0, 1.0, 0))
+			e.set_meta("raid", true)
+			e._attack_cd = 999.0
 		"warn":
 			var f := -player.global_transform.basis.z
 			f.y = 0.0

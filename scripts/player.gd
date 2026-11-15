@@ -157,8 +157,12 @@ func _unhandled_input(e: InputEvent) -> void:
 		if weapon:
 			weapon.sway(e.relative)
 		if not look_locked:
-			yaw -= e.relative.x * Game.sensitivity
-			pitch = clampf(pitch - e.relative.y * Game.sensitivity * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
+			# Looking down a sight turns as much of the view per hand's width as at the hip
+			var sens := Game.sensitivity * (weapon.look_scale() if weapon else 1.0)
+			yaw -= e.relative.x * sens
+			pitch = clampf(pitch - e.relative.y * sens * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
+			if Game.main and Game.main.hud:
+				Game.main.hud.scope_nudge(e.relative)
 	elif e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not input_locked:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif e.is_action_pressed("interact"):
@@ -234,7 +238,7 @@ func _physics_process(delta: float) -> void:
 	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var sp := walk_speed
-	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded)
+	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
 	if running:
 		sp = run_speed
 	if Input.is_action_pressed("soft"):
