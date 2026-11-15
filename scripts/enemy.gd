@@ -232,6 +232,7 @@ func _ready() -> void:
 		plate = float(spec.get("plate", 0.0))
 		if plate > 0.0:
 			_fb.wear_plate(kind == "unlit_brute")
+		_fit_shape(cs)
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -1206,10 +1207,34 @@ func _show_wind(k: float) -> void:
 	head.set_flash(maxf(_flash, 0.2 + 0.4 * k))
 
 
+## A foe with a body is struck all over it, not only about its middle: a capsule from its feet to the
+## crown of its head, as wide as it was (so it walks as it did).
+func _fit_shape(cs: CollisionShape3D) -> void:
+	var to_me := global_transform.affine_inverse() if is_inside_tree() else Transform3D.IDENTITY
+	var top := float(spec.radius)
+	for mi in _fb.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		var ab: AABB = (to_me * m.global_transform) * m.get_aabb() if is_inside_tree() else m.get_aabb()
+		top = maxf(top, ab.end.y)
+	var r := float(spec.radius)
+	var c := CapsuleShape3D.new()
+	c.radius = r
+	c.height = maxf(2.0 * r, top + r)
+	cs.shape = c
+	cs.position.y = -r + c.height * 0.5
+
+
 ## Where a shot does the most harm: the head, and how near to its middle counts.
 func weak_point() -> Array:
 	if not is_instance_valid(head) or kind in ["saucer", "bloater"]:
 		return []
+	if _fb and is_instance_valid(_fb.head_node) and _fb.head_node is MeshInstance3D:
+		# The model's own head, wherever its walk and swing have carried it
+		var mh: MeshInstance3D = _fb.head_node
+		var ab: AABB = mh.global_transform * mh.get_aabb()
+		return [ab.get_center(), 0.45 * maxf(ab.size.x, ab.size.y)]
 	return [head.global_position, 0.42 * float(spec.size) * _head_base.x * scale.x]
 
 
