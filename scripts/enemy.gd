@@ -44,6 +44,15 @@ const KINDS := {
 ## The kind of harm now being dealt. Set by whatever deals it, just before it does.
 static var harm_kind := ""
 static var _smoke: Texture2D
+static var _blot: Texture2D
+static var blood_shown := 0   ## for the tests
+
+## What each kind bleeds: the ash forms run dark, the gilded ones shed gold, the discs only spark.
+const BLOOD := {
+	"idol": Color(0.85, 0.65, 0.2), "saucer": Color(0.9, 0.85, 0.6), "mite": Color(0.9, 0.85, 0.6),
+	"swarm": Color(0.95, 0.45, 0.1), "bloater": Color(0.95, 0.45, 0.1), "spider": Color(0.08, 0.06, 0.05),
+	"unseen": Color(0.1, 0.1, 0.12), "spitter": Color(0.45, 0.5, 0.12),
+}
 
 
 static func smoke_tex() -> Texture2D:
@@ -191,7 +200,7 @@ func _ready() -> void:
 	_attack_cd = randf_range(1.0, 2.5)
 	_cry_cd = randf_range(0.5, 2.0)
 	if boss != "":
-		level.sfx("roar", 6, global_position, 0.6)
+		level.sfx("great_roar", 6, global_position, 0.9)
 		level.sfx("horror_deep", 0, global_position, 0.8)
 	elif kind == "elite":
 		level.sfx("roar", 2, global_position, 0.9)
@@ -868,6 +877,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		if facing.dot(incoming.normalized()) > 0.35:
 			full = false
 	_bar_t = 8.0
+	if full and amount > 0.5:
+		bleed(from_dir, amount)
 	if puppet:
 		# The blow is sent to the host, who alone decides whether the form is undone
 		Net.hit(net_id, amount, from_dir)
@@ -906,6 +917,85 @@ func is_alive() -> bool:
 	return _alive
 
 
+## A spray where the blow landed and a stain on the ground under it, unless blood is turned off.
+func bleed(from_dir: Vector3, amount: float) -> void:
+	if not Game.blood or Net.dedicated or not is_inside_tree():
+		return
+	blood_shown += 1
+	var c: Color = BLOOD.get(kind, Color(0.34, 0.02, 0.02))
+	var r: float = spec.get("radius", 0.5)
+	var d := from_dir.normalized() if from_dir.length() > 0.01 else Vector3.FORWARD
+	var at := global_position + Vector3(0, r * 1.2, 0) - d * r * 0.8
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.emitting = false
+	p.amount = clampi(int(amount * 0.9), 8, 32)
+	p.lifetime = 0.8
+	p.explosiveness = 0.95
+	p.direction = d
+	p.spread = 35.0
+	p.initial_velocity_min = 2.0
+	p.initial_velocity_max = 5.5
+	p.gravity = Vector3(0, -14, 0)
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.2
+	var q := QuadMesh.new()
+	q.size = Vector2(0.16, 0.16)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = c
+	m.albedo_texture = _blot_tex()
+	q.material = m
+	p.mesh = q
+	level.add_child(p)
+	p.global_position = at
+	p.emitting = true
+	get_tree().create_timer(1.2, false).timeout.connect(p.queue_free)
+	# A stain on the ground behind, if the blow was a hard one
+	if amount >= 8.0 and kind != "saucer" and randf() < 0.6:
+		var dec := Decal.new()
+		dec.texture_albedo = _blot_tex()
+		dec.modulate = Color(c.darkened(0.35), 0.8)
+		var s := clampf(0.3 + amount * 0.012, 0.35, 1.0) * maxf(1.0, r * 1.5)
+		dec.size = Vector3(s, 1.2, s)
+		dec.normal_fade = 0.9
+		dec.upper_fade = 0.2
+		dec.lower_fade = 0.2
+		level.add_child(dec)
+		var g := global_position + d * randf_range(0.3, 1.2)
+		var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 2, 0), g - Vector3(0, 6, 0), 1))
+		if not hit.is_empty():
+			g.y = hit.position.y
+		dec.global_position = g
+		dec.rotation.y = randf() * TAU
+		var tw := dec.create_tween()
+		tw.tween_interval(18.0)
+		tw.tween_property(dec, "modulate:a", 0.0, 4.0)
+		tw.tween_callback(dec.queue_free)
+
+
+static func _blot_tex() -> Texture2D:
+	if _blot:
+		return _blot
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 911
+	var blobs: Array = [[Vector2(32, 32), 18.0]]
+	for i in 7:
+		blobs.append([Vector2(32, 32) + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(10, 22), rng.randf_range(3, 8)])
+	for y in n:
+		for x in n:
+			var a := 0.0
+			for b in blobs:
+				a = maxf(a, clampf(1.0 - (Vector2(x, y).distance_to(b[0]) - b[1]) / 3.0, 0.0, 1.0))
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_blot = ImageTexture.create_from_image(img)
+	return _blot
+
+
 func die(slain: bool) -> void:
 	if not _alive:
 		return
@@ -914,6 +1004,8 @@ func die(slain: bool) -> void:
 		_burst_fire()
 	collision_layer = 0
 	level.sfx("dissolve", -4, global_position)
+	if slain:
+		level.sfx("fall_heavy" if spec.get("size", 1.0) >= 1.5 else "fall", -4, global_position)
 	var mine := credit if puppet else last_hitter == Net.me()
 	if Net.is_host() and not puppet:
 		level.foes.erase(net_id)
@@ -1215,7 +1307,7 @@ func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
 	_busy = maxf(0.0, _busy - delta)
 	if not _wroth and hp < max_hp * 0.5:
 		_wroth = true
-		level.sfx("roar", 6, global_position, 0.45)
+		level.sfx("great_roar", 8, global_position, 0.8)
 		level.shared("_w_boss_wroth", [boss])
 	if dist < 10.0 + spec.radius and _ready_way("slam", 7.5):
 		_slam()
@@ -1260,7 +1352,7 @@ func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
 
 ## The great one strikes the ground: everything near is thrown down, and the earth is seen to break.
 func _slam() -> void:
-	level.sfx("roar", 4, global_position, 0.55)
+	level.sfx("great_roar", 4, global_position, 1.0)
 	_flash = 1.0
 	_busy = 1.0
 	var at := global_position
@@ -1288,7 +1380,7 @@ func _start_charge(p: Node3D) -> void:
 	var reach := minf(d.length() + 8.0, 34.0)
 	_busy = 0.9
 	_flash = 1.0
-	level.sfx("roar", 2, global_position, 0.7)
+	level.sfx("great_roar", 2, global_position, 1.1)
 	level.shared("_w_warn", [global_position + _charge_dir * reach * 0.5, reach * 0.5, 0.85, 1, atan2(_charge_dir.x, _charge_dir.z), spec.radius + 1.0])
 	get_tree().create_timer(0.85, false).timeout.connect(func():
 		if not _alive:

@@ -1845,11 +1845,40 @@ func ambient(name: String, vol_db := -6.0) -> AudioStreamPlayer:
 	return p
 
 
+static var _takes := {}   ## each sound's recorded takes: name -> [streams]
+
+
+## The takes of a sound: name_1, name_2 ... if there are several, else the one file.
+static func takes_of(name: String) -> Array:
+	if _takes.has(name):
+		return _takes[name]
+	var out: Array = []
+	var i := 1
+	while ResourceLoader.exists("res://assets/audio/%s_%d.ogg" % [name, i]):
+		out.append(load("res://assets/audio/%s_%d.ogg" % [name, i]))
+		i += 1
+	if out.is_empty():
+		var path := "res://assets/audio/%s.wav" % name
+		if not ResourceLoader.exists(path):
+			path = "res://assets/audio/%s.ogg" % name
+		if ResourceLoader.exists(path):
+			out.append(load(path))
+	_takes[name] = out
+	return out
+
+
 func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
-	var path := "res://assets/audio/%s.wav" % name
-	if not ResourceLoader.exists(path):
-		path = "res://assets/audio/%s.ogg" % name
-	var s = load(path)
+	# Heard from far off, a shot has its own recording: the crack gone, the roll of it left
+	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 35.0 \
+			and not takes_of(name + "_far").is_empty():
+		name += "_far"
+	var all := takes_of(name)
+	if all.is_empty():
+		return
+	var s = all[randi() % all.size()]
+	if all.size() > 1:
+		pitch *= randf_range(0.97, 1.03)
+		vol_db += randf_range(-1.0, 0.5)
 	if pos == null:
 		var p := AudioStreamPlayer.new()
 		p.stream = s

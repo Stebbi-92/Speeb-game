@@ -174,6 +174,39 @@ func _unhandled_input(e: InputEvent) -> void:
 				cb.call()
 
 
+## A footstep that sounds like the ground under it: boards, stone, gravel or sand.
+func _footfall(hard: bool) -> void:
+	var takes := Level.takes_of("step_" + _ground())
+	if takes.is_empty():
+		_step.pitch_scale = randf_range(0.85, 1.1)
+		_step.play()
+		return
+	_step.stream = takes[randi() % takes.size()]
+	_step.pitch_scale = randf_range(0.93, 1.07)
+	_step.volume_db = (-12.0 if hard else -15.0) + randf_range(-1.5, 0.5)
+	_step.play()
+
+
+func _ground() -> String:
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		if c.get_normal().y < 0.6:
+			continue
+		var b = c.get_collider()
+		if b is CollisionObject3D and (b.collision_layer & 16):
+			return "wood"
+		if b is StaticBody3D and not b.has_meta("ground"):
+			return "stone"
+		break
+	var lvl = get_parent()
+	var tr = lvl.get("terrain") if lvl else null
+	if tr and tr.has_method("biome_name"):
+		var b: String = tr.biome_name(global_position.x, global_position.z)
+		if b in ["salt", "basalt", "forest"]:
+			return "gravel"
+	return "sand"
+
+
 func _physics_process(delta: float) -> void:
 	# The right stick looks about, gently near the middle and quickly at the edge
 	if not input_locked and not get_tree().paused:
@@ -232,12 +265,11 @@ func _physics_process(delta: float) -> void:
 	if on_floor and cur_speed > 0.3:
 		_bob_t += delta * cur_speed * 2.2
 		_step_t += delta * cur_speed
-		if _step_t > 1.9:
+		if _step_t > (2.1 if running else 1.7):
 			_step_t = 0.0
-			_step.pitch_scale = randf_range(0.85, 1.1)
-			_step.play()
+			_footfall(running)
 	if on_floor and not _was_floor:
-		_step.play()
+		_footfall(true)
 	_was_floor = on_floor
 	var bob := bob_amount if Game.head_bob else 0.0
 	cam.position.y = sin(_bob_t) * 0.04 * bob

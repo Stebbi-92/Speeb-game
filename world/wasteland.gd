@@ -117,6 +117,7 @@ func build() -> void:
 	else:
 		spawn_pos = Vector3(0, 400, 0)
 	ambient("wind", -10)
+	_beds = {"night": ambient("amb_desert_night", -60), "town": ambient("amb_town", -60), "cave": ambient("amb_cave", -60)}
 
 
 var world_seed := 0
@@ -277,11 +278,43 @@ func _make_stars() -> void:
 	add_child(_stars)
 
 
-func _process(_delta: float) -> void:
+var _beds := {}   ## the sound of places: night, town and cave, faded in and out by where you are
+var _bed_t := 0.0
+
+
+func _process(delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
 	if player and hud and not Net.dedicated:
 		_boss_watch()
+		_bed_t -= delta
+		if _bed_t <= 0.0:
+			_bed_t = 0.5
+			_place_sounds()
+
+
+## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
+## after dark, the wind in a hollow among ruins and lairs.
+func _place_sounds() -> void:
+	if _beds.is_empty():
+		return
+	var p := player.global_position
+	var town := 0.0
+	for k in WPlaces.SETTLEMENTS:
+		var d := Vector2(p.x, p.z).distance_to(WPlaces.spos(k)) - float(WPlaces.SETTLEMENTS[k].radius)
+		town = maxf(town, clampf(1.0 - d / 60.0, 0.0, 1.0))
+	var cave := 0.0
+	for r in ruins:
+		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(r.pos.x, r.pos.z)) - 10.0) / 30.0, 0.0, 1.0))
+	for l in lairs:
+		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(l.pos.x, l.pos.z)) - 15.0) / 35.0, 0.0, 1.0))
+	var want := {"night": (1.0 if night else 0.0) * (1.0 - town * 0.5), "town": town * (0.35 if night else 1.0), "cave": cave * 0.8}
+	for k in _beds:
+		var pl: AudioStreamPlayer = _beds[k]
+		if not is_instance_valid(pl):
+			continue
+		var db := linear_to_db(maxf(float(want[k]), 0.001)) - 14.0
+		create_tween().tween_property(pl, "volume_db", maxf(db, -60.0), 0.5)
 
 
 ## Ruins are scattered where the land is level enough to have once been lived on.
@@ -2681,7 +2714,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		if to.length() < 0.1 or fwd.dot(to.normalized()) > 0.3:
 			if player.spend(minf(40.0, 6.0 + amount * 0.6)):
 				amount *= 0.25
-				sfx("chop", -8, null, 1.5)
+				sfx("parry", -4)
 				player.shake(0.15)
 				hud.hitmarker(false, true)
 				if amount < 1.0:
@@ -4714,6 +4747,25 @@ func debug_blade() -> void:
 
 
 ## Testing aid: shot at steadily, a gilded form keeps coming, slower; a rusher is pushed back a little.
+## Testing aid: a struck form bleeds, and does not when blood is turned off.
+func debug_blood() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.5, -4))
+	e.hp = 1000.0
+	e.set_meta("raid", true)
+	Game.blood = true
+	var b0 := LesserSpeeb.blood_shown
+	e.hurt(20.0, Vector3(0, 0, -1))
+	var on := LesserSpeeb.blood_shown - b0
+	Game.blood = false
+	e.hurt(20.0, Vector3(0, 0, -1))
+	var off := LesserSpeeb.blood_shown - b0 - on
+	Game.blood = true
+	print("BLOOD on=%d off=%d" % [on, off])
+	get_tree().quit()
+
+
 func debug_knock() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -4920,6 +4972,17 @@ func debug_screen() -> void:
 			ui.open_map()
 		"rest":
 			ui.ask_rest("bed")
+		"blood":
+			var f := -player.global_transform.basis.z
+			f.y = 0.0
+			var e := spawn_at("rusher", player.global_position + f.normalized() * 4.0 + Vector3(0, 0.5, 0))
+			e.hp = 5000.0
+			e.set_meta("raid", true)
+			e._attack_cd = 999.0
+			for i in 150:
+				e.hurt(25.0, f.normalized())
+				e.hp = 5000.0
+				await get_tree().create_timer(0.15).timeout
 		"warn":
 			var f := -player.global_transform.basis.z
 			f.y = 0.0

@@ -165,6 +165,17 @@ func _skills():
 	return lvl.get("skills") if lvl != null and lvl.get("skills") is WSkills else null
 
 
+## Shots heard striking home: a wet thud in flesh, a ring off the gilded faces.
+func _impact_sounds(hits: Dictionary) -> void:
+	var n := 0
+	for t in hits:
+		if n >= 2 or not is_instance_valid(t):
+			break
+		n += 1
+		var metal: bool = t.get("kind") == "idol" or t.get("kind") == "saucer"
+		player.get_parent().sfx("hit_metal" if metal else "hit_flesh", -6 if metal else -9, t.global_position + Vector3(0, 0.8, 0))
+
+
 ## Practice with the weapon in hand from what a blow or a shot did.
 func _practise(id: String, hits: Dictionary) -> void:
 	var sk = _skills()
@@ -316,6 +327,7 @@ func draw_blade() -> void:
 	_reloading = false
 	_spin = 0.0
 	_switch = 0.25
+	player.get_parent().sfx("draw", -10)
 	_charge = -1.0
 	_show_melee()
 	_holder.visible = false
@@ -692,6 +704,7 @@ func _try_fire() -> void:
 	if not hits.is_empty():
 		lvl.hits += 1
 	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet", crits)
+	_impact_sounds(hits)
 	_practise(gun(), hits)
 
 

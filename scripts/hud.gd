@@ -1645,6 +1645,7 @@ func show_options() -> void:
 	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
 	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
 	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
+	_toggle("Blood", Game.blood, func(on): Game.blood = on; Game.save())
 	_choice("Graphics quality", ["Standard", "High (occlusion, bounce light, bloom)"], Game.quality, func(i):
 		Game.quality = i
 		Game.save()

@@ -282,6 +282,7 @@ func build(m: Material) -> void:
 			add_child(mi)
 	var sb := StaticBody3D.new()
 	sb.collision_layer = 1
+	sb.set_meta("ground", true)
 	var cs := CollisionShape3D.new()
 	var hs := HeightMapShape3D.new()
 	hs.map_width = w

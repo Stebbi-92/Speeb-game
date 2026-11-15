@@ -12,6 +12,7 @@ There are two ways to play, in one install:
 - [[Getting Started|Getting-Started]]: the first hour in the waste
 - [[Controls]]
 - [[Playing Together|Playing-Together]]: hosting, join codes and the server list
+- [[Credits]]: the free sounds, models and fonts the game uses
 
 ## The waste
 
