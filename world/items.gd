@@ -121,11 +121,19 @@ const PIECES := {
 	"lamp": {"name": "Oil Lamp", "group": "Camp", "cost": {"scrap": 2, "oil": 1}, "hp": 150.0, "text": "A tall light."},
 	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "text": "Name it. Two waystones of one name lead to each other."},
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
+	"bed": {"name": "Bed", "group": "Home", "cost": {"wood": 6, "cloth": 4}, "hp": 160.0, "text": "Sleep here. You wake here if you fall. Snugger than a bedroll."},
+	"table": {"name": "Table", "group": "Home", "cost": {"wood": 5}, "hp": 140.0, "text": "A home is more than walls. Makes a place snug."},
+	"chair": {"name": "Chair", "group": "Home", "cost": {"wood": 3}, "hp": 100.0, "text": "To sit and be still. Makes a place snug."},
+	"shelf": {"name": "Shelf", "group": "Home", "cost": {"wood": 8, "scrap": 1}, "hp": 200.0, "text": "Sixteen places to keep things, like a chest."},
+	"stove": {"name": "Iron Stove", "group": "Home", "cost": {"scrap": 6, "stone": 4}, "hp": 260.0, "text": "Cook here, like a cooking station. Burns wood and warms the room."},
+	"rug": {"name": "Rug", "group": "Home", "cost": {"cloth": 4, "hide": 1}, "hp": 60.0, "text": "Soft underfoot. Makes a place snug."},
+	"floorlamp": {"name": "Standing Lamp", "group": "Home", "cost": {"scrap": 2, "oil": 1, "cloth": 1}, "hp": 80.0, "text": "A warm light for indoors."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
 const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp",
-	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade"]
-const GROUPS := ["Camp", "Frame", "Defence"]
+	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
+	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
+const GROUPS := ["Camp", "Frame", "Home", "Defence"]
 
 ## Loot tables: [item, weight, min, max]
 const LOOT := {

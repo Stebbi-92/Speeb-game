@@ -10,7 +10,7 @@ const RUINS_N := 44
 const NODES_N := 900
 const RUINS_FAR := 140      ## ruins in the far reaches, beyond the old rim
 const NODES_FAR := 2700
-const FIRE_KINDS := ["campfire", "cookpot", "torch"]
+const FIRE_KINDS := ["campfire", "cookpot", "torch", "stove"]
 const WOOD_HOURS := 24.0     ## one piece of wood keeps a fire for a whole day
 const FUEL_MAX := 240.0      ## a fire holds ten days of wood at most
 const FUEL_START := 72.0     ## a new fire is laid with three days' wood
@@ -847,7 +847,7 @@ func base_chests() -> Array:
 	var out: Array = []
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		if pc.kind == "chest" and Vector2(pc.pos.x, pc.pos.z).distance_to(Vector2(fp.x, fp.z)) < BASE_SAFE and containers.has("p%d" % pid):
+		if WBuilder.acts(pc.kind) == "chest" and Vector2(pc.pos.x, pc.pos.z).distance_to(Vector2(fp.x, fp.z)) < BASE_SAFE and containers.has("p%d" % pid):
 			out.append("p%d" % pid)
 	return out
 
@@ -1161,7 +1161,8 @@ func _meal_stats() -> void:
 	player.stamina = minf(player.stamina, player.stamina_max)
 
 
-## How snug the place you sleep is, 1 to 6: a lit fire, a bed, a roof, walls, a light, or a town's inn.
+## How snug the place you sleep is, 1 to 8: a lit fire, a bed, a roof, walls, a light, furniture,
+## walls of stone or iron, or a town's inn.
 func comfort(at: Vector3) -> int:
 	var c := 1
 	if settlement_at(at) != "":
@@ -1169,7 +1170,7 @@ func comfort(at: Vector3) -> int:
 	var fire := false
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		if pc.kind in ["campfire", "cookpot"] and pc.pos.distance_to(at) < 10.0 and burning(pid):
+		if pc.kind in ["campfire", "cookpot", "stove"] and pc.pos.distance_to(at) < 10.0 and burning(pid):
 			fire = true
 	if fire:
 		c += 1
@@ -1186,7 +1187,15 @@ func comfort(at: Vector3) -> int:
 		c += 1
 	if builder.near_kind(at, "lamp", 10.0) or builder.near_kind(at, "torch", 10.0):
 		c += 1
-	return mini(c, 6)
+	for k in ["table", "chair", "rug"]:
+		if builder.near_kind(at, k, 8.0):
+			c += 1
+			break
+	for pid in pieces:
+		if pieces[pid].kind in ["wall", "window", "doorway"] and int(pieces[pid].get("tier", 0)) > 0 and pieces[pid].pos.distance_to(at) < 8.0:
+			c += 1
+			break
+	return mini(c, 8)
 
 
 ## Waking from a sleep: the snugger the place, the longer you are rested.
@@ -1194,7 +1203,7 @@ func _wake_rested() -> void:
 	var c := comfort(player.global_position)
 	var mins := 5 + 5 * c
 	rested = mins * 60.0
-	hud.notify("Rested (comfort %d of 6): more experience and breath for %d minutes." % [c, mins])
+	hud.notify("Rested (comfort %d of 8): more experience and breath for %d minutes." % [c, mins])
 
 
 ## The censer's smoke: forms in it are shown, choke and slow, and lurkers cannot stay under the sand.
@@ -1467,15 +1476,15 @@ func _crop_look(pid: int) -> void:
 # ------------------------------------------------------------------ waystones
 
 func _rq_portal_name(pid: int, name: String) -> void:
-	if Net.authority() and pieces.has(pid) and pieces[pid].kind in ["portal", "chest"]:
+	if Net.authority() and pieces.has(pid) and WBuilder.acts(pieces[pid].kind) in ["portal", "chest"]:
 		shared("_w_portal_name", [pid, name.strip_edges().left(24)])
 
 
 func _w_portal_name(pid: int, name: String) -> void:
-	if not pieces.has(pid) or not pieces[pid].kind in ["portal", "chest"]:
+	if not pieces.has(pid) or not WBuilder.acts(pieces[pid].kind) in ["portal", "chest"]:
 		return
 	pieces[pid].name = name
-	if pieces[pid].kind == "chest":
+	if WBuilder.acts(pieces[pid].kind) == "chest":
 		_chest_label(pid)
 		if is_instance_valid(ui):
 			ui.container_changed("p%d" % pid)
@@ -3314,7 +3323,7 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0)}]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0)}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
@@ -3348,6 +3357,8 @@ func apply_world(d: Dictionary) -> void:
 		if p[4]:
 			builder._w_door(int(pid), true)
 		if p.size() > 5 and p[5] is Dictionary:
+			if int(p[5].get("tier", 0)) > 0:
+				builder._w_tier(int(pid), int(p[5].tier), float(p[3]))
 			_w_portal_name(int(pid), str(p[5].get("name", "")))
 			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
 		# Fires laid before they burned wood start with a full three days
@@ -3564,6 +3575,16 @@ func _w_piece_gone(pid: int) -> void:
 
 func _rq_door(pid: int) -> void:
 	builder._rq_door(pid)
+
+
+func _rq_tier(by: int, pid: int, t: int) -> void:
+	builder._rq_tier(by, pid, t)
+
+
+func _w_tier(pid: int, t: int, hp: float) -> void:
+	builder._w_tier(pid, t, hp)
+	if ready_world:
+		autosave_soon(5.0)
 
 
 func _w_door(pid: int, open: bool) -> void:
@@ -5632,6 +5653,8 @@ func debug_screen() -> void:
 			var e := spawn_at("unlit_gun", player.global_position + f.normalized() * 30.0 + Vector3(0, 1.0, 0))
 			e.set_meta("raid", true)
 			e._attack_cd = 999.0
+		"house", "house_in":
+			_debug_house(which == "house_in")
 		"cat", "ride":
 			var c := WCat.new().setup(self, "floofspeeb", false)
 			c.cat_name = "Biscuit"
@@ -5829,4 +5852,86 @@ func debug_lands() -> void:
 	autosave_soon(0.1)
 	await get_tree().create_timer(1.0).timeout
 	print("LANDS tiers=%d harder=%s bites=%s warded=%s stuff=%s" % [spot.size(), harder, bites, warded_ok, stuff > 0])
+	get_tree().quit()
+
+
+
+## A small house ahead of the player, for pictures and the house check: two floors' worth of cells, timber,
+## stone and iron walls, a doorway with a door, a window, and furniture inside. Returns the piece ids by role.
+func _debug_house(inside := false) -> Dictionary:
+	var G := WBuilder.GRID
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var c0 := player.global_position + f * 11.0
+	var ci := floori(c0.x / G)
+	var cj := floori(c0.z / G)
+	var out := {}
+	for d in [[0, 0], [1, 0]]:
+		var b := builder._cell_base(ci + d[0], cj + d[1])
+		builder._rq_build(1, "floor", Vector3((ci + d[0] + 0.5) * G, b, (cj + 0.5) * G), 0.0)
+	var base: float = builder._floor_top(ci, cj)
+	# Edges: the far side (z = cj), the near side (z = cj + 1), and the two ends
+	var walls := [
+		["wall", Vector3((ci + 0.5) * G, base, cj * G), 0.0, 0], ["window", Vector3((ci + 1.5) * G, base, cj * G), 0.0, 1],
+		["doorway", Vector3((ci + 0.5) * G, base, (cj + 1) * G), 0.0, 0], ["window", Vector3((ci + 1.5) * G, base, (cj + 1) * G), 0.0, 0],
+		["wall", Vector3(ci * G, base, (cj + 0.5) * G), PI * 0.5, 1], ["wall", Vector3((ci + 2) * G, base, (cj + 0.5) * G), PI * 0.5, 2],
+	]
+	for wl in walls:
+		builder._rq_build(1, wl[0], wl[1], wl[2])
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		for wl in walls:
+			if pc.kind == wl[0] and pc.pos.distance_to(wl[1]) < 0.1 and wl[3] > 0:
+				builder._w_tier(pid, wl[3], 500.0)
+		if pc.kind == "doorway":
+			out.doorway = pid
+		if pc.kind == "wall" and pc.pos.distance_to(walls[0][1]) < 0.1:
+			out.wall = pid
+	builder._rq_build(1, "door", pieces[out.doorway].pos, 0.0)
+	var mid := Vector3((ci + 1) * G, base, (cj + 0.5) * G)
+	builder._rq_build(1, "bed", mid + Vector3(1.6, 0, -0.6), 0.0)
+	builder._rq_build(1, "table", mid + Vector3(-1.0, 0, -0.5), 0.0)
+	builder._rq_build(1, "chair", mid + Vector3(-1.0, 0, 0.4), PI)
+	builder._rq_build(1, "shelf", mid + Vector3(-2.4, 0, -0.9), 0.0)
+	builder._rq_build(1, "stove", mid + Vector3(0.4, 0, -1.0), 0.0)
+	builder._rq_build(1, "rug", mid + Vector3(0.0, 0.02, 0.4), 0.0)
+	builder._rq_build(1, "floorlamp", mid + Vector3(2.5, 0, 1.0), 0.0)
+	var eye := mid + Vector3(-2.2, 0.4, 1.0) if inside else mid + Vector3(1.5, 0, G * 3.0)
+	if not inside:
+		eye.y = maxf(terrain.height_at(eye.x, eye.z), base) + 0.4
+	var to := mid + (Vector3(1.6, 0, -0.6) if inside else Vector3.ZERO) - eye
+	player.place(eye, atan2(-to.x, -to.z))
+	return out
+
+
+## Building up and furniture: a wall goes timber to stone to iron and keeps it through a save; a bed is a
+## bedroll, a stove a cooking station that burns, a shelf a chest; a furnished house is snug.
+func debug_build() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var ids := _debug_house(true)
+	await get_tree().create_timer(0.5).timeout
+	var wp: int = ids.wall
+	var hp0: float = pieces[wp].hp
+	var t0 := int(pieces[wp].get("tier", 0))
+	builder._rq_tier(1, wp, t0 + 1)
+	await get_tree().create_timer(0.3).timeout
+	var up := int(pieces[wp].get("tier", 0)) == t0 + 1 and float(pieces[wp].hp) > hp0
+	var d := world_data()
+	builder._w_piece_gone(wp)
+	builder._w_piece(wp, d.pieces[wp][0], d.pieces[wp][1], d.pieces[wp][2], d.pieces[wp][3])
+	if int(d.pieces[wp][5].get("tier", 0)) > 0:
+		builder._w_tier(wp, int(d.pieces[wp][5].tier), float(d.pieces[wp][3]))
+	var kept := int(pieces[wp].get("tier", 0)) == t0 + 1
+	var bed := builder.near_kind(player.global_position, "bedroll", 8.0)
+	var pot := builder.near_pid(player.global_position, "cookpot", 8.0)
+	var stove: bool = pot >= 0 and pieces[pot].kind == "stove" and burning(pot)
+	var shelf := false
+	for pid in pieces:
+		if pieces[pid].kind == "shelf" and containers.has("p%d" % pid):
+			shelf = true
+	var snug := comfort(player.global_position)
+	print("BUILD up=%s kept=%s bed=%s stove=%s shelf=%s snug=%s" % [up, kept, bed, stove, shelf, snug >= 4])
 	get_tree().quit()

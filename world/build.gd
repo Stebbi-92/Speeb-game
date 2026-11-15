@@ -5,6 +5,24 @@ extends Node3D
 
 const GRID := 3.0
 const REACH := 9.0
+const KIT := "res://assets/models/build/"
+## Walls from Kenney's Fantasy Town Kit: [timber, stone]. Iron is the stone wall bound in iron.
+const KIT_WALLS := {"wall": ["wall-wood", "wall"], "window": ["wall-wood-window-shutters", "wall-window-shutters"],
+	"doorway": ["wall-wood-doorway-square", "wall-doorway-square"]}
+## Furniture from Kenney's Furniture Kit: [model, scale]
+const KIT_HOME := {"bed": ["fu-bedSingle", 1.3], "table": ["fu-table", 2.3], "chair": ["fu-chair", 2.1], "shelf": ["fu-bookcaseOpen", 2.3],
+	"stove": ["fu-kitchenStove", 2.2], "rug": ["fu-rugRectangle", 1.9], "floorlamp": ["fu-lampRoundFloor", 2.1]}
+## Building up: timber, then stone, then iron. Each is tougher; each costs more to raise.
+const TIER_NAMES := ["Timber", "Stone", "Iron"]
+const TIER_HP := [1.0, 2.2, 3.5]
+const TIER_COST := [{}, {"stone": 8}, {"scrap": 6, "stone": 2}]
+const UPGRADES := ["wall", "window", "doorway", "floor"]
+## Furniture that does the work of a camp piece
+const ACTS := {"bed": "bedroll", "stove": "cookpot", "shelf": "chest", "floorlamp": "lamp"}
+
+
+static func acts(k: String) -> String:
+	return ACTS.get(k, k)
 
 var w
 var active := false
@@ -245,7 +263,7 @@ func place() -> void:
 	_hint.call_deferred()
 	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
 	w.award("build")
-	if k == "bedroll":
+	if acts(k) == "bedroll":
 		w.bedroll = _plan.pos
 		w.hud.notify("You will wake at this bedroll if you fall.")
 		w.autosave_soon(2.0)
@@ -259,6 +277,67 @@ func dismantle() -> void:
 	if pid < 0:
 		return
 	w.shared("_rq_unbuild", [Net.me(), pid])
+
+
+## Builds the wall or floor in sight up a tier: timber to stone, stone to iron. False if nothing is in sight.
+func upgrade() -> bool:
+	var cam: Camera3D = w.player.cam
+	var q := PhysicsRayQueryParameters3D.create(cam.global_position, cam.global_position - cam.global_transform.basis.z * REACH, 1 | 16)
+	q.exclude = [w.player.get_rid()]
+	var pid := _piece_from(get_world_3d().direct_space_state.intersect_ray(q))
+	if pid < 0:
+		return false
+	var pc: Dictionary = w.pieces[pid]
+	if not pc.kind in UPGRADES:
+		w.hud.notify("Only walls, windows, doorways and floors can be built up.")
+		return true
+	var t := int(pc.get("tier", 0))
+	if t >= TIER_NAMES.size() - 1:
+		w.hud.notify("It is iron already.")
+		return true
+	var cost: Dictionary = w.skills.cost(TIER_COST[t + 1])
+	if not w.stock_pay(cost):
+		w.hud.notify("To build it up to %s: %s." % [TIER_NAMES[t + 1].to_lower(), Items.cost_text(cost)])
+		w.sfx("deny", -10)
+		return true
+	w.sfx("crumble" if t == 0 else "mag_in", -4, pc.pos)
+	w.shared("_rq_tier", [Net.me(), pid, t + 1])
+	w.award("build")
+	return true
+
+
+func _rq_tier(by: int, pid: int, t: int) -> void:
+	if not Net.authority():
+		return
+	if not w.pieces.has(pid) or int(w.pieces[pid].get("tier", 0)) != t - 1 or t >= TIER_NAMES.size():
+		var back: Array = []
+		var cost: Dictionary = TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)]
+		for it in cost:
+			back.append([it, int(cost[it])])
+		Net.call_peer(by, "_w_give", [back])
+		return
+	var k: String = w.pieces[pid].kind
+	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * TIER_HP[t]])
+
+
+## A piece rebuilt in its new tier, where it stood.
+func _w_tier(pid: int, t: int, hp: float) -> void:
+	if not w.pieces.has(pid):
+		return
+	var pc: Dictionary = w.pieces[pid]
+	pc.tier = t
+	pc.hp = hp
+	var old: Node3D = pc.node
+	var n := _make(pc.kind, false, t)
+	add_child(n)
+	n.global_position = pc.pos
+	n.rotation.y = pc.yaw
+	pc.node = n
+	if pc.kind == "floor":
+		_stilts(n, pc.pos)
+	for b in n.find_children("*", "StaticBody3D", true, false):
+		b.set_meta("piece", pid)
+	old.queue_free()
 
 
 # ------------------------------------------------------------------ the host decides what stands
@@ -294,7 +373,7 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
 	w.shared("_w_piece", [pid, k, p, yaw, float(Items.PIECES[k].hp) * clampf(hm, 1.0, 1.6)])
 	if k in Wasteland.FIRE_KINDS:
 		w.shared("_w_fuel", [pid, w.world_hours() + Wasteland.FUEL_START])
-	if k == "chest":
+	if acts(k) == "chest":
 		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
 
 
@@ -362,13 +441,13 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 	for b in n.find_children("*", "StaticBody3D", true, false):
 		b.set_meta("piece", pid)
 	var body: StaticBody3D = n.get_meta("body")
-	match k:
+	match acts(k):
 		"door":
 			w.personal_interactable(body, "Open the door", func(): w.shared("_rq_door", [pid]))
 		"chest":
-			w.personal_interactable(body, "Open the chest", func(): w.shared("_rq_open", [Net.me(), "p%d" % pid]))
+			w.personal_interactable(body, "Open the shelf" if k == "shelf" else "Open the chest", func(): w.shared("_rq_open", [Net.me(), "p%d" % pid]))
 		"bedroll":
-			w.personal_interactable(body, "Lie down (you wake here if you fall)", func():
+			w.personal_interactable(body, ("Lie down in the bed" if k == "bed" else "Lie down") + " (you wake here if you fall)", func():
 				w.bedroll = p
 				w.ui.ask_rest("bed"))
 		"bench":
@@ -424,7 +503,7 @@ func near_pid(p: Vector3, k: String, r: float) -> int:
 	var bd := r
 	for pid in w.pieces:
 		var pc: Dictionary = w.pieces[pid]
-		if pc.kind == k and pc.pos.distance_to(p) < bd:
+		if acts(pc.kind) == k and pc.pos.distance_to(p) < bd:
 			bd = pc.pos.distance_to(p)
 			best = pid
 	return best
@@ -435,14 +514,14 @@ func near_kind(p, k: String, r: float) -> bool:
 		return false
 	for pid in w.pieces:
 		var pc: Dictionary = w.pieces[pid]
-		if pc.kind == k and pc.pos.distance_to(p) < r:
+		if (pc.kind == k or acts(pc.kind) == k) and pc.pos.distance_to(p) < r:
 			return true
 	return false
 
 
 # ------------------------------------------------------------------ the pieces themselves
 
-func _make(k: String, is_ghost: bool) -> Node3D:
+func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 	var n := Node3D.new()
 	var body := StaticBody3D.new()
 	body.collision_layer = 0 if is_ghost else (1 | 16)
@@ -450,9 +529,18 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 	n.add_child(body)
 	n.set_meta("body", body)
 	var m: Dictionary = w._m
+	if KIT_WALLS.has(k):
+		_kit_wall(n, body, k, tier, is_ghost)
+		return n
+	if KIT_HOME.has(k):
+		_kit_home(n, body, k, is_ghost)
+		return n
 	match k:
 		"floor":
-			_part(n, body, Vector3(GRID, 1.2, GRID), Vector3(0, -0.45, 0), m.wood, is_ghost)
+			var fm: Material = [m.wood, m.stone, m.iron][clampi(tier, 0, 2)]
+			_part(n, body, Vector3(GRID, 1.2, GRID), Vector3(0, -0.45, 0), fm if tier > 0 or is_ghost else m.darkwood, is_ghost)
+			if tier == 0 and not is_ghost:
+				_kit(n, "planks", Vector3(GRID, 1.0, GRID), Vector3(0, 0.12, 0), 0.0)
 		"roof":
 			_part(n, body, Vector3(GRID + 0.2, 0.25, GRID + 0.2), Vector3(0, 0.12, 0), m.thatch, is_ghost)
 		"wall":
@@ -646,6 +734,102 @@ func _make(k: String, is_ghost: bool) -> Node3D:
 				l.position.y = 3.0
 				n.add_child(l)
 	return n
+
+
+## A kit model set into a piece: scaled, turned and placed. Iron binds it in dark metal.
+func _kit(n: Node3D, model: String, scale: Vector3, pos: Vector3, yaw: float, iron := false) -> Node3D:
+	var sc: PackedScene = load(KIT + model + ".glb")
+	var inst: Node3D = sc.instantiate()
+	inst.scale = scale
+	inst.rotation.y = yaw
+	inst.position = pos
+	n.add_child(inst)
+	if iron:
+		var im: StandardMaterial3D = (w._m.iron as StandardMaterial3D).duplicate()
+		im.metallic = 0.7
+		im.roughness = 0.45
+		for mi in inst.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_override = im
+	return inst
+
+
+## A wall, window or doorway of the kit: three paces wide and three high on its footing, timber or stone.
+## The kit's wall stands along the edge of its square, so it is turned to lie along x and drawn in to the middle.
+func _kit_wall(n: Node3D, body: StaticBody3D, k: String, tier: int, is_ghost: bool) -> void:
+	var m: Dictionary = w._m
+	var model: String = KIT_WALLS[k][0 if tier == 0 else 1]
+	_kit(n, model, Vector3.ONE * GRID, Vector3(0, 0, GRID * 0.45), PI * 0.5, tier >= 2)
+	# A footing below the ground line, for walls on a slope
+	var foot: Material = [m.darkwood, m.stone, m.iron][clampi(tier, 0, 2)]
+	if not is_ghost:
+		_part(n, null, Vector3(GRID, 1.0, 0.34), Vector3(0, -0.5, 0), foot, false)
+		match k:
+			"wall":
+				_part(n, body, Vector3(GRID, 4.0, 0.3), Vector3(0, 1.0, 0), null, false)
+			"doorway":
+				_part(n, body, Vector3(0.9, 4.0, 0.3), Vector3(-1.05, 1.0, 0), null, false)
+				_part(n, body, Vector3(0.9, 4.0, 0.3), Vector3(1.05, 1.0, 0), null, false)
+				_part(n, body, Vector3(1.2, 0.8, 0.3), Vector3(0, 2.6, 0), null, false)
+			"window":
+				_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, -0.35, 0), null, false)
+				_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, 2.35, 0), null, false)
+				_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(-1.15, 1.0, 0), null, false)
+				_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(1.15, 1.0, 0), null, false)
+
+
+## Furniture of the kit, set in the middle of where it is placed, with a box to bump into.
+func _kit_home(n: Node3D, body: StaticBody3D, k: String, is_ghost: bool) -> void:
+	var s: float = KIT_HOME[k][1]
+	var inst := _kit(n, KIT_HOME[k][0], Vector3.ONE * s, Vector3.ZERO, 0.0)
+	var ab := _local_aabb(inst)
+	inst.position = Vector3(-ab.get_center().x, -ab.position.y, -ab.get_center().z)
+	if not is_ghost:
+		var tall := maxf(ab.size.y, 0.12)
+		_part(n, body, Vector3(maxf(ab.size.x, 0.3), tall, maxf(ab.size.z, 0.3)), Vector3(0, tall * 0.5, 0), null, false)
+		if k == "stove":
+			_fire(n, Vector3(0, ab.size.y * 0.75, 0), 1.3, 8.0)
+		elif k == "floorlamp":
+			var l := OmniLight3D.new()
+			l.light_color = Color(1.0, 0.78, 0.5)
+			l.light_energy = 1.6
+			l.omni_range = 10.0
+			l.position.y = ab.size.y * 0.9
+			n.add_child(l)
+
+
+## The glow of a stove: an ember and a light, lit while wood burns (see Wasteland.burning).
+func _fire(n: Node3D, at: Vector3, energy: float, reach: float) -> void:
+	var e := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.12
+	sm.height = 0.12
+	e.mesh = sm
+	e.material_override = w._m.ember
+	e.position = at
+	n.add_child(e)
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.6, 0.3)
+	l.light_energy = energy
+	l.omni_range = reach
+	l.position = at + Vector3(0, 0.3, 0)
+	n.add_child(l)
+	n.set_meta("fire", [e, l])
+
+
+## The bounds of a model's meshes, in its parent's space.
+func _local_aabb(inst: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var t := Transform3D.IDENTITY
+		var nd: Node = mi
+		while nd != inst.get_parent() and nd is Node3D:
+			t = (nd as Node3D).transform * t
+			nd = nd.get_parent()
+		var b: AABB = t * (mi as MeshInstance3D).get_aabb()
+		out = b if first else out.merge(b)
+		first = false
+	return out
 
 
 func _cyl(n: Node3D, r: float, h: float, pos: Vector3, m: Material, is_ghost: bool) -> MeshInstance3D:

@@ -499,6 +499,8 @@ func _input(e: InputEvent) -> void:
 		elif e.is_action_pressed("aim"):
 			w.builder.dismantle()
 			accept_event()
+		elif e.is_action_pressed("interact") and w.builder.upgrade():
+			accept_event()
 		elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			w.builder.choose(-1)
 			accept_event()
@@ -649,7 +651,7 @@ func set_build_bar(k: String, sel: int) -> void:
 	var prev: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel - 1, n)]].name
 	var next: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel + 1, n)]].name
 	_build_title.text = "%s" % pc.name
-	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next]
+	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color]\n[color=#8d877b]%s on a wall or floor: build it up to stone, then iron[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next, Game.key_text("interact")]
 
 
 # ------------------------------------------------------------------ the pack, and making things
@@ -2022,7 +2024,7 @@ func _draw_container() -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 16)
 	top.add_child(_title(name))
-	if cpid >= 0 and w.pieces.has(cpid) and w.pieces[cpid].kind == "chest":
+	if cpid >= 0 and w.pieces.has(cpid) and WBuilder.acts(w.pieces[cpid].kind) == "chest":
 		# A chest may be named, and the name shows above it
 		var field := LineEdit.new()
 		field.text = str(w.pieces[cpid].get("name", ""))
