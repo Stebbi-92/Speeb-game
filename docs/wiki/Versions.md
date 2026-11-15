@@ -2,6 +2,11 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.6.1 (fixes, riding cats)
+
+- The new foes can be hit anywhere on their bodies (before, only at the legs), and head shots find their real heads.
+- Riding cats: tame a stray near a town with three meats, ride it, name it, armour it, and whistle (N) to call it.
+
 ## 0.6.0 (arms and fighting)
 
 - Arms screen with a live gun, parts by place, grades and traits; ten ranks of practice for each gun and the blade.

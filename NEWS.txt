@@ -1,3 +1,17 @@
+Brelm alpha 0.6.1: Fixes, and riding cats
+
+Fixes
+- The Salt-Bones, the Hollowed, the Lost Vigil, the Gravewarden and the Unlit can now be hit anywhere on their bodies. Before, only shots at their legs struck them.
+- Head shots on these foes now aim at their real heads.
+
+Riding cats (an early look at 0.7)
+- Great stray cats with Speeb faces roam near the towns by day. Feed one meat three times and it is yours.
+- Ride it with Interact. It walks a little faster than you, and Hasten runs it fast until it is out of breath.
+- Hold Interact on your cat to name it and give it barding of hide, bone or iron.
+- It waits where you leave it. Whistle (N) and it comes.
+- Harm while riding is shared with your cat. If it is hurt too much, it throws you and must rest.
+- Friends see your cat under you.
+
 Brelm alpha 0.6.0: Arms and fighting
 
 Guns

@@ -30,6 +30,10 @@ People live in the settlements. They trade, they talk, and they give work. Work 
 
 Nine beacons stand dead across the waste. Kindling them is the main story, and each one lit pushes the night back a little. Beacon oil is made at a workbench once you have learned how.
 
+## Riding cats
+
+Great stray cats roam near the towns by day. They shy away from running feet, so walk up softly. Feed one meat three times and it is yours. Press Interact to ride it; hold Hasten to run it until it is out of breath. Hold Interact on it to name it and give it barding (hide, bone or iron), which turns aside part of the harm it takes. Harm while riding is shared with your cat; hurt too much, it throws you and must rest. It waits where you leave it, and comes when you whistle (N).
+
 ## Falling
 
 When your health runs out you fall, unconscious, with a timer. A friend can raise you by holding the interact key on you: quicker and with more health if they carry smelling salts. Hold **jump** to give up and wake at your bed (or where you began). What you carried is left where you fell, glowing blue, marked on your map.
