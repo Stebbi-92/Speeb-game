@@ -1,0 +1,256 @@
+class_name WGlyph
+extends Control
+## A small drawn picture of a thing, on a dark tile with a rim of its colour. Every item has its own
+## picture, drawn here from plain shapes, so the screens need no image files.
+
+var id := ""
+var tile := true        ## draw the tile behind the picture
+var dim := false        ## greyed, for what cannot be had or made here
+var rim := Color(0, 0, 0, 0)   ## when set, the tile's rim takes this colour (a grade, a selection)
+
+
+static func make(item: String, px := 40, with_tile := true) -> WGlyph:
+	var g := WGlyph.new()
+	g.id = item
+	g.tile = with_tile
+	g.custom_minimum_size = Vector2(px, px)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return g
+
+
+var _s := 1.0
+var _o := Vector2.ZERO
+var _ink := Color.WHITE
+
+
+## A point in the picture's own 0..1 square.
+func P(x: float, y: float) -> Vector2:
+	return _o + Vector2(x, y) * _s
+
+
+func _poly(pts: Array, c: Color) -> void:
+	var v := PackedVector2Array()
+	for p in pts:
+		v.append(P(p[0], p[1]))
+	draw_colored_polygon(v, c)
+
+
+func _ln(a: Array, b: Array, c: Color, wdt := 0.06) -> void:
+	draw_line(P(a[0], a[1]), P(b[0], b[1]), c, maxf(1.0, wdt * _s), true)
+
+
+func _dot(x: float, y: float, r: float, c: Color) -> void:
+	draw_circle(P(x, y), r * _s, c)
+
+
+func _ring(x: float, y: float, r: float, c: Color, wdt := 0.05) -> void:
+	draw_arc(P(x, y), r * _s, 0, TAU, 28, c, maxf(1.0, wdt * _s), true)
+
+
+func _box(x: float, y: float, w: float, h: float, c: Color) -> void:
+	draw_rect(Rect2(P(x, y), Vector2(w, h) * _s), c)
+
+
+func _draw() -> void:
+	var info: Dictionary = Items.info(id) if id != "" else {"color": Color.GRAY, "kind": "material"}
+	var base: Color = info.color
+	var side := minf(size.x, size.y)
+	if tile:
+		var r := Rect2(Vector2.ZERO, Vector2(side, side))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.09, 0.085, 0.08, 0.95).lerp(base.darkened(0.6), 0.25)
+		sb.border_color = rim if rim.a > 0.0 else Color(base.lightened(0.1), 0.55)
+		sb.set_border_width_all(2 if rim.a > 0.0 else 1)
+		sb.set_corner_radius_all(int(side * 0.14))
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_size = 2
+		draw_style_box(sb, r)
+		# A soft light from above
+		draw_rect(Rect2(Vector2(side * 0.12, side * 0.06), Vector2(side * 0.76, side * 0.05)), Color(1, 1, 1, 0.05))
+	_s = side * (0.72 if tile else 0.96)
+	_o = Vector2(side, side) * 0.5 - Vector2(_s, _s) * 0.5
+	_ink = base.lightened(0.25)
+	var a := 0.35 if dim else 1.0
+	modulate.a = a
+	_picture(id, info, base)
+
+
+func _picture(item: String, info: Dictionary, c: Color) -> void:
+	var lt := c.lightened(0.35)
+	var dk := c.darkened(0.45)
+	var steel := Color(0.72, 0.73, 0.75)
+	var wood := Color(0.55, 0.38, 0.24)
+	var paper := Color(0.9, 0.86, 0.76)
+	match item:
+		"wood":
+			for i in 2:
+				var y := 0.38 + i * 0.26
+				_box(0.12, y - 0.1, 0.7, 0.2, wood.darkened(0.1 * i))
+				_dot(0.82, y, 0.1, Color(0.72, 0.56, 0.38))
+				_ring(0.82, y, 0.05, wood.darkened(0.3), 0.025)
+		"stone":
+			_poly([[0.15, 0.7], [0.25, 0.35], [0.5, 0.22], [0.78, 0.32], [0.88, 0.65], [0.6, 0.82], [0.3, 0.82]], Color(0.55, 0.53, 0.5))
+			_poly([[0.25, 0.35], [0.5, 0.22], [0.55, 0.45], [0.35, 0.5]], Color(0.68, 0.66, 0.62))
+		"scrap":
+			_dot(0.5, 0.5, 0.3, Color(0.55, 0.38, 0.28))
+			for i in 8:
+				var ang := i * TAU / 8.0
+				_ln([0.5 + cos(ang) * 0.28, 0.5 + sin(ang) * 0.28], [0.5 + cos(ang) * 0.4, 0.5 + sin(ang) * 0.4], Color(0.55, 0.38, 0.28), 0.12)
+			_dot(0.5, 0.5, 0.11, Color(0.1, 0.09, 0.08))
+		"salt":
+			_poly([[0.5, 0.12], [0.75, 0.42], [0.62, 0.86], [0.38, 0.86], [0.25, 0.42]], Color(0.92, 0.92, 0.9))
+			_poly([[0.5, 0.12], [0.75, 0.42], [0.5, 0.5]], Color(1, 1, 1))
+			_poly([[0.25, 0.42], [0.38, 0.86], [0.5, 0.5]], Color(0.78, 0.78, 0.76))
+		"cloth", "hide":
+			_poly([[0.15, 0.3], [0.85, 0.22], [0.82, 0.78], [0.18, 0.82]], c)
+			_ln([0.2, 0.5], [0.8, 0.45], dk, 0.04)
+			_ln([0.22, 0.65], [0.78, 0.6], dk, 0.04)
+		"herb", "herb_seed":
+			_ln([0.5, 0.9], [0.5, 0.45], Color(0.4, 0.55, 0.3), 0.06)
+			for sx in [-1, 1]:
+				_poly([[0.5, 0.62], [0.5 + sx * 0.3, 0.5], [0.5 + sx * 0.12, 0.72]], Color(0.45, 0.62, 0.36))
+			for i in 5:
+				var ang := i * TAU / 5.0 - PI / 2
+				_dot(0.5 + cos(ang) * 0.13, 0.32 + sin(ang) * 0.13, 0.09, Color(0.88, 0.88, 0.8))
+			_dot(0.5, 0.32, 0.06, Color(0.95, 0.8, 0.4))
+			if item == "herb_seed":
+				_seeds(Color(0.65, 0.7, 0.58))
+		"bone":
+			_ln([0.25, 0.75], [0.75, 0.25], Color(0.88, 0.85, 0.76), 0.14)
+			for p in [[0.2, 0.7], [0.3, 0.8], [0.7, 0.2], [0.8, 0.3]]:
+				_dot(p[0], p[1], 0.1, Color(0.88, 0.85, 0.76))
+		"oil", "beacon_oil":
+			_flask(c, item == "beacon_oil")
+		"raw_meat", "roast", "meat":
+			_poly([[0.2, 0.5], [0.35, 0.25], [0.65, 0.2], [0.8, 0.4], [0.7, 0.7], [0.4, 0.78]], c)
+			_poly([[0.35, 0.32], [0.6, 0.28], [0.68, 0.42], [0.45, 0.5]], c.lightened(0.2))
+			_ln([0.62, 0.68], [0.82, 0.86], Color(0.9, 0.86, 0.76), 0.08)
+			_dot(0.85, 0.88, 0.06, Color(0.9, 0.86, 0.76))
+		"tuber", "tuber_seed":
+			_poly([[0.22, 0.55], [0.35, 0.3], [0.65, 0.28], [0.8, 0.5], [0.68, 0.76], [0.35, 0.78]], c)
+			for p in [[0.42, 0.45], [0.6, 0.55], [0.45, 0.65]]:
+				_dot(p[0], p[1], 0.03, dk)
+			_ln([0.5, 0.3], [0.45, 0.14], Color(0.45, 0.6, 0.35), 0.05)
+			if item == "tuber_seed":
+				_seeds(lt)
+		"stew":
+			_poly([[0.12, 0.45], [0.88, 0.45], [0.75, 0.82], [0.25, 0.82]], Color(0.42, 0.3, 0.22))
+			_box(0.12, 0.42, 0.76, 0.07, c.lightened(0.15))
+			for i in 3:
+				_ln([0.35 + i * 0.15, 0.36], [0.38 + i * 0.15, 0.15], Color(1, 1, 1, 0.35), 0.04)
+		"torchwood":
+			_ln([0.35, 0.88], [0.6, 0.38], wood, 0.1)
+			_poly([[0.52, 0.42], [0.58, 0.1], [0.75, 0.3], [0.72, 0.45]], Color(1.0, 0.65, 0.2))
+			_poly([[0.58, 0.4], [0.62, 0.22], [0.7, 0.35]], Color(1.0, 0.9, 0.5))
+		"milk":
+			_poly([[0.14, 0.48], [0.86, 0.48], [0.72, 0.8], [0.28, 0.8]], Color(0.75, 0.62, 0.48))
+			_box(0.14, 0.44, 0.72, 0.07, Color(0.97, 0.96, 0.92))
+		"bandage":
+			_poly([[0.2, 0.32], [0.68, 0.2], [0.8, 0.68], [0.32, 0.8]], Color(0.9, 0.87, 0.8))
+			_box(0.44, 0.3, 0.12, 0.4, Color(0.75, 0.2, 0.18))
+			_box(0.3, 0.44, 0.4, 0.12, Color(0.75, 0.2, 0.18))
+		"salve":
+			_dot(0.5, 0.58, 0.3, Color(0.4, 0.42, 0.38))
+			_dot(0.5, 0.55, 0.24, Color(0.62, 0.72, 0.5))
+			_box(0.24, 0.3, 0.52, 0.1, Color(0.3, 0.3, 0.28))
+		"salts":
+			_flask(Color(0.85, 0.85, 0.95), false)
+			_dot(0.5, 0.62, 0.05, Color(1, 1, 1))
+		"shells":
+			for i in 3:
+				var x := 0.24 + i * 0.22
+				_box(x, 0.28, 0.16, 0.42, Color(0.75, 0.2, 0.15))
+				_box(x, 0.66, 0.16, 0.14, Color(0.78, 0.62, 0.32))
+		"rounds", "rifle":
+			var n := 3 if item == "rounds" else 2
+			for i in n:
+				var x := 0.3 + i * (0.2 if n == 3 else 0.26)
+				var top := 0.36 if item == "rounds" else 0.18
+				_box(x - 0.07, top + 0.1, 0.14, 0.82 - top - 0.1, Color(0.78, 0.62, 0.32))
+				_poly([[x - 0.07, top + 0.1], [x + 0.07, top + 0.1], [x, top - 0.02]], Color(0.65, 0.45, 0.3))
+		"rockets":
+			_poly([[0.5, 0.08], [0.62, 0.3], [0.62, 0.75], [0.38, 0.75], [0.38, 0.3]], Color(0.45, 0.48, 0.38))
+			_poly([[0.38, 0.62], [0.24, 0.85], [0.38, 0.78]], Color(0.3, 0.3, 0.28))
+			_poly([[0.62, 0.62], [0.76, 0.85], [0.62, 0.78]], Color(0.3, 0.3, 0.28))
+			_box(0.38, 0.32, 0.24, 0.06, Color(0.75, 0.2, 0.15))
+		"pick":
+			_ln([0.3, 0.88], [0.62, 0.3], wood, 0.09)
+			draw_arc(P(0.58, 0.45), 0.36 * _s, -PI * 0.95, -PI * 0.12, 16, steel, 0.09 * _s, true)
+		"hatchet":
+			_ln([0.32, 0.9], [0.6, 0.2], wood, 0.09)
+			_poly([[0.5, 0.2], [0.82, 0.12], [0.86, 0.45], [0.56, 0.36]], steel)
+		"prybar":
+			_ln([0.25, 0.85], [0.7, 0.2], steel, 0.08)
+			draw_arc(P(0.62, 0.2), 0.1 * _s, -PI, 0.3, 10, steel, 0.08 * _s, true)
+		"coin", "order_seal":
+			_dot(0.5, 0.5, 0.33, Color(0.82, 0.68, 0.32))
+			_ring(0.5, 0.5, 0.25, Color(0.6, 0.46, 0.18), 0.04)
+			_poly([[0.5, 0.33], [0.62, 0.5], [0.5, 0.67], [0.38, 0.5]], Color(0.6, 0.46, 0.18))
+		"icon":
+			_box(0.25, 0.15, 0.5, 0.7, Color(0.62, 0.45, 0.2))
+			_box(0.3, 0.2, 0.4, 0.6, Color(0.3, 0.2, 0.15))
+			_dot(0.5, 0.4, 0.1, Color(0.9, 0.75, 0.4))
+			_poly([[0.36, 0.75], [0.5, 0.5], [0.64, 0.75]], Color(0.55, 0.25, 0.2))
+		"bell":
+			_poly([[0.5, 0.15], [0.68, 0.3], [0.72, 0.65], [0.85, 0.75], [0.15, 0.75], [0.28, 0.65], [0.32, 0.3]], Color(0.85, 0.86, 0.88))
+			_dot(0.5, 0.82, 0.07, Color(0.6, 0.6, 0.62))
+		"ledger", "letter":
+			_box(0.2, 0.18, 0.6, 0.66, paper if item == "letter" else Color(0.45, 0.3, 0.2))
+			if item == "ledger":
+				_box(0.25, 0.22, 0.5, 0.58, paper)
+			for i in 4:
+				_ln([0.3, 0.32 + i * 0.12], [0.7, 0.32 + i * 0.12], Color(0.35, 0.3, 0.25), 0.03)
+			if item == "letter":
+				_dot(0.5, 0.72, 0.09, Color(0.7, 0.15, 0.12))
+		"goods":
+			_box(0.18, 0.35, 0.64, 0.48, Color(0.6, 0.48, 0.32))
+			_ln([0.5, 0.35], [0.5, 0.83], Color(0.35, 0.25, 0.15), 0.05)
+			_ln([0.18, 0.55], [0.82, 0.55], Color(0.35, 0.25, 0.15), 0.05)
+			_poly([[0.35, 0.35], [0.5, 0.2], [0.65, 0.35]], Color(0.35, 0.25, 0.15))
+		"keepsake", "piet_ring":
+			_ring(0.5, 0.58, 0.24, Color(0.85, 0.7, 0.35), 0.09)
+			_poly([[0.5, 0.18], [0.62, 0.32], [0.5, 0.42], [0.38, 0.32]], Color(0.6, 0.8, 0.9))
+		"fittings_fine", "fittings_rare", "fittings_storied":
+			_dot(0.38, 0.42, 0.2, c)
+			_dot(0.38, 0.42, 0.08, Color(0.1, 0.1, 0.1))
+			for i in 6:
+				var ang := i * TAU / 6.0
+				_ln([0.38 + cos(ang) * 0.18, 0.42 + sin(ang) * 0.18], [0.38 + cos(ang) * 0.27, 0.42 + sin(ang) * 0.27], c, 0.08)
+			_ln([0.55, 0.78], [0.85, 0.48], steel, 0.06)
+			_ln([0.6, 0.85], [0.88, 0.62], steel, 0.04)
+		_:
+			if item.begins_with("t_"):
+				# A trophy of a great one: a shard of its land's colour
+				_poly([[0.5, 0.1], [0.75, 0.45], [0.55, 0.9], [0.3, 0.55]], c)
+				_poly([[0.5, 0.1], [0.75, 0.45], [0.52, 0.5]], c.lightened(0.35))
+				_ring(0.5, 0.5, 0.42, Color(c, 0.4), 0.03)
+			elif WArms.WEAR.has(item):
+				_wear(WArms.WEAR[item].slot, c)
+			else:
+				_dot(0.5, 0.5, 0.28, c)
+
+
+func _seeds(c: Color) -> void:
+	for p in [[0.2, 0.85], [0.3, 0.9], [0.8, 0.86]]:
+		_dot(p[0], p[1], 0.05, c)
+
+
+func _flask(c: Color, glow: bool) -> void:
+	_box(0.42, 0.1, 0.16, 0.16, Color(0.45, 0.32, 0.2))
+	_poly([[0.42, 0.26], [0.58, 0.26], [0.82, 0.62], [0.72, 0.88], [0.28, 0.88], [0.18, 0.62]], Color(0.75, 0.8, 0.82, 0.45))
+	_poly([[0.25, 0.6], [0.75, 0.6], [0.7, 0.85], [0.3, 0.85]], c)
+	if glow:
+		_dot(0.5, 0.7, 0.08, Color(1, 1, 0.9))
+
+
+func _wear(slot: String, c: Color) -> void:
+	var cl := Color(0.55, 0.48, 0.4)
+	match slot:
+		"head":
+			draw_arc(P(0.5, 0.62), 0.3 * _s, PI, TAU, 18, cl, 0.18 * _s, true)
+			_box(0.12, 0.62, 0.76, 0.08, cl.darkened(0.2))
+		"body":
+			_poly([[0.3, 0.18], [0.7, 0.18], [0.88, 0.38], [0.76, 0.46], [0.72, 0.88], [0.28, 0.88], [0.24, 0.46], [0.12, 0.38]], cl)
+			_poly([[0.42, 0.18], [0.58, 0.18], [0.5, 0.32]], cl.darkened(0.4))
+		"feet":
+			_poly([[0.3, 0.2], [0.5, 0.2], [0.5, 0.65], [0.85, 0.7], [0.85, 0.85], [0.3, 0.85]], cl)

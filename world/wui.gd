@@ -62,12 +62,24 @@ func _ready() -> void:
 	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pin(_keys, 0.0, 1.0, Rect2(36, -98, 700, 26))
 	add_child(_keys)
+	# Behind an open screen the world dims, so the eye stays on the screen
+	_shade = ColorRect.new()
+	_shade.color = Color(0.0, 0.0, 0.0, 0.5)
+	_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shade.visible = false
+	add_child(_shade)
 	_frame = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = BG
-	sb.border_color = Color(GOLD, 0.35)
+	sb.bg_color = Color(0.07, 0.065, 0.06, 0.97)
+	sb.border_color = Color(GOLD, 0.28)
 	sb.set_border_width_all(1)
+	sb.border_width_top = 3
+	sb.set_corner_radius_all(10)
+	sb.shadow_color = Color(0, 0, 0, 0.55)
+	sb.shadow_size = 28
 	sb.set_content_margin_all(26)
+	sb.content_margin_top = 20
 	_frame.add_theme_stylebox_override("panel", sb)
 	_frame.custom_minimum_size = Vector2(1120, 700)
 	_pin(_frame, 0.5, 0.5, Rect2(-560, -350, 1120, 700))
@@ -476,6 +488,7 @@ func _input(e: InputEvent) -> void:
 			accept_event()
 
 
+var _shade: ColorRect
 var _panel_name := ""
 
 
@@ -490,6 +503,7 @@ func _open(name: String) -> void:
 	_frame.custom_minimum_size = sz
 	_pin(_frame, 0.5, 0.5, Rect2(-sz.x * 0.5, -sz.y * 0.5, sz.x, sz.y))
 	_frame.visible = true
+	_shade.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	w.player.input_locked = true
 	w.hud.set_prompt("", 0.0)
@@ -508,6 +522,7 @@ func close_all() -> void:
 	if _babble:
 		_babble.hush()
 	_frame.visible = false
+	_shade.visible = false
 	if not w._pfail:
 		w.player.input_locked = false
 	if w.player.weapon:
@@ -624,18 +639,77 @@ func open_inventory(tab := "pack") -> void:
 
 
 func _pack_header() -> void:
+	var right := HBoxContainer.new()
+	right.add_theme_constant_override("separation", 6)
+	right.add_child(WGlyph.make("salt", 22, false))
+	right.add_child(_label("%d" % w.inv.count("salt"), 18, PALE))
+	_header("Pack", [["pack", "Carried"], ["craft", "Make"], ["arms", "Arms"], ["build", "Build"]], _tab,
+		func(t): _tab = t; _redraw(), right)
+
+
+## A screen's head: its name, its tabs (each underlined when chosen), something on the right,
+## and a close button. A thin rule runs beneath.
+func _header(title: String, tabs: Array, current: String, pick: Callable, right: Control = null) -> void:
 	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 30)
-	hb.add_child(_title("Pack"))
-	hb.add_child(_btn("Carried", func(): _tab = "pack"; _redraw(), 22, GOLD if _tab == "pack" else DIM))
-	hb.add_child(_btn("Make", func(): _tab = "craft"; _redraw(), 22, GOLD if _tab == "craft" else DIM))
-	hb.add_child(_btn("Arms", func(): _tab = "arms"; _redraw(), 22, GOLD if _tab == "arms" else DIM))
-	hb.add_child(_btn("Build", func(): _tab = "build"; _redraw(), 22, GOLD if _tab == "build" else DIM))
-	var info := _label("Salt: %d" % w.inv.count("salt"), 18, DIM)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hb.add_child(info)
+	hb.add_theme_constant_override("separation", 8)
+	var t := _title(title)
+	t.custom_minimum_size.x = 150
+	hb.add_child(t)
+	for tb in tabs:
+		hb.add_child(_tab_btn(tb[1], tb[0] == current, func(): pick.call(tb[0])))
+	var fill := Control.new()
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(fill)
+	if right:
+		right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hb.add_child(right)
+		hb.add_child(_gap_x(14))
+	var x := _btn("✕  Esc", func(): close_all(), 15, DIM)
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	x.focus_mode = Control.FOCUS_NONE
+	hb.add_child(x)
 	_body.add_child(hb)
+	var rule := ColorRect.new()
+	rule.color = Color(1, 1, 1, 0.08)
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_body.add_child(rule)
+
+
+func _tab_btn(t: String, on: bool, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_override("font", load("res://assets/fonts/Marcellus-Regular.ttf"))
+	b.add_theme_color_override("font_color", GOLD if on else DIM)
+	b.add_theme_color_override("font_hover_color", PALE)
+	b.add_theme_color_override("font_pressed_color", GOLD)
+	for st in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GOLD, 0.08) if on else Color(1, 1, 1, 0.05 if st == "hover" else 0.0)
+		sb.border_color = GOLD if on else Color(1, 1, 1, 0.25 if st == "hover" else 0.0)
+		sb.border_width_bottom = 2
+		sb.corner_radius_top_left = 4
+		sb.corner_radius_top_right = 4
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 6
+		sb.content_margin_bottom = 6
+		b.add_theme_stylebox_override(st, sb)
+	b.size_flags_vertical = Control.SIZE_SHRINK_END
+	b.pressed.connect(cb)
+	return b
+
+
+func _gap_x(wd: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.x = wd
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
+
 
 
 func _draw_pack() -> void:
@@ -671,7 +745,7 @@ func _draw_pack() -> void:
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(split)
 	var left := VBoxContainer.new()
-	left.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 4, _sel, _kinds_of(_filter)))
+	left.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 6, _sel, _kinds_of(_filter), 86))
 	split.add_child(left)
 	var side := _side_panel(split)
 	var s = w.inv.slots[_sel] if _sel >= 0 and _sel < w.inv.slots.size() else null
@@ -753,25 +827,9 @@ func _tidy(bag: Inventory) -> void:
 	w.sfx("step", -8, null, 0.7)
 
 
-## A small square of the thing's colour with its first letter: enough to know it at a glance.
+## The thing's own small picture on a tile.
 func _icon(id: String, px := 34) -> Control:
-	var c: Color = Items.info(id).color
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(c.darkened(0.35), 0.95)
-	sb.border_color = Color(c.lightened(0.15), 0.9)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	p.add_theme_stylebox_override("panel", sb)
-	p.custom_minimum_size = Vector2(px, px)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := _label(Items.iname(id).substr(0, 1), int(px * 0.5), Color(1, 1, 1, 0.92) if c.get_luminance() < 0.6 else Color(0.08, 0.07, 0.06))
-	l.remove_theme_color_override("font_shadow_color")
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", load("res://assets/fonts/Marcellus-Regular.ttf"))
-	p.add_child(l)
-	return p
+	return WGlyph.make(id, px)
 
 
 func _chip(t: String, on: bool, cb: Callable) -> Button:
@@ -1100,14 +1158,39 @@ func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1, kinds: Array
 	for i in bag.slots.size():
 		var s = bag.slots[i]
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(tile_w, 54)
+		var square := tile_w <= 96
+		b.custom_minimum_size = Vector2(tile_w, tile_w if square else 54)
 		b.focus_mode = Control.FOCUS_NONE
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(1, 1, 1, 0.035)
 		sb.border_color = Color(1, 1, 1, 0.07)
 		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(3)
-		if s != null:
+		sb.set_corner_radius_all(6 if square else 3)
+		if s != null and square:
+			# A square slot: the thing's picture large, its count in the corner
+			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			b.tooltip_text = "%s\n%s" % [Items.iname(s.id), Items.info(s.id).text]
+			var gl := WGlyph.make(s.id, int(tile_w * 0.78), false)
+			gl.position = Vector2(tile_w * 0.11, tile_w * 0.07)
+			gl.size = Vector2(tile_w * 0.78, tile_w * 0.78)
+			b.add_child(gl)
+			if int(s.n) > 1:
+				var cnt := _label(str(int(s.n)), 15, PALE)
+				cnt.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+				cnt.offset_left = -50
+				cnt.offset_top = -24
+				cnt.offset_right = -6
+				cnt.offset_bottom = -3
+				cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+				cnt.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
+				cnt.add_theme_constant_override("outline_size", 4)
+				cnt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+				b.add_child(cnt)
+			# A thin line of the thing's colour along the foot
+			sb.border_color = Color(Items.info(s.id).color, 0.35)
+			if not kinds.is_empty() and not Items.info(s.id).kind in kinds:
+				b.modulate.a = 0.22
+		elif s != null:
 			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 			b.tooltip_text = "%s\n%s" % [Items.iname(s.id), Items.info(s.id).text]
 			var row := HBoxContainer.new()
@@ -1174,145 +1257,292 @@ var _rsel := -1
 var _rhere := false   ## the chosen recipe can be made where you stand
 
 
+const MAKE_GROUPS := [["all", "All"], ["heal", "Healing"], ["food", "Food"], ["ammo", "Ammunition"], ["tool", "Tools"], ["material", "Materials"]]
+var _rcat := "all"
+
+
+func _make_group(r: Dictionary) -> String:
+	match str(Items.info(r.id).kind):
+		"medicine", "aid":
+			return "heal"
+		"food", "seed":
+			return "food"
+		"ammo":
+			return "ammo"
+		"tool":
+			return "tool"
+	return "material"
+
+
 func _draw_craft() -> void:
 	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
 	var pot: int = w.builder.near_pid(w.player.global_position, "cookpot", 5.0)
 	var fire: bool = (pot >= 0 and w.burning(pot)) or w.settlement_at(w.player.global_position) != ""
 	var chests: int = w.base_chests().size()
-	var where: Array = []
-	if bench:
-		where.append("a workbench")
-	if fire:
-		where.append("a cooking station")
+	# Where you stand, at a glance
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 20)
-	top.add_child(_label(("At " + " and ".join(where) + ".") if not where.is_empty() else "By hand. A workbench or cooking station makes more.", 16, DIM))
+	top.add_theme_constant_override("separation", 8)
+	top.add_child(_pill("Workbench", bench))
+	top.add_child(_pill("Cooking station", fire))
 	if chests > 0:
-		var cl := _label("Using your pack and %d chest%s in this base." % [chests, "" if chests == 1 else "s"], 16, GOLD)
-		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		top.add_child(cl)
+		top.add_child(_pill("%d chest%s in reach" % [chests, "" if chests == 1 else "s"], true))
 	_body.add_child(top)
 	if pot >= 0:
 		_body.add_child(_fuel_row(pot))
 	var split := HBoxContainer.new()
-	split.add_theme_constant_override("separation", 24)
+	split.add_theme_constant_override("separation", 18)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(split)
-	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(560, 480)
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 3)
-	sc.add_child(list)
-	split.add_child(sc)
-	var side := _side_panel(split)
-	# Grouped by where each is made; what can be made now comes first in its group
-	var groups := [["By hand", func(r): return not r.bench and not r.get("fire", false)],
-		["Cooking station", func(r): return r.get("fire", false)], ["Workbench", func(r): return r.bench]]
-	var chosen = null
-	for g in groups:
-		var rows: Array = []
-		for i in Items.RECIPES.size():
-			var r: Dictionary = Items.RECIPES[i]
-			if r.has("needs") and not w.flags.has(r.needs):
-				continue
-			if g[1].call(r):
-				rows.append(i)
-		if rows.is_empty():
+	# The groups, down the left
+	var rail := VBoxContainer.new()
+	rail.add_theme_constant_override("separation", 4)
+	rail.custom_minimum_size.x = 170
+	split.add_child(rail)
+	var shown: Array = []
+	var ready_in := {}
+	for i in Items.RECIPES.size():
+		var r: Dictionary = Items.RECIPES[i]
+		if r.has("needs") and not w.flags.has(r.needs):
 			continue
-		var here: bool = g[0] == "By hand" or (g[0] == "Workbench" and bench) or (g[0] == "Cooking station" and fire)
-		list.add_child(_label(g[0] + ("" if here else "  (not here)"), 17, GOLD if here else Color(DIM, 0.7)))
-		for i in rows:
-			var r: Dictionary = Items.RECIPES[i]
-			var cost: Dictionary = w.skills.cost(r.cost)
-			var ok: bool = here and w.stock_has_all(cost)
-			if _rsel == -1 and ok:
-				_rsel = i
-			if i == _rsel:
-				chosen = [r, cost, ok, here]
-			list.add_child(_recipe_row(i, r, ok, here))
+		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire)
+		var ok: bool = here and w.stock_has_all(w.skills.cost(r.cost))
+		var grp := _make_group(r)
+		if ok:
+			ready_in[grp] = int(ready_in.get(grp, 0)) + 1
+			ready_in["all"] = int(ready_in.get("all", 0)) + 1
+		if _rcat == "all" or grp == _rcat:
+			shown.append([i, here, ok])
+	for g in MAKE_GROUPS:
+		rail.add_child(_rail_btn(g[1], int(ready_in.get(g[0], 0)), g[0] == _rcat, func(): _rcat = g[0]; _rsel = -1; _redraw()))
+	# Ready to make first, then what is here but short, then what needs another place
+	shown.sort_custom(func(a, b): return (2 if a[2] else (1 if a[1] else 0)) > (2 if b[2] else (1 if b[1] else 0)))
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(560, 470)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	split.add_child(sc)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	sc.add_child(grid)
+	var chosen = null
+	for row in shown:
+		if _rsel == -1:
+			_rsel = row[0]
+		if row[0] == _rsel:
+			chosen = row
+		grid.add_child(_recipe_card(row[0], row[1], row[2]))
+	var side := _side_panel(split)
+	side.custom_minimum_size.x = 250
 	_rhere = false
 	if chosen == null:
-		side.add_child(_label("Choose something to make", 22, DIM))
+		side.add_child(_wrap("Nothing here to make." if shown.is_empty() else "Choose something to make.", 18, DIM, 220))
 		return
-	_rhere = chosen[3]
-	var rr: Dictionary = chosen[0]
-	var cost2: Dictionary = chosen[1]
+	_rhere = chosen[1]
+	var rr: Dictionary = Items.RECIPES[chosen[0]]
+	var cost2: Dictionary = w.skills.cost(rr.cost)
 	var n: int = int(rr.n) + w.skills.make_bonus(rr.id)
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 12)
-	head.add_child(_icon(rr.id, 44))
-	var hv := VBoxContainer.new()
-	hv.add_theme_constant_override("separation", 0)
-	hv.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 24, PALE))
-	hv.add_child(_label("You have %d" % w.stock_count(rr.id), 15, DIM))
-	head.add_child(hv)
-	side.add_child(head)
-	side.add_child(_wrap(Items.info(rr.id).text, 17, PALE, 330))
+	side.add_child(_icon(rr.id, 72))
+	side.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 23, PALE))
+	side.add_child(_label("You have %d" % w.stock_count(rr.id), 15, DIM))
+	side.add_child(_wrap(Items.info(rr.id).text, 16, Color(PALE, 0.85), 220))
 	side.add_child(_gap(4))
-	side.add_child(_label("Needs", 17, GOLD))
 	for k in cost2:
 		var have: int = w.stock_count(k)
 		var need := int(cost2[k])
 		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 10)
-		line.add_child(_icon(k, 24))
-		var nm := _label(Items.iname(k), 17, PALE)
+		line.add_theme_constant_override("separation", 8)
+		line.add_child(_icon(k, 26))
+		var nm := _label(Items.iname(k), 16, PALE)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(nm)
-		line.add_child(_label("%d / %d" % [mini(have, 9999), need], 17, Color(0.6, 0.85, 0.55) if have >= need else Color(0.9, 0.45, 0.38)))
+		line.add_child(_label("%d / %d" % [mini(have, 9999), need], 16, OK_C if have >= need else NO_C))
 		side.add_child(line)
-	side.add_child(_gap(8))
-	if not chosen[3]:
-		side.add_child(_label("Made at a " + ("workbench." if rr.bench else "cooking station."), 17, DIM))
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(fill)
+	if not chosen[1]:
+		side.add_child(_wrap("Made at a %s." % ("workbench" if rr.bench else "cooking station"), 17, NO_C, 220))
 		return
 	var most := 99
 	for k in cost2:
 		most = mini(most, w.stock_count(k) / maxi(1, int(cost2[k])))
-	var b1 := _action("Make", func(): _make(rr), "Enter")
-	b1.disabled = most < 1
+	var b1 := _primary("Make   [Enter]", func(): _make(rr), most >= 1)
 	side.add_child(b1)
-	if most >= 5:
-		side.add_child(_action("Make 5", func(): _make(rr, 5)))
-	if most >= 2:
-		side.add_child(_action("Make all %d" % most, func(): _make(rr, most)))
+	var more := HBoxContainer.new()
+	more.add_theme_constant_override("separation", 8)
+	var b5 := _secondary("Make 5", func(): _make(rr, 5), most >= 5)
+	var ba := _secondary("Make all (%d)" % most if most >= 2 else "Make all", func(): _make(rr, most), most >= 2)
+	for b in [b5, ba]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		more.add_child(b)
+	side.add_child(more)
 
 
-func _recipe_row(i: int, r: Dictionary, ok: bool, here: bool) -> Button:
+const OK_C := Color(0.6, 0.85, 0.55)
+const NO_C := Color(0.9, 0.48, 0.4)
+
+
+## One thing that can be made: its picture, its name, what it takes, and a button to make it.
+func _recipe_card(i: int, here: bool, ok: bool) -> PanelContainer:
+	var r: Dictionary = Items.RECIPES[i]
+	var on := i == _rsel
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(272, 0)
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(GOLD, 0.1) if on else Color(1, 1, 1, 0.045)
+	sb.border_color = Color(GOLD, 0.85) if on else Color(1, 1, 1, 0.08)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(10)
+	card.add_theme_stylebox_override("panel", sb)
+	card.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_rsel = i
+			_redraw())
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var g := WGlyph.make(r.id, 46)
+	g.dim = not here
+	head.add_child(g)
+	var hv := VBoxContainer.new()
+	hv.add_theme_constant_override("separation", 0)
+	hv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var n: int = int(r.n) + w.skills.make_bonus(r.id)
+	hv.add_child(_label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 17, PALE if here else DIM))
+	var where := "Workbench" if r.bench else ("Cooking station" if r.get("fire", false) else "By hand")
+	hv.add_child(_label(where, 13, Color(DIM, 0.85) if here else NO_C))
+	head.add_child(hv)
+	v.add_child(head)
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 10)
+	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var cost: Dictionary = w.skills.cost(r.cost)
+	for k in cost:
+		var have: int = w.stock_count(k)
+		var c := HBoxContainer.new()
+		c.add_theme_constant_override("separation", 3)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(WGlyph.make(k, 20, false))
+		c.add_child(_label(str(cost[k]), 15, OK_C if have >= int(cost[k]) else NO_C))
+		c.tooltip_text = Items.iname(k)
+		foot.add_child(c)
+	var fill := Control.new()
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.add_child(fill)
+	if here:
+		var mb := _primary("Make", func(): _rsel = i; _make(r), ok, 15)
+		mb.custom_minimum_size = Vector2(72, 0)
+		foot.add_child(mb)
+	v.add_child(foot)
+	return card
+
+
+## A small rounded mark of a place: lit when you are at it.
+func _pill(t: String, on: bool) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(OK_C, 0.12) if on else Color(1, 1, 1, 0.04)
+	sb.border_color = Color(OK_C, 0.5) if on else Color(1, 1, 1, 0.1)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(_label(("●  " if on else "○  ") + t, 15, OK_C if on else DIM))
+	return p
+
+
+## A group in a left-hand rail, with how many are ready in it.
+func _rail_btn(t: String, n: int, on: bool, cb: Callable) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(540, 44)
+	b.text = t
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(GOLD, 0.14) if i == _rsel else Color(1, 1, 1, 0.03)
-	sb.border_color = Color(GOLD, 0.8) if i == _rsel else Color(1, 1, 1, 0.0)
-	sb.border_width_left = 3
-	b.add_theme_stylebox_override("normal", sb)
-	var hs := sb.duplicate()
-	hs.bg_color = Color(1, 1, 1, 0.09) if i != _rsel else Color(GOLD, 0.2)
-	b.add_theme_stylebox_override("hover", hs)
-	b.add_theme_stylebox_override("pressed", hs)
-	var row := HBoxContainer.new()
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 10
-	row.offset_right = -10
-	row.add_theme_constant_override("separation", 10)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := _icon(r.id, 28)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ic)
-	var n: int = int(r.n) + w.skills.make_bonus(r.id)
-	var nm := _label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 18, PALE if ok else DIM)
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(nm)
-	var cl := _label(Items.cost_text(w.skills.cost(r.cost)), 15, DIM if ok else Color(DIM, 0.55))
-	row.add_child(cl)
-	if not here or not ok:
-		ic.modulate.a = 0.45
-	b.add_child(row)
-	b.pressed.connect(func(): _rsel = i; _redraw())
+	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_color_override("font_color", GOLD if on else PALE)
+	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	for st in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GOLD, 0.12) if on else Color(1, 1, 1, 0.06 if st == "hover" else 0.0)
+		sb.border_color = GOLD if on else Color(0, 0, 0, 0)
+		sb.border_width_left = 3
+		sb.set_corner_radius_all(4)
+		sb.content_margin_left = 12
+		sb.content_margin_top = 7
+		sb.content_margin_bottom = 7
+		b.add_theme_stylebox_override(st, sb)
+	if n > 0:
+		var k := _label(str(n), 14, OK_C)
+		k.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		k.offset_left = -40
+		k.offset_right = -10
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		b.add_child(k)
+	b.pressed.connect(cb)
+	return b
+
+
+## The main thing to do: a filled gold button. Greyed when it cannot be done.
+func _primary(t: String, cb: Callable, enabled := true, size := 18) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.disabled = not enabled
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", Color(0.1, 0.08, 0.05))
+	b.add_theme_color_override("font_hover_color", Color(0.05, 0.04, 0.02))
+	b.add_theme_color_override("font_pressed_color", Color(0.05, 0.04, 0.02))
+	b.add_theme_color_override("font_disabled_color", Color(DIM, 0.5))
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": GOLD, "hover": GOLD.lightened(0.15), "pressed": GOLD.darkened(0.15), "disabled": Color(1, 1, 1, 0.06)}[st]
+		sb.set_corner_radius_all(5)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 6
+		sb.content_margin_bottom = 6
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(cb)
+	return b
+
+
+## A lesser thing to do: outlined.
+func _secondary(t: String, cb: Callable, enabled := true, size := 16) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.disabled = not enabled
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", PALE)
+	b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	b.add_theme_color_override("font_disabled_color", Color(DIM, 0.4))
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1, 1, 1, 0.1 if st == "hover" else 0.03)
+		sb.border_color = Color(GOLD, 0.6) if st != "disabled" else Color(1, 1, 1, 0.08)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(5)
+		sb.content_margin_left = 10
+		sb.content_margin_right = 10
+		sb.content_margin_top = 5
+		sb.content_margin_bottom = 5
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(cb)
 	return b
 
 
@@ -1390,13 +1620,13 @@ func _draw_container() -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 8)
 	left.add_child(_label("In the " + name.to_lower() if cpid < 0 else name, 20, GOLD))
-	left.add_child(_slot_grid(bag, func(i, _r): w.shared("_rq_take", [Net.me(), _cont_id, i]), 3, -1, [], 136))
+	left.add_child(_slot_grid(bag, func(i, _r): w.shared("_rq_take", [Net.me(), _cont_id, i]), 4, -1, [], 80))
 	left.add_child(_action("Take everything", func(): _take_all(), "[%s]" % Game.key_text("reload")))
 	hb.add_child(left)
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 8)
 	right.add_child(_label("Your pack", 20, GOLD))
-	right.add_child(_slot_grid(w.inv, func(i, _r): _put(i), 4, -1, [], 136))
+	right.add_child(_slot_grid(w.inv, func(i, _r): _put(i), 6, -1, [], 80))
 	if cpid >= 0:
 		right.add_child(_action("Store what's already here", func(): _store_matching(), "Adds to stacks in the chest"))
 	hb.add_child(right)

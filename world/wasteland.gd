@@ -4708,6 +4708,56 @@ func debug_menushot2() -> void:
 	ui.open_skills()
 
 
+## Testing aid: every screen in turn, four seconds each, for pictures.
+## pack, making, arms, chest, talk, trade, journal, skills, map, rest
+func debug_tour() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for it in [["wood", 30], ["scrap", 20], ["cloth", 8], ["stone", 20], ["meat", 3], ["shells", 30], ["bandage", 2], ["coin", 6], ["herb", 5], ["fittings_fine", 1]]:
+		inv.add(it[0], it[1])
+	skills.points = 2
+	ui.debug_bench = true
+	var steps := [
+		func(): ui.open_inventory("pack"),
+		func(): ui.open_inventory("craft"),
+		func(): ui.open_inventory("arms"),
+		func():
+			builder._rq_build(1, "chest", player.global_position + Vector3(3, 0, 0), 0.0)
+			await get_tree().create_timer(0.3).timeout
+			_rq_open(1, "p%d" % pieces.keys()[0]),
+		func():
+			var pid: String = WPlaces.PEOPLE.keys()[0]
+			for k in WPlaces.PEOPLE:
+				if Items.STOCK.has(WPlaces.PEOPLE[k].role):
+					pid = k
+					break
+			ui.open_dialogue(pid),
+		func():
+			ui._tsel = "bandage"
+			ui._tside = "buy"
+			ui._trade(),
+		func(): ui.open_journal(),
+		func(): ui.open_skills(),
+		func(): ui.open_map(),
+		func(): ui.ask_rest("bed"),
+	]
+	for f in steps:
+		ui.close_all()
+		await get_tree().process_frame
+		await f.call()
+		await get_tree().create_timer(4.0).timeout
+
+
+## Testing aid: the making screen at a bench, then the pack.
+func debug_craftshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for it in [["wood", 30], ["scrap", 20], ["cloth", 8], ["stone", 20], ["meat", 3], ["shells", 30], ["bandage", 2], ["coin", 6], ["herb", 5], ["bone", 6]]:
+		inv.add(it[0], it[1])
+	ui.debug_bench = true
+	ui.open_inventory("craft" if not "pack" in OS.get_cmdline_user_args() else "pack")
+
+
 func debug_restshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
