@@ -22,27 +22,37 @@ const WEAR := {
 	"hood": {"name": "Pilgrim's Hood", "slot": "head", "guard": 0.03, "cost": {"cloth": 3}, "look": {"head": 1}, "text": "Keeps the ash out of your eyes."},
 	"wide_hat": {"name": "Wide-brim Hat", "slot": "head", "guard": 0.03, "weary": 0.85, "cost": {"cloth": 3, "bone": 1}, "look": {"head": 2}, "text": "Shade from the sun. You tire more slowly."},
 	"iron_helm": {"name": "Iron Helm", "slot": "head", "guard": 0.12, "plate": 50, "cost": {"scrap": 10, "cloth": 1}, "look": {"head": 4}, "text": "Heavy, and it rings when struck. Dents, and can be beaten out at the bench."},
-	"gas_mask": {"name": "Gas Mask", "slot": "head", "guard": 0.06, "hunger": 0.9, "cost": {"scrap": 6, "cloth": 2, "oil": 1}, "look": {"head": 5}, "text": "Old rubber and glass. The air tastes of nothing."},
+	"gas_mask": {"name": "Gas Mask", "slot": "face", "guard": 0.06, "hunger": 0.9, "ward": "forest", "cost": {"scrap": 6, "cloth": 2, "oil": 1}, "look": {"head": 5}, "text": "Old rubber and glass. The air tastes of nothing, and the forest's spores stay out."},
+	"spore_mask": {"name": "Spore Mask", "slot": "face", "ward": "forest", "cost": {"cloth": 3, "bone": 4, "herb": 3}, "look": {"mask": 1}, "text": "Wear it in the Dead Forest. Keeps out the spores that eat at you."},
+	"goggles": {"name": "Salt Goggles", "slot": "eyes", "ward": "salt", "cost": {"red_iron": 4, "heartwood": 2, "cloth": 2}, "look": {"eyes": 1}, "text": "Wear them on the Salt Flats. The white glare no longer burns."},
+	"veil": {"name": "Dust Veil", "slot": "neck", "ward": "dunes", "cost": {"cloth": 4, "herb": 2}, "look": {"neck": 1}, "text": "Wear it in the Rust Dunes. Keeps out the heat: your breath comes back as it should."},
+	"scarf": {"name": "Wool Scarf", "slot": "neck", "weary": 0.92, "cost": {"cloth": 3}, "look": {"neck": 2}, "text": "Warm at night. You tire a little more slowly."},
 	"padded_coat": {"name": "Padded Coat", "slot": "body", "guard": 0.08, "cost": {"cloth": 6}, "look": {"coat": 2}, "text": "Quilted cloth. Turns a claw, now and then."},
 	"duster": {"name": "Oilcloth Duster", "slot": "body", "guard": 0.06, "hunger": 0.85, "cost": {"cloth": 8, "oil": 1}, "look": {"coat": 3}, "text": "Long and waxed. Keeps the body's warmth in."},
 	"bone_mail": {"name": "Bone Mail", "slot": "body", "guard": 0.15, "speed": 0.97, "plate": 70, "cost": {"bone": 12, "cloth": 4}, "look": {"coat": 4}, "text": "Plates of bone sewn on leather. Clatters as you walk."},
 	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "plate": 120, "cost": {"scrap": 18, "cloth": 4}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
 	"salt_plate": {"name": "Salt-crust Plate", "slot": "body", "guard": 0.3, "speed": 0.94, "weary": 1.1, "plate": 200, "cost": {"scrap": 24, "stone": 8, "hide": 4}, "look": {"coat": 1}, "text": "Iron plates cured in salt until they turn a blade. The best the waste can make."},
+	"ember_cloak": {"name": "Ember Cloak", "slot": "cloak", "guard": 0.03, "ward": "basalt", "cost": {"salt_crystal": 5, "tar": 4, "hide": 4}, "look": {"cloak": 1}, "text": "Wear it on the Basalt Heights. The heat of the stone no longer burns."},
+	"travel_cloak": {"name": "Travelling Cloak", "slot": "cloak", "guard": 0.03, "hunger": 0.92, "cost": {"cloth": 6, "hide": 2}, "look": {"cloak": 2}, "text": "Heavy wool against wind and ash. You hunger a little more slowly."},
+	"hide_gloves": {"name": "Hide Gloves", "slot": "hands", "guard": 0.02, "gather": 1.15, "cost": {"hide": 3, "cloth": 1}, "look": {"hands": 1}, "text": "Tough hands. You gather a little more."},
+	"tar_boots": {"name": "Tar Boots", "slot": "feet", "guard": 0.03, "ward": "marsh", "cost": {"heartwood": 4, "red_iron": 2, "hide": 3}, "text": "Wear them in the Tar Marsh. The tar no longer holds your feet."},
 	"wraps": {"name": "Foot Wraps", "slot": "feet", "guard": 0.01, "speed": 1.03, "cost": {"cloth": 2}, "text": "Better than bare feet on hot ash."},
 	"boots": {"name": "Hobnail Boots", "slot": "feet", "guard": 0.04, "speed": 1.05, "cost": {"cloth": 2, "bone": 2, "scrap": 3}, "text": "Sure footing. You walk faster."},
 }
-const WEAR_SLOTS := [["head", "Head"], ["body", "Body"], ["feet", "Feet"]]
+const WEAR_SLOTS := [["head", "Head"], ["eyes", "Eyes"], ["face", "Face"], ["neck", "Neck"], ["body", "Body"], ["cloak", "Cloak"], ["hands", "Hands"], ["feet", "Feet"]]
 
 
 ## The sum of what is worn: guard, and the speed, hunger and weariness it brings.
 static func worn(a: Dictionary) -> Dictionary:
-	var out := {"guard": 0.0, "speed": 1.0, "hunger": 1.0, "weary": 1.0}
+	var out := {"guard": 0.0, "speed": 1.0, "hunger": 1.0, "weary": 1.0, "gather": 1.0, "wards": []}
 	for slot in a.get("wear", {}):
 		var it: Dictionary = WEAR.get(str(a.wear[slot]), {})
 		# Broken plate still covers a little, but not much
 		out.guard += float(it.get("guard", 0.0)) * (0.35 if plate_left(a, slot) == 0.0 else 1.0)
-		for k in ["speed", "hunger", "weary"]:
+		for k in ["speed", "hunger", "weary", "gather"]:
 			out[k] *= float(it.get(k, 1.0))
+		if it.has("ward"):
+			out.wards.append(it.ward)
 	out.guard = minf(out.guard, 0.45)
 	return out
 
@@ -286,8 +296,10 @@ static func clean(d) -> Dictionary:
 	var wr = d.get("wear", {})
 	if wr is Dictionary:
 		for slot in wr:
-			if WEAR.has(str(wr[slot])) and WEAR[str(wr[slot])].slot == slot:
-				a.wear[slot] = str(wr[slot])
+			var wid := str(wr[slot])
+			# Kept in the slot it belongs in now, should that have moved (the gas mask went to the face)
+			if WEAR.has(wid) and not a.wear.has(WEAR[wid].slot):
+				a.wear[WEAR[wid].slot] = wid
 	var gd = d.get("grade", {})
 	if gd is Dictionary:
 		for key in gd:

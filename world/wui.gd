@@ -27,7 +27,7 @@ var _cont_id := ""
 var _tab := "pack"
 var _desc: Label
 var _map_tex: ImageTexture
-var _map_task := -1           ## the map's picture, drawn on a worker thread once the world stands
+var _map_task := -1           ## rows of the map's picture drawn so far (-1: not begun)
 var _map_img: Image
 
 
@@ -35,7 +35,18 @@ var _map_img: Image
 func prepare_map() -> void:
 	if _map_task >= 0 or _map_tex != null or w.terrain == null:
 		return
-	_map_task = WorkerThreadPool.add_task(func(): _map_img = w.terrain.map_image(1024), false, "map picture")
+	# Drawn a few rows a frame on the main thread: no freeze when the map first opens, and no
+	# worker left reading a world that has gone (a thread here crashed hosted games)
+	_map_task = 0
+	var img := Image.create(1024, 1024, false, Image.FORMAT_RGB8)
+	while _map_task < 1024:
+		if not is_instance_valid(w) or not is_inside_tree() or w.terrain == null:
+			return
+		w.terrain.map_rows(img, _map_task, mini(_map_task + 16, 1024))
+		_map_task += 16
+		await get_tree().process_frame
+	if _map_tex == null:
+		_map_img = img
 var _fog_img: Image
 var _fog_tex: ImageTexture
 var _map_draw: MapDraw
@@ -703,7 +714,7 @@ func _pack_header() -> void:
 	right.add_theme_constant_override("separation", 6)
 	right.add_child(WGlyph.make("salt", 22, false))
 	right.add_child(_label("%d" % w.inv.count("salt"), 18, PALE))
-	_header("Pack", [["pack", "Carried"], ["craft", "Make"], ["arms", "Arms"], ["build", "Build"]], _tab,
+	_header("Pack", [["pack", "Carried"], ["wear", "Wear"], ["craft", "Make"], ["arms", "Arms"], ["build", "Build"]], _tab,
 		func(t): _tab = t; _redraw(), right)
 
 
@@ -805,6 +816,9 @@ func _draw_pack() -> void:
 		return
 	if _tab == "build":
 		_draw_build_guide()
+		return
+	if _tab == "wear":
+		_draw_wear()
 		return
 	# Sort tools along the top, then the pack on the left and the chosen thing on the right
 	var bar := HBoxContainer.new()
@@ -1075,7 +1089,7 @@ func _arms_btn(text: String, cost: Dictionary, bench: bool, done: Callable) -> B
 	return b
 
 
-const ARMS_GROUPS := [["guns", "Guns"], ["blades", "Blades"], ["thrown", "Thrown"], ["kits", "Kits"], ["relics", "Relics"], ["wear", "Clothing"]]
+const ARMS_GROUPS := [["guns", "Guns"], ["blades", "Blades"], ["thrown", "Thrown"], ["kits", "Kits"], ["relics", "Relics"]]
 var _acat := "guns"
 var _asel := ""
 
@@ -1220,7 +1234,7 @@ func _draw_arms() -> void:
 			for id in WArms.WEAR:
 				var it: Dictionary = WArms.WEAR[id]
 				var on: bool = str(a.wear.get(it.slot, "")) == id
-				var slot_name: String = {"head": "Head", "body": "Body", "feet": "Feet"}[it.slot]
+				var slot_name: String = it.slot.capitalize()
 				if on:
 					rows.append([id, it.name, "Worn  ·  %s" % slot_name, GOLD, {}, "Take off", func(): _unwear(it.slot), true])
 				elif w.inv.count(id) > 0:
@@ -1606,6 +1620,124 @@ func _unwear(slot: String) -> void:
 	w._armour_hud()
 	_redraw()
 
+
+# ------------------------------------------------------------------ wear: what you have on, slot by slot
+
+var _wslot := "head"
+
+
+## The clothing screen: you as you stand, a place for each thing worn, and what can go there:
+## worn, in the pack, or made here at a workbench. A land's ward goes on like any other piece.
+func _draw_wear() -> void:
+	var a: Dictionary = w.arms
+	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	var wn := WArms.worn(a)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	top.add_child(_pill("Workbench" if bench else "Making clothes needs a workbench", bench))
+	if wn.guard > 0.0:
+		top.add_child(_pill("Turns aside %d%% of harm" % int(round(wn.guard * 100.0)), true))
+	for bn in wn.wards:
+		top.add_child(_pill("Warded: %s" % str(WTerrain.BIOME_NAMES.get(bn, bn)).trim_prefix("The "), true))
+	_body.add_child(top)
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 18)
+	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(split)
+	# You, dressed as you are
+	var me := VBoxContainer.new()
+	me.add_theme_constant_override("separation", 6)
+	me.custom_minimum_size.x = 280
+	split.add_child(me)
+	me.add_child(_figure_preview(Vector2(280, 420)))
+	var lines: Array = []
+	if wn.speed != 1.0:
+		lines.append("Pace %+d%%" % int(round((wn.speed - 1.0) * 100.0)))
+	if wn.hunger != 1.0:
+		lines.append("Hunger %+d%%" % int(round((wn.hunger - 1.0) * 100.0)))
+	if wn.weary != 1.0:
+		lines.append("Tiring %+d%%" % int(round((wn.weary - 1.0) * 100.0)))
+	if wn.gather != 1.0:
+		lines.append("Gathering %+d%%" % int(round((wn.gather - 1.0) * 100.0)))
+	if not lines.is_empty():
+		me.add_child(_wrap("   ".join(lines), 15, DIM, 280))
+	# A place for each thing worn
+	var rail := VBoxContainer.new()
+	rail.add_theme_constant_override("separation", 4)
+	rail.custom_minimum_size.x = 190
+	split.add_child(rail)
+	for sl in WArms.WEAR_SLOTS:
+		var on := str(a.wear.get(sl[0], ""))
+		var t: String = sl[1] + ("\n   " + WArms.WEAR[on].name if on != "" else "\n   nothing")
+		var b := _rail_btn(t, 0, sl[0] == _wslot, func(): _wslot = sl[0]; _redraw())
+		rail.add_child(b)
+	# What can go there
+	var grid := _card_grid()
+	split.add_child(grid.get_parent())
+	for id in WArms.WEAR:
+		var it: Dictionary = WArms.WEAR[id]
+		if it.slot != _wslot:
+			continue
+		var sub := _wear_sub(it)
+		if str(a.wear.get(_wslot, "")) == id:
+			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass))
+		elif w.inv.count(id) > 0:
+			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass))
+		else:
+			var c: Dictionary = w.skills.cost(it.cost)
+			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass))
+
+
+## A worn thing's gifts in a few words.
+func _wear_sub(it: Dictionary) -> String:
+	var bits: Array = []
+	if float(it.get("guard", 0.0)) > 0.0:
+		bits.append("guard %d%%" % int(round(float(it.guard) * 100.0)))
+	if it.has("ward"):
+		bits.append("ward")
+	for k in [["speed", "pace"], ["hunger", "hunger"], ["weary", "tiring"], ["gather", "gathering"]]:
+		if it.has(k[0]):
+			bits.append("%s %+d%%" % [k[1], int(round((float(it[k[0]]) - 1.0) * 100.0))])
+	return ("  ·  " + ", ".join(bits)) if not bits.is_empty() else ""
+
+
+## You as you stand now, turning slowly, in what you wear.
+func _figure_preview(sz: Vector2) -> SubViewportContainer:
+	var box := SubViewportContainer.new()
+	box.stretch = true
+	box.custom_minimum_size = sz
+	var vp := SubViewport.new()
+	vp.size = Vector2i(sz)
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.msaa_3d = Viewport.MSAA_4X
+	box.add_child(vp)
+	var cam := Camera3D.new()
+	cam.fov = 30
+	cam.position = Vector3(0, 1.05, 4.1)
+	vp.add_child(cam)
+	var key := DirectionalLight3D.new()
+	key.rotation = Vector3(-0.6, 0.5, 0)
+	key.light_energy = 2.0
+	vp.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation = Vector3(-0.2, -2.4, 0)
+	fill.light_energy = 0.6
+	vp.add_child(fill)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_CLEAR_COLOR
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.5, 0.48, 0.45)
+	e.ambient_light_energy = 1.3
+	env.environment = e
+	vp.add_child(env)
+	var fig := Figure.new().setup(Game.shown_look())
+	fig.rotation.y = 0.5
+	vp.add_child(fig)
+	var tw := fig.create_tween().set_loops()
+	tw.tween_property(fig, "rotation:y", 0.5 + TAU, 14.0).from(0.5)
+	return box
 
 ## The trials' own words name fixed keys; in the waste the keys are whatever was set.
 func _waste_text(t: String) -> String:
@@ -2616,9 +2748,7 @@ const MAP_VIEW := 640.0
 func _draw_map() -> void:
 	_clear()
 	if _map_tex == null:
-		if _map_task >= 0:
-			WorkerThreadPool.wait_for_task_completion(_map_task)
-			_map_task = -1
+		_map_task = 1024   # whatever is left is drawn at once below; the rows above stop
 		_map_tex = ImageTexture.create_from_image(_map_img if _map_img else w.terrain.map_image(1024))
 		_map_img = null
 		_fog_img = Image.create(Wasteland.REVEAL_N, Wasteland.REVEAL_N, false, Image.FORMAT_RGBA8)

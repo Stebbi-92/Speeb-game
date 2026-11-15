@@ -302,10 +302,17 @@ func build(m: Material) -> void:
 ## The whole waste drawn from above, for the map: shaded relief in the land's own colours.
 func map_image(px := 512) -> Image:
 	var img := Image.create(px, px, false, Image.FORMAT_RGB8)
+	map_rows(img, 0, px)
+	return img
+
+
+## Draws rows j0..j1 of the map picture into img.
+func map_rows(img: Image, j0: int, j1: int) -> void:
+	var px := img.get_width()
 	var half := N * CELL * 0.5
 	var step := N * CELL / px
 	var light := Vector3(-0.6, 0.7, -0.4).normalized()
-	for j in px:
+	for j in range(j0, j1):
 		for i in px:
 			var x := -half + (i + 0.5) * step
 			var z := -half + (j + 0.5) * step
@@ -319,4 +326,3 @@ func map_image(px := 512) -> Image:
 			if rd > 0.3:
 				c = c.lerp(Color(0.86, 0.74, 0.52), 0.8)
 			img.set_pixel(i, j, c)
-	return img

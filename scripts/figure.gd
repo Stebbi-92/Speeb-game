@@ -42,12 +42,19 @@ var _legs: Array = []
 var _arms: Array = []
 
 
+## Gear of the waste worn over the look: goggles, a mask, a veil or scarf, a cloak, gloves (0 = none).
+const GEAR := {"eyes": 2, "mask": 2, "neck": 3, "cloak": 3, "hands": 2}
+
+
 static func clean(l) -> Dictionary:
 	var out := DEFAULT.duplicate()
 	if l is Dictionary:
 		for k in OPTIONS:
 			if l.has(k):
 				out[k] = clampi(int(l[k]), 0, OPTIONS[k].size() - 1)
+		for k in GEAR:
+			if l.has(k):
+				out[k] = clampi(int(l[k]), 0, int(GEAR[k]) - 1)
 	return out
 
 
@@ -150,6 +157,29 @@ func rebuild() -> void:
 				_cyl(head, 0.03, 0.02, Vector3(0.045 * side, 0.02, 0.135), _mat(Color(0.5, 0.55, 0.5), 0.6, 0.2))
 			_cyl(head, 0.04, 0.07, Vector3(0, -0.06, 0.14), dark)
 			_sphere(head, 0.12, Vector3(0, 0.03, -0.01), dark).scale = Vector3(1, 0.95, 0.95)
+	# Gear of the waste over the face
+	if int(L.get("eyes", 0)) == 1:
+		var glass := _mat(Color(0.75, 0.55, 0.3), 0.5, 0.15)
+		for side in [-1, 1]:
+			_cyl(head, 0.03, 0.03, Vector3(0.045 * side, 0.025, 0.115), glass, Vector3(PI / 2, 0, 0))
+		var strap := _cyl(head, 0.125, 0.025, Vector3(0, 0.025, 0), leather, Vector3.ZERO)
+		strap.scale = Vector3(0.95, 1, 1.0)
+	if int(L.get("mask", 0)) == 1:
+		_box(head, Vector3(0.15, 0.08, 0.06), Vector3(0, -0.05, 0.1), _mat(Color(0.42, 0.46, 0.34), 0.0, 0.9))
+		_cyl(head, 0.035, 0.05, Vector3(0, -0.06, 0.14), _mat(Color(0.25, 0.25, 0.22), 0.4, 0.5), Vector3(PI / 2, 0, 0))
+	match int(L.get("neck", 0)):
+		1:
+			_cyl(self, 0.09, 0.08, Vector3(0, 1.56, 0), _mat(Color(0.72, 0.6, 0.45), 0.0, 1.0), Vector3.ZERO)
+			_box(head, Vector3(0.2, 0.1, 0.05), Vector3(0, -0.07, 0.1), _mat(Color(0.72, 0.6, 0.45), 0.0, 1.0))
+		2:
+			_cyl(self, 0.1, 0.1, Vector3(0, 1.55, 0), cloth2, Vector3.ZERO)
+			_box(self, Vector3(0.07, 0.3, 0.02), Vector3(0.07, 1.36, 0.13), cloth2)
+	match int(L.get("cloak", 0)):
+		1, 2:
+			var cc := _mat(Color(0.45, 0.14, 0.1), 0.0, 0.9) if int(L.cloak) == 1 else _mat(dye.darkened(0.5), 0.0, 0.95)
+			var cl := _box(self, Vector3(0.58 * w, 1.2, 0.04), Vector3(0, 0.88, -0.17), cc)
+			cl.rotation.x = 0.07
+			_box(self, Vector3(0.5 * w, 0.1, 0.3), Vector3(0, 1.48, -0.02), cc)
 	# The coat over all
 	match L.coat:
 		0:
@@ -180,7 +210,7 @@ func rebuild() -> void:
 		add_child(sh)
 		_arms.append(sh)
 		_box(sh, Vector3(0.11, 0.56, 0.12), Vector3(0, -0.27, 0), cloth if L.coat != 4 else cloth2)
-		_sphere(sh, 0.05, Vector3(0, -0.58, 0.0), skin)
+		_sphere(sh, 0.05 if int(L.get("hands", 0)) == 0 else 0.056, Vector3(0, -0.58, 0.0), skin if int(L.get("hands", 0)) == 0 else leather)
 	hand_r = Node3D.new()
 	_arms[1].add_child(hand_r)
 	hand_r.position = Vector3(0, -0.58, 0.05)

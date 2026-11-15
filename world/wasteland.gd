@@ -1227,13 +1227,13 @@ func land_at(p: Vector3) -> String:
 
 ## Whether this pilgrim carries the ward against a land's hardship (or the land has none).
 func warded(bn: String) -> bool:
-	return not LAND_WARD.has(bn) or inv.count(LAND_WARD[bn][0]) > 0
+	return not LAND_WARD.has(bn) or bn in WArms.worn(arms).wards
 
 
 func land_warning(bn: String) -> String:
 	if warded(bn):
 		return ""
-	return "\n%s Carry %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
+	return "\n%s Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
 
 
 ## How far the fellowship's arms have come: upgraded guns, fitted parts and experience. The forms
@@ -2680,7 +2680,7 @@ func _w_gathered(id: int, out: Array) -> void:
 		for it in out:
 			if it[0] in ["wood", "stone", "salt"]:
 				it[1] = int(it[1]) * 2
-	var gm: float = skills.gather_mult() * WRules.yield_mult()
+	var gm: float = skills.gather_mult() * WRules.yield_mult() * float(WArms.worn(arms).gather)
 	if gm != 1.0:
 		for it in out:
 			if it[0] != "coin":
@@ -3592,7 +3592,7 @@ func _visit_check() -> void:
 			seen_biomes[bn] = true
 			if seen_biomes.size() > 1:
 				award("biome")
-	player.speed_cap = 3.6 if bn == "marsh" and inv.count("tar_boots") <= 0 and settlement_at(player.global_position, 4.0) == "" else -1.0
+	player.speed_cap = 3.6 if bn == "marsh" and not warded("marsh") and settlement_at(player.global_position, 4.0) == "" else -1.0
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
@@ -5755,6 +5755,23 @@ func debug_power() -> void:
 	print("POWER base=%s grows=%s hp_grows=%s" % [is_equal_approx(p0, 1.0) or p0 < 1.1, p1 > p0 + 0.4, h1 > h0 * 1.3])
 	get_tree().quit()
 
+## Testing aid: a ward is worn in its slot and wards its land; taken off it no longer does; an old
+## save's gas mask moves from the head to the face.
+func debug_wear() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	inv.add("veil", 1)
+	var before := warded("dunes")
+	ui.open_inventory("wear")
+	ui._wear("veil")
+	var on := warded("dunes") and inv.count("veil") == 0 and str(arms.wear.get("neck", "")) == "veil"
+	ui._unwear("neck")
+	var off := not warded("dunes") and inv.count("veil") == 1
+	var moved := str(WArms.clean({"wear": {"head": "gas_mask"}}).wear.get("face", "")) == "gas_mask"
+	ui.close_all()
+	print("WEAR before=%s on=%s off=%s moved=%s" % [before, on, off, moved])
+	get_tree().quit()
+
 ## Testing aid: plate on both sides. A body shot on a Breaker is mostly soaked, a head shot and a
 ## piercing round are not, the plate breaks in the end; the survivor's own plate wears and is mended.
 func debug_armour() -> void:
@@ -6104,6 +6121,14 @@ func debug_screen() -> void:
 		inv.add(it[0], it[1])
 	skills.points = 2
 	ui.debug_bench = true
+	if which == "wear":
+		arms.wear["neck"] = "veil"
+		arms.wear["eyes"] = "goggles"
+		arms.wear["cloak"] = "ember_cloak"
+		arms.wear["hands"] = "hide_gloves"
+		inv.add("spore_mask", 1)
+		ui._wslot = "face"
+		rearm()
 	if which == "arms":
 		inv.add("fittings_rare", 2)
 		var g: String = arms.primary if arms.primary != "" else arms.owned[0]
@@ -6115,7 +6140,7 @@ func debug_screen() -> void:
 		ui._acat = "guns"
 		ui._asel = g
 	match which:
-		"pack", "craft", "arms", "build":
+		"pack", "craft", "arms", "build", "wear":
 			ui.open_inventory(which)
 		"chest":
 			builder._rq_build(1, "chest", player.global_position + Vector3(3, 0, 0), 0.0)
@@ -6377,11 +6402,11 @@ func debug_lands() -> void:
 	b.die(false)
 	player.place(spot["forest"] + Vector3(0, 0.5, 0), 0.0)
 	await get_tree().create_timer(1.0).timeout
-	inv.take("spore_mask", 99)
+	arms.wear.erase("face")
 	var h0 := player.health
 	await get_tree().create_timer(6.0).timeout
 	var bites := player.health < h0
-	inv.add("spore_mask", 1)
+	arms.wear["face"] = "spore_mask"
 	h0 = player.health
 	await get_tree().create_timer(6.0).timeout
 	var warded_ok := player.health >= h0

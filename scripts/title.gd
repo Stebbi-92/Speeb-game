@@ -463,7 +463,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	speeb.rotation.y = sin(_t * 0.15) * 0.35
 	# Speeb steps aside when a wide panel opens beside him
-	var aside: bool = (_col and _col.position.y < _col.get_parent().size.y * 0.5 - 380.0) or (_waste and _waste.visible)
+	var aside: bool = (is_instance_valid(_col) and _col.get_parent() and _col.position.y < _col.get_parent().size.y * 0.5 - 380.0) or (is_instance_valid(_waste) and _waste.visible)
 	_cam_off = lerpf(_cam_off, -4.2 if aside else 0.0, minf(1.0, delta * 3.0))
 	cam.position.x = sin(_t * 0.07) * 1.2 + _cam_off
 	cam.look_at(Vector3(_cam_off, 2.6, 0))
