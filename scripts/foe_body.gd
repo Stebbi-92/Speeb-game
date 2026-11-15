@@ -20,6 +20,7 @@ var anim: AnimationPlayer
 var hand: Node3D          ## the right arm, where a weapon is held
 var head_node: Node3D
 var muzzle: Node3D        ## the end of a gunman's rifle
+var _plate: Node3D        ## iron strapped to the chest, until it breaks
 var _now := ""
 var _once := 0.0          ## a one-off animation (a swing, a shot) still playing
 
@@ -149,6 +150,48 @@ func _maul() -> void:
 	head.material_override = m
 	head.position = Vector3(0, -0.9, 1.3)
 	hand.add_child(head)
+
+
+## Rough iron plates strapped over the chest (and the shoulders, for a heavy one).
+func wear_plate(heavy: bool) -> void:
+	var torso: Node3D = head_node.get_parent() if head_node else null
+	if torso == null:
+		return
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.6, 0.55, 0.48)
+	iron.metallic = 0.6
+	iron.roughness = 0.55
+	_plate = Node3D.new()
+	torso.add_child(_plate)
+	var bits := [[Vector3(0.72, 0.6, 0.07), Vector3(0, 0.8, 0.34)], [Vector3(0.72, 0.6, 0.07), Vector3(0, 0.8, -0.34)]]
+	if heavy:
+		bits.append([Vector3(0.36, 0.1, 0.56), Vector3(0.5, 1.24, -0.05)])
+		bits.append([Vector3(0.36, 0.1, 0.56), Vector3(-0.5, 1.24, -0.05)])
+	for b in bits:
+		var mi := MeshInstance3D.new()
+		var bx := BoxMesh.new()
+		bx.size = b[0]
+		mi.mesh = bx
+		mi.position = b[1]
+		mi.material_override = iron
+		_plate.add_child(mi)
+
+
+## The plate falls away in pieces.
+func break_plate() -> void:
+	if _plate == null:
+		return
+	for mi in _plate.get_children():
+		var at: Vector3 = (mi as Node3D).global_position
+		_plate.remove_child(mi)
+		get_tree().current_scene.add_child(mi)
+		mi.global_position = at
+		var tw := mi.create_tween()
+		tw.tween_property(mi, "global_position", at + Vector3(randf_range(-0.6, 0.6), -at.y + at.y - 0.9, randf_range(-0.6, 0.6)), 0.35)
+		tw.tween_interval(3.0)
+		tw.tween_callback(mi.queue_free)
+	_plate.queue_free()
+	_plate = null
 
 
 ## Plays a looping way of moving (walk, sprint, idle), unless a one-off is still playing.

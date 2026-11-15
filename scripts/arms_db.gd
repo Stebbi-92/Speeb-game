@@ -68,8 +68,11 @@ const ATTACHMENTS := {
 	"rapid_receiver": {"name": "Rapid Receiver", "slot": "receiver", "unlock": 99, "mods": {"rate": 0.87, "dmg": 0.95}, "text": "A lighter action. Fires faster, a little weaker."},
 	"heavy_receiver": {"name": "Heavy Receiver", "slot": "receiver", "unlock": 99, "mods": {"dmg": 1.15, "rate": 1.12, "kick": 1.1}, "text": "Takes a heavier load. Harder hits, slower shots."},
 	"smooth_receiver": {"name": "Smooth Action", "slot": "receiver", "unlock": 99, "mods": {"reload": 0.8}, "text": "Polished and oiled. Loads faster."},
+	# Loads: what the rounds are made of. "pierce" above 1 goes through plate; below 1, plate stops more.
+	"piercing_rounds": {"name": "Piercing Rounds", "slot": "ammo", "unlock": 99, "mods": {"pierce": 2.0, "dmg": 0.92}, "text": "Hardened tips. They go through plate, and hit flesh a little less."},
+	"hollow_rounds": {"name": "Hollow Rounds", "slot": "ammo", "unlock": 99, "mods": {"pierce": 0.5, "dmg": 1.18}, "text": "Soft-nosed. Cruel on flesh, useless on plate."},
 }
-const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine", "barrel": "Barrel", "stock": "Stock", "receiver": "Receiver"}
+const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine", "barrel": "Barrel", "stock": "Stock", "receiver": "Receiver", "ammo": "Load"}
 
 ## What the right mouse does to the view and the spread, per sight.
 const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15}}

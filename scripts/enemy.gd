@@ -41,12 +41,12 @@ const KINDS := {
 	"lurker": {"name": "Dune Lurker", "hp": 80.0, "size": 1.0, "speed": 6.0, "bite": 24.0, "radius": 0.5, "body": "cat",
 		"weak": {"shot": 1.4}, "tough": {"bullet": 0.7}, "text": "Swims under the sand and rises at your feet."},
 	# Not lesser forms: men and the dead, with bodies of their own (see FoeBody)
-	"unlit_gun": {"name": "Unlit Gunman", "hp": 60.0, "size": 1.0, "speed": 4.2, "bite": 9.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.62,
+	"unlit_gun": {"name": "Unlit Gunman", "hp": 60.0, "size": 1.0, "speed": 4.2, "bite": 9.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.62, "plate": 30.0,
 		"weak": {"bullet": 1.2, "blade": 1.3}, "tough": {}, "text": "One of those who put out the beacons. Keeps its distance and shoots. Close in, or out-shoot it."},
-	"unlit_blade": {"name": "Unlit Blade", "hp": 85.0, "size": 1.0, "speed": 5.0, "bite": 20.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.65,
+	"unlit_blade": {"name": "Unlit Blade", "hp": 85.0, "size": 1.0, "speed": 5.0, "bite": 20.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.65, "plate": 50.0,
 		"weak": {"blast": 1.4}, "tough": {}, "text": "Guards against shots from the front. Strike when it swings, or turn its blade with your own guard."},
-	"unlit_brute": {"name": "Unlit Breaker", "hp": 200.0, "size": 1.3, "speed": 3.4, "bite": 34.0, "radius": 0.6, "body": "model", "role": "melee", "head_y": 0.95,
-		"weak": {"blade": 1.3}, "tough": {"shot": 0.8}, "text": "A great maul and a slow swing. Step out of it, then strike."},
+	"unlit_brute": {"name": "Unlit Breaker", "hp": 200.0, "size": 1.3, "speed": 3.4, "bite": 34.0, "radius": 0.6, "body": "model", "role": "melee", "head_y": 0.95, "plate": 120.0,
+		"weak": {"blade": 1.3}, "tough": {"shot": 0.8}, "text": "A great maul, a slow swing, and thick plate. Aim for the head, or load piercing rounds."},
 	"hollow": {"name": "The Hollowed", "hp": 55.0, "size": 1.0, "speed": 2.4, "bite": 15.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.7,
 		"weak": {"fire": 1.8, "shot": 1.2}, "tough": {}, "text": "Pilgrims the night took. Slow, and never alone."},
 	"saltbone": {"name": "Salt-Bones", "hp": 40.0, "size": 0.9, "speed": 6.0, "bite": 13.0, "radius": 0.4, "body": "model", "role": "melee", "head_y": 0.62,
@@ -58,6 +58,8 @@ const KINDS := {
 }
 ## The kind of harm now being dealt. Set by whatever deals it, just before it does.
 static var harm_kind := ""
+static var harm_head := false    ## the blow is a head shot: it goes over any plate
+static var harm_pierce := 1.0    ## the load's bite on plate: above 1 goes through, below 1 is stopped more
 static var _smoke: Texture2D
 static var _blot: Texture2D
 static var blood_shown := 0   ## for the tests
@@ -122,6 +124,7 @@ var _busy := 0.0      ## a great one winding up a way: it does nothing else mean
 var _charge_t := 0.0  ## running down a line
 var _charge_dir := Vector3.ZERO
 var _charge_hit := {}
+var plate := 0.0      ## iron on the body: it soaks shots and cuts until it breaks
 var _spent := 0.0     ## worn out after a charge or a slam: it stands still and takes more harm
 var _wroth := false   ## past half its life: quicker in all its ways
 var _brood: Array = []
@@ -208,6 +211,9 @@ func _ready() -> void:
 		head.position.y = float(spec.head_y)
 		_flank = randf_range(-PI, PI)
 		_ammo = 9
+		plate = float(spec.get("plate", 0.0))
+		if plate > 0.0:
+			_fb.wear_plate(kind == "unlit_brute")
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -898,6 +904,21 @@ func _spit(target: Vector3) -> void:
 
 
 ## Returns true if the blow landed with force (false when a gilded face turned it aside).
+## A blow that lands on the plate: most of it is soaked and the plate is worn. Piercing rounds go
+## through nearly untouched, soft ones are stopped. The head is never covered.
+func _on_plate(amount: float) -> float:
+	var through := clampf(0.35 * harm_pierce * harm_pierce, 0.1, 1.0) if harm_kind != "blade" else 0.5
+	var soak := minf(plate, amount * (1.0 - through))
+	plate -= soak
+	level.sfx("hit_metal", -6, global_position + Vector3(0, 0.4, 0))
+	if plate <= 0.0:
+		plate = 0.0
+		if _fb:
+			_fb.break_plate()
+		level.sfx("hit_metal", 0, global_position + Vector3(0, 0.4, 0), 0.7)
+	return amount - soak
+
+
 func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive:
 		return false
@@ -913,15 +934,21 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		if facing.dot(incoming.normalized()) > 0.35:
 			full = false
 	_bar_t = 8.0
-	if full and amount > 0.5:
+	var plated := false
+	if plate > 0.0 and harm_kind in ["bullet", "shot", "blade"] and not harm_head:
+		amount = _on_plate(amount)
+		plated = plate > 0.0
+	if full and not plated and amount > 0.5:
 		bleed(from_dir, amount)
 	if puppet:
 		# The blow is sent to the host, who alone decides whether the form is undone
 		Net.hit(net_id, amount, from_dir)
 		_flash = 1.0 if full else 0.3
-		return full
+		return full and not plated
 	if not full:
 		amount *= 0.12
+	if plated:
+		full = false   # the hit marker shows it rang off iron
 	if _guard and harm_kind in ["bullet", "shot"]:
 		var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))
 		var inc := -from_dir

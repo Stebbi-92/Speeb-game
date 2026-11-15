@@ -1206,6 +1206,19 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		_stat(side, "Harm", str(int(info.dmg)), clampf(float(info.dmg) / 150.0, 0.05, 1.0))
 	if info.has("guard"):
 		_stat(side, "Turns aside", "%d%%" % int(round(float(info.guard) * 100.0)), clampf(float(info.guard) / 0.25, 0.05, 1.0))
+	if info.has("plate"):
+		var slot: String = info.slot
+		var on := str(a.wear.get(slot, "")) == id
+		var whole := float(info.plate)
+		var left := WArms.plate_left(a, slot) if on else float(a.get("plate", {}).get(id, whole))
+		_stat(side, "Plate", "%d / %d" % [int(left), int(whole)] + ("  broken" if left <= 0.0 else ""), clampf(left / whole, 0.02, 1.0))
+		var mc := WArms.mend_cost(a, slot) if on else {}
+		if not mc.is_empty():
+			var ok: bool = bench and w.stock_has_all(mc)
+			var b := _btn("Mend" if bench else "Mend (at a workbench)", func(): _arms_pay(mc, func(): WArms.mend(a, slot); w._armour_hud()), 17, GOLD if ok else Color(DIM, 0.6))
+			b.disabled = not ok
+			side.add_child(b)
+			side.add_child(_cost_line(mc))
 	side.add_child(_wrap(_waste_text(str(info.get("text", ""))), 15, Color(PALE, 0.8), 220))
 
 
@@ -1268,7 +1281,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	sc.add_child(list)
 	var last_slot := ""
 	var order: Array = parts.duplicate()
-	var slot_order := ["sight", "muzzle", "barrel", "grip", "stock", "receiver", "mag"]
+	var slot_order := ["sight", "muzzle", "barrel", "grip", "stock", "receiver", "mag", "ammo"]
 	order.sort_custom(func(x, y): return slot_order.find(ArmsDB.ATTACHMENTS[x].slot) < slot_order.find(ArmsDB.ATTACHMENTS[y].slot))
 	for m in order:
 		var at: Dictionary = ArmsDB.ATTACHMENTS[m]
@@ -1508,8 +1521,9 @@ func _wear(id: String) -> void:
 	w.arms.wear[slot] = id
 	if old != "":
 		w.give([[old, 1]])
-	w.sfx("cloth" if false else "carve", -10)
+	w.sfx("carve", -10)
 	w.rearm()
+	w._armour_hud()
 	_redraw()
 
 
@@ -1520,6 +1534,7 @@ func _unwear(slot: String) -> void:
 	w.arms.wear.erase(slot)
 	w.give([[old, 1]])
 	w.rearm()
+	w._armour_hud()
 	_redraw()
 
 

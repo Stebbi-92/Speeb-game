@@ -206,6 +206,7 @@ static func spec_of(g: String) -> Dictionary:
 	s.kick = float(s.kick) * md.kick
 	s["aim"] = md.aim
 	s["crit"] = md.crit
+	s["pierce"] = float(md.get("pierce", 1.0))
 	return s
 
 
@@ -703,7 +704,9 @@ func _try_fire() -> void:
 			lvl.puff(r.position, r.normal)
 	if not hits.is_empty():
 		lvl.hits += 1
+	LesserSpeeb.harm_pierce = float(s.get("pierce", 1.0))
 	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet", crits)
+	LesserSpeeb.harm_pierce = 1.0
 	_impact_sounds(hits)
 	_practise(gun(), hits)
 
@@ -727,7 +730,9 @@ static func deal(hits: Dictionary, dir: Vector3, harm := "", crits := {}) -> voi
 	var crit := false
 	for t in hits:
 		if is_instance_valid(t) and t.has_method("hurt"):
+			LesserSpeeb.harm_head = crits.has(t)
 			var full: bool = t.hurt(hits[t], dir)
+			LesserSpeeb.harm_head = false
 			LesserSpeeb.harm_kind = harm
 			if full and crits.has(t):
 				crit = true

@@ -2719,6 +2719,15 @@ func damage_player(amount: float, from: Vector3) -> void:
 				hud.hitmarker(false, true)
 				if amount < 1.0:
 					return
+	# Plate worn on the body (or the helm, now and then) soaks part of the blow and wears down
+	var pt := WArms.plate_take(arms, amount, randf() < 0.25)
+	if pt[0] < amount:
+		amount = pt[0]
+		sfx("hit_metal", -10)
+		_armour_hud()
+		if pt[1]:
+			hud.say("Your armour has broken. Mend it at a workbench.", 4.0)
+			sfx("hit_metal", 0)
 	player.shake(0.45)
 	if skills.rank("last_light") > 0:
 		for i in lit:
@@ -2747,6 +2756,18 @@ func damage_player(amount: float, from: Vector3) -> void:
 			_go_down()
 		else:
 			_perish("You fell in the dust, and the forms went on without you.")
+
+
+## How whole the worn plate is, shown as a thin bar over health (hidden when none is worn).
+func _armour_hud() -> void:
+	var have := 0.0
+	var whole := 0.0
+	for slot in ["head", "body"]:
+		var left := WArms.plate_left(arms, slot)
+		if left >= 0.0:
+			have += left
+			whole += float(WArms.WEAR[str(arms.wear[slot])].plate)
+	hud.set_armour(have / whole if whole > 0.0 else -1.0)
 
 
 func fail(message: String, _sound := "deny") -> void:
@@ -3026,6 +3047,7 @@ func apply_char(d: Dictionary) -> void:
 	player.weapon.set_ammo_state(d.get("arms"))
 	player.health = clampf(float(d.get("hp", 100.0)), 20.0, player.max_health)
 	hud.set_health(player.health / player.max_health, true)
+	_armour_hud()
 	var p = d.get("pos")
 	if p is Vector3:
 		player.place(p + Vector3(0, 0.3, 0), float(d.get("yaw", 0.0)))
@@ -4807,6 +4829,52 @@ func debug_foes() -> void:
 		e.hurt(9999.0, f)
 	await get_tree().create_timer(3.0).timeout
 	print("FOES dead_gone=%s" % (enemies.filter(func(e): return is_instance_valid(e) and e.is_alive()).size() <= n0))
+	get_tree().quit()
+
+
+## Testing aid: plate on both sides. A body shot on a Breaker is mostly soaked, a head shot and a
+## piercing round are not, the plate breaks in the end; the survivor's own plate wears and is mended.
+func debug_armour() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var e := spawn_at("unlit_brute", player.global_position + Vector3(0, 1.0, -8))
+	e.set_meta("raid", true)
+	e.hp = 5000.0
+	var p0: float = e.plate
+	LesserSpeeb.harm_kind = "bullet"
+	var h := e.hp
+	e.hurt(40.0, Vector3(0, 0, -1))
+	var body := h - e.hp
+	h = e.hp
+	LesserSpeeb.harm_head = true
+	e.hurt(40.0, Vector3(0, 0, -1))
+	LesserSpeeb.harm_head = false
+	var head := h - e.hp
+	h = e.hp
+	LesserSpeeb.harm_pierce = 2.0
+	e.hurt(40.0, Vector3(0, 0, -1))
+	LesserSpeeb.harm_pierce = 1.0
+	var pierce := h - e.hp
+	for i in 20:
+		e.hurt(40.0, Vector3(0, 0, -1))
+	LesserSpeeb.harm_kind = ""
+	print("ARMOUR foe plate=%d body=%.0f head=%.0f pierce=%.0f broken=%s" % [int(p0), body, head, pierce, e.plate <= 0.0])
+	e.die(false)
+	# The survivor's own
+	arms.wear["body"] = "scrap_plate"
+	player.max_health = 1000.0
+	player.health = 1000.0
+	var hp0 := player.health
+	for i in 12:
+		damage_player(30.0, player.global_position + Vector3(0, 0, -3))
+		player.dodge_t = 0.0
+	var left := WArms.plate_left(arms, "body")
+	var cost := WArms.mend_cost(arms, "body")
+	WArms.mend(arms, "body")
+	var back := WArms.clean(JSON.parse_string(JSON.stringify(arms)))
+	arms.plate = {"scrap_plate": 7.0}
+	var kept := WArms.clean(JSON.parse_string(JSON.stringify(arms)))
+	print("ARMOUR worn left=%d took=%d mend=%s whole=%d kept=%d" % [int(left), int(hp0 - player.health), cost, int(WArms.plate_left(back, "body")), int(WArms.plate_left(kept, "body"))])
 	get_tree().quit()
 
 

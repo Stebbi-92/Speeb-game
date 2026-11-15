@@ -50,6 +50,7 @@ var ammo_label: Label
 var kit_label: Label
 var scope_view: Control
 var health_bar: ProgressBar
+var armour_bar: ProgressBar    ## the waste: how whole the worn plate is
 var stamina_bar: ProgressBar   ## the waste: breath for running, dodging and heavy blows
 var hotbar: Hotbar
 var streak_label: Label
@@ -310,6 +311,16 @@ func _ready() -> void:
 	health_bar.add_theme_stylebox_override("fill", hfg)
 	health_bar.visible = false
 	root.add_child(health_bar)
+	armour_bar = ProgressBar.new()
+	armour_bar.show_percentage = false
+	armour_bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	armour_bar.position = Vector2(36, -57)
+	armour_bar.size = Vector2(260, 4)
+	armour_bar.max_value = 1.0
+	armour_bar.add_theme_stylebox_override("background", _flat(Color(0, 0, 0, 0.45)))
+	armour_bar.add_theme_stylebox_override("fill", _flat(Color(0.7, 0.74, 0.78)))
+	armour_bar.visible = false
+	root.add_child(armour_bar)
 	stamina_bar = ProgressBar.new()
 	stamina_bar.show_percentage = false
 	# Low in the middle, where the eye already is in a fight
@@ -782,6 +793,18 @@ func feed(text: String, c := Color(0.86, 0.80, 0.66)) -> void:
 func set_health(v: float, show: bool) -> void:
 	health_bar.visible = show
 	health_bar.value = v
+	armour_bar.visible = show and armour_bar.value >= 0.0 and armour_bar.has_meta("worn")
+
+
+## The plate bar: v is 0..1, or below 0 when no plate is worn.
+func set_armour(v: float) -> void:
+	if v < 0.0:
+		armour_bar.remove_meta("worn")
+		armour_bar.visible = false
+		return
+	armour_bar.set_meta("worn", true)
+	armour_bar.value = v
+	armour_bar.visible = health_bar.visible
 
 
 ## Shown only while it is not full. Red while winded, until the breath comes back.

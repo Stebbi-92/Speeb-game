@@ -21,12 +21,13 @@ const RELICS := {
 const WEAR := {
 	"hood": {"name": "Pilgrim's Hood", "slot": "head", "guard": 0.03, "cost": {"cloth": 3}, "look": {"head": 1}, "text": "Keeps the ash out of your eyes."},
 	"wide_hat": {"name": "Wide-brim Hat", "slot": "head", "guard": 0.03, "weary": 0.85, "cost": {"cloth": 3, "bone": 1}, "look": {"head": 2}, "text": "Shade from the sun. You tire more slowly."},
-	"iron_helm": {"name": "Iron Helm", "slot": "head", "guard": 0.12, "cost": {"scrap": 10, "cloth": 1}, "look": {"head": 4}, "text": "Heavy, and it rings when struck."},
+	"iron_helm": {"name": "Iron Helm", "slot": "head", "guard": 0.12, "plate": 50, "cost": {"scrap": 10, "cloth": 1}, "look": {"head": 4}, "text": "Heavy, and it rings when struck. Dents, and can be beaten out at the bench."},
 	"gas_mask": {"name": "Gas Mask", "slot": "head", "guard": 0.06, "hunger": 0.9, "cost": {"scrap": 6, "cloth": 2, "oil": 1}, "look": {"head": 5}, "text": "Old rubber and glass. The air tastes of nothing."},
 	"padded_coat": {"name": "Padded Coat", "slot": "body", "guard": 0.08, "cost": {"cloth": 6}, "look": {"coat": 2}, "text": "Quilted cloth. Turns a claw, now and then."},
 	"duster": {"name": "Oilcloth Duster", "slot": "body", "guard": 0.06, "hunger": 0.85, "cost": {"cloth": 8, "oil": 1}, "look": {"coat": 3}, "text": "Long and waxed. Keeps the body's warmth in."},
-	"bone_mail": {"name": "Bone Mail", "slot": "body", "guard": 0.15, "speed": 0.97, "cost": {"bone": 12, "cloth": 4}, "look": {"coat": 4}, "text": "Plates of bone sewn on leather. Clatters as you walk."},
-	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "cost": {"scrap": 18, "cloth": 4}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
+	"bone_mail": {"name": "Bone Mail", "slot": "body", "guard": 0.15, "speed": 0.97, "plate": 70, "cost": {"bone": 12, "cloth": 4}, "look": {"coat": 4}, "text": "Plates of bone sewn on leather. Clatters as you walk."},
+	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "plate": 120, "cost": {"scrap": 18, "cloth": 4}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
+	"salt_plate": {"name": "Salt-crust Plate", "slot": "body", "guard": 0.3, "speed": 0.94, "weary": 1.1, "plate": 200, "cost": {"scrap": 24, "stone": 8, "hide": 4}, "look": {"coat": 1}, "text": "Iron plates cured in salt until they turn a blade. The best the waste can make."},
 	"wraps": {"name": "Foot Wraps", "slot": "feet", "guard": 0.01, "speed": 1.03, "cost": {"cloth": 2}, "text": "Better than bare feet on hot ash."},
 	"boots": {"name": "Hobnail Boots", "slot": "feet", "guard": 0.04, "speed": 1.05, "cost": {"cloth": 2, "bone": 2, "scrap": 3}, "text": "Sure footing. You walk faster."},
 }
@@ -38,11 +39,54 @@ static func worn(a: Dictionary) -> Dictionary:
 	var out := {"guard": 0.0, "speed": 1.0, "hunger": 1.0, "weary": 1.0}
 	for slot in a.get("wear", {}):
 		var it: Dictionary = WEAR.get(str(a.wear[slot]), {})
-		out.guard += float(it.get("guard", 0.0))
+		# Broken plate still covers a little, but not much
+		out.guard += float(it.get("guard", 0.0)) * (0.35 if plate_left(a, slot) == 0.0 else 1.0)
 		for k in ["speed", "hunger", "weary"]:
 			out[k] *= float(it.get(k, 1.0))
 	out.guard = minf(out.guard, 0.45)
 	return out
+
+## What is left of the plate worn in a slot: -1 if it has none, else the points it can still soak.
+static func plate_left(a: Dictionary, slot: String) -> float:
+	# Kept by the piece, not the slot, so taking it off and on mends nothing
+	var id := str(a.get("wear", {}).get(slot, ""))
+	var it: Dictionary = WEAR.get(id, {})
+	if not it.has("plate"):
+		return -1.0
+	return float(a.get("plate", {}).get(id, it.plate))
+
+
+## A blow on worn plate: it soaks part of the harm and is worn down. Returns the harm that gets
+## through, and whether a plate broke. A blow to the head lands on the helm, the rest on the body.
+static func plate_take(a: Dictionary, amount: float, head: bool) -> Array:
+	var slot := "head" if head else "body"
+	var left := plate_left(a, slot)
+	if left <= 0.0:
+		return [amount, false]
+	var soak := amount * 0.5
+	if not a.has("plate"):
+		a["plate"] = {}
+	var id := str(a.wear[slot])
+	a.plate[id] = maxf(0.0, left - soak)
+	return [amount - soak * 0.6, a.plate[id] <= 0.0]
+
+
+## Beats the plate in a slot back to whole.
+static func mend(a: Dictionary, slot: String) -> void:
+	if a.has("plate"):
+		a.plate.erase(str(a.get("wear", {}).get(slot, "")))
+
+
+## What mending a slot's plate back to whole costs: scrap by the damage done.
+static func mend_cost(a: Dictionary, slot: String) -> Dictionary:
+	var it: Dictionary = WEAR.get(str(a.get("wear", {}).get(slot, "")), {})
+	if not it.has("plate"):
+		return {}
+	var missing := float(it.plate) - plate_left(a, slot)
+	if missing < 1.0:
+		return {}
+	return {"scrap": maxi(1, int(ceil(missing / 12.0)))}
+
 
 ## What each thing costs to make.
 const MAKE := {
@@ -73,17 +117,19 @@ const PARTS := {
 	"rapid_receiver": {"scrap": 14, "oil": 2},
 	"heavy_receiver": {"scrap": 18, "bone": 4},
 	"smooth_receiver": {"scrap": 10, "oil": 3},
+	"piercing_rounds": {"scrap": 12, "stone": 4},
+	"hollow_rounds": {"scrap": 6, "bone": 3},
 }
 
 ## Which of the waste's own parts each gun can take.
 const FRAME := {
-	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
-	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
-	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver"],
+	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
 	"rocket": ["smooth_receiver"],
-	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver"],
-	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
-	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver"],
+	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
+	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
 }
 
 ## Grades of a part. A part made plainly at the bench is Plain; fittings found in the waste rework it
@@ -111,7 +157,7 @@ const TRAITS := {
 }
 ## Storied parts take a name of their own.
 const STORIED := ["Ashwalker's", "Cinder-wife's", "The Hermit's", "Saltborn", "Last Light", "Ninth Vision", "Old Iron", "Dawnkeeper's", "Graveborn", "Wellspring"]
-const MOD_KEYS := ["dmg", "rate", "spread", "range", "reload", "kick", "aim", "crit", "mag"]
+const MOD_KEYS := ["dmg", "rate", "spread", "range", "reload", "kick", "aim", "crit", "mag", "pierce"]
 
 
 ## Every part a gun can take here: its trial mounts and the waste's own.
@@ -173,7 +219,7 @@ static func mods(a: Dictionary, g: String) -> Dictionary:
 
 ## Plain words for a set of mods, e.g. "+8% harm, -15% kick".
 static func mods_text(md: Dictionary) -> String:
-	var words := {"dmg": "harm", "rate": "fire rate", "spread": "spread", "range": "range", "reload": "loading", "kick": "kick", "aim": "aim speed", "crit": "head shots", "mag": "rounds"}
+	var words := {"dmg": "harm", "rate": "fire rate", "spread": "spread", "range": "range", "reload": "loading", "kick": "kick", "aim": "aim speed", "crit": "head shots", "mag": "rounds", "pierce": "through plate"}
 	var parts: Array = []
 	for k in MOD_KEYS:
 		var v := float(md.get(k, 1.0))
@@ -258,4 +304,10 @@ static func clean(d) -> Dictionary:
 		for g in t:
 			if ArmsDB.GUNS.has(g):
 				a.tier[g] = clampi(int(t[g]), 0, 3)
+	var pl = d.get("plate", {})
+	if pl is Dictionary:
+		a["plate"] = {}
+		for slot in pl:
+			if WEAR.has(str(slot)):
+				a.plate[str(slot)] = maxf(0.0, float(pl[slot]))
 	return a
