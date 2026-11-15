@@ -34,6 +34,7 @@ var dash_cd := 0.0
 ## Stamina, in the waste only: running, dodging and heavy blows spend it; it comes back after a breath.
 ## At empty you are winded and cannot run or dodge until it is a quarter full again.
 const STAMINA_MAX := 100.0
+var stamina_max := STAMINA_MAX   ## meals add to it
 var stamina := STAMINA_MAX
 var winded := false
 var _breath := 0.0            ## seconds until stamina starts to come back
@@ -352,14 +353,14 @@ func _stamina_tick(delta: float, running: bool) -> void:
 	else:
 		_breath = maxf(0.0, _breath - delta)
 		if _breath <= 0.0:
-			stamina = minf(STAMINA_MAX, stamina + 24.0 * stamina_mult * delta)
-	if winded and stamina >= STAMINA_MAX * 0.25:
+			stamina = minf(stamina_max, stamina + 24.0 * stamina_mult * delta)
+	if winded and stamina >= stamina_max * 0.25:
 		winded = false
 	if Game.main and Game.main.hud:
 		if mount:
 			Game.main.hud.set_stamina(mount.breath / mount.BREATH_MAX, armed, mount.winded)   # the cat's breath while riding
 		else:
-			Game.main.hud.set_stamina(stamina / STAMINA_MAX, armed, winded)
+			Game.main.hud.set_stamina(stamina / stamina_max, armed, winded)
 
 
 func reset_max_health() -> void:

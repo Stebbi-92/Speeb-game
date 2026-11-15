@@ -126,6 +126,9 @@ func _ready() -> void:
 		_pin(l, 0.0, 1.0, Rect2(36 + k[2] * 134, -30, 126, 18))
 		add_child(l)
 		_needs[k[0]] = [b, l, bf, k[1]]
+	_boons = _label("", 13, Color(0.92, 0.82, 0.55, 0.9))
+	_pin(_boons, 0.0, 1.0, Rect2(36, -56, 420, 18))
+	add_child(_boons)
 	_saved = _label("", 16, DIM)
 	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
 	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -135,6 +138,21 @@ func _ready() -> void:
 
 var _saved: Label
 var _needs := {}
+var _boons: Label
+
+
+## The meals you have eaten and your rest, as a short line over the food and rest bars.
+func set_boons(meals: Dictionary, rested: float) -> void:
+	if _boons == null:
+		return
+	var bits := []
+	for k in meals:
+		var m: Array = meals[k]
+		var thin: bool = float(m[0]) <= float(m[1]) * 0.3
+		bits.append("%s %dm%s" % [Items.info(k).get("name", k), ceili(float(m[0]) / 60.0), " (thin)" if thin else ""])
+	if rested > 0.0:
+		bits.append("Rested %dm" % ceili(rested / 60.0))
+	_boons.text = "   ".join(bits)
 
 
 func set_needs(f: float, r: float) -> void:

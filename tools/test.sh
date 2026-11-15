@@ -31,6 +31,7 @@ check minds     debug_minds    "MINDS calm=calm quiet=calm loud=(search|hunt) ba
 check glass     debug_glass    "GLASS old=true new=false"
 check cat       debug_cat      "CAT tamed=true riding=true faster=true sprint=true spent=true shared=true followed=true off=true back=true"
 check hitbox    debug_hitbox   "HITBOX all=true heads=true"
+check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

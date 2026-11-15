@@ -940,6 +940,8 @@ func _needs_tick(delta: float) -> void:
 	player.run_speed = 5.8 * skills.speed_mult() * slow
 	# Breath comes back slower when weary or starving, and slower still under heavy plate
 	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
+	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
+	_meals_tick(delta)
 	if food <= 0.0:
 		_starve_t -= delta
 		if _starve_t <= 0.0:
@@ -968,14 +970,23 @@ func eat(id: String) -> bool:
 	var info: Dictionary = Items.info(id)
 	var f := float(info.get("food", 0.0))
 	var h := float(info.get("heal", 0.0))
-	if f <= 0.0 and player.health >= player.max_health - 0.5:
+	var meal: Dictionary = info.get("meal", {})
+	var as_meal := not meal.is_empty() and meal_room(id) >= 0
+	if not meal.is_empty() and not as_meal and food >= 99.0:
+		hud.notify("You are too full. Wait until a meal wears thin.")
+		return false
+	if not as_meal and f <= 0.0 and player.health >= player.max_health - 0.5:
 		hud.notify("You are not hurt.")
 		return false
-	if f > 0.0 and food >= 99.0 and player.health >= player.max_health - 0.5:
+	if not as_meal and f > 0.0 and food >= 99.0 and player.health >= player.max_health - 0.5:
 		hud.notify("You are not hungry.")
 		return false
 	if inv.take(id, 1) < 1:
 		return false
+	if as_meal:
+		_take_meal(id, meal)
+	elif not meal.is_empty():
+		hud.notify("No room for another meal. It only fills you.")
 	food = minf(100.0, food + f)
 	player.health = clampf(player.health + h, 1.0, player.max_health)
 	hud.set_health(player.health / player.max_health, true)
@@ -983,6 +994,134 @@ func eat(id: String) -> bool:
 	if h < 0.0:
 		hud.notify("Raw meat turns your stomach. Cook it first.")
 	return true
+
+
+# ------------------------------------------------------------------ meals and comfort
+
+## Up to three meals at once, each adding health, breath or healing for a while (Valheim's food).
+## The same meal again only freshens it once it wears thin; a fourth waits until one does.
+const MEALS_MAX := 3
+const THIN := 0.3            ## a meal this far gone can be eaten again or replaced
+var meals := {}              ## item id -> [seconds left, seconds in all]
+var rested := 0.0            ## seconds of rest bonus left: more experience, faster breath
+var _meal_hp := 0.0
+
+
+## Which meal slot this food may take: 0 a free one, 1 to freshen or replace a thin one, -1 none.
+func meal_room(id: String) -> int:
+	if meals.has(id):
+		return 1 if float(meals[id][0]) <= float(meals[id][1]) * THIN else -1
+	if meals.size() < MEALS_MAX:
+		return 0
+	for k in meals:
+		if float(meals[k][0]) <= float(meals[k][1]) * THIN:
+			return 1
+	return -1
+
+
+func _take_meal(id: String, meal: Dictionary) -> void:
+	if not meals.has(id) and meals.size() >= MEALS_MAX:
+		# The thinnest meal makes way
+		var worst := ""
+		for k in meals:
+			if worst == "" or float(meals[k][0]) < float(meals[worst][0]):
+				worst = k
+		meals.erase(worst)
+	var secs := float(meal.get("mins", 15)) * 60.0
+	meals[id] = [secs, secs]
+	_meal_stats()
+	player.stamina = minf(player.stamina_max, player.stamina + float(meal.get("stam", 0)))
+	hud.notify("%s: %s for %d minutes." % [Items.info(id).get("name", id), meal_text(meal), int(meal.get("mins", 15))])
+
+
+## What a meal gives, in a few plain words.
+static func meal_text(meal: Dictionary) -> String:
+	var bits := []
+	if float(meal.get("hp", 0)) > 0.0:
+		bits.append("+%d health" % int(meal.hp))
+	if float(meal.get("stam", 0)) > 0.0:
+		bits.append("+%d breath" % int(meal.stam))
+	if float(meal.get("breath", 0)) > 0.0:
+		bits.append("breath back faster")
+	if float(meal.get("regen", 0)) > 0.0:
+		bits.append("wounds close faster")
+	return ", ".join(bits)
+
+
+func meal_sum(key: String) -> float:
+	var t := 0.0
+	for k in meals:
+		t += float(Items.info(k).get("meal", {}).get(key, 0.0))
+	return t
+
+
+func _meals_tick(delta: float) -> void:
+	var gone := []
+	for k in meals:
+		meals[k][0] = float(meals[k][0]) - delta
+		if float(meals[k][0]) <= 0.0:
+			gone.append(k)
+	for k in gone:
+		meals.erase(k)
+		hud.notify("Your %s has worn off." % String(Items.info(k).get("name", k)).to_lower())
+	if not gone.is_empty():
+		_meal_stats()
+	var rg := meal_sum("regen")
+	if rg > 0.0 and player.health < player.max_health and not downed:
+		player.health = minf(player.max_health, player.health + rg * delta)
+		hud.set_health(player.health / player.max_health, true)
+	if rested > 0.0:
+		rested = maxf(0.0, rested - delta)
+		if rested <= 0.0:
+			hud.notify("You are no longer rested.")
+	if is_instance_valid(ui):
+		ui.set_boons(meals, rested)
+
+
+## Health and breath from the meals now eaten.
+func _meal_stats() -> void:
+	var hp := meal_sum("hp")
+	if absf(hp - _meal_hp) > 0.01:
+		_meal_hp = hp
+		_apply_skills()
+	player.stamina_max = player.STAMINA_MAX + meal_sum("stam")
+	player.stamina = minf(player.stamina, player.stamina_max)
+
+
+## How snug the place you sleep is, 1 to 6: a lit fire, a bed, a roof, walls, a light, or a town's inn.
+func comfort(at: Vector3) -> int:
+	var c := 1
+	if settlement_at(at) != "":
+		return 5
+	var fire := false
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind in ["campfire", "cookpot"] and pc.pos.distance_to(at) < 10.0 and burning(pid):
+			fire = true
+	if fire:
+		c += 1
+	if builder.near_kind(at, "bedroll", 5.0):
+		c += 1
+	if builder.near_kind(at, "roof", 5.0):
+		c += 1
+	var walls := 0
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind in ["wall", "window", "doorway", "stonewall", "palisade"] and pc.pos.distance_to(at) < 8.0:
+			walls += 1
+	if walls >= 3:
+		c += 1
+	if builder.near_kind(at, "lamp", 10.0) or builder.near_kind(at, "torch", 10.0):
+		c += 1
+	return mini(c, 6)
+
+
+## Waking from a sleep: the snugger the place, the longer you are rested.
+func _wake_rested() -> void:
+	var c := comfort(player.global_position)
+	var mins := 5 + 5 * c
+	rested = mins * 60.0
+	hud.notify("Rested (comfort %d of 6): more experience and breath for %d minutes." % [c, mins])
 
 
 ## The censer's smoke: forms in it are shown, choke and slow, and lurkers cannot stay under the sand.
@@ -1379,6 +1518,7 @@ func _w_sleep_through() -> void:
 	rest = 100.0
 	food = maxf(0.0, food - 15.0)
 	player.health = player.max_health
+	_wake_rested()
 	hud.set_health(1.0, true)
 	await get_tree().create_timer(1.5, false).timeout
 	await hud.fade_to(0.0, 2.0)
@@ -1395,7 +1535,7 @@ func nap() -> void:
 	await get_tree().create_timer(1.0, false).timeout
 	await hud.fade_to(0.0, 1.5)
 	player.input_locked = false
-	hud.notify("You wake rested.")
+	_wake_rested()
 
 
 ## Forms that stray onto safe ground at night are taken by it, unless they came to raid.
@@ -2471,7 +2611,7 @@ func award(kind: String, mult := 1.0) -> void:
 		guide.event(kind)
 	if Net.dedicated or _pfail or not WSkills.XP.has(kind):
 		return
-	var amount := int(round(WSkills.XP[kind] * mult))
+	var amount := int(round(WSkills.XP[kind] * mult * (1.25 if rested > 0.0 else 1.0)))
 	var ups := skills.gain(amount)
 	Game.gain_pxp(maxi(1, amount / 2))
 	if ui:
@@ -2487,7 +2627,7 @@ func _apply_skills() -> void:
 	if player == null or player.weapon == null:
 		return
 	var full := player.health >= player.max_health - 0.01
-	player.max_health = skills.health_max()
+	player.max_health = skills.health_max() + _meal_hp
 	player.health = player.max_health if full else minf(player.health, player.max_health)
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
@@ -2928,6 +3068,8 @@ func _perish(message: String) -> void:
 	if _pfail:
 		return
 	dismount()
+	meals.clear()
+	_meal_stats()
 	life_kills = 0
 	_pfail = true
 	player.input_locked = true
@@ -3163,6 +3305,7 @@ func char_data() -> Dictionary:
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
+		"meals": meals, "rested": rested,
 	}
 
 
@@ -3181,6 +3324,14 @@ func apply_char(d: Dictionary) -> void:
 		cat = null
 	food = clampf(float(d.get("food", 100.0)), 0.0, 100.0)
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
+	meals = {}
+	if d.get("meals") is Dictionary:
+		for k in d.meals:
+			var m = d.meals[k]
+			if Items.info(k).has("meal") and m is Array and m.size() == 2:
+				meals[k] = [float(m[0]), float(m[1])]
+	rested = float(d.get("rested", 0.0))
+	_meal_stats()
 	Game.warms = arms
 	player.weapon.equip_loadout()
 	player.weapon.shells = int(d.get("shells", player.weapon.capacity()))
@@ -5502,4 +5653,48 @@ func debug_hitbox() -> void:
 		print("HIT %s %.2f..%.2f %s" % [k, lo - base.y, hi - base.y, line])
 		e.queue_free()
 	print("HITBOX all=%s heads=%s" % [all, heads])
+	get_tree().quit()
+
+
+## Meals and rest: three meals add health and breath, a fourth waits, they wear off; a snug sleep rests you.
+func debug_meals() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	food = 30.0
+	var hp0 := player.max_health
+	var st0: float = player.stamina_max
+	for id in ["roast", "tea", "stew", "broth", "pie"]:
+		inv.add(id, 2)
+	eat("roast")
+	var hp_up := player.max_health >= hp0 + 19.0
+	eat("tea")
+	var st_up: bool = player.stamina_max >= st0 + 29.0
+	eat("stew")
+	var three := meals.size() == 3
+	food = 30.0
+	eat("pie")
+	var held := meals.size() == 3 and not meals.has("pie")
+	meals["tea"][0] = 10.0
+	eat("pie")
+	var swapped := meals.has("pie") and not meals.has("tea") and meals.size() == 3
+	for k in meals:
+		meals[k][0] = 0.5
+	await get_tree().create_timer(1.5).timeout
+	var worn := meals.is_empty() and absf(player.max_health - hp0) < 0.5 and absf(player.stamina_max - st0) < 0.5
+	var c_open := comfort(player.global_position + Vector3(400, 0, 400))
+	rested = 0.0
+	var xp0 := skills.xp + skills.level * 100000
+	award("kill")
+	var plain := skills.xp + skills.level * 100000 - xp0
+	nap()
+	await get_tree().create_timer(5.0).timeout
+	var rest_on := rested > 0.0
+	xp0 = skills.xp + skills.level * 100000
+	award("kill")
+	var more := skills.xp + skills.level * 100000 - xp0 > plain
+	var d := char_data()
+	rested = 0.0
+	apply_char(d)
+	print("MEALS hp=%s stam=%s three=%s held=%s swapped=%s worn=%s comfort=%d rested=%s xp=%s saved=%s" % [hp_up, st_up, three, held, swapped, worn, c_open, rest_on, more, rested > 0.0])
 	get_tree().quit()

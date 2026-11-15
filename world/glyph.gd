@@ -121,7 +121,7 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_dot(p[0], p[1], 0.1, Color(0.88, 0.85, 0.76))
 		"oil", "beacon_oil":
 			_flask(c, item == "beacon_oil")
-		"raw_meat", "roast", "meat":
+		"raw_meat", "roast", "meat", "pie":
 			_poly([[0.2, 0.5], [0.35, 0.25], [0.65, 0.2], [0.8, 0.4], [0.7, 0.7], [0.4, 0.78]], c)
 			_poly([[0.35, 0.32], [0.6, 0.28], [0.68, 0.42], [0.45, 0.5]], c.lightened(0.2))
 			_ln([0.62, 0.68], [0.82, 0.86], Color(0.9, 0.86, 0.76), 0.08)
@@ -133,7 +133,7 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 			_ln([0.5, 0.3], [0.45, 0.14], Color(0.45, 0.6, 0.35), 0.05)
 			if item == "tuber_seed":
 				_seeds(lt)
-		"stew":
+		"stew", "broth", "tea":
 			_poly([[0.12, 0.45], [0.88, 0.45], [0.75, 0.82], [0.25, 0.82]], Color(0.42, 0.3, 0.22))
 			_box(0.12, 0.42, 0.76, 0.07, c.lightened(0.15))
 			for i in 3:
