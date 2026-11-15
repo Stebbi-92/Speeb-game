@@ -43,6 +43,7 @@ check packfit   debug_packfit  "PACKFIT fits=true"
 check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"
 check power     debug_power    "POWER base=true grows=true hp_grows=true"
 check wear      debug_wear     "WEAR before=false on=true off=true moved=true"
+check sprint    debug_sprint   "SPRINT faster=true spends=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

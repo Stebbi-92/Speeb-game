@@ -1221,6 +1221,23 @@ func land_tier(bn: String) -> int:
 	return int(LAND_TIER.get(bn, 1))
 
 
+const GENTLE := 500.0   ## near where the cast-out wake, every land is gentle: no hardship, the weakest forms
+
+
+## How dangerous the waste is here: it grows with the distance from where you woke, a ring each
+## 600 m, and the hard lands (salt, marsh, basalt) are a step worse once you are past the first ring.
+func tier_at(p: Vector3) -> int:
+	var d := Vector2(p.x, p.z).distance_to(WPlaces.start)
+	if d < GENTLE:
+		return 1
+	var ring := 1 + int(d / 600.0)
+	return clampi(ring + (1 if land_tier(land_at(p)) >= 3 else 0), 1, 4)
+
+
+func gentle_at(p: Vector3) -> bool:
+	return Vector2(p.x, p.z).distance_to(WPlaces.start) < GENTLE
+
+
 func land_at(p: Vector3) -> String:
 	return terrain.biome_name(p.x, p.z) if terrain else "ash"
 
@@ -1255,7 +1272,7 @@ func foe_power() -> float:
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var m: float = TIER_HP[land_tier(land_at(p)) - 1] * foe_power()
+		var m: float = TIER_HP[tier_at(p) - 1] * foe_power()
 		e.hp *= m
 		e.max_hp *= m
 	return e
@@ -1264,7 +1281,7 @@ func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 ## The hardship of the land underfoot, for one without its ward.
 func _land_tick(delta: float) -> void:
 	var bn := land_at(player.global_position)
-	if warded(bn) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0:
+	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0:
 		return
 	match bn:
 		"dunes":
@@ -3380,7 +3397,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		hud.hitmarker(false, true)
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
-	amount *= TIER_HARM[land_tier(land_at(from)) - 1] * sqrt(foe_power())
+	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power())
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -3586,13 +3603,14 @@ func _visit_check() -> void:
 	var bn := terrain.biome_name(player.global_position.x, player.global_position.z)
 	if bn != _biome:
 		if _biome != "":
-			hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], land_tier(bn), BIOME_TEXT[bn], land_warning(bn)])
+			hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], tier_at(player.global_position), BIOME_TEXT[bn], "" if gentle_at(player.global_position) else land_warning(bn)])
 		_biome = bn
 		if not seen_biomes.has(bn):
 			seen_biomes[bn] = true
 			if seen_biomes.size() > 1:
 				award("biome")
-	player.speed_cap = 3.6 if bn == "marsh" and not warded("marsh") and settlement_at(player.global_position, 4.0) == "" else -1.0
+	# The tar drags at you: you can still hurry, but not run full out
+	player.speed_cap = 4.4 if bn == "marsh" and not warded("marsh") and not gentle_at(player.global_position) and settlement_at(player.global_position, 4.0) == "" else -1.0
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
@@ -5772,6 +5790,24 @@ func debug_wear() -> void:
 	print("WEAR before=%s on=%s off=%s moved=%s" % [before, on, off, moved])
 	get_tree().quit()
 
+## Testing aid: holding Hasten out in the waste runs faster than walking, and spends breath.
+func debug_sprint() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	await get_tree().create_timer(1.0).timeout
+	Input.action_press("move_forward")
+	await get_tree().create_timer(1.5).timeout
+	var walk: float = player.cur_speed
+	Input.action_press("run")
+	await get_tree().create_timer(1.5).timeout
+	var run: float = player.cur_speed
+	var st: float = player.stamina
+	Input.action_release("run")
+	Input.action_release("move_forward")
+	print("SPRINT faster=%s spends=%s" % [run > walk * 1.5, st < 100.0])
+	get_tree().quit()
+
 ## Testing aid: plate on both sides. A body shot on a Breaker is mostly soaked, a head shot and a
 ## piercing round are not, the plate breaks in the end; the survivor's own plate wears and is mended.
 func debug_armour() -> void:
@@ -6393,9 +6429,9 @@ func debug_lands() -> void:
 	for i in 6000:
 		var p := Vector3(r.randf_range(-1800, 1800), 0, r.randf_range(-1800, 1800))
 		var bn := land_at(p)
-		if not spot.has(bn) and settlement_at(p, 30.0) == "" and base_at(p, 0.0, true) < 0 and terrain.biome_name(p.x + 30, p.z + 30) == bn:
+		if not spot.has(bn) and not gentle_at(p) and Vector2(p.x, p.z).distance_to(WPlaces.start) > 1300.0 and settlement_at(p, 30.0) == "" and base_at(p, 0.0, true) < 0 and terrain.biome_name(p.x + 30, p.z + 30) == bn:
 			spot[bn] = gpos(Vector2(p.x, p.z))
-	var a = spawn_at("rusher", spot["ash"] + Vector3(0, 2, 0))
+	var a = spawn_at("rusher", gpos(WPlaces.start) + Vector3(0, 2, 0))
 	var b = spawn_at("rusher", spot["basalt"] + Vector3(0, 2, 0))
 	var harder: bool = b.max_hp > a.max_hp * 2.0
 	a.die(false)
