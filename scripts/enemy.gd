@@ -61,12 +61,12 @@ static func smoke_tex() -> Texture2D:
 ## ("base") grown vast, and has ways of its own: slam (the ground breaks around it), brood (it brings
 ## forth lesser forms), volley (a fan of bolts), blink (watched too long, it is suddenly elsewhere).
 const BOSSES := {
-	"boss_ash": {"name": "The Cinder Matron", "base": "elite", "hp": 2400.0, "size": 3.2, "speed": 3.2, "bite": 40.0, "radius": 1.6, "grow": 1.0, "ways": ["slam", "brood"], "brood": "swarm", "land": "ash"},
-	"boss_dunes": {"name": "The Sand Choir", "base": "spitter", "hp": 1700.0, "size": 2.6, "speed": 4.0, "bite": 0.0, "radius": 1.3, "grow": 1.0, "ways": ["volley", "brood"], "brood": "spider", "land": "dunes"},
-	"boss_salt": {"name": "The White Disc", "base": "saucer", "hp": 2000.0, "size": 1.0, "speed": 4.0, "bite": 0.0, "radius": 3.2, "grow": 2.0, "ways": ["volley"], "land": "salt"},
-	"boss_forest": {"name": "The Long Watcher", "base": "unseen", "hp": 1600.0, "size": 1.3, "speed": 5.5, "bite": 50.0, "radius": 1.1, "grow": 1.9, "ways": ["blink"], "land": "forest"},
-	"boss_basalt": {"name": "The Basalt Idol", "base": "idol", "hp": 2600.0, "size": 3.0, "speed": 2.2, "bite": 45.0, "radius": 1.5, "grow": 1.0, "ways": ["slam", "volley"], "land": "basalt"},
-	"boss_marsh": {"name": "The Tar Mother", "base": "spider", "hp": 1800.0, "size": 0.8, "speed": 6.0, "bite": 35.0, "radius": 1.3, "grow": 2.6, "ways": ["brood"], "brood": "spider", "land": "marsh"},
+	"boss_ash": {"name": "The Cinder Matron", "base": "elite", "hp": 2400.0, "size": 3.2, "speed": 3.2, "bite": 40.0, "radius": 1.6, "grow": 1.0, "ways": ["slam", "brood", "charge"], "brood": "swarm", "land": "ash"},
+	"boss_dunes": {"name": "The Sand Choir", "base": "spitter", "hp": 1700.0, "size": 2.6, "speed": 4.0, "bite": 0.0, "radius": 1.3, "grow": 1.0, "ways": ["volley", "brood", "rain"], "brood": "spider", "land": "dunes"},
+	"boss_salt": {"name": "The White Disc", "base": "saucer", "hp": 2000.0, "size": 1.0, "speed": 4.0, "bite": 0.0, "radius": 3.2, "grow": 2.0, "ways": ["volley", "rain", "charge"], "land": "salt"},
+	"boss_forest": {"name": "The Long Watcher", "base": "unseen", "hp": 1600.0, "size": 1.3, "speed": 5.5, "bite": 50.0, "radius": 1.1, "grow": 1.9, "ways": ["blink", "charge"], "land": "forest"},
+	"boss_basalt": {"name": "The Basalt Idol", "base": "idol", "hp": 2600.0, "size": 3.0, "speed": 2.2, "bite": 45.0, "radius": 1.5, "grow": 1.0, "ways": ["slam", "volley", "charge"], "land": "basalt"},
+	"boss_marsh": {"name": "The Tar Mother", "base": "spider", "hp": 1800.0, "size": 0.8, "speed": 6.0, "bite": 35.0, "radius": 1.3, "grow": 2.6, "ways": ["brood", "rain", "charge"], "brood": "spider", "land": "marsh"},
 }
 const IDOL_CODES := ["goldspeeb", "marblespeeb", "jadespeeb", "obsidianspeeb", "fossilspeeb"]
 
@@ -94,6 +94,12 @@ var boss := ""        ## the great one this is, or "" for a lesser form
 var max_hp := 1.0
 var hp_frac := 1.0    ## for puppets, as the host tells it
 var _way_cd := {}
+var _busy := 0.0      ## a great one winding up a way: it does nothing else meanwhile
+var _charge_t := 0.0  ## running down a line
+var _charge_dir := Vector3.ZERO
+var _charge_hit := {}
+var _spent := 0.0     ## worn out after a charge or a slam: it stands still and takes more harm
+var _wroth := false   ## past half its life: quicker in all its ways
 var _brood: Array = []
 var _watched_t := 0.0
 var _bar: MeshInstance3D
@@ -254,8 +260,14 @@ func _physics_process(delta: float) -> void:
 		head.rotation.z = sin(_t * 18.0) * 0.25 * minf(1.0, _stagger * 2.0)
 	elif head.rotation.z != 0.0:
 		head.rotation.z = 0.0
-	var frozen: bool = level.combat_frozen or idle or _stagger > 0.0
-	if boss != "" and not frozen and not level.completed:
+	if _spent > 0.0:
+		_spent -= delta
+		head.rotation.x = 0.5 * minf(1.0, _spent * 2.0)
+	if _charge_t > 0.0 and not level.combat_frozen:
+		_charge_tick(delta)
+		return
+	var frozen: bool = level.combat_frozen or idle or _stagger > 0.0 or _spent > 0.0 or _busy > 0.0
+	if boss != "" and not level.combat_frozen and not idle and not level.completed:
 		_boss_tick(delta, p, dist)
 	if walks():
 		_spider_move(delta, p, dist, frozen)
@@ -863,6 +875,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		return full
 	if not full:
 		amount *= 0.12
+	if _spent > 0.0:
+		amount *= 1.6
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	# Heavy forms barely give ground unless the blow is a heavy one; they slow under fire instead
@@ -1183,8 +1197,10 @@ func is_boss() -> bool:
 
 
 func _ready_way(w: String, cd: float) -> bool:
-	if not spec.ways.has(w):
+	if not spec.ways.has(w) or _busy > 0.0 or _spent > 0.0 or _charge_t > 0.0:
 		return false
+	if _wroth:
+		cd *= 0.7
 	var t: float = _way_cd.get(w, randf_range(2.0, cd))
 	t -= get_physics_process_delta_time() * level.enemy_time
 	_way_cd[w] = t
@@ -1195,13 +1211,29 @@ func _ready_way(w: String, cd: float) -> bool:
 
 
 ## The ways of the great ones, run by the host.
-func _boss_tick(_delta: float, p: Node3D, dist: float) -> void:
+func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
+	_busy = maxf(0.0, _busy - delta)
+	if not _wroth and hp < max_hp * 0.5:
+		_wroth = true
+		level.sfx("roar", 6, global_position, 0.45)
+		level.shared("_w_boss_wroth", [boss])
 	if dist < 10.0 + spec.radius and _ready_way("slam", 7.5):
 		_slam()
 	if dist < 40.0 and _ready_way("volley", 4.0):
-		var target := p.global_position + Vector3(0, 1.2, 0)
-		for k in [-0.3, -0.15, 0.0, 0.15, 0.3]:
-			_spit(global_position + (target - global_position).rotated(Vector3.UP, k))
+		# A breath drawn and a glow before the bolts fly
+		_busy = 0.6
+		_flash = 0.8
+		level.sfx("hiss", -2, global_position, 1.3)
+		get_tree().create_timer(0.55, false).timeout.connect(func():
+			if not _alive or not is_instance_valid(p):
+				return
+			var target := p.global_position + Vector3(0, 1.2, 0)
+			for k in ([-0.4, -0.2, 0.0, 0.2, 0.4] if _wroth else [-0.3, -0.15, 0.0, 0.15, 0.3]):
+				_spit(global_position + (target - global_position).rotated(Vector3.UP, k)))
+	if dist > 6.0 and dist < 34.0 and _ready_way("charge", 9.0):
+		_start_charge(p)
+	if dist < 45.0 and _ready_way("rain", 8.0):
+		_rain()
 	if _ready_way("brood", 9.0):
 		_brood = _brood.filter(func(m): return is_instance_valid(m) and m.is_alive())
 		if _brood.size() < 6:
@@ -1230,17 +1262,85 @@ func _boss_tick(_delta: float, p: Node3D, dist: float) -> void:
 func _slam() -> void:
 	level.sfx("roar", 4, global_position, 0.55)
 	_flash = 1.0
+	_busy = 1.0
 	var at := global_position
 	var r: float = 9.0 + spec.radius
+	level.shared("_w_warn", [at, r, 0.9, 0])
 	get_tree().create_timer(0.9, false).timeout.connect(func():
 		if not _alive:
 			return
+		_spent = 1.2
 		level.sfx("boom", 4, at, 0.6)
 		level.shared("_w_slam_fx", [at, r])
 		for t in level.targets():
 			var d: float = t.global_position.distance_to(at)
 			if d < r and absf(t.global_position.y - at.y) < 6.0:
 				level.hurt_target(t, lerpf(36.0, 12.0, d / r), at))
+
+
+## The great one marks a line toward a pilgrim, rears, then runs it down. It stands spent at the end.
+func _start_charge(p: Node3D) -> void:
+	var d := p.global_position - global_position
+	d.y = 0.0
+	if d.length() < 1.0:
+		return
+	_charge_dir = d.normalized()
+	var reach := minf(d.length() + 8.0, 34.0)
+	_busy = 0.9
+	_flash = 1.0
+	level.sfx("roar", 2, global_position, 0.7)
+	level.shared("_w_warn", [global_position + _charge_dir * reach * 0.5, reach * 0.5, 0.85, 1, atan2(_charge_dir.x, _charge_dir.z), spec.radius + 1.0])
+	get_tree().create_timer(0.85, false).timeout.connect(func():
+		if not _alive:
+			return
+		_charge_t = reach / 24.0
+		_charge_hit = {})
+
+
+## Running the marked line: anyone in the way is struck once and thrown aside.
+func _charge_tick(delta: float) -> void:
+	_charge_t -= delta
+	velocity = _charge_dir * 24.0 * level.enemy_time
+	velocity.y = -4.0 if walks() or not kind in ["saucer", "unseen"] else 0.0
+	move_and_slide()
+	for t in level.targets():
+		if _charge_hit.has(t):
+			continue
+		var off: Vector3 = t.global_position - global_position
+		off.y = 0.0
+		if off.length() < spec.radius + 1.3:
+			_charge_hit[t] = true
+			level.hurt_target(t, float(spec.bite) * 0.9 + 10.0, global_position)
+	if _charge_t <= 0.0 or is_on_wall():
+		_charge_t = 0.0
+		_spent = 1.6
+		level.sfx("thud", 2, global_position, 0.6)
+		level.shared("_w_slam_fx", [global_position, 4.0])
+
+
+## Marks a burning circle under each pilgrim near, and a few about, then brings fire down on them.
+func _rain() -> void:
+	_busy = 0.5
+	_flash = 0.7
+	level.sfx("beam", -2, global_position, 0.7)
+	var spots: Array = []
+	for t in level.targets():
+		if t.global_position.distance_to(global_position) < 50.0:
+			spots.append(t.global_position)
+			for k in (2 if _wroth else 1):
+				spots.append(t.global_position + Vector3(randf_range(-6, 6), 0, randf_range(-6, 6)))
+	for at in spots:
+		level.shared("_w_warn", [at, 2.6, 1.3, 2])
+	get_tree().create_timer(1.3, false).timeout.connect(func():
+		if not _alive:
+			return
+		for at in spots:
+			level.shared("_w_slam_fx", [at, 3.0])
+			level.sfx("boom", -4, at, 1.2)
+			for t in level.targets():
+				var off: Vector3 = t.global_position - at
+				if Vector2(off.x, off.z).length() < 2.6 and absf(off.y) < 4.0:
+					level.hurt_target(t, 24.0, at))
 
 
 ## A spat bolt of burning light.

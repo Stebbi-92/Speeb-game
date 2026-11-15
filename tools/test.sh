@@ -22,5 +22,6 @@ check chest_name debug_chestname "CHESTNAME .*panel=container saved=mjikbr"
 check blade      debug_blade    "BLADE out=true light=[1-9][0-9]* heavy=[1-9][0-9]*" "BLADE guarded=[0-9.]+ open=[0-9.]+ stamina_after_guard<100=true" "BLADE winded=true refused=true" "BLADE sheathed=true"
 check recoil     debug_recoil   "RECOIL same=true lifted=0\.[0-9]+ settled=0\.0"
 check practice   debug_practice "PRACTICE level 0 -> [1-9] dmg [0-9.]+ -> [0-9.]+ kept=true"
+check great     debug_greatones "GREAT boss_ash ring=[1-9][0-9]* lane=[1-9][0-9]* fire=0 spent=true wroth false->true spent_harm=160" "GREAT boss_dunes ring=0 lane=0 fire=[1-9][0-9]* spent=false wroth false->true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

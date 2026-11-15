@@ -2829,6 +2829,54 @@ func _w_slam_fx(at: Vector3, r: float) -> void:
 		player.shake(0.8)
 
 
+## A warning on the ground of where a great one's blow will fall. kind 0: a ring, 1: a lane
+## (angle and half width given), 2: a burning circle. It fills in as the blow draws near.
+var marks_seen := {}   ## warnings shown, by kind, for the tests
+
+
+func _w_warn(at: Vector3, r: float, t: float, kind: int, angle := 0.0, half := 1.0) -> void:
+	marks_seen[kind] = int(marks_seen.get(kind, 0)) + 1
+	var y := at.y
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3(0, 6, 0), at - Vector3(0, 12, 0), 1))
+	if not hit.is_empty():
+		y = hit.position.y
+	var tr = get("terrain")
+	if tr != null and tr.has_method("height_at"):
+		y = maxf(y, tr.height_at(at.x, at.z))
+	var mi := MeshInstance3D.new()
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = false
+	m.albedo_color = [Color(1.0, 0.45, 0.15, 0.2), Color(1.0, 0.2, 0.15, 0.2), Color(1.0, 0.35, 0.05, 0.2)][kind]
+	if kind == 1:
+		var q := PlaneMesh.new()
+		q.size = Vector2(half * 2.0, r * 2.0)
+		mi.mesh = q
+		mi.rotation.y = angle
+	else:
+		var c := CylinderMesh.new()
+		c.top_radius = r
+		c.bottom_radius = r
+		c.height = 0.6
+		c.radial_segments = 40
+		mi.mesh = c
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	mi.global_position = Vector3(at.x, y + (0.15 if kind == 1 else 0.0), at.z)
+	var tw := create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.6, t * 0.85).set_ease(Tween.EASE_IN)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.25)
+	tw.tween_callback(mi.queue_free)
+
+
+func _w_boss_wroth(b: String) -> void:
+	if hud and LesserSpeeb.BOSSES.has(b):
+		hud.notify("%s grows wroth. Its ways come quicker." % LesserSpeeb.BOSSES[b].name)
+
+
 ## The great one nearest this pilgrim, for the bar across the top of the sight.
 func _boss_watch() -> void:
 	var best = null

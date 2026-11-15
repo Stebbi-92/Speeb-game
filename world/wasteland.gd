@@ -3922,6 +3922,45 @@ func debug_bossshot() -> void:
 	_debug_aim(l.pos + Vector3(0, 3.0, 0))
 
 
+## Testing aid: a great one shows its ways with warnings, stands spent after a charge, and grows wroth.
+func debug_greatones() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.health = 999999.0
+	player.max_health = 999999.0
+	var names := ["boss_ash", "boss_dunes"]
+	for b in names:
+		marks_seen = {}
+		var e := spawn_at(b, player.global_position + Vector3(0, 2, -18))
+		e.set_meta("raid", true)
+		var spent := false
+		for i in 20 * 60:
+			await get_tree().physics_frame
+			if not is_instance_valid(e):
+				break
+			if e._spent > 0.0:
+				spent = true
+		if e.spec.ways.has("charge"):
+			player.global_position = e.global_position + Vector3(0, 0, 16)
+			e._busy = 0.0
+			e._spent = 0.0
+			e._start_charge(player)
+			for i in 4 * 60:
+				await get_tree().physics_frame
+				if e._spent > 0.0:
+					spent = true
+		var w0: bool = e._wroth
+		e.hurt(e.max_hp * 0.55, Vector3(0, 0, -1))
+		e._spent = 0.5
+		var h0: float = e.hp
+		e.hurt(100.0, Vector3(0, 0, -1))
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		print("GREAT %s ring=%d lane=%d fire=%d spent=%s wroth %s->%s spent_harm=%.0f" % [b, marks_seen.get(0, 0), marks_seen.get(1, 0), marks_seen.get(2, 0), spent, w0, e._wroth, h0 - e.hp])
+		e.die(false)
+	get_tree().quit()
+
+
 func debug_allbosses() -> void:
 	await get_tree().create_timer(1.0).timeout
 	player.health = 999999.0
@@ -4881,6 +4920,13 @@ func debug_screen() -> void:
 			ui.open_map()
 		"rest":
 			ui.ask_rest("bed")
+		"warn":
+			var f := -player.global_transform.basis.z
+			f.y = 0.0
+			f = f.normalized()
+			_w_warn(player.global_position + f * 9.0, 7.0, 18.0, 0)
+			_w_warn(player.global_position + f * 14.0 + player.global_transform.basis.x * 6.0, 2.6, 18.0, 2)
+			_w_warn(player.global_position + f * 12.0 - player.global_transform.basis.x * 7.0, 8.0, 18.0, 1, atan2(f.x, f.z), 2.2)
 
 
 func debug_restshot() -> void:
