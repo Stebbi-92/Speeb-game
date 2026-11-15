@@ -17,6 +17,11 @@ var narration: Label
 var prompt: Label
 var prompt_bar: ProgressBar
 var objective: Label
+var _quest: PanelContainer
+var _quest_title: Label
+var _quest_step: Label
+var _quest_more: Label
+var _corner_shades: Array = []
 var meter_box: VBoxContainer
 var meter_label: Label
 var meter: ProgressBar
@@ -121,13 +126,62 @@ func _ready() -> void:
 	narration.modulate.a = 0
 	root.add_child(narration)
 
+	# Soft shade in the corners, so the words there read against a bright sky or sand
+	for corner in [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]]:
+		var g := Gradient.new()
+		g.set_color(0, Color(0, 0, 0, 0.42))
+		g.set_color(1, Color(0, 0, 0, 0.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(corner[0], corner[1])
+		gt.fill_to = Vector2(absf(corner[0] - 0.95), corner[1])
+		gt.width = 256
+		gt.height = 256
+		var tr := TextureRect.new()
+		tr.texture = gt
+		tr.stretch_mode = TextureRect.STRETCH_SCALE
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.anchor_left = corner[0]
+		tr.anchor_right = corner[0]
+		tr.anchor_top = corner[1]
+		tr.anchor_bottom = corner[1]
+		tr.offset_left = 0.0 if corner[0] == 0.0 else -620.0
+		tr.offset_right = 620.0 if corner[0] == 0.0 else 0.0
+		tr.offset_top = 0.0 if corner[1] == 0.0 else -300.0
+		tr.offset_bottom = 300.0 if corner[1] == 0.0 else 0.0
+		root.add_child(tr)
+		_corner_shades.append(tr)
 	objective = _label("", 20, DIM, HORIZONTAL_ALIGNMENT_LEFT)
-	objective.position = Vector2(36, 30)
-	objective.size = Vector2(700, 80)
-	objective.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
-	objective.add_theme_constant_override("shadow_offset_x", 1)
-	objective.add_theme_constant_override("shadow_offset_y", 1)
+	objective.visible = false     # kept for its text; the quest card below is what shows
 	root.add_child(objective)
+	_quest = PanelContainer.new()
+	var qs := StyleBoxFlat.new()
+	qs.bg_color = Color(0.05, 0.045, 0.04, 0.0)
+	qs.border_color = Color(GOLD, 0.85)
+	qs.border_width_left = 3
+	qs.content_margin_left = 14
+	qs.content_margin_top = 2
+	qs.content_margin_bottom = 2
+	_quest.add_theme_stylebox_override("panel", qs)
+	_quest.position = Vector2(30, 26)
+	_quest.custom_minimum_size = Vector2(420, 0)
+	_quest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest.visible = false
+	var qv := VBoxContainer.new()
+	qv.add_theme_constant_override("separation", 1)
+	qv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest.add_child(qv)
+	_quest_title = _label("", 19, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	_quest_title.add_theme_font_override("font", title_font)
+	_quest_step = _label("", 17, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+	_quest_more = _label("", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	for l in [_quest_title, _quest_step, _quest_more]:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		l.add_theme_constant_override("shadow_offset_x", 1)
+		l.add_theme_constant_override("shadow_offset_y", 1)
+		qv.add_child(l)
+	root.add_child(_quest)
 
 	name_label = _label("", 18, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	name_label.add_theme_font_override("font", title_font)
@@ -235,8 +289,15 @@ func _ready() -> void:
 	health_bar.size = Vector2(260, 7)
 	health_bar.max_value = 1.0
 	health_bar.value = 1.0
-	health_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.15)))
-	health_bar.add_theme_stylebox_override("fill", _flat(Color(0.75, 0.2, 0.15)))
+	health_bar.size = Vector2(260, 9)
+	var hbg := _flat(Color(0, 0, 0, 0.55))
+	hbg.set_corner_radius_all(3)
+	hbg.border_color = Color(1, 1, 1, 0.12)
+	hbg.set_border_width_all(1)
+	health_bar.add_theme_stylebox_override("background", hbg)
+	var hfg := _flat(Color(0.78, 0.22, 0.17))
+	hfg.set_corner_radius_all(3)
+	health_bar.add_theme_stylebox_override("fill", hfg)
 	health_bar.visible = false
 	root.add_child(health_bar)
 	stamina_bar = ProgressBar.new()
@@ -248,8 +309,8 @@ func _ready() -> void:
 	stamina_bar.anchor_bottom = 1.0
 	stamina_bar.offset_left = -120
 	stamina_bar.offset_right = 120
-	stamina_bar.offset_top = -96
-	stamina_bar.offset_bottom = -91
+	stamina_bar.offset_top = -124
+	stamina_bar.offset_bottom = -119
 	stamina_bar.max_value = 1.0
 	stamina_bar.value = 1.0
 	stamina_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.12)))
@@ -446,8 +507,16 @@ func set_prompt(text: String, progress: float) -> void:
 	prompt_bar.value = progress
 
 
+## The quest card at the top left: the first line is its name, the second what to do, the rest how far.
 func set_objective(text: String) -> void:
 	objective.text = text
+	var lines := text.split("\n")
+	_quest.visible = text.strip_edges() != ""
+	_quest_title.text = lines[0] if lines.size() > 1 else ""
+	_quest_title.visible = lines.size() > 1
+	_quest_step.text = lines[1] if lines.size() > 1 else lines[0]
+	_quest_more.text = "\n".join(lines.slice(2)) if lines.size() > 2 else ""
+	_quest_more.visible = lines.size() > 2
 
 
 func set_meter(label: String, value: float) -> void:
@@ -1351,8 +1420,15 @@ func _streak_keys(e: InputEvent) -> bool:
 func set_hotbar(slot: int, faith: float, milk: int) -> void:
 	hotbar.visible = slot >= 0
 	var cells := 10 if Game.wasteland else 6
-	hotbar.position = Vector2(-36 - Hotbar.W * cells, -182)
-	hotbar.size = Vector2(Hotbar.W * cells, Hotbar.W + 24)
+	# Low in the middle of the screen. Offsets, not position: position would put it off the screen.
+	hotbar.anchor_left = 0.5
+	hotbar.anchor_right = 0.5
+	hotbar.anchor_top = 1.0
+	hotbar.anchor_bottom = 1.0
+	hotbar.offset_left = -Hotbar.W * cells * 0.5 - (4.0 if Game.wasteland else 0.0)
+	hotbar.offset_right = Hotbar.W * cells * 0.5 + 4.0
+	hotbar.offset_top = -108
+	hotbar.offset_bottom = -108 + Hotbar.W + 24
 	hotbar.slot = slot
 	hotbar.faith = faith
 	hotbar.milk = milk
@@ -1407,7 +1483,7 @@ class Hotbar extends Control:
 				draw_rect(Rect2(r.position.x + 4, r.end.y - 6, (r.size.x - 8) * faith, 3), Color(1.0, 0.85, 0.45) if faith >= 1.0 else Color(0.7, 0.62, 0.45))
 			if c[4] != "" and c[4] != "-":
 				draw_string(font, r.end - Vector2(15, 5), c[4], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.93, 0.92, 0.88, 0.4 if empty else 1.0))
-		draw_string(font, Vector2(0, W + 14), name, HORIZONTAL_ALIGNMENT_RIGHT, W * 10 - 4, 16, gold)
+		draw_string(font, Vector2(0, W + 16), name, HORIZONTAL_ALIGNMENT_CENTER, W * 10 + 8, 16, gold)
 
 	func _draw() -> void:
 		if Game.wasteland and is_instance_valid(arms):
