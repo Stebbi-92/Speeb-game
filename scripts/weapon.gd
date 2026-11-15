@@ -567,7 +567,7 @@ func _heal(delta: float) -> void:
 func _set_aim(target: float, delta: float) -> void:
 	_aim = move_toward(_aim, target, delta * 6.0 * (float(spec().aim) if enabled else 1.0))
 	var zoom := float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).zoom) if enabled else 1.0
-	if enabled and gun() == "sniper":
+	if enabled and built_glass(gun(), Game.mounts_of(gun())):
 		zoom = maxf(zoom, float(spec().zoom))
 	var f: float = Game.fov / lerpf(1.0, zoom, _aim)
 	if absf(player.cam.fov - f) > 0.01:
@@ -684,6 +684,9 @@ func _try_fire() -> void:
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor")
 	lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2)
+	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
+	if lvl.has_method("noise"):
+		lvl.noise(player.global_position, 20.0 if quiet else (140.0 if gun() in ["sniper", "revolver"] else 110.0))
 	if s.mode == "pump":
 		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump", -8))
 	elif s.mode == "bolt":
@@ -802,6 +805,8 @@ static func deal(hits: Dictionary, dir: Vector3, harm := "", crits := {}) -> voi
 
 ## Harms everything near a point, less at the edge. The thrower is hurt too if they stand in it.
 static func blast(lvl: Node, at: Vector3, radius: float, dmg: float, thrower: Node = null, harm := "blast") -> void:
+	if lvl.has_method("noise"):
+		lvl.noise(at, 130.0)
 	var space: PhysicsDirectSpaceState3D = lvl.get_world_3d().direct_space_state
 	var q := PhysicsShapeQueryParameters3D.new()
 	var sh := SphereShape3D.new()
@@ -1085,6 +1090,11 @@ func _tube(r: float, length: float, pos: Vector3, m: Material, parent: Node3D, r
 	return mi
 
 
+## The sniper's own long glass. In the trials it always has it; in the waste it is a part to make and fit.
+static func built_glass(g: String, fit: Array) -> bool:
+	return g == "sniper" and (not Game.wasteland or "scope" in fit)
+
+
 ## Builds a gun from plain shapes: barrel along -Z, the hand at the origin, the stock behind.
 ## mnts: what is fitted to it; null means whatever this pilgrim has chosen for the gun.
 func _build(g: String, mnts = null) -> Node3D:
@@ -1175,9 +1185,15 @@ func _build(g: String, mnts = null) -> Node3D:
 			_box(Vector3(0.044, 0.115, 0.016), Vector3(0, -0.068, 0.495), dark, n)
 			_box(Vector3(0.03, 0.05 if not ext else 0.1, 0.07), Vector3(0, -0.07 if not ext else -0.095, -0.02), dark, n)
 			_box(Vector3(0.008, 0.006, 0.07), Vector3(0, -0.07, 0.085), dark, n)
-			# The glass it was made to carry
-			_tube(0.02, 0.26, Vector3(0, 0.082, 0.0), dark, n)
-			_tube(0.028, 0.07, Vector3(0, 0.082, -0.16), dark, n, 0.021)
+			top = 0.034
+			rear_z = 0.1
+			front = Vector3(0, 0.026, -0.9)
+			# The glass it was made to carry: always in the trials; in the waste, only once a scope is fitted
+			if built_glass(g, fit):
+				_tube(0.02, 0.26, Vector3(0, 0.082, 0.0), dark, n)
+				_tube(0.028, 0.07, Vector3(0, 0.082, -0.16), dark, n, 0.021)
+				_box(Vector3(0.014, 0.03, 0.016), Vector3(0, 0.055, -0.07), metal, n)
+				_box(Vector3(0.014, 0.03, 0.016), Vector3(0, 0.055, 0.07), metal, n)
 			_tube(0.021, 0.05, Vector3(0, 0.082, 0.15), dark, n, 0.025)
 			_box(Vector3(0.016, 0.04, 0.02), Vector3(0, 0.05, -0.07), metal, n)
 			_box(Vector3(0.016, 0.04, 0.02), Vector3(0, 0.05, 0.08), metal, n)
@@ -1286,15 +1302,15 @@ func _build(g: String, mnts = null) -> Node3D:
 			_box(Vector3(0.003, 0.003, 0.001), Vector3(0, top + 0.024, rear_z - 0.099), dot, n)
 			eye = top + 0.024
 		"scope":
-			if g != "sniper":
+			if g != "sniper" or not built_glass(g, fit):
 				_tube(0.018, 0.2, Vector3(0, top + 0.034, rear_z - 0.1), dark, n)
 				_tube(0.025, 0.05, Vector3(0, top + 0.034, rear_z - 0.22), dark, n, 0.019)
 				_tube(0.019, 0.04, Vector3(0, top + 0.034, rear_z + 0.015), dark, n, 0.022)
 				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.15), metal, n)
 				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.04), metal, n)
-			eye = top + 0.034 if g != "sniper" else 0.082
+			eye = 0.082 if built_glass(g, fit) else top + 0.034
 		_:
-			if g == "sniper":
+			if built_glass(g, fit):
 				eye = 0.082
 			else:
 				# Iron sights: a notch behind and a post before

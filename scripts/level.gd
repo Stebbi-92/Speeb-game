@@ -2016,6 +2016,13 @@ func targets() -> Array:
 	return out
 
 
+## A loud thing happened at a place: every foe that listens and is near enough hears it.
+func noise(at: Vector3, radius: float) -> void:
+	for e in enemies:
+		if is_instance_valid(e) and e.has_method("hear"):
+			e.hear(at, radius)
+
+
 func nearest_target(from: Vector3) -> Node3D:
 	var best: Node3D = null
 	var bd := INF

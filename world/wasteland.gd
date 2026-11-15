@@ -2536,7 +2536,10 @@ func _night_wave() -> void:
 		var n := 2 + int(nights * 0.5) + randi() % 2
 		var roster: Array = BIOME_FORMS[terrain.biome_name(t.global_position.x, t.global_position.z)]
 		for k in n:
-			_spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
+			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
+			# The night's walkers come looking for the living; they need not see you yet
+			if e and e.has_method("seek"):
+				e.seek(t.global_position, 40.0)
 		if nights >= 2 and randf() < 0.12 + nights * 0.02:
 			_spawn_near("saucer", t.global_position, 30.0, 40.0)
 		if nights >= 4 and randf() < 0.06 + nights * 0.01:
@@ -4787,6 +4790,7 @@ func debug_blade() -> void:
 func debug_foes() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	clock = 12.0   # midday, so that no dawn unmakes the test's foes and sight is at its full
 	player.max_health = 100000.0
 	player.health = 100000.0
 	var f := -player.global_transform.basis.z
@@ -4878,6 +4882,80 @@ func debug_armour() -> void:
 	get_tree().quit()
 
 
+## Testing aid: foes of the waste keep calm until they see or hear you. A suppressed shot is not heard
+## from afar; a bare one is. One that sees you calls its band. A badly hurt Unlit runs, then returns.
+func debug_minds() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0   # midday, so that no dawn unmakes the test's foes and sight is at its full
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var at := player.global_position - f * 60.0 + Vector3(0, 1.0, 0)
+	var a := spawn_at("unlit_gun", at)
+	a.rotation.y = atan2(-f.x, -f.z)   # looking away
+	var b := spawn_at("unlit_blade", at + player.global_transform.basis.x * 3.0)
+	b.rotation.y = a.rotation.y
+	await get_tree().create_timer(1.0).timeout
+	var calm: String = a.mind
+	noise(player.global_position, 20.0)
+	await get_tree().create_timer(0.5).timeout
+	var after_quiet: String = a.mind
+	noise(player.global_position, 110.0)
+	await get_tree().create_timer(0.5).timeout
+	var after_loud: String = a.mind
+	var band: String = b.mind
+	a.die(false)
+	b.die(false)
+	# Somewhere about the pilgrim out of any town's or camp's bounds (where foes are unmade)
+	var spot := player.global_position + f * 20.0
+	var found := false
+	for rr in [20.0, 30.0, 40.0]:
+		for i in 16:
+			var a2 := i * TAU / 16.0
+			var q: Vector3 = player.global_position + Vector3(cos(a2), 0, sin(a2)) * rr
+			if not found and settlement_at(q, TOWN_SAFE + 4.0) == "" and base_at(q, 6.0) < 0:
+				spot = q
+				found = true
+	var c := spawn_at("unlit_gun", Vector3(spot.x, gpos(Vector2(spot.x, spot.z)).y + 1.0, spot.z))
+	var back_to := player.global_position - c.global_position
+	c.rotation.y = atan2(back_to.x, back_to.z)   # facing the pilgrim
+	c.max_hp = 3000.0   # so that a town's watch, if one is near, cannot end it before the test does
+	c.hp = 3000.0
+	await get_tree().create_timer(1.5).timeout
+	var saw: String = c.mind
+	c.hp = c.max_hp * 0.25
+	for i in 4:
+		await get_tree().physics_frame
+	var ran: String = c.mind
+	c._flee_t = minf(c._flee_t, 0.2)   # a short run, so the test stays clear of any town's bounds
+	var back := ""
+	for i in 30:
+		await get_tree().create_timer(0.25).timeout
+		if not is_instance_valid(c):
+			back = "gone"
+			break
+		back = c.mind
+		if back == "hunt":
+			break
+	print("MINDS calm=%s quiet=%s loud=%s band=%s saw=%s hurt=%s back=%s" % [calm, after_quiet, after_loud, band, saw, ran, back])
+	get_tree().quit()
+
+
+## Testing aid: a sniper from an old save keeps its glass as a fitted scope; a new one has iron sights.
+func debug_glass() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var old := WArms.clean({"owned": ["shotgun", "pistol", "sniper"], "primary": "sniper"})
+	var fresh := WArms.clean(null)
+	fresh.owned.append("sniper")
+	var again := WArms.clean(JSON.parse_string(JSON.stringify(fresh)))
+	print("GLASS old=%s new=%s" % ["scope" in old.mounts.get("sniper", []), "scope" in again.mounts.get("sniper", [])])
+	get_tree().quit()
+
+
 ## Testing aid: a struck form bleeds, and does not when blood is turned off.
 func debug_blood() -> void:
 	while not ready_world:
@@ -4900,6 +4978,7 @@ func debug_blood() -> void:
 func debug_knock() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	clock = 12.0   # midday, so that no dawn unmakes the test's foes and sight is at its full
 	for k in ["idol", "rusher"]:
 		var fwd: Vector3 = -player.global_transform.basis.z
 		var e := spawn_at(k, player.global_position + fwd * 12.0 + Vector3(0, 0.5, 0))
@@ -5135,6 +5214,8 @@ func debug_screen() -> void:
 			if not "sniper" in arms.owned:
 				arms.owned.append("sniper")
 			arms.primary = "sniper"
+			arms.parts["sniper"] = ["scope"]
+			arms.mounts["sniper"] = ["scope"]
 			rearm()
 			player.weapon.debug_aim = true
 			var f := -player.global_transform.basis.z

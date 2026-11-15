@@ -142,6 +142,20 @@ var _wind := 0.0          ## a bite gathering: seconds until it lands. Step out 
 var _wind_total := 0.0
 var _stagger := 0.0       ## reeling from heavy harm: it neither moves on you nor bites
 var _dmg_win := 0.0       ## harm taken lately, which drains away; enough at once staggers it
+## What a foe of the waste has in mind: "calm" (keeps to its place), "search" (goes to look where
+## something was heard or last seen), "hunt" (knows where you are) or "flee" (hurt, and running).
+## Lesser forms and great ones always hunt; so do raiders sent against a base.
+var mind := "hunt"
+var _home := Vector3.ZERO
+var _last_known := Vector3.ZERO
+var _lost_t := 0.0
+var _search_t := 0.0
+var _look_t := 0.0
+var _wander := Vector3.ZERO
+var _fled := false
+var _flee_t := 0.0
+var _mark: Label3D
+var _mark_t := 0.0
 var _flank := 0.0         ## which side it swings out to as it closes
 var _head_base := Vector3.ONE
 ## How long each kind gathers itself before it bites. The quick ones barely pause; the heavy ones show it.
@@ -211,6 +225,10 @@ func _ready() -> void:
 		head.position.y = float(spec.head_y)
 		_flank = randf_range(-PI, PI)
 		_ammo = 9
+		if Game.wasteland and boss == "":
+			mind = "calm"
+			_home = global_position
+			_wander = global_position
 		plate = float(spec.get("plate", 0.0))
 		if plate > 0.0:
 			_fb.wear_plate(kind == "unlit_brute")
@@ -959,6 +977,9 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 			level.sfx("hit_metal", -4, global_position + Vector3(0, 0.6, 0))
 	if _spent > 0.0:
 		amount *= 1.6
+	if mind != "hunt" and mind != "flee":
+		var by: Node3D = level.nearest_target(global_position)
+		_alarm(by.global_position if by else global_position)
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	# Heavy forms barely give ground unless the blow is a heavy one; they slow under fire instead
@@ -1567,6 +1588,152 @@ class Bolt extends Area3D:
 ## How the Unlit and the dead move and fight. Melee foes close in and spread around their prey
 ## instead of queueing; a gunman keeps its distance, draws a bead and fires in bursts, reloads, and
 ## backs off when badly hurt; the Lost Vigil drifts through the air.
+## Whether it can see the pilgrim: near enough (less at night, or treading softly), in front of it
+## (or very close), and nothing in the way.
+func sees(p: Node3D) -> bool:
+	var to := p.global_position - global_position
+	var d := to.length()
+	var reach := 48.0 if spec.get("role", "") == "gun" else 34.0
+	if level.get("night"):
+		reach *= 0.6
+	if p == level.player and Input.is_action_pressed("soft"):
+		reach *= 0.55
+	if d > reach:
+		return false
+	var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))
+	var flat := Vector3(to.x, 0, to.z).normalized()
+	if d > 6.0 and fwd.dot(flat) < 0.2:
+		return false
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3, 0))
+	q.exclude = [get_rid(), p.get_rid()]
+	q.collision_mask = 1
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## A noise at a place, carrying radius far. Near, it knows where it came from; further, it goes to look.
+func hear(at: Vector3, radius: float) -> void:
+	if not _alive or puppet or mind == "hunt" or mind == "flee" or _fb == null:
+		return
+	var d := global_position.distance_to(at)
+	if d > radius:
+		return
+	if d < radius * 0.3:
+		_alarm(at)
+	else:
+		mind = "search"
+		_search_t = 14.0
+		_last_known = at + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)) * d * 0.15
+		_show_mark("?")
+
+
+## Sent to look somewhere (the night's walkers, drawn to the living).
+func seek(at: Vector3, for_t: float) -> void:
+	if _fb == null or mind == "hunt":
+		return
+	mind = "search"
+	_search_t = for_t
+	_last_known = at
+
+
+## It knows where the pilgrim is, and calls the others of its band near it.
+func _alarm(at: Vector3, call := true) -> void:
+	if mind == "hunt" or mind == "flee":
+		return
+	mind = "hunt"
+	_last_known = at
+	_lost_t = 0.0
+	_show_mark("!")
+	if kind.begins_with("unlit"):
+		_cry("growl_%d" % (randi() % 3), -4)
+	if call:
+		for e in level.enemies:
+			if is_instance_valid(e) and e != self and e.get("_fb") != null and e.global_position.distance_to(global_position) < 22.0:
+				e._alarm(at, false)
+
+
+func _show_mark(t: String) -> void:
+	if _mark == null:
+		_mark = Label3D.new()
+		_mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_mark.no_depth_test = true
+		_mark.font_size = 96
+		_mark.outline_size = 18
+		_mark.pixel_size = 0.006
+		_mark.position.y = float(spec.get("head_y", 1.0)) + 1.0
+		add_child(_mark)
+	_mark.text = t
+	_mark.modulate = Color(1, 0.35, 0.2) if t == "!" else Color(1, 0.85, 0.4)
+	_mark.visible = true
+	_mark_t = 2.5
+
+
+## The foe's mind, each frame: what it notices, and where it goes when it is not hunting.
+## Returns the way it wants to go, or null when it hunts and the usual closing in applies.
+func _think(delta: float, p: Node3D, fd: float, speed: float):
+	_mark_t -= delta
+	if _mark and _mark_t <= 0.0:
+		_mark.visible = false
+	if has_meta("raid") or not Game.wasteland or boss != "":
+		mind = "hunt"
+		return null
+	_look_t -= delta
+	var seen := false
+	if _look_t <= 0.0:
+		_look_t = 0.3
+		seen = sees(p)
+		if seen:
+			_last_known = p.global_position
+			_lost_t = 0.0
+			if mind in ["calm", "search"]:
+				_alarm(p.global_position)
+		elif mind == "hunt":
+			_lost_t += 0.3
+	if mind == "hunt" and fd < 5.0:
+		_lost_t = 0.0   # close enough to hear its breathing
+	# Badly hurt, an Unlit breaks off and runs, once, then comes back at you
+	if mind == "hunt" and not _fled and kind.begins_with("unlit") and hp < max_hp * 0.3:
+		_fled = true
+		mind = "flee"
+		_flee_t = 5.0
+	match mind:
+		"flee":
+			_flee_t -= delta
+			if _flee_t <= 0.0:
+				mind = "hunt"
+				return null
+			var away := global_position - p.global_position
+			away.y = 0.0
+			return away.normalized() * speed * 1.15
+		"hunt":
+			if _lost_t > 7.0:
+				mind = "search"
+				_search_t = 12.0
+				_show_mark("?")
+			return null
+		"search":
+			_search_t -= delta
+			if _search_t <= 0.0:
+				mind = "calm"
+				_home = global_position
+				_wander = global_position
+				return Vector3.ZERO
+			var to := _last_known - global_position
+			to.y = 0.0
+			if to.length() > 2.0:
+				return to.normalized() * speed * 0.7
+			# There: it turns about, looking
+			rotation.y += delta * 1.2
+			return Vector3.ZERO
+		_:
+			var to := _wander - global_position
+			to.y = 0.0
+			if to.length() < 1.0:
+				if randf() < delta * 0.25:
+					_wander = _home + Vector3(randf_range(-8, 8), 0, randf_range(-8, 8))
+				return Vector3.ZERO
+			return to.normalized() * speed * 0.3
+
+
 func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool) -> void:
 	var role: String = spec.get("role", "melee")
 	var flat := p.global_position - global_position
@@ -1579,6 +1746,27 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	_bar_tick(delta)
 	var want := Vector3.ZERO
 	var hurt_bad := hp < max_hp * 0.35
+	var away = null if frozen else _think(delta, p, fd, speed)
+	if away != null:
+		# Not hunting: it goes its own way, faces where it walks, and strikes at nothing
+		_guard = false
+		if role == "float":
+			away.y = sin(_t * 1.7) * 0.4
+			velocity = velocity.lerp(away, minf(1.0, delta * 3.0))
+		else:
+			velocity.x = lerpf(velocity.x, away.x, minf(1.0, delta * 6.0))
+			velocity.z = lerpf(velocity.z, away.z, minf(1.0, delta * 6.0))
+			velocity.y -= 22.0 * delta
+		if Vector2(away.x, away.z).length() > 0.2:
+			rotation.y = lerp_angle(rotation.y, atan2(away.x, away.z), minf(1.0, delta * 6.0))
+		move_and_slide()
+		if is_on_floor() and velocity.y < 0.0:
+			velocity.y = 0.0
+		if is_on_wall() and role != "float":
+			velocity.y = 3.5
+		var pc := Vector2(velocity.x, velocity.z).length()
+		_fb.play("sprint" if pc > 4.5 else ("walk" if pc > 0.4 else "idle"), clampf(pc / 3.0, 0.7, 1.6) if pc > 0.4 else 1.0)
+		return
 	if not frozen:
 		match role:
 			"gun":

@@ -5,7 +5,7 @@ extends RefCounted
 
 const START := {
 	"owned": ["shotgun", "pistol"], "blades": ["hatchet"], "thrown": ["frag"], "kits": ["bandages"],
-	"parts": {}, "mounts": {}, "tier": {}, "grade": {},
+	"parts": {}, "mounts": {}, "tier": {}, "grade": {}, "glass": true,
 	"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
 	"wear": {}, "relics": [],
 }
@@ -304,6 +304,20 @@ static func clean(d) -> Dictionary:
 		for g in t:
 			if ArmsDB.GUNS.has(g):
 				a.tier[g] = clampi(int(t[g]), 0, 3)
+	# Before 0.6 the sniper carried its glass built in; a rifle from then keeps it, now as a fitted scope
+	if not d.has("glass") and "sniper" in a.owned:
+		var parts: Array = a.parts.get("sniper", [])
+		if not "scope" in parts:
+			parts.append("scope")
+			a.parts["sniper"] = parts
+		var on: Array = a.mounts.get("sniper", [])
+		var has_sight := false
+		for m in on:
+			if ArmsDB.ATTACHMENTS[m].slot == "sight":
+				has_sight = true
+		if not has_sight:
+			on.append("scope")
+			a.mounts["sniper"] = on
 	var pl = d.get("plate", {})
 	if pl is Dictionary:
 		a["plate"] = {}
