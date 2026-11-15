@@ -40,6 +40,21 @@ const KINDS := {
 		"weak": {"bullet": 1.5}, "tough": {"blade": 0.5}, "text": "Bursts into fire when it reaches you, or when it dies. Shoot it far off."},
 	"lurker": {"name": "Dune Lurker", "hp": 80.0, "size": 1.0, "speed": 6.0, "bite": 24.0, "radius": 0.5, "body": "cat",
 		"weak": {"shot": 1.4}, "tough": {"bullet": 0.7}, "text": "Swims under the sand and rises at your feet."},
+	# Not lesser forms: men and the dead, with bodies of their own (see FoeBody)
+	"unlit_gun": {"name": "Unlit Gunman", "hp": 60.0, "size": 1.0, "speed": 4.2, "bite": 9.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.62,
+		"weak": {"bullet": 1.2, "blade": 1.3}, "tough": {}, "text": "One of those who put out the beacons. Keeps its distance and shoots. Close in, or out-shoot it."},
+	"unlit_blade": {"name": "Unlit Blade", "hp": 85.0, "size": 1.0, "speed": 5.0, "bite": 20.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.65,
+		"weak": {"blast": 1.4}, "tough": {}, "text": "Guards against shots from the front. Strike when it swings, or turn its blade with your own guard."},
+	"unlit_brute": {"name": "Unlit Breaker", "hp": 200.0, "size": 1.3, "speed": 3.4, "bite": 34.0, "radius": 0.6, "body": "model", "role": "melee", "head_y": 0.95,
+		"weak": {"blade": 1.3}, "tough": {"shot": 0.8}, "text": "A great maul and a slow swing. Step out of it, then strike."},
+	"hollow": {"name": "The Hollowed", "hp": 55.0, "size": 1.0, "speed": 2.4, "bite": 15.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.7,
+		"weak": {"fire": 1.8, "shot": 1.2}, "tough": {}, "text": "Pilgrims the night took. Slow, and never alone."},
+	"saltbone": {"name": "Salt-Bones", "hp": 40.0, "size": 0.9, "speed": 6.0, "bite": 13.0, "radius": 0.4, "body": "model", "role": "melee", "head_y": 0.62,
+		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "Bones the salt kept. Quick, and bullets slip through them. Use shot or the blade."},
+	"vigil": {"name": "Lost Vigil", "hp": 70.0, "size": 1.0, "speed": 3.4, "bite": 12.0, "radius": 0.5, "body": "model", "role": "float", "head_y": 0.5,
+		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.5, "shot": 0.6}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth."},
+	"warden": {"name": "Gravewarden", "hp": 260.0, "size": 1.4, "speed": 3.0, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1,
+		"weak": {"fire": 1.4}, "tough": {"bullet": 0.8}, "text": "It keeps the Hollowed. Where it walks, more of them rise."},
 }
 ## The kind of harm now being dealt. Set by whatever deals it, just before it does.
 static var harm_kind := ""
@@ -128,7 +143,7 @@ var _flank := 0.0         ## which side it swings out to as it closes
 var _head_base := Vector3.ONE
 ## How long each kind gathers itself before it bites. The quick ones barely pause; the heavy ones show it.
 const WINDUP := {"rusher": 0.38, "idol": 0.6, "swarm": 0.2, "mite": 0.18, "elite": 0.55, "spider": 0.3,
-	"brute": 0.65, "howler": 0.4, "lurker": 0.3}
+	"brute": 0.65, "howler": 0.4, "lurker": 0.3, "unlit_blade": 0.45, "unlit_brute": 0.85, "hollow": 0.6, "saltbone": 0.35, "vigil": 0.4, "warden": 0.8}
 var puppet := false
 var credit := false
 var last_hitter := 1
@@ -185,6 +200,14 @@ func _ready() -> void:
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
+	if spec.get("body", "") == "model":
+		_fb = FoeBody.make(kind)
+		_fb.position.y = -float(spec.radius)
+		add_child(_fb)
+		head.visible = false
+		head.position.y = float(spec.head_y)
+		_flank = randf_range(-PI, PI)
+		_ammo = 9
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -193,6 +216,11 @@ func _ready() -> void:
 		_grow_into_boss()
 	elif spec.hp >= 30.0:
 		_make_bar()
+	if _fb:
+		if _name_l:
+			_name_l.position.y = float(spec.head_y) + 0.8 * spec.size
+		if _bar:
+			_bar.position.y = float(spec.head_y) + 0.6 * spec.size
 	_remember_head()
 	scale = Vector3.ONE * 0.01
 	create_tween().tween_property(self, "scale", Vector3.ONE, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -278,6 +306,9 @@ func _physics_process(delta: float) -> void:
 	var frozen: bool = level.combat_frozen or idle or _stagger > 0.0 or _spent > 0.0 or _busy > 0.0
 	if boss != "" and not level.combat_frozen and not idle and not level.completed:
 		_boss_tick(delta, p, dist)
+	if _fb:
+		_foe_move(delta, p, dist, dir, frozen)
+		return
 	if walks():
 		_spider_move(delta, p, dist, frozen)
 		return
@@ -445,10 +476,15 @@ func _segment(parent: Node3D, from: Vector3, to: Vector3, r: float, m: Material)
 
 
 func walks() -> bool:
-	return kind == "spider" or spec.get("body", "") == "cat"
+	return kind == "spider" or spec.get("body", "") == "cat" or (spec.get("body", "") == "model" and kind != "vigil")
 
 
 var _buried := 0.0       ## a lurker under the sand: 1 hidden, 0 risen
+var _fb: FoeBody         ## the body of a foe that is not a lesser form
+var _ammo := 9           ## a gunman's rounds before it must reload
+var _aim := 0.0          ## a gunman drawing a bead: seconds left before it fires
+var _burst := 0          ## shots left in the burst
+var _guard := false      ## an Unlit Blade with its blade up: shots from the front are turned
 var _charge := 0.0       ## a hauler's charge, seconds left
 var _howl_cd := 4.0
 var seen_t := 0.0        ## shown by a flare or the censer: its name stands over it and it is marked
@@ -886,6 +922,14 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		return full
 	if not full:
 		amount *= 0.12
+	if _guard and harm_kind in ["bullet", "shot"]:
+		var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))
+		var inc := -from_dir
+		inc.y = 0.0
+		if fwd.dot(inc.normalized()) > 0.4:
+			amount *= 0.3
+			full = false
+			level.sfx("hit_metal", -4, global_position + Vector3(0, 0.6, 0))
 	if _spent > 0.0:
 		amount *= 1.6
 	hp -= amount
@@ -1020,6 +1064,13 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
+	if _fb and slain:
+		_fb.act("die")
+		var tf := create_tween()
+		tf.tween_interval(1.6)
+		tf.tween_property(self, "scale", Vector3.ONE * 0.01, 0.6)
+		tf.tween_callback(queue_free)
+		return
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
@@ -1143,6 +1194,11 @@ func _puppet_tick(delta: float) -> void:
 	head.rotation.x = lerpf(head.rotation.x, _net_head.y, minf(1.0, delta * 12.0))
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	if _fb:
+		var pv := Vector2(_net_v.x, _net_v.z).length()
+		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
+		if _wind > 0.0 and _fb._once <= 0.0:
+			_fb.act("attack-melee-right")
 	if _wind > 0.0:
 		_wind -= delta
 		_show_wind(0.8)
@@ -1477,3 +1533,175 @@ class Bolt extends Area3D:
 		if b is Player:
 			level.damage_player(damage, global_position)
 		queue_free()
+
+
+# ------------------------------------------------------------------ foes with bodies of their own
+
+## How the Unlit and the dead move and fight. Melee foes close in and spread around their prey
+## instead of queueing; a gunman keeps its distance, draws a bead and fires in bursts, reloads, and
+## backs off when badly hurt; the Lost Vigil drifts through the air.
+func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool) -> void:
+	var role: String = spec.get("role", "melee")
+	var flat := p.global_position - global_position
+	flat.y = 0.0
+	var fd := flat.length()
+	var fdir := flat / maxf(fd, 0.01)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * (0.6 if _guard else 1.0)
+	_shot_slow = maxf(0.0, _shot_slow - delta)
+	_flash = maxf(0.0, _flash - delta * 5.0)
+	_bar_tick(delta)
+	var want := Vector3.ZERO
+	var hurt_bad := hp < max_hp * 0.35
+	if not frozen:
+		match role:
+			"gun":
+				var keep := 30.0 if hurt_bad else 18.0
+				var side := fdir.cross(Vector3.UP) * _strafe
+				if fd > keep + 6.0:
+					want = fdir * speed
+				elif fd < keep - 6.0:
+					want = -fdir * speed * 0.9 + side * 1.5
+				else:
+					want = side * speed * 0.6
+				if randf() < delta * 0.3:
+					_strafe = -_strafe
+			"float":
+				want = fdir * speed
+				want.y = (p.global_position.y + 1.2 - global_position.y) * 1.5 + sin(_t * 1.7) * 0.6
+			_:
+				# Close from its own side: a ring about the prey, each foe to its own place on it
+				var slot := p.global_position + Vector3(cos(_flank), 0, sin(_flank)) * (1.6 if fd < 6.0 else 5.0)
+				var to_slot := slot - global_position
+				to_slot.y = 0.0
+				want = (fdir if fd > 12.0 else to_slot.normalized()) * speed * (1.0 if fd > 3.0 else 0.6)
+				if fd < 1.2 + spec.radius:
+					want = Vector3.ZERO
+				# An Unlit Blade raises its guard against a gun pointed at it
+				if kind == "unlit_blade":
+					var aim_at: bool = p == level.player and fd > 3.5 and fd < 18.0 and (-level.player.cam.global_transform.basis.z).dot(-fdir) > 0.93
+					_guard = aim_at and _wind <= 0.0
+		if role == "float":
+			velocity = velocity.lerp(want, minf(1.0, delta * 3.0))
+		elif is_on_floor():
+			velocity.x = lerpf(velocity.x, want.x, minf(1.0, delta * 8.0))
+			velocity.z = lerpf(velocity.z, want.z, minf(1.0, delta * 8.0))
+		rotation.y = lerp_angle(rotation.y, atan2(fdir.x, fdir.z), minf(1.0, delta * 8.0))
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
+		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
+	if role != "float":
+		velocity.y -= 22.0 * delta
+	velocity += _knock - _knock_on
+	_knock_on = _knock
+	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
+	var real_v := velocity
+	velocity *= level.enemy_time
+	move_and_slide()
+	velocity = real_v
+	if is_on_floor() and velocity.y < 0.0:
+		velocity.y = 0.0
+	if is_on_wall() and not frozen and role != "float":
+		velocity.y = 3.5
+	var pace := Vector2(velocity.x, velocity.z).length()
+	_fb.play("sprint" if pace > 4.5 else ("walk" if pace > 0.4 else ("holding-both" if role == "gun" and fd < 40.0 else "idle")), clampf(pace / 3.0, 0.7, 1.6) if pace > 0.4 else 1.0)
+	if frozen or level.completed or level.failing:
+		return
+	_attack_cd -= delta
+	_cry_cd -= delta
+	if _cry_cd <= 0.0 and dist < 18.0:
+		_cry_cd = randf_range(4.0, 8.0)
+		match kind:
+			"hollow", "warden":
+				_cry("troll", -6)
+			"vigil":
+				_cry("whispers", -8)
+			"saltbone":
+				_cry("skitter", -4)
+	if role == "gun":
+		_gun_tick(delta, p, dist)
+		return
+	var reach: float = 1.3 + spec.radius
+	_foe_strike(delta, p, dist, dir, reach)
+
+
+## A melee foe's blow: it raises its arm (the warning), and strikes if you are still in reach. A
+## pilgrim who turns the blow with a raised guard staggers it, and it stands open a while.
+func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
+	if _wind > 0.0:
+		_wind -= delta
+		if _wind <= 0.0:
+			_attack_cd = 1.3 if kind != "unlit_brute" else 2.2
+			if dist < reach + 0.7:
+				var turned := false
+				if p == level.player and level.player.weapon and level.player.weapon.guarding:
+					var pf := -level.player.global_transform.basis.z
+					var to := global_position - level.player.global_position
+					to.y = 0.0
+					turned = pf.dot(to.normalized()) > 0.4
+				if turned:
+					# Parried: the blade is turned, the foe reels, and the pilgrim's stamina pays a little
+					level.sfx("parry", 0, global_position)
+					_stagger = 1.3
+					_wind = 0.0
+					level.player.spend(8.0)
+					level.player.shake(0.2)
+					level.hud.hitmarker(false, true)
+					_knock = -dir * 3.0
+				else:
+					level.sfx("chop" if kind.begins_with("unlit") or kind == "warden" else "bite", -3, global_position)
+					level.hurt_target(p, spec.bite, global_position)
+			else:
+				level.sfx("swing", -6, global_position, 0.9)
+		return
+	if dist < reach + 0.4 and _attack_cd <= 0.0 and _stagger <= 0.0:
+		_wind_total = float(WINDUP.get(kind, 0.5)) / sqrt(Game.difficulty_scale("speed")) * (WRules.windup() if Game.wasteland else 1.0)
+		_wind = _wind_total
+		_guard = false
+		_fb.act("attack-melee-right", 0.55 / maxf(_wind_total, 0.2))
+		level.sfx("swing", -10, global_position, 0.8)
+
+
+## A gunman: it draws a bead with a glint at the muzzle (the warning), then fires a short burst.
+## Each shot may miss, more so at range and against a moving target. It reloads after nine.
+func _gun_tick(delta: float, p: Node3D, dist: float) -> void:
+	if _aim > 0.0:
+		_aim -= delta
+		if _aim <= 0.0:
+			_burst = 3
+			_attack_cd = 0.0
+		return
+	if _burst > 0:
+		_attack_cd -= delta
+		if _attack_cd <= 0.0:
+			_attack_cd = 0.16
+			_burst -= 1
+			_ammo -= 1
+			_shoot_at(p, dist)
+			if _ammo <= 0:
+				_ammo = 9
+				_burst = 0
+				_attack_cd = 2.6
+				level.sfx("pump", -6, global_position, 0.9)
+			elif _burst == 0:
+				_attack_cd = randf_range(1.4, 2.4)
+		return
+	if _attack_cd <= 0.0 and dist < 45.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+		_aim = 0.75
+		level.shared("_w_glint", [net_id])
+
+
+func _shoot_at(p: Node3D, dist: float) -> void:
+	var from: Vector3 = _fb.muzzle.global_position if _fb and _fb.muzzle else global_position + Vector3(0, 0.6, 0)
+	var at := p.global_position + Vector3(0, 1.2, 0)
+	var moving := 0.0
+	if p is CharacterBody3D:
+		moving = Vector2(p.velocity.x, p.velocity.z).length()
+	var miss := clampf(0.2 + dist * 0.012 + moving * 0.04, 0.15, 0.8)
+	var hit := randf() > miss
+	if not hit:
+		at += Vector3(randf_range(-1.5, 1.5), randf_range(-0.8, 1.2), randf_range(-1.5, 1.5))
+	_fb.act("holding-both-shoot")
+	level.sfx("mg", -4, from, 0.85)
+	level.shared("_w_tracer", [from, at])
+	if hit:
+		level.hurt_target(p, spec.bite, from)

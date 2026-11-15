@@ -2901,6 +2901,55 @@ func _w_warn(at: Vector3, r: float, t: float, kind: int, angle := 0.0, half := 1
 	tw.tween_callback(mi.queue_free)
 
 
+## A gunman's tracer: a thin line of light from its muzzle to where the shot went.
+func _w_tracer(a: Vector3, b: Vector3) -> void:
+	if a.distance_to(b) < 0.1:
+		return
+	var mi := MeshInstance3D.new()
+	var bx := BoxMesh.new()
+	bx.size = Vector3(0.025, 0.025, a.distance_to(b))
+	mi.mesh = bx
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(1.0, 0.85, 0.5, 0.9)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	mi.look_at(b, Vector3.UP if absf((b - a).normalized().y) < 0.99 else Vector3.RIGHT)
+	var tw := create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.12)
+	tw.tween_callback(mi.queue_free)
+
+
+## A gunman takes aim: a bright glint at its muzzle, the warning before the burst.
+func _w_glint(id: int) -> void:
+	var e = foes.get(id)
+	if not is_instance_valid(e) or e._fb == null or e._fb.muzzle == null:
+		return
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.8, 0.4)
+	l.light_energy = 3.0
+	l.omni_range = 2.0
+	e._fb.muzzle.add_child(l)
+	var spark := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.09
+	sm.height = 0.18
+	spark.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(1.0, 0.95, 0.7)
+	spark.material_override = m
+	e._fb.muzzle.add_child(spark)
+	sfx("draw", -8, e.global_position, 1.3)
+	var tw := create_tween()
+	tw.tween_property(l, "light_energy", 0.0, 0.75)
+	tw.tween_callback(l.queue_free)
+	tw.tween_callback(spark.queue_free)
+
+
 func _w_boss_wroth(b: String) -> void:
 	if hud and LesserSpeeb.BOSSES.has(b):
 		hud.notify("%s grows wroth. Its ways come quicker." % LesserSpeeb.BOSSES[b].name)

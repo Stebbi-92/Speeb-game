@@ -2043,12 +2043,12 @@ const BIOME_TEXT := {
 }
 ## What the night sends, by land.
 const BIOME_FORMS := {
-	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler"],
-	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker"],
-	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater"],
-	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler"],
-	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater"],
-	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker"],
+	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil"],
+	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone"],
+	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil"],
+	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow"],
+	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil"],
+	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "hollow"],
 }
 
 
@@ -2572,7 +2572,7 @@ func _day_watch() -> void:
 				r.guard_day = day
 				var n := 2 + randi() % 3
 				for k in n:
-					_spawn_near(["rusher", "spitter", "spider", "idol", "brute", "howler"][randi() % 6], r.pos, 6.0, 14.0, true)
+					_spawn_near(["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"][randi() % 10], r.pos, 6.0, 14.0, true)
 		if alive_count() < 2 and randf() < 0.08:
 			_spawn_near(["rusher", "spider", "swarm"][randi() % 3], p, 40.0, 60.0)
 
@@ -4192,14 +4192,16 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 	rr.randomize()
 	var roll := rr.randf()
 	var kind := "camp"
-	if roll < 0.28:
+	if roll < 0.24:
 		kind = "camp"
-	elif roll < 0.52:
+	elif roll < 0.42:
 		kind = "fallen"
-	elif roll < 0.74:
+	elif roll < 0.6:
 		kind = "pack"
-	elif roll < 0.9:
+	elif roll < 0.72:
 		kind = "attack"
+	elif roll < 0.9:
+		kind = "unlit"
 	else:
 		kind = "cairn"
 	match kind:
@@ -4216,6 +4218,16 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 				_spawn_near(["rusher", "spitter", "brute", "bloater"][rr.randi() % 4], at, 4.0, 10.0, true)
 		"cairn":
 			shared("_rq_satchel", [0, at, Items.roll("vault", 3, rr), false])
+		"unlit":
+			# A band of the Unlit at their fire: gunmen and blades, and now and then a breaker
+			shared("_rq_satchel", [0, at + Vector3(1.5, 0, 0), Items.roll("camp", 2, rr) + Items.roll("caravan", 2, rr), false])
+			var band := ["unlit_gun", "unlit_gun", "unlit_blade"]
+			if rr.randf() < 0.5:
+				band.append("unlit_blade")
+			if rr.randf() < 0.3 or maxf(absf(at.x), absf(at.z)) > 900.0:
+				band.append("unlit_brute")
+			for k in band:
+				_spawn_near(k, at, 2.0, 6.0, true)
 	shared("_w_road_sign", [at, kind, Vector2(seen_from.x, seen_from.z)])
 
 
@@ -4246,7 +4258,7 @@ func _w_road_sign(at: Vector3, kind: String, from: Vector2) -> void:
 	smoke.position.y = 1.0
 	n.add_child(smoke)
 	match kind:
-		"camp", "attack":
+		"camp", "attack", "unlit":
 			_add(n, cyl(Vector3.ZERO, 0.9, 0.25, _m.cold, false), Vector3(0, 0.12, 0))
 			var e := cyl(Vector3.ZERO, 0.45, 0.2, _m.ember, false)
 			_add(n, e, Vector3(0, 0.25, 0))
@@ -4275,6 +4287,7 @@ func _w_road_sign(at: Vector3, kind: String, from: Vector2) -> void:
 			"pack": "Forms crossing to the %s.",
 			"attack": "Shouting to the %s, then silence. Smoke rises.",
 			"cairn": "A cairn of stones to the %s. Something is buried there.",
+			"unlit": "Masks by a fire to the %s. The Unlit are camped there.",
 		}[kind] % dir)
 
 
@@ -4747,6 +4760,56 @@ func debug_blade() -> void:
 
 
 ## Testing aid: shot at steadily, a gilded form keeps coming, slower; a rusher is pushed back a little.
+## Testing aid: the new foes. A gunman fires on you from range; an Unlit Blade's blow is turned by
+## a raised guard and it reels; its own guard turns shots from the front; the dead fall and are gone.
+func debug_foes() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var g := spawn_at("unlit_gun", player.global_position + f * 16.0 + Vector3(0, 1.0, 0))
+	g.set_meta("raid", true)
+	var hp0 := player.health
+	await get_tree().create_timer(9.0).timeout
+	print("FOES gunman shot=%s alive=%s" % [player.health < hp0, g.is_alive()])
+	g.die(false)
+	var b := spawn_at("unlit_blade", player.global_position + f * 2.0 + Vector3(0, 1.0, 0))
+	b.set_meta("raid", true)
+	player.weapon.draw_blade()
+	player.weapon.guarding = true
+	player.stamina = 100.0
+	var parried := false
+	for i in 6 * 60:
+		await get_tree().physics_frame
+		player.weapon.guarding = true
+		player.stamina = 100.0
+		if b._stagger > 0.5:
+			parried = true
+			break
+	player.weapon.guarding = false
+	b._guard = true
+	b._stagger = 0.0
+	b.rotation.y = atan2(-f.x, -f.z)
+	var h1: float = b.hp
+	LesserSpeeb.harm_kind = "bullet"
+	b.hurt(20.0, f)
+	LesserSpeeb.harm_kind = ""
+	print("FOES parried=%s guarded_harm=%.1f" % [parried, h1 - b.hp])
+	b.die(false)
+	var n0 := enemies.filter(func(e): return is_instance_valid(e)).size()
+	for k in ["hollow", "saltbone", "vigil", "warden", "unlit_brute"]:
+		var e := spawn_at(k, player.global_position + f * 8.0 + Vector3(0, 1.5, 0))
+		e.set_meta("raid", true)
+		await get_tree().create_timer(0.5).timeout
+		e.hurt(9999.0, f)
+	await get_tree().create_timer(3.0).timeout
+	print("FOES dead_gone=%s" % (enemies.filter(func(e): return is_instance_valid(e) and e.is_alive()).size() <= n0))
+	get_tree().quit()
+
+
 ## Testing aid: a struck form bleeds, and does not when blood is turned off.
 func debug_blood() -> void:
 	while not ready_world:
@@ -4983,6 +5046,23 @@ func debug_screen() -> void:
 				e.hurt(25.0, f.normalized())
 				e.hp = 5000.0
 				await get_tree().create_timer(0.15).timeout
+		"foes":
+			var f := -player.global_transform.basis.z
+			f.y = 0.0
+			f = f.normalized()
+			var x := player.global_transform.basis.x
+			var ks := ["unlit_gun", "unlit_blade", "unlit_brute", "hollow", "saltbone", "vigil", "warden"]
+			for i in ks.size():
+				var e := spawn_at(ks[i], player.global_position + f * (5.0 + (i % 2) * 2.5) + x * (i - 3) * 1.6 + Vector3(0, 1.0, 0))
+				e.set_meta("raid", true)
+				e._attack_cd = 999.0
+				e.spec = e.spec.duplicate()
+				e.spec.speed = 0.0
+				e.rotation.y = atan2(-f.x, -f.z)
+				if ks[i] == "unlit_gun":
+					e._fb.play("holding-both")
+				if ks[i] == "unlit_blade":
+					e._fb.act("attack-melee-right", 0.3)
 		"warn":
 			var f := -player.global_transform.basis.z
 			f.y = 0.0

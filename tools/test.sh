@@ -24,5 +24,6 @@ check recoil     debug_recoil   "RECOIL same=true lifted=0\.[0-9]+ settled=0\.0"
 check practice   debug_practice "PRACTICE level 0 -> [1-9] dmg [0-9.]+ -> [0-9.]+ kept=true"
 check great     debug_greatones "GREAT boss_ash ring=[1-9][0-9]* lane=[1-9][0-9]* fire=0 spent=true wroth false->true spent_harm=160" "GREAT boss_dunes ring=0 lane=0 fire=[1-9][0-9]* spent=false wroth false->true"
 check blood     debug_blood    "BLOOD on=1 off=0"
+check foes      debug_foes     "FOES gunman shot=true" "FOES parried=true guarded_harm=[0-9]\." "FOES dead_gone=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
