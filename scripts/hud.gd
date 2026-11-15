@@ -1679,6 +1679,9 @@ func show_options() -> void:
 	_options_list.add_child(rb)
 	_section("Sound")
 	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
+	for k in [["Guns", "Guns and blows"], ["Creatures", "Creatures"], ["World", "The world (wind, towns, footsteps)"], ["Interface", "Menus and bells"]]:
+		var bus: String = k[0]
+		_slider(k[1], 0.0, 1.0, 0.01, float(Game.bus_vol[bus]), func(x): Game.bus_vol[bus] = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())

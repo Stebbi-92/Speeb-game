@@ -36,6 +36,9 @@ var reached := 0
 var found := {}
 var sensitivity := 0.0025
 var volume := 0.8
+## The mixer: each kind of sound on its own line, with its own volume.
+const BUSES := ["Guns", "Creatures", "World", "Interface"]
+var bus_vol := {"Guns": 1.0, "Creatures": 1.0, "World": 1.0, "Interface": 1.0}
 var difficulty := 1
 var judgments := {}
 var relics := {}
@@ -528,7 +531,7 @@ func tier_of(gun: String) -> int:
 
 
 func save() -> void:
-	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
+	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "volume": volume, "bus_vol": bus_vol, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "blood": blood, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
@@ -564,6 +567,10 @@ func load_save() -> void:
 			found[c] = true
 		sensitivity = float(d.get("sensitivity", sensitivity))
 		volume = float(d.get("volume", volume))
+		var bv = d.get("bus_vol", {})
+		if bv is Dictionary:
+			for k in BUSES:
+				bus_vol[k] = clampf(float(bv.get(k, 1.0)), 0.0, 1.0)
 		difficulty = int(d.get("difficulty", difficulty))
 		judgments = d.get("judgments", {})
 		for r in d.get("relics", []):
@@ -673,3 +680,25 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func apply_volume() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.001)))
+	for k in BUSES:
+		var i := AudioServer.get_bus_index(k)
+		if i < 0:
+			AudioServer.add_bus()
+			i = AudioServer.bus_count - 1
+			AudioServer.set_bus_name(i, k)
+			AudioServer.set_bus_send(i, "Master")
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(float(bus_vol[k]), 0.001)))
+
+
+## Which line of the mixer a sound plays on, by its name.
+static func bus_of(sound: String) -> String:
+	for g in ["shotgun", "mg", "sniper", "pistol", "revolver", "minigun", "rocket", "supp", "pump", "shell", "brrt", "jet", "rotor", "boom", "hit_", "swing", "chop", "parry", "draw", "tick"]:
+		if sound.begins_with(g):
+			return "Guns"
+	for c in ["growl", "shriek", "roar", "great_roar", "troll", "bite", "spit", "hiss", "screech", "chitter", "skitter", "critter", "spider", "unseen", "saucer", "fall", "heavy_step", "dissolve", "whispers"]:
+		if sound.begins_with(c):
+			return "Creatures"
+	for u in ["deny", "carve", "bell", "choir", "relic", "beam"]:
+		if sound.begins_with(u):
+			return "Interface"
+	return "World"

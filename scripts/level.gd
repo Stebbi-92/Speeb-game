@@ -1838,6 +1838,7 @@ func ambient(name: String, vol_db := -6.0) -> AudioStreamPlayer:
 	var s = load("res://assets/audio/%s.ogg" % name)
 	s.loop = true
 	p.stream = s
+	p.bus = "World"
 	p.volume_db = vol_db
 	p.autoplay = true
 	add_child(p)
@@ -1879,9 +1880,11 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 	if all.size() > 1:
 		pitch *= randf_range(0.97, 1.03)
 		vol_db += randf_range(-1.0, 0.5)
+	var bus := Game.bus_of(name)
 	if pos == null:
 		var p := AudioStreamPlayer.new()
 		p.stream = s
+		p.bus = bus
 		p.volume_db = vol_db
 		p.pitch_scale = pitch
 		add_child(p)
@@ -1890,6 +1893,7 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 	else:
 		var p := AudioStreamPlayer3D.new()
 		p.stream = s
+		p.bus = bus
 		p.volume_db = vol_db
 		p.position = pos
 		p.pitch_scale = pitch

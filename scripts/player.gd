@@ -82,6 +82,7 @@ func _ready() -> void:
 	_step = AudioStreamPlayer.new()
 	_step.stream = load("res://assets/audio/step.wav")
 	_step.volume_db = -14
+	_step.bus = "World"
 	add_child(_step)
 	floor_snap_length = 0.3
 	collision_mask = 1 | 2
