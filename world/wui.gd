@@ -1187,37 +1187,7 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		_stat(side, "Reach", "%d m" % int(sp.range), clampf(float(sp.range) / 400.0, 0.05, 1.0))
 		_stat(side, "Holds", str(Arms.mag_of(id)), clampf(Arms.mag_of(id) / 60.0, 0.05, 1.0))
 		side.add_child(_wrap(_waste_text(sp.text), 15, Color(PALE, 0.8), 220))
-		if id in a.owned:
-			if t < 3:
-				var c: Dictionary = w.skills.cost(WArms.tier_cost(t + 1))
-				side.add_child(_secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1), func(): a.tier[id] = t + 1), bench and w.stock_has_all(c)))
-				side.add_child(_cost_line(c))
-			if not sp.mounts.is_empty():
-				side.add_child(_label("Parts", 16, GOLD))
-				var have: Array = a.parts.get(id, [])
-				var on: Array = a.mounts.get(id, [])
-				for m in sp.mounts:
-					var at: Dictionary = ArmsDB.ATTACHMENTS[m]
-					var row := HBoxContainer.new()
-					row.add_theme_constant_override("separation", 6)
-					row.add_child(WGlyph.make(m, 24))
-					var nm := _label(at.name, 15, GOLD if m in on else PALE)
-					nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-					nm.tooltip_text = at.text
-					nm.mouse_filter = Control.MOUSE_FILTER_PASS
-					row.add_child(nm)
-					if m in have:
-						row.add_child(_secondary("Take off" if m in on else "Fit", func(): _fit(id, m), true, 13))
-					else:
-						var c: Dictionary = w.skills.cost(WArms.PARTS[m])
-						row.add_child(_secondary("Make", func(): _arms_pay(WArms.PARTS[m], func():
-							if not a.parts.has(id):
-								a.parts[id] = []
-							a.parts[id].append(m)
-							_fit(id, m, false)), bench and w.stock_has_all(c), 13))
-					side.add_child(row)
-		else:
-			side.add_child(_cost_line(w.skills.cost(WArms.MAKE[id])))
+		side.add_child(_cost_line(w.skills.cost(WArms.MAKE[id])))
 		return
 	var info := {}
 	for kk in WArms.KINDS:
@@ -1230,6 +1200,8 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 	if info.is_empty():
 		return
 	side.add_child(_label(info.name, 23, PALE))
+	if ArmsDB.MELEE.has(id):
+		side.add_child(_practice_line("blade"))
 	if info.has("dmg"):
 		_stat(side, "Harm", str(int(info.dmg)), clampf(float(info.dmg) / 150.0, 0.05, 1.0))
 	if info.has("guard"):
@@ -1253,6 +1225,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(tl)
 	side.add_child(head)
+	side.add_child(_practice_line(g))
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 20)
 	side.add_child(cols)
@@ -1380,6 +1353,34 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 			a.parts[g].append(m2)
 			_fit(g, m2, false)), bench and w.stock_has_all(c), 15))
 		acts.add_child(_cost_line(c))
+
+
+## How well this survivor knows a weapon: the rank, a bar to the next, and what it gives.
+func _practice_line(id: String) -> Control:
+	var lv: int = w.skills.use_level(id)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var nm := _label(WSkills.USE_RANKS[lv], 14, GOLD if lv > 0 else DIM)
+	nm.custom_minimum_size.x = 80
+	row.add_child(nm)
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(110, 6)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.max_value = 1.0
+	bar.value = w.skills.use_progress(id)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(1, 1, 1, 0.08)
+	bg.set_corner_radius_all(3)
+	var fg := StyleBoxFlat.new()
+	fg.bg_color = GOLD
+	fg.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fg)
+	row.add_child(bar)
+	row.add_child(_label(WSkills.use_text(lv), 13, DIM))
+	row.tooltip_text = "You get better with a weapon by using it."
+	return row
 
 
 ## Reworks a part with fittings: a new grade and fresh traits.

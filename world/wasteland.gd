@@ -4574,6 +4574,27 @@ func debug_combat() -> void:
 	get_tree().quit()
 
 
+## Testing aid: practice with a gun grows by using it, gives its bonus, and is kept in the save.
+func debug_practice() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn = player.weapon
+	var g: String = wpn.gun()
+	var d0: float = wpn.spec().dmg
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.5, -3))
+	e.hp = 10000.0
+	e.set_meta("raid", true)
+	var lv0: int = skills.use_level(g)
+	for i in 200:
+		wpn._practise(g, {e: 1})
+	var lv1: int = skills.use_level(g)
+	var d1: float = wpn.spec().dmg
+	var back := WSkills.new()
+	back.from_data(skills.to_data())
+	print("PRACTICE level %d -> %d dmg %.1f -> %.1f kept=%s" % [lv0, lv1, d0, d1, back.use_level(g) == lv1])
+	get_tree().quit()
+
+
 ## Testing aid: the kick pattern repeats, the view settles back, and the sights hold tighter than the hip.
 func debug_recoil() -> void:
 	while not ready_world:

@@ -146,8 +146,41 @@ func gun() -> String:
 func spec() -> Dictionary:
 	var g := gun()
 	if not _spec_cache.has(g):
-		_spec_cache[g] = spec_of(g)
+		var sp := spec_of(g)
+		var sk = _skills()
+		if sk:
+			var b: Dictionary = sk.use_bonus(g)
+			sp.dmg = float(sp.dmg) * b.dmg
+			sp.kick = float(sp.kick) * b.kick
+			sp.reload_t = float(sp.reload_t) * b.reload
+			sp.aim = float(sp.aim) * b.aim
+			sp.spread = float(sp.spread) * b.spread
+		_spec_cache[g] = sp
 	return _spec_cache[g]
+
+
+## The survivor's skills, in the waste only.
+func _skills():
+	var lvl = player.get_parent() if is_instance_valid(player) else null
+	return lvl.get("skills") if lvl != null and lvl.get("skills") is WSkills else null
+
+
+## Practice with the weapon in hand from what a blow or a shot did.
+func _practise(id: String, hits: Dictionary) -> void:
+	var sk = _skills()
+	if sk == null or hits.is_empty():
+		return
+	var n := 0
+	for t in hits:
+		n += 1
+		if is_instance_valid(t) and t.has_method("is_alive") and not t.is_alive():
+			n += 4
+	if sk.practise(id, n):
+		_spec_cache.clear()
+		var lv: int = sk.use_level(id)
+		var nm: String = ArmsDB.GUNS[id].name if ArmsDB.GUNS.has(id) else "the blade"
+		Game.main.hud.notify("%s with %s. %s." % [WSkills.USE_RANKS[lv], nm, WSkills.use_text(lv)])
+		player.get_parent().sfx("choir", -10, null, 1.3)
 
 
 static func spec_of(g: String) -> Dictionary:
@@ -659,6 +692,7 @@ func _try_fire() -> void:
 	if not hits.is_empty():
 		lvl.hits += 1
 	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet", crits)
+	_practise(gun(), hits)
 
 
 ## Applies harm to each struck thing and shows the hit marker once.
@@ -843,6 +877,10 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 	var origin := cam.global_position
 	var fwd := -cam.global_transform.basis.z
 	var hits := {}
+	var sk = _skills()
+	if sk:
+		m = m.duplicate()
+		m.dmg = float(m.dmg) * float(sk.use_bonus("blade").dmg)
 	var q := PhysicsRayQueryParameters3D.create(origin, origin + fwd * float(m.reach), 1 | 2)
 	q.exclude = [player.get_rid()]
 	var r := get_world_3d().direct_space_state.intersect_ray(q)
@@ -858,6 +896,7 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		lvl.sfx("chop", -1 if heavy else -4, null, randf_range(0.85, 1.1) * (0.8 if heavy else 1.0))
 		player.shake(0.3 if heavy else 0.15)
 		Arms.deal(hits, fwd, "blade")
+		_practise("blade", hits)
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)
 		lvl.sfx("thud", -10)

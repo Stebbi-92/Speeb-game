@@ -59,6 +59,11 @@ var level := 1
 var points := 0
 var ranks := {}
 var second_wind_day := -1
+var use := {}   ## practice with each gun and the blade: id -> points earned by using it
+
+## Names for how well a survivor knows a weapon, from first use to mastery.
+const USE_RANKS := ["Green", "Used", "Practised", "Seasoned", "Skilled", "Hardened", "Veteran", "Expert", "Master", "Legend"]
+const USE_MAX := 9
 
 
 static func need(lv: int) -> int:
@@ -121,6 +126,51 @@ func gain(amount: int) -> int:
 		xp = 0
 	changed.emit()
 	return ups
+
+
+# ------------------------------------------------------------------ practice
+
+## Points of practice to reach a rank with a weapon.
+static func use_need(lv: int) -> int:
+	return int(round(25.0 * pow(lv, 1.7)))
+
+
+func use_level(id: String) -> int:
+	var p := int(use.get(id, 0))
+	var lv := 0
+	while lv < USE_MAX and p >= use_need(lv + 1):
+		lv += 1
+	return lv
+
+
+## How far to the next rank, 0 to 1.
+func use_progress(id: String) -> float:
+	var lv := use_level(id)
+	if lv >= USE_MAX:
+		return 1.0
+	var a := use_need(lv)
+	return clampf(float(int(use.get(id, 0)) - a) / float(use_need(lv + 1) - a), 0.0, 1.0)
+
+
+## Practice from using a weapon. Returns true when it reaches a new rank.
+func practise(id: String, n: int) -> bool:
+	if n <= 0:
+		return false
+	var before := use_level(id)
+	use[id] = int(use.get(id, 0)) + n
+	return use_level(id) > before
+
+
+## What practice with a weapon gives: a little more harm, less kick, quicker loading and aiming.
+func use_bonus(id: String) -> Dictionary:
+	var lv := use_level(id)
+	return {"dmg": 1.0 + 0.02 * lv, "kick": 1.0 - 0.03 * lv, "reload": 1.0 - 0.025 * lv, "aim": 1.0 + 0.03 * lv, "spread": 1.0 - 0.02 * lv}
+
+
+static func use_text(lv: int) -> String:
+	if lv <= 0:
+		return "No bonus yet. Use it to get better with it."
+	return "+%d%% harm, %d%% less kick, %d%% quicker loading" % [2 * lv, 3 * lv, int(round(2.5 * lv))]
 
 
 # ------------------------------------------------------------------ what the skills do
@@ -202,7 +252,7 @@ func vigil_mult() -> float:
 # ------------------------------------------------------------------ keeping
 
 func to_data() -> Dictionary:
-	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day}
+	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use}
 
 
 func from_data(d) -> void:
@@ -218,4 +268,9 @@ func from_data(d) -> void:
 			if SKILLS.has(k):
 				ranks[k] = clampi(int(r[k]), 0, int(SKILLS[k].ranks))
 	second_wind_day = int(d.get("sw", -1))
+	use = {}
+	var u = d.get("use", {})
+	if u is Dictionary:
+		for k in u:
+			use[str(k)] = maxi(0, int(u[k]))
 	changed.emit()
