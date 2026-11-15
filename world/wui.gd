@@ -394,6 +394,13 @@ func _input(e: InputEvent) -> void:
 		return
 	if get_tree().paused or w.hud.pause_panel.visible or w.hud.options_panel.visible:
 		return
+	var typing = get_viewport().gui_get_focus_owner()
+	if (typing is LineEdit or typing is TextEdit) and e is InputEventKey:
+		# While a name is being typed, every key is a letter: only Escape and Enter leave the field
+		if e.pressed and e.physical_keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER]:
+			typing.release_focus()
+			accept_event()
+		return
 	if e is InputEventKey and e.pressed and not e.echo:
 		var k: int = e.physical_keycode
 		if k == KEY_ESCAPE and _panel != null:
@@ -1336,8 +1343,13 @@ func container_changed(id: String) -> void:
 	if _panel_name == "container" and id == _cont_id:
 		if not w.containers.has(id):
 			close_all()
+		elif get_viewport().gui_get_focus_owner() is LineEdit:
+			_redraw_after_typing = true   # do not pull the name field away mid-word
 		else:
 			_redraw()
+
+
+var _redraw_after_typing := false
 
 
 func _draw_container() -> void:
@@ -1364,7 +1376,11 @@ func _draw_container() -> void:
 		top.add_child(field)
 		var save := func(): w.shared("_rq_portal_name", [cpid, field.text])
 		field.text_submitted.connect(func(_t): save.call())
-		field.focus_exited.connect(save)
+		field.focus_exited.connect(func():
+			save.call()
+			if _redraw_after_typing:
+				_redraw_after_typing = false
+				_redraw.call_deferred())
 	_body.add_child(top)
 	_body.add_child(_label("Click a thing to move it across.", 16, DIM))
 	var bag := Inventory.new(w.containers[_cont_id].size())

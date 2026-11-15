@@ -3709,6 +3709,40 @@ func debug_chest() -> void:
 		get_tree().quit()
 
 
+## Testing aid: typing a chest's name with letters that are also hotkeys.
+func debug_chestname() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	inv.add("wood", 40)
+	builder._rq_build(1, "chest", player.global_position + Vector3(3, 0, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var pid: int = pieces.keys()[0]
+	_rq_open(1, "p%d" % pid)
+	await get_tree().create_timer(0.5).timeout
+	var field: LineEdit = null
+	for n in ui.find_children("*", "LineEdit", true, false):
+		field = n
+	field.grab_focus()
+	await get_tree().process_frame
+	for k in [KEY_M, KEY_J, KEY_I, KEY_K, KEY_B, KEY_R]:
+		for down in [true, false]:
+			var ev := InputEventKey.new()
+			ev.physical_keycode = k
+			ev.keycode = k
+			ev.unicode = k + 32
+			ev.pressed = down
+			Input.parse_input_event(ev)
+			await get_tree().process_frame
+	var ent := InputEventKey.new()
+	ent.physical_keycode = KEY_ENTER
+	ent.keycode = KEY_ENTER
+	ent.pressed = true
+	Input.parse_input_event(ent)
+	await get_tree().create_timer(0.3).timeout
+	print("CHESTNAME text=%s panel=%s saved=%s" % [field.text if is_instance_valid(field) else "?", ui._panel_name, pieces[pid].get("name", "")])
+	get_tree().quit()
+
+
 func debug_skillshot() -> void:
 	award("beacon", 6.0)
 	for id in ["hardy", "hardy", "steady_hand"]:
