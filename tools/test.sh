@@ -36,6 +36,10 @@ check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true
 check build     debug_build    "BUILD up=true kept=true bed=true stove=true shelf=true snug=true"
 check inn       debug_inn      "INN towns=true meal=true talk=true snug=true walls=true"
 check fixes     debug_fixes    "FIXES map_ready=true map_open_fast=true slept=true woke=true"
+check newfoes   debug_newfoes  "NEWFOES made=8 hit=8 burning=true slowed=true hurts=true slow_speed=true"
+check questfoes debug_questfoes "QUESTFOES cleared=true"
+check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
+check packfit   debug_packfit  "PACKFIT fits=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

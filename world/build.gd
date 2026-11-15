@@ -555,12 +555,12 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 			_part(n, body, Vector3(1.2, 0.8, 0.3), Vector3(0, 2.6, 0), m.wood, is_ghost)
 		"door":
 			var hinge := Node3D.new()
-			hinge.position = Vector3(-0.6, 0, 0)
+			hinge.position = Vector3(-0.52, 0, 0)
 			n.add_child(hinge)
 			n.set_meta("hinge", hinge)
 			body.reparent(hinge, false)
-			_part(hinge, body, Vector3(1.2, 2.2, 0.12), Vector3(0.6, 1.1, 0), m.darkwood, is_ghost)
-			_part(hinge, null, Vector3(0.1, 0.1, 0.2), Vector3(1.05, 1.1, 0.08), m.iron, is_ghost)
+			_part(hinge, body, Vector3(1.04, 2.04, 0.12), Vector3(0.52, 1.02, 0), m.darkwood, is_ghost)
+			_part(hinge, null, Vector3(0.1, 0.1, 0.2), Vector3(0.9, 1.02, 0.08), m.iron, is_ghost)
 		"spikes":
 			_part(n, body, Vector3(2.8, 1.4, 0.8), Vector3(0, 0.7, 0), null, is_ghost)
 			for i in 6:
@@ -766,15 +766,16 @@ func _kit_wall(n: Node3D, body: StaticBody3D, k: String, tier: int, is_ghost: bo
 		match k:
 			"wall":
 				_part(n, body, Vector3(GRID, 4.0, 0.3), Vector3(0, 1.0, 0), null, false)
+			# The openings match the kit's: a door 1.05 wide and 2.05 high, a window at chest height
 			"doorway":
-				_part(n, body, Vector3(0.9, 4.0, 0.3), Vector3(-1.05, 1.0, 0), null, false)
-				_part(n, body, Vector3(0.9, 4.0, 0.3), Vector3(1.05, 1.0, 0), null, false)
-				_part(n, body, Vector3(1.2, 0.8, 0.3), Vector3(0, 2.6, 0), null, false)
+				_part(n, body, Vector3(0.975, 4.0, 0.3), Vector3(-1.0125, 1.0, 0), null, false)
+				_part(n, body, Vector3(0.975, 4.0, 0.3), Vector3(1.0125, 1.0, 0), null, false)
+				_part(n, body, Vector3(1.05, 0.95, 0.3), Vector3(0, 2.525, 0), null, false)
 			"window":
-				_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, -0.35, 0), null, false)
-				_part(n, body, Vector3(GRID, 1.3, 0.3), Vector3(0, 2.35, 0), null, false)
-				_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(-1.15, 1.0, 0), null, false)
-				_part(n, body, Vector3(0.7, 1.4, 0.3), Vector3(1.15, 1.0, 0), null, false)
+				_part(n, body, Vector3(GRID, 1.84, 0.3), Vector3(0, -0.08, 0), null, false)
+				_part(n, body, Vector3(GRID, 0.96, 0.3), Vector3(0, 2.52, 0), null, false)
+				_part(n, body, Vector3(1.12, 1.2, 0.3), Vector3(-0.94, 1.44, 0), null, false)
+				_part(n, body, Vector3(1.12, 1.2, 0.3), Vector3(0.94, 1.44, 0), null, false)
 
 
 ## Furniture of the kit, set in the middle of where it is placed, with a box to bump into.

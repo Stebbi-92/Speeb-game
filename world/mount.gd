@@ -16,8 +16,8 @@ const BARDING := {
 	"bone_barding": {"name": "Bone Barding", "guard": 0.35, "cost": {"bone": 10, "hide": 4}},
 	"iron_barding": {"name": "Iron Barding", "guard": 0.5, "cost": {"scrap": 20, "hide": 4}},
 }
-const WALK := 1.18        ## times the rider's walking pace
-const SPRINT := 2.1       ## times the rider's walking pace, on the cat's breath
+const WALK := 1.8         ## times the rider's walking pace
+const SPRINT := 2.8       ## times the rider's walking pace, on the cat's breath
 const BREATH_MAX := 100.0
 const HP_MAX := 160.0
 const REST_HURT := 30.0   ## seconds a hurt-out cat sulks before it will carry you again (meat ends it at once)
@@ -171,7 +171,7 @@ func _refresh() -> void:
 func pace(sprint: bool, delta: float) -> float:
 	var base: float = w.player.walk_speed
 	if sprint and not winded and breath > 0.0:
-		breath = maxf(0.0, breath - delta * 16.0)
+		breath = maxf(0.0, breath - delta * 7.0)
 		if breath <= 0.0:
 			winded = true
 		return base * SPRINT
@@ -189,9 +189,9 @@ func _process(delta: float) -> void:
 				_refresh()
 	if puppet:
 		pass
-	elif not ridden or w.player.cur_speed < w.player.walk_speed * 1.3:
-		breath = minf(BREATH_MAX, breath + delta * 9.0)
-		if winded and breath >= 35.0:
+	elif not ridden or w.player.cur_speed < w.player.walk_speed * (WALK + 0.3):
+		breath = minf(BREATH_MAX, breath + delta * 14.0)
+		if winded and breath >= 25.0:
 			winded = false
 	if puppet:
 		_speed = lerpf(_speed, (global_position - _last).length() / maxf(delta, 0.001), minf(1.0, delta * 6.0))

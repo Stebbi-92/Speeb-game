@@ -31,6 +31,18 @@ Press **B** to build. Scroll to choose a piece, left click to place it, **R** to
 | **Stairs** | 6 Deadwood | 300 | Up to a roof or a second floor. |
 | **Stone Wall** | 10 Stone | 900 | Slow to build. Slow to fall. |
 
+## Home
+
+| Piece | Cost | Strength | Notes |
+|---|---|---|---|
+| **Bed** | 6 Deadwood, 4 Cloth | 160 | Sleep here. You wake here if you fall. Snugger than a bedroll. |
+| **Table** | 5 Deadwood | 140 | A home is more than walls. Makes a place snug. |
+| **Chair** | 3 Deadwood | 100 | To sit and be still. Makes a place snug. |
+| **Shelf** | 8 Deadwood, 1 Scrap Iron | 200 | Sixteen places to keep things, like a chest. |
+| **Iron Stove** | 6 Scrap Iron, 4 Stone | 260 | Cook here, like a cooking station. Burns wood and warms the room. |
+| **Rug** | 4 Cloth, 1 Hide | 60 | Soft underfoot. Makes a place snug. |
+| **Standing Lamp** | 2 Scrap Iron, 1 Lamp Oil, 1 Cloth | 80 | A warm light for indoors. |
+
 ## Defence
 
 | Piece | Cost | Strength | Notes |

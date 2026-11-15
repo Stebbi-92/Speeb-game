@@ -25,6 +25,9 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 |---|---|---|
 | 1 Roast Meat | 1 Raw Meat |  |
 | 1 Tuber Stew | 2 Ash Tuber, 1 Raw Meat, 1 Salt |  |
+| 2 Bloom Tea | 2 Ash-bloom |  |
+| 1 Bone Broth | 3 Bone, 1 Salt, 1 Ash Tuber |  |
+| 1 Salt-crust Pie | 2 Raw Meat, 2 Ash Tuber, 2 Salt, 1 Ash-bloom |  |
 | 1 Tuber Stew | 2 Ash Tuber, 1 Salted Meat, 2 Salt |  |
 | 1 Salted Meat | 3 Ash Tuber |  |
 
@@ -38,5 +41,10 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 2 Rocket | 6 Scrap Iron, 2 Lamp Oil, 10 Salt |  |
 | 1 Pick | 4 Deadwood, 4 Scrap Iron |  |
 | 1 Hatchet | 3 Deadwood, 3 Scrap Iron |  |
+| 1 Dust Veil | 4 Cloth, 2 Ash-bloom |  |
+| 1 Spore Mask | 3 Cloth, 4 Bone, 3 Ash-bloom |  |
+| 1 Salt Goggles | 4 Red Iron, 2 Heartwood, 2 Cloth |  |
+| 1 Tar Boots | 4 Heartwood, 2 Red Iron, 3 Hide |  |
+| 1 Ember Cloak | 5 Salt Crystal, 4 Tar, 4 Hide |  |
 | 1 Pry Bar | 8 Scrap Iron |  |
 | 1 Beacon Oil | 2 Lamp Oil, 10 Salt, 4 Ash-bloom | Learned during the main story |

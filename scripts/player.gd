@@ -274,7 +274,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = lerpf(velocity.z, dir.z * sp, minf(1.0, accel * delta))
 		if not on_floor:
 			velocity.y -= gravity * delta
-		elif Input.is_action_just_pressed("jump") and can_jump and not input_locked:
+		elif Input.is_action_just_pressed("jump") and can_jump and not input_locked and (mount != null or spend(10.0)):
 			velocity.y = jump_velocity
 	_blessings(delta, dir)
 	move_and_slide()
@@ -354,7 +354,7 @@ func _stamina_tick(delta: float, running: bool) -> void:
 	if not Game.wasteland:
 		return
 	if running and is_on_floor():
-		stamina = maxf(0.0, stamina - 11.0 * delta)
+		stamina = maxf(0.0, stamina - 14.0 * delta)
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -366,9 +366,9 @@ func _stamina_tick(delta: float, running: bool) -> void:
 		winded = false
 	if Game.main and Game.main.hud:
 		if mount:
-			Game.main.hud.set_stamina(mount.breath / mount.BREATH_MAX, armed, mount.winded)   # the cat's breath while riding
+			Game.main.hud.set_stamina(mount.breath / mount.BREATH_MAX, true, mount.winded)   # the cat's breath while riding
 		else:
-			Game.main.hud.set_stamina(stamina / stamina_max, armed, winded)
+			Game.main.hud.set_stamina(stamina / stamina_max, true, winded)
 
 
 func reset_max_health() -> void:

@@ -28,10 +28,18 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 | **Salt-Bones** | 40 | 13 | blades, blasts, shotgun spread | bullets | Bones the salt kept. Quick, and bullets slip through them. Use shot or the blade. |
 | **Lost Vigil** | 70 | 12 | fire, blades | bullets, shotgun spread | A beacon-keeper who never left the dark. It drifts through, and steals warmth. |
 | **Gravewarden** | 260 | 30 | fire | bullets | It keeps the Hollowed. Where it walks, more of them rise. |
+| **Unlit Marksman** | 55 | 24 | bullets, blades |  | Shoots from far off, one careful shot at a time. Watch for the glint, then move. |
+| **Unlit Firebrand** | 75 | 14 | shotgun spread | fire | Its blade is lit. A cut sets you burning for a while. |
+| **Pale Deacon** | 110 | 18 | fire, blades | bullets | It walks only by night, and every wound it gives closes its own. |
+| **Tar-Drowned** | 70 | 12 | fire | bullets, shotgun spread | Risen from the marsh, still dripping. Its grip leaves tar on your legs and slows you. |
+| **Hollow Colossus** | 480 | 42 | blasts, fire | bullets, blades | Many Hollowed, grown into one. Slow, and each blow lands like a falling wall. Keep away. |
+| **Ember Wisp** | 45 | 8 | shotgun spread, blades | fire, bullets | A live coal with a will. It drifts close and sets you burning. |
+| **Ashen Knight** | 240 | 30 | blasts | shotgun spread | Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it. Wears plate (160): aim for the head, or use piercing rounds. |
+| **Salt Rifleman** | 45 | 11 | blades, blasts, shotgun spread | bullets | A soldier the salt kept, still holding its rifle. Bullets slip through; use shot. |
 
 ## The great ones
 
-Each land has one, in its lair. When its lair is ready it shows on the map as a red mark. Bring friends.
+Each land has one, in its lair. When its lair is ready it shows on the map as a red mark. It sleeps until you call it out at the stone before its lair. Bring friends.
 
 | Great one | Land | Health | Its ways |
 |---|---|---|---|

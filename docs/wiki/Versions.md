@@ -2,6 +2,17 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.7.0 (the journey)
+
+- Meals: up to three at once, each adding health, stamina or healing for a while. New foods: Bloom Tea, Bone Broth, Salt-crust Pie.
+- Rest: sleep somewhere comfortable to wake rested, gaining more experience for a while.
+- Lands grow harder from the ash to the basalt. Each has a hazard, a ward against it, and its own material.
+- Building: new wall models, upgrades from timber to stone to iron, and home furniture.
+- Towns have houses, roads and an inn with meals, beds and rumours.
+- Eight new foes, some of which burn, slow or drain you. Great ones wait until you call them out at their stone.
+- Bullets take time to fly beyond about 25 m. Gun parts cost more and need the lands' materials.
+- Faster cats, and many playtest fixes.
+
 ## 0.6.1 (fixes, riding cats)
 
 - The new foes can be hit anywhere on their bodies (before, only at the legs), and head shots find their real heads.

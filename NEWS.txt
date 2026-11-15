@@ -1,3 +1,48 @@
+Brelm alpha 0.7.0: The journey
+
+Meals and rest
+- You can have up to three meals at once. Each adds health, stamina or healing while it lasts. You can eat the same meal again once it wears thin.
+- New foods made at a fire: Bloom Tea, Bone Broth and Salt-crust Pie.
+- Sleep somewhere comfortable and you wake rested, gaining more experience for a while. A fire, a bed, a roof, walls, a light and furniture all add to the comfort, and an inn bed is best of all.
+
+The lands
+- Each land is harder than the last. The ash is gentlest; the dunes and forest are harder, then the salt and marsh, and the basalt is hardest. Foes there have more health and hit harder.
+- Each land has its own danger: heat in the dunes, spores in the forest, glare on the salt, tar in the marsh, burning stone on the basalt. Make its ward at a workbench to be safe: Dust Veil, Spore Mask, Salt Goggles, Tar Boots or Ember Cloak.
+- Each land has its own material: red iron, heartwood, salt crystal, tar and obsidian. The better gun parts need them.
+
+Building
+- New walls, doorways and windows with proper models.
+- Build mode: press Interact on a wall to upgrade it from timber to stone to iron. Each is much tougher than the last.
+- Home pieces: bed, table, chair, shelf (a chest), iron stove (a cooking fire), rug and standing lamp.
+
+Towns and inns
+- Towns have houses, roads and an inn. At the inn, buy a meal, rent a bed, or listen for rumours that mark a ruin on your map.
+
+Foes
+- Eight new foes: the Unlit Marksman, the Unlit Firebrand (sets you burning), the Pale Deacon (heals as it bites), the Tar-Drowned (slows you), the Hollow Colossus, the Ember Wisp, the Ashen Knight (in plate) and the Salt Rifleman.
+- Great ones no longer wake as you walk up. Call one out at its stone when you are ready.
+
+Guns
+- Bullets now take time to fly. Beyond about 25 metres you must lead a moving target.
+- Gun upgrades and parts cost more, and the better ones need the lands' materials.
+
+Riding
+- Your cat now walks faster than you can run and sprints much faster. Its breath lasts twice as long and comes back quicker.
+- Feed a hurt cat meat to ride it again at once.
+- A tamed cat stays visible where you left it, for you and for friends.
+- You sit on top of the cat now, not inside it. You can't mine while riding.
+
+Fixes
+- Sprinting uses more stamina, jumping now uses some, and the stamina bar always shows when it is not full.
+- The Salt-Pan Caravans and other clearing quests keep sending forms until the count is made.
+- The pack screen scrolls when it is full, so the Make, Arms and Build tabs stay in reach.
+- The map no longer freezes the game the first time it opens.
+- Quest text no longer hides behind the hotbar. The crosshair hides while aiming down the sight.
+- The first-steps tip about dodging now clears when you dodge.
+- Scrolling in the settings no longer turns the hotbar, and the mouse stays visible.
+- Choosing a part in the Arms screen keeps your place in the list.
+- Window walls are the right way up, and you can shoot through the windows.
+
 Brelm alpha 0.6.1: Fixes, and riding cats
 
 Fixes

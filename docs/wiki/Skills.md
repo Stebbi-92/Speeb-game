@@ -71,3 +71,4 @@ _What the beacons ask of those who keep them._
 | Find a settlement | 50 |
 | Find a ruin | 25 |
 | Enter a new land | 20 |
+| rumour | 10 |

@@ -14,6 +14,14 @@ const LOOKS := {
 	"saltbone": ["character-skeleton.glb", "saltbone.png", 3.2, ""],
 	"vigil": ["character-ghost.glb", "vigil.png", 3.0, "glow"],
 	"warden": ["character-keeper.glb", "warden.png", 3.1, ""],
+	"unlit_mark": ["character-a.glb", "unlit_slate.png", 0.68, "rifle"],
+	"unlit_flame": ["character-a.glb", "unlit_flame.png", 0.7, "sword"],
+	"deacon": ["character-vampire.glb", "deacon.png", 3.2, ""],
+	"drowned": ["character-zombie.glb", "tar.png", 3.3, ""],
+	"colossus": ["character-zombie.glb", "colossus.png", 5.4, ""],
+	"wisp": ["character-ghost.glb", "ember.png", 2.6, "glow"],
+	"knight": ["character-keeper.glb", "knight.png", 3.3, "maul"],
+	"saltrifle": ["character-skeleton.glb", "saltrifle.png", 3.2, "rifle"],
 }
 
 var anim: AnimationPlayer

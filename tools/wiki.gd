@@ -102,7 +102,7 @@ func _creatures() -> void:
 		if float(s.get("plate", 0.0)) > 0.0:
 			how += " Wears plate (%d): aim for the head, or use piercing rounds." % int(s.plate)
 		t += "| **%s** | %d | %s | %s | %s | %s |\n" % [s.name, int(s.hp), str(int(s.bite)) if float(s.bite) > 0.0 else "none", ", ".join(weak), ", ".join(tough), how]
-	t += "\n## The great ones\n\nEach land has one, in its lair. When its lair is ready it shows on the map as a red mark. Bring friends.\n\n| Great one | Land | Health | Its ways |\n|---|---|---|---|\n"
+	t += "\n## The great ones\n\nEach land has one, in its lair. When its lair is ready it shows on the map as a red mark. It sleeps until you call it out at the stone before its lair. Bring friends.\n\n| Great one | Land | Health | Its ways |\n|---|---|---|---|\n"
 	var ways := {"slam": "breaks the ground around it", "brood": "brings forth lesser forms", "volley": "a fan of bolts", "blink": "watched too long, it is suddenly elsewhere", "charge": "charges in a straight line", "rain": "rains fire in circles"}
 	for b in LesserSpeeb.BOSSES:
 		var s: Dictionary = LesserSpeeb.BOSSES[b]

@@ -810,11 +810,29 @@ func _try_fire() -> void:
 		if spread > 0.0:
 			dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread) * 0.7)
 			dir = dir.rotated(cam.global_transform.basis.y, randf_range(-spread, spread))
-		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * float(s.range), 1 | 2)
+		# Close in, a shot lands at once; further out it flies, and a moving foe must be led
+		var near := minf(float(s.range), NEAR)
+		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * near, 1 | 2)
 		q.exclude = [player.get_rid()]
 		q.collide_with_areas = false
 		var r := space.intersect_ray(q)
 		if r.is_empty():
+			if float(s.range) > near:
+				var b := Slug.new()
+				b.arms = self
+				b.gun_id = gun()
+				b.origin = origin
+				b.dir = dir
+				b.speed = float(MUZZLE.get(gun(), 340.0))
+				b.left = float(s.range) - near
+				b.dmg = float(s.dmg) * dmg_m
+				b.falloff = float(s.falloff)
+				b.crit = float(s.crit)
+				b.pierce = float(s.get("pierce", 1.0))
+				b.harm = "shot" if int(s.pellets) > 1 else "bullet"
+				b.shooter = player
+				lvl.add_child(b)
+				b.global_position = origin + dir * near
 			continue
 		var target = r.collider
 		var dist := origin.distance_to(r.position)
@@ -846,6 +864,9 @@ static var _told_deflect := -100000
 
 
 const HEAD_MULT := 1.6
+const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
+## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
+const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "revolver": 320.0, "machine_gun": 380.0, "minigun": 360.0, "sniper": 520.0}
 
 
 ## Whether a ray passes within r of a point (the head's middle).
@@ -1581,6 +1602,81 @@ class Rocket extends Node3D:
 			queue_free()
 			return
 		global_position = to
+
+
+## A round in flight: beyond close range a shot is not instant. It flies straight at its gun's speed,
+## shown by a faint streak, and does its harm where it lands, with the same falloff and head shots.
+class Slug extends Node3D:
+	var arms: Node = null
+	var shooter: Node = null
+	var gun_id := ""
+	var origin := Vector3.ZERO
+	var dir := Vector3.FORWARD
+	var speed := 340.0
+	var left := 100.0
+	var dmg := 10.0
+	var falloff := 0.0
+	var crit := 1.0
+	var pierce := 1.0
+	var harm := "bullet"
+
+	func _ready() -> void:
+		var streak := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.025, 0.025, 1.6)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(1.0, 0.85, 0.55, 0.55)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		bm.material = m
+		streak.mesh = bm
+		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		streak.position = Vector3(0, 0, 0.8)
+		add_child(streak)
+		look_at(global_position + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
+
+	func _physics_process(delta: float) -> void:
+		var step := minf(speed * delta, left)
+		left -= step
+		var from := global_position
+		var q := PhysicsRayQueryParameters3D.create(from, from + dir * step, 1 | 2)
+		if shooter and is_instance_valid(shooter):
+			q.exclude = [shooter.get_rid()]
+		var r := get_world_3d().direct_space_state.intersect_ray(q)
+		if r.is_empty():
+			global_position = from + dir * step
+			if left <= 0.0:
+				queue_free()
+			return
+		_land(r)
+		queue_free()
+
+	func _land(r: Dictionary) -> void:
+		var target = r.collider
+		var lvl := get_parent()
+		var fall := 1.0
+		if falloff > 0.0:
+			fall = clampf(1.4 - origin.distance_to(r.position) / falloff, 0.35, 1.0)
+		var d := dmg * fall
+		var crits := {}
+		if target and target.has_method("weak_point"):
+			var wp: Array = target.weak_point()
+			if not wp.is_empty() and Arms._ray_near(global_position, dir, wp[0], wp[1] * 1.15):
+				d *= Arms.HEAD_MULT * crit
+				crits[target] = true
+		if not (target and target.has_method("hurt")):
+			if lvl.has_method("puff"):
+				lvl.puff(r.position, r.normal)
+			return
+		var hits := {target: d}
+		if "hits" in lvl:
+			lvl.hits += 1
+		LesserSpeeb.harm_pierce = pierce
+		Arms.deal(hits, dir, harm, crits)
+		LesserSpeeb.harm_pierce = 1.0
+		if arms and is_instance_valid(arms):
+			arms._impact_sounds(hits)
+			arms._practise(gun_id, hits)
 
 
 ## A grenade, a flare or a mine: a small body that bounces and settles, and bursts when its time

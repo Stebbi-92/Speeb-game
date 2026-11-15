@@ -55,6 +55,24 @@ const KINDS := {
 		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.5, "shot": 0.6}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth."},
 	"warden": {"name": "Gravewarden", "hp": 260.0, "size": 1.4, "speed": 3.0, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1,
 		"weak": {"fire": 1.4}, "tough": {"bullet": 0.8}, "text": "It keeps the Hollowed. Where it walks, more of them rise."},
+	# 0.7: more of the waste's foes. Each has one thing to learn about it.
+	"unlit_mark": {"name": "Unlit Marksman", "hp": 55.0, "size": 1.0, "speed": 3.8, "bite": 24.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.62,
+		"sight": 75.0, "burst": 1, "aim": 1.4, "mag": 5, "aimed": 0.55,
+		"weak": {"bullet": 1.2, "blade": 1.5}, "tough": {}, "text": "Shoots from far off, one careful shot at a time. Watch for the glint, then move."},
+	"unlit_flame": {"name": "Unlit Firebrand", "hp": 75.0, "size": 1.0, "speed": 5.2, "bite": 14.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.65,
+		"burn": 4.0, "weak": {"shot": 1.3}, "tough": {"fire": 0.2}, "text": "Its blade is lit. A cut sets you burning for a while."},
+	"deacon": {"name": "Pale Deacon", "hp": 110.0, "size": 1.0, "speed": 4.6, "bite": 18.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.7,
+		"drain": 1.0, "weak": {"fire": 1.8, "blade": 1.3}, "tough": {"bullet": 0.8}, "text": "It walks only by night, and every wound it gives closes its own."},
+	"drowned": {"name": "Tar-Drowned", "hp": 70.0, "size": 1.0, "speed": 2.8, "bite": 12.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.7,
+		"slow": 3.0, "weak": {"fire": 2.0}, "tough": {"bullet": 0.8, "shot": 0.8}, "text": "Risen from the marsh, still dripping. Its grip leaves tar on your legs and slows you."},
+	"colossus": {"name": "Hollow Colossus", "hp": 480.0, "size": 1.8, "speed": 2.2, "bite": 42.0, "radius": 0.9, "body": "model", "role": "melee", "head_y": 1.6,
+		"weak": {"blast": 1.6, "fire": 1.3}, "tough": {"bullet": 0.7, "blade": 0.8}, "text": "Many Hollowed, grown into one. Slow, and each blow lands like a falling wall. Keep away."},
+	"wisp": {"name": "Ember Wisp", "hp": 45.0, "size": 0.9, "speed": 4.6, "bite": 8.0, "radius": 0.45, "body": "model", "role": "float", "head_y": 0.45,
+		"burn": 3.0, "weak": {"shot": 1.6, "blade": 1.4}, "tough": {"fire": 0.0, "bullet": 0.7}, "text": "A live coal with a will. It drifts close and sets you burning."},
+	"knight": {"name": "Ashen Knight", "hp": 240.0, "size": 1.4, "speed": 3.2, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1, "plate": 160.0,
+		"weak": {"blast": 1.3}, "tough": {"shot": 0.7}, "text": "Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it."},
+	"saltrifle": {"name": "Salt Rifleman", "hp": 45.0, "size": 0.9, "speed": 4.4, "bite": 11.0, "radius": 0.4, "body": "model", "role": "gun", "head_y": 0.62,
+		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "A soldier the salt kept, still holding its rifle. Bullets slip through; use shot."},
 }
 ## The kind of harm now being dealt. Set by whatever deals it, just before it does.
 static var harm_kind := ""
@@ -160,7 +178,8 @@ var _flank := 0.0         ## which side it swings out to as it closes
 var _head_base := Vector3.ONE
 ## How long each kind gathers itself before it bites. The quick ones barely pause; the heavy ones show it.
 const WINDUP := {"rusher": 0.38, "idol": 0.6, "swarm": 0.2, "mite": 0.18, "elite": 0.55, "spider": 0.3,
-	"brute": 0.65, "howler": 0.4, "lurker": 0.3, "unlit_blade": 0.45, "unlit_brute": 0.85, "hollow": 0.6, "saltbone": 0.35, "vigil": 0.4, "warden": 0.8}
+	"brute": 0.65, "howler": 0.4, "lurker": 0.3, "unlit_blade": 0.45, "unlit_brute": 0.85, "hollow": 0.6, "saltbone": 0.35, "vigil": 0.4, "warden": 0.8,
+	"unlit_flame": 0.45, "deacon": 0.4, "drowned": 0.6, "colossus": 1.1, "wisp": 0.35, "knight": 0.8}
 var puppet := false
 var credit := false
 var last_hitter := 1
@@ -231,7 +250,7 @@ func _ready() -> void:
 			_wander = global_position
 		plate = float(spec.get("plate", 0.0))
 		if plate > 0.0:
-			_fb.wear_plate(kind == "unlit_brute")
+			_fb.wear_plate(kind in ["unlit_brute", "knight"])
 		_fit_shape(cs)
 	if kind != "unseen":
 		_make_name()
@@ -501,7 +520,7 @@ func _segment(parent: Node3D, from: Vector3, to: Vector3, r: float, m: Material)
 
 
 func walks() -> bool:
-	return kind == "spider" or spec.get("body", "") == "cat" or (spec.get("body", "") == "model" and kind != "vigil")
+	return kind == "spider" or spec.get("body", "") == "cat" or (spec.get("body", "") == "model" and spec.get("role", "") != "float")
 
 
 var _buried := 0.0       ## a lurker under the sand: 1 hidden, 0 risen
@@ -1870,7 +1889,7 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 	if _wind > 0.0:
 		_wind -= delta
 		if _wind <= 0.0:
-			_attack_cd = 1.3 if kind != "unlit_brute" else 2.2
+			_attack_cd = 2.2 if kind in ["unlit_brute", "knight", "colossus"] else 1.3
 			if dist < reach + 0.7:
 				var turned := false
 				if p == level.player and level.player.weapon and level.player.weapon.guarding:
@@ -1888,8 +1907,9 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 					level.hud.hitmarker(false, true)
 					_knock = -dir * 3.0
 				else:
-					level.sfx("chop" if kind.begins_with("unlit") or kind == "warden" else "bite", -3, global_position)
+					level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
 					level.hurt_target(p, spec.bite, global_position)
+					_afflict(p)
 			else:
 				level.sfx("swing", -6, global_position, 0.9)
 		return
@@ -1901,13 +1921,24 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 		level.sfx("swing", -10, global_position, 0.8)
 
 
+## What a blow leaves behind: fire, tar on the legs, or the foe's own wounds closing.
+func _afflict(p: Node3D) -> void:
+	if spec.has("drain"):
+		hp = minf(max_hp, hp + float(spec.bite) * float(spec.drain))
+	if p == level.player and level.has_method("afflict"):
+		if spec.has("burn"):
+			level.afflict("burn", float(spec.burn))
+		if spec.has("slow"):
+			level.afflict("slow", float(spec.slow))
+
+
 ## A gunman: it draws a bead with a glint at the muzzle (the warning), then fires a short burst.
 ## Each shot may miss, more so at range and against a moving target. It reloads after nine.
 func _gun_tick(delta: float, p: Node3D, dist: float) -> void:
 	if _aim > 0.0:
 		_aim -= delta
 		if _aim <= 0.0:
-			_burst = 3
+			_burst = int(spec.get("burst", 3))
 			_attack_cd = 0.0
 		return
 	if _burst > 0:
@@ -1918,15 +1949,15 @@ func _gun_tick(delta: float, p: Node3D, dist: float) -> void:
 			_ammo -= 1
 			_shoot_at(p, dist)
 			if _ammo <= 0:
-				_ammo = 9
+				_ammo = int(spec.get("mag", 9))
 				_burst = 0
 				_attack_cd = 2.6
 				level.sfx("pump", -6, global_position, 0.9)
 			elif _burst == 0:
 				_attack_cd = randf_range(1.4, 2.4)
 		return
-	if _attack_cd <= 0.0 and dist < 45.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
-		_aim = 0.75
+	if _attack_cd <= 0.0 and dist < float(spec.get("sight", 45.0)) and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+		_aim = float(spec.get("aim", 0.75))
 		level.shared("_w_glint", [net_id])
 
 
@@ -1936,7 +1967,7 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var moving := 0.0
 	if p is CharacterBody3D:
 		moving = Vector2(p.velocity.x, p.velocity.z).length()
-	var miss := clampf(0.2 + dist * 0.012 + moving * 0.04, 0.15, 0.8)
+	var miss := clampf((0.2 + dist * 0.012 + moving * 0.04) * float(spec.get("aimed", 1.0)), 0.1, 0.8)
 	var hit := randf() > miss
 	if not hit:
 		at += Vector3(randf_range(-1.5, 1.5), randf_range(-0.8, 1.2), randf_range(-1.5, 1.5))

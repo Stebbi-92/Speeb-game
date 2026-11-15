@@ -570,7 +570,35 @@ func _clear() -> void:
 		c.queue_free()
 
 
+var _drawn_at := ""
+
+
 func _redraw() -> void:
+	# The lists keep where they were scrolled to: a click in one does not throw it back to the top
+	var keep: Array = []
+	var where := _panel_name + "/" + _tab
+	if where != _drawn_at:
+		_drawn_at = where
+	elif is_instance_valid(_body):
+		for sc in _body.find_children("*", "ScrollContainer", true, false):
+			keep.append((sc as ScrollContainer).scroll_vertical)
+	_redraw_now()
+	if not keep.is_empty():
+		_restore_scrolls.call_deferred(keep)
+
+
+func _restore_scrolls(keep: Array) -> void:
+	await get_tree().process_frame   # once the new lists have their size
+	if not is_instance_valid(_body):
+		return
+	var all := _body.find_children("*", "ScrollContainer", true, false)
+	if all.size() != keep.size():
+		return
+	for i in all.size():
+		(all[i] as ScrollContainer).scroll_vertical = int(keep[i])
+
+
+func _redraw_now() -> void:
 	match _panel_name:
 		"pack":
 			_draw_pack()
@@ -798,7 +826,11 @@ func _draw_pack() -> void:
 	split.add_theme_constant_override("separation", 24)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(split)
-	var left := VBoxContainer.new()
+	# A big pack scrolls rather than pushing the screen's tabs out of reach
+	var left := ScrollContainer.new()
+	left.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.custom_minimum_size.x = 6 * 86 + 5 * 6 + 14
 	left.add_child(_slot_grid(w.inv, func(i, right): _pack_click(i, right), 6, _sel, _kinds_of(_filter), 86))
 	split.add_child(left)
 	var side := _side_panel(split)
@@ -920,9 +952,15 @@ func _side_panel(parent: Control) -> VBoxContainer:
 	p.add_theme_stylebox_override("panel", sb)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# A long account scrolls in its own panel, never stretching the screen past its frame
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	p.add_child(sc)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	p.add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(v)
 	parent.add_child(p)
 	return v
 

@@ -1139,6 +1139,7 @@ func _needs_tick(delta: float) -> void:
 	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
 	_meals_tick(delta)
 	_land_tick(delta)
+	_afflict_tick(delta)
 	if food <= 0.0:
 		_starve_t -= delta
 		if _starve_t <= 0.0:
@@ -1263,6 +1264,37 @@ func _land_tick(delta: float) -> void:
 				player.health = maxf(1.0, player.health - loss)
 				hud.set_health(player.health / player.max_health, true)
 				_regen_wait = maxf(_regen_wait, 4.0)
+
+
+# ------------------------------------------------------------------ what foes leave on you
+
+var _burn := 0.0
+var _slow := 0.0
+
+
+## Fire on you (it burns until it goes out) or tar on your legs (you are slow while it lasts).
+func afflict(what: String, secs: float) -> void:
+	match what:
+		"burn":
+			if _burn <= 0.0:
+				hud.notify("You are burning.")
+			_burn = maxf(_burn, secs)
+		"slow":
+			if _slow <= 0.0:
+				hud.notify("Tar clings to your legs.")
+			_slow = maxf(_slow, secs)
+
+
+func _afflict_tick(delta: float) -> void:
+	if _burn > 0.0:
+		_burn -= delta
+		player.health = maxf(1.0, player.health - 3.0 * delta)
+		hud.set_health(player.health / player.max_health, true)
+		_regen_wait = maxf(_regen_wait, 2.0)
+	if _slow > 0.0:
+		_slow -= delta
+		player.walk_speed *= 0.6
+		player.run_speed *= 0.6
 
 
 # ------------------------------------------------------------------ meals and comfort
@@ -2469,12 +2501,12 @@ const BIOME_TEXT := {
 }
 ## What the night sends, by land.
 const BIOME_FORMS := {
-	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil"],
-	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone"],
-	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil"],
-	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow"],
-	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil"],
-	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "hollow"],
+	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil", "deacon"],
+	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone", "saltrifle", "wisp"],
+	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil", "saltrifle", "saltrifle"],
+	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow", "deacon", "colossus"],
+	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight"],
+	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus"],
 }
 
 
@@ -2829,6 +2861,10 @@ func _world_tick(delta: float) -> void:
 		if _day_t <= 0.0:
 			_day_t = 6.0
 			_day_watch()
+	_quest_t -= delta
+	if _quest_t <= 0.0:
+		_quest_t = 5.0
+		_quest_foes()
 	_safe_t -= delta
 	if _safe_t <= 0.0:
 		_safe_t = 2.0
@@ -2993,6 +3029,38 @@ func _unseen_count() -> int:
 		if is_instance_valid(e) and e.kind == "unseen" and e.is_alive():
 			n += 1
 	return n
+
+
+var _quest_t := 5.0
+
+
+## A place a quest sends you to clear keeps its forms coming while you are there, day or night,
+## until the count is made: never a few on the first visit and then nothing.
+func _quest_foes() -> void:
+	if not Net.authority() or quests == null:
+		return
+	var tg := targets()
+	for q in quests.active():
+		var st: Dictionary = quests.step_of(q)
+		if st.get("t", "") != "kill":
+			continue
+		var c = quests.target_of(q)
+		if not (c is Vector3):
+			continue
+		var near := false
+		for t in tg:
+			if t.global_position.distance_to(c) < 65.0:
+				near = true
+		if not near:
+			continue
+		var left := int(st.n) - int(q.get("have", 0))
+		var here := 0
+		for e in enemies:
+			if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(c) < 45.0:
+				here += 1
+		var roster: Array = BIOME_FORMS[terrain.biome_name(c.x, c.z)]
+		for k in mini(2, mini(3, left) - here):
+			_spawn_one(roster[randi() % roster.size()], c, 6.0, 16.0, true)
 
 
 ## By day the waste is quieter, but the ruins are not empty, and the roads are not always clear.
@@ -3368,6 +3436,8 @@ func _perish(message: String) -> void:
 	if _pfail:
 		return
 	dismount()
+	_burn = 0.0
+	_slow = 0.0
 	meals.clear()
 	_meal_stats()
 	life_kills = 0
@@ -4881,6 +4951,10 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 			var band := ["unlit_gun", "unlit_gun", "unlit_blade"]
 			if rr.randf() < 0.5:
 				band.append("unlit_blade")
+			if rr.randf() < 0.45:
+				band.append("unlit_mark")
+			if rr.randf() < 0.4:
+				band.append("unlit_flame")
 			if rr.randf() < 0.3 or maxf(absf(at.x), absf(at.z)) > 900.0:
 				band.append("unlit_brute")
 			for k in band:
@@ -5467,6 +5541,132 @@ func debug_foes() -> void:
 	print("FOES dead_gone=%s" % (enemies.filter(func(e): return is_instance_valid(e) and e.is_alive()).size() <= n0))
 	get_tree().quit()
 
+
+## Testing aid: each new foe comes to life with a body you can hit; fire burns, tar slows, the deacon drinks.
+func debug_newfoes() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var made := 0
+	var hit := 0
+	for k in ["unlit_mark", "unlit_flame", "deacon", "drowned", "colossus", "wisp", "knight", "saltrifle"]:
+		var e := spawn_at(k, player.global_position + f * 10.0 + Vector3(0, 1.5, 0))
+		e.set_meta("raid", true)
+		await get_tree().create_timer(0.4).timeout
+		if e.is_alive() and e.find_children("*", "CollisionShape3D", true, false).size() > 0:
+			made += 1
+		var h0: float = e.hp
+		LesserSpeeb.harm_pierce = 3.0
+		e.hurt(10.0, f)
+		LesserSpeeb.harm_pierce = 1.0
+		if e.hp < h0:
+			hit += 1
+		if k == "unlit_flame":
+			e._afflict(player)
+		elif k == "drowned":
+			e._afflict(player)
+		elif k == "deacon":
+			e.hp = 50.0
+			e._afflict(player)
+			print("NEWFOES drank=%s" % (e.hp > 50.0))
+		e.die(false)
+	var burning := _burn > 0.0
+	var slowed := _slow > 0.0
+	var h1 := player.health
+	await get_tree().create_timer(1.0).timeout
+	print("NEWFOES made=%d hit=%d burning=%s slowed=%s hurts=%s slow_speed=%s" % [made, hit, burning, slowed, player.health < h1, player.walk_speed < 3.0])
+	get_tree().quit()
+
+## Testing aid: a clearing quest at a ruin keeps sending forms until the count is made, by day.
+func debug_questfoes() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var q := quests._story_offer("caravans")
+	q.state = "active"
+	quests.quests[q.id] = q
+	var c: Vector3 = quests.target_of(q)
+	player.place(c + Vector3(0, 2.0, 20.0), 0.0)
+	var killed := 0
+	for i in 60:
+		await get_tree().create_timer(1.0).timeout
+		for e in enemies.duplicate():
+			if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(c) < 70.0:
+				e.hurt(99999.0, Vector3.FORWARD)
+				killed += 1
+		if q.stage > 0:
+			break
+	print("QUESTFOES cleared=%s killed=%d" % [int(q.stage) > 0, killed])
+	get_tree().quit()
+
+## Testing aid: a far shot takes time to land, and still lands, and a moving foe would have walked on.
+func debug_slug() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var e := spawn_at("hollow", player.global_position + f * 120.0 + Vector3(0, 1.5, 0))
+	e.set_meta("raid", true)
+	e.hp = 5000.0
+	e.set_physics_process(false)
+	await get_tree().create_timer(1.0).timeout
+	# From up in the air, so no dune stands between
+	var o: Vector3 = e.global_position + Vector3(0, 0.8, 0) - f * 90.0 + Vector3(0, 4.0, 0)
+	var aim: Vector3 = (e.global_position + Vector3(0, 0.8, 0) - o).normalized()
+	var b := Arms.Slug.new()
+	b.arms = player.weapon
+	b.gun_id = "pistol"
+	b.origin = o
+	b.dir = aim
+	b.speed = 280.0
+	b.left = 200.0
+	b.dmg = 20.0
+	b.shooter = player
+	add_child(b)
+	b.global_position = o + aim * Arms.NEAR
+	var h0: float = e.hp
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var early: bool = e.hp < h0
+	var t0 := Time.get_ticks_msec()
+	while e.hp >= h0 and Time.get_ticks_msec() - t0 < 2000:
+		await get_tree().physics_frame
+	print("SLUG early=%s landed=%s flight_ms=%s" % [early, e.hp < h0, Time.get_ticks_msec() - t0 > 150])
+	get_tree().quit()
+
+## Testing aid: the pack screen fits, whatever is chosen and however big the pack, so its tabs stay in reach.
+func debug_packfit() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for it in ["wood", "scrap", "cloth", "stone", "meat", "shells", "bandage", "coin", "herb", "bone", "roast", "stew", "veil", "bed", "tea", "pie"]:
+		inv.add(it, 3)
+	var worst := 0.0
+	var top := 1e9
+	var vp := get_viewport().get_visible_rect().size
+	for grow in [0, 12, 24]:
+		inv.slots.resize(inv.slots.size() + grow)
+		for i in inv.slots.size():
+			ui.close_all()
+			ui._sel = i
+			ui.open_inventory("pack")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var r: Rect2 = ui._frame.get_global_rect()
+			worst = maxf(worst, r.size.y)
+			top = minf(top, r.position.y)
+	print("PACKFIT fits=%s" % (worst <= 701.0))
+	get_tree().quit()
 
 ## Testing aid: plate on both sides. A body shot on a Breaker is mostly soaked, a head shot and a
 ## piercing round are not, the plate breaks in the end; the survivor's own plate wears and is mended.

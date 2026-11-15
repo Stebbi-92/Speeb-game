@@ -92,6 +92,40 @@ def warden(hh, ll, ss):
 	return ramp(ll, [(18, 16, 16), (46, 42, 40), (92, 86, 80), (150, 144, 134)])
 
 
+def deacon(hh, ll, ss):
+	if 0.11 < hh < 0.17 and ss > 0.5 and ll > 0.5:   # eyes: pale violet
+		return (200, 170, 255)
+	if ss > 0.45 and (hh < 0.04 or hh > 0.93):   # what was red: a deep wine
+		return ramp(ll, [(50, 14, 30), (120, 30, 60)])
+	return ramp(ll, [(30, 26, 34), (90, 84, 100), (178, 172, 186), (232, 228, 238)])
+
+
+def tar(hh, ll, ss):
+	if 0.11 < hh < 0.17 and ss > 0.5 and ll > 0.5:   # eyes: a sick green
+		return (150, 210, 90)
+	return ramp(ll, [(8, 7, 6), (24, 21, 18), (48, 42, 36), (86, 78, 66)])
+
+
+def colossus(hh, ll, ss):
+	if 0.11 < hh < 0.17 and ss > 0.5 and ll > 0.5:
+		return (255, 90, 30)
+	return ramp(ll, [(30, 22, 20), (90, 66, 56), (140, 112, 96), (180, 160, 140)])
+
+
+def ember(hh, ll, ss):
+	return ramp(ll, [(120, 30, 10), (230, 100, 30), (255, 180, 80), (255, 236, 190)])
+
+
+def knight(hh, ll, ss):
+	if 0.11 < hh < 0.17 and ss > 0.5 and ll > 0.5:
+		return (120, 200, 255)
+	return ramp(ll, [(16, 18, 22), (50, 54, 60), (100, 104, 110), (160, 164, 170)])
+
+
+def saltrifle(hh, ll, ss):
+	return ramp(ll, [(80, 60, 40), (176, 150, 120), (226, 214, 196), (248, 244, 236)])
+
+
 unlit("texture-a.png", (150, 52, 30), "unlit_rust.png", "emberspeeb")
 unlit("texture-k.png", (190, 140, 40), "unlit_ochre.png", "wrathspeeb")
 unlit("texture-m.png", (200, 196, 180), "unlit_bone.png", "negaspeeb")
@@ -99,3 +133,11 @@ tint("hollow.png", hollow)
 tint("saltbone.png", saltbone)
 tint("vigil.png", vigil)
 tint("warden.png", warden)
+unlit("texture-d.png", (70, 90, 120), "unlit_slate.png", "cyclospeeb")
+unlit("texture-k.png", (230, 90, 20), "unlit_flame.png", "hornspeeb")
+tint("deacon.png", deacon)
+tint("tar.png", tar)
+tint("colossus.png", colossus)
+tint("ember.png", ember)
+tint("knight.png", knight)
+tint("saltrifle.png", saltrifle)

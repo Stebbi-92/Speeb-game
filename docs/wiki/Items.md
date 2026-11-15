@@ -9,10 +9,13 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | Item | Stack | Worth | Notes |
 |---|---|---|---|
 | **Raw Meat** | 10 | 3 | From a hunted beast. Cook it first. (feeds 10) |
-| **Roast Meat** | 10 | 7 | Cooked over a cooking station. Filling. (heals 15, feeds 50) |
-| **Salted Meat** | 10 | 4 | Do not ask from what. Fills the belly a little. (heals 15, feeds 30) |
+| **Roast Meat** | 10 | 7 | Cooked over a cooking station. A meal: more health for a while. (heals 15, feeds 50) |
+| **Salted Meat** | 10 | 4 | Do not ask from what. A small meal: a little more health and breath. (heals 15, feeds 30) |
 | **Ash Tuber** | 20 | 2 | Grows in poor ground. Better cooked. (heals 4, feeds 18) |
-| **Tuber Stew** | 10 | 9 | Hot, thick and filling. Made over a fire. (heals 30, feeds 70) |
+| **Tuber Stew** | 10 | 9 | Hot, thick and filling. A meal: more health, and wounds close faster. (heals 30, feeds 70) |
+| **Bloom Tea** | 10 | 8 | Bitter and clear. A meal: more breath, and it comes back faster. (heals 5, feeds 10) |
+| **Bone Broth** | 10 | 8 | Boiled down from bones and salt. A meal: wounds close much faster. (heals 10, feeds 35) |
+| **Salt-crust Pie** | 10 | 18 | Meat and tuber under a crust of salt. A great meal: much more health, and more breath. (heals 25, feeds 80) |
 
 ## Medicine
 
@@ -49,6 +52,11 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Lamp Oil** | 20 | 6 | Drawn from the Well. It burns yellow and smoky. |
 | **Hide** | 20 | 3 | A beast's skin. Cuts into cloth. |
 | **Torch** | 20 | 2 | Pitch-soaked wood. Makes a torch. |
+| **Red Iron** | 40 | 6 | Caravan iron, rusted red through. Found in the scrap of the Rust Dunes. |
+| **Heartwood** | 40 | 6 | The dark core of a tree of the Dead Forest. It does not rot. |
+| **Salt Crystal** | 40 | 9 | Clear salt from deep in the Salt Flats. |
+| **Tar** | 40 | 9 | Black and sticky. Gathered in the Tar Marsh. |
+| **Obsidian** | 40 | 14 | Black glass from the Basalt Heights. Sharper than iron. |
 
 ## Ammunition
 
@@ -64,6 +72,11 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | Item | Stack | Worth | Notes |
 |---|---|---|---|
 | **Pick** | 1 | 25 | Stone and salt come away twice as fast. |
+| **Dust Veil** | 1 | 20 | Carry it in the Rust Dunes. Keeps out the heat: your breath comes back as it should. |
+| **Spore Mask** | 1 | 20 | Carry it in the Dead Forest. Keeps out the spores that eat at you. |
+| **Salt Goggles** | 1 | 40 | Carry them on the Salt Flats. The white glare no longer burns. |
+| **Tar Boots** | 1 | 40 | Carry them in the Tar Marsh. The tar no longer holds your feet. |
+| **Ember Cloak** | 1 | 80 | Carry it on the Basalt Heights. The heat of the stone no longer burns. |
 | **Hatchet** | 1 | 20 | Deadwood comes away twice as fast. |
 | **Pry Bar** | 1 | 30 | Opens what was sealed: iron chests and vault doors. |
 

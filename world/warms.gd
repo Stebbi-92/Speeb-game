@@ -90,35 +90,36 @@ static func mend_cost(a: Dictionary, slot: String) -> Dictionary:
 
 ## What each thing costs to make.
 const MAKE := {
-	"revolver": {"scrap": 14, "wood": 4},
-	"machine_gun": {"scrap": 30, "wood": 6, "oil": 2},
-	"sniper": {"scrap": 26, "wood": 12, "cloth": 4},
-	"rocket": {"scrap": 40, "oil": 6, "coin": 10},
-	"minigun": {"scrap": 40, "oil": 8, "coin": 20},
-	"machete": {"scrap": 6, "wood": 2},
-	"sledge": {"scrap": 12, "stone": 8, "wood": 4},
-	"incendiary": {"oil": 2, "cloth": 2, "scrap": 2},
+	"revolver": {"scrap": 24, "wood": 6},
+	"machine_gun": {"scrap": 60, "wood": 10, "oil": 4, "red_iron": 4},
+	"sniper": {"scrap": 50, "wood": 16, "cloth": 6, "heartwood": 4},
+	"rocket": {"scrap": 80, "oil": 10, "coin": 20, "salt_crystal": 6},
+	"minigun": {"scrap": 90, "oil": 14, "coin": 30, "obsidian": 6},
+	"machete": {"scrap": 10, "wood": 4},
+	"sledge": {"scrap": 20, "stone": 14, "wood": 6},
+	"incendiary": {"oil": 2, "cloth": 2, "scrap": 3},
 	"flare": {"oil": 1, "cloth": 2, "scrap": 2},
-	"mine": {"scrap": 6, "salt": 10},
+	"mine": {"scrap": 8, "salt": 12},
 }
 
+## Gun parts. The better ones want the stuff of the harder lands (see Wasteland.LAND_STUFF).
 const PARTS := {
-	"red_dot": {"scrap": 6, "oil": 1},
-	"foregrip": {"scrap": 4, "wood": 2},
-	"suppressor": {"scrap": 8, "cloth": 2},
-	"ext_mag": {"scrap": 8},
-	"scope": {"scrap": 10, "oil": 2},
-	"long_barrel": {"scrap": 12, "oil": 1},
-	"sawn_barrel": {"scrap": 6},
-	"heavy_barrel": {"scrap": 16, "stone": 4},
-	"light_stock": {"scrap": 8, "cloth": 1},
-	"padded_stock": {"wood": 6, "hide": 2},
-	"heavy_stock": {"wood": 12, "scrap": 2},
-	"rapid_receiver": {"scrap": 14, "oil": 2},
-	"heavy_receiver": {"scrap": 18, "bone": 4},
-	"smooth_receiver": {"scrap": 10, "oil": 3},
-	"piercing_rounds": {"scrap": 12, "stone": 4},
-	"hollow_rounds": {"scrap": 6, "bone": 3},
+	"red_dot": {"scrap": 14, "oil": 2, "cloth": 2},
+	"foregrip": {"scrap": 10, "wood": 6},
+	"suppressor": {"scrap": 18, "cloth": 4, "oil": 1},
+	"ext_mag": {"scrap": 20, "bone": 4},
+	"scope": {"scrap": 22, "oil": 3, "red_iron": 2},
+	"long_barrel": {"scrap": 24, "oil": 2, "red_iron": 2},
+	"sawn_barrel": {"scrap": 12},
+	"heavy_barrel": {"scrap": 30, "stone": 10, "red_iron": 4},
+	"light_stock": {"scrap": 16, "cloth": 3},
+	"padded_stock": {"wood": 12, "hide": 4},
+	"heavy_stock": {"wood": 14, "heartwood": 3, "scrap": 4},
+	"rapid_receiver": {"scrap": 30, "oil": 4, "red_iron": 3},
+	"heavy_receiver": {"scrap": 34, "bone": 8, "heartwood": 2},
+	"smooth_receiver": {"scrap": 24, "oil": 6, "salt_crystal": 2},
+	"piercing_rounds": {"scrap": 24, "stone": 6, "salt_crystal": 3},
+	"hollow_rounds": {"scrap": 14, "bone": 6, "tar": 2},
 }
 
 ## Which of the waste's own parts each gun can take.
@@ -236,9 +237,12 @@ const KINDS := [["blades", "melee", "Blade"], ["thrown", "grenade", "Thrown"], [
 
 
 static func tier_cost(t: int) -> Dictionary:
-	var c := {"scrap": 8 * t, "salt": 20 * t}
+	var c := {"scrap": 20 * t, "salt": 40 * t}
+	if t >= 2:
+		c["red_iron"] = 3 * (t - 1)
 	if t >= 3:
-		c["oil"] = 2
+		c["oil"] = 4
+		c["obsidian"] = 2
 	return c
 
 

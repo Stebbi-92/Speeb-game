@@ -24,6 +24,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Call a kill streak | H |
 | Dodge (the waste), Swift Cast | Q |
 | Riftwalk | V |
+| Whistle for your cat (the waste) | N |
 | Relic 1 (arms) | 1 |
 | Relic 2 | 2 |
 | Relic 3 | 3 |
@@ -34,7 +35,6 @@ Every control can be changed in **Settings**. These are the defaults.
 | Censer (the waste) | 8 |
 | The Book of Emojis | Tab |
 | Fellowship list (together) | L |
-| Whistle for your cat (the waste) | N |
 | Pack (the waste) | I |
 | Map (the waste) | M |
 | Journal (the waste) | J |
