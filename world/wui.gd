@@ -493,7 +493,7 @@ var _shade: ColorRect
 var _panel_name := ""
 
 
-const SMALL := ["rest", "planter", "portal", "travel"]
+const SMALL := ["rest", "planter", "portal", "travel", "cat"]
 
 
 func _open(name: String) -> void:
@@ -561,6 +561,8 @@ func _redraw() -> void:
 			_draw_planter()
 		"portal":
 			_draw_portal()
+		"cat":
+			_draw_cat()
 
 
 # ------------------------------------------------------------------ the strip along the top
@@ -2816,6 +2818,59 @@ func _draw_planter() -> void:
 	_body.add_child(_action("Close", close_all, "Esc", DIM))
 
 
+# ------------------------------------------------------------------ your cat
+
+func open_cat() -> void:
+	_open("cat")
+
+
+func _draw_cat() -> void:
+	_clear()
+	var c = w.cat
+	if c == null:
+		return
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 16)
+	top.add_child(_title(c.cat_name))
+	var field := LineEdit.new()
+	field.text = c.cat_name
+	field.placeholder_text = "Name your cat"
+	field.max_length = 20
+	field.custom_minimum_size = Vector2(220, 0)
+	field.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	field.add_theme_font_size_override("font_size", 17)
+	top.add_child(field)
+	var save := func():
+		var t := field.text.strip_edges()
+		if t != "" and t != c.cat_name:
+			c.cat_name = t
+			c._refresh()
+	field.text_submitted.connect(func(_t): save.call(); _redraw.call_deferred())
+	field.focus_exited.connect(save)
+	_body.add_child(top)
+	_close_and_rule(top)
+	_stat(_body, "Health", "%d / %d" % [int(c.hp), int(WCat.HP_MAX)], clampf(c.hp / WCat.HP_MAX, 0.02, 1.0))
+	_body.add_child(_wrap("Ride with [%s]. Hold [%s] while riding to sprint on its breath. Whistle with [%s] and it comes to you." % [Game.key_text("interact"), Game.key_text("run"), Game.key_text("whistle")], 16, DIM))
+	_body.add_child(_label("Barding", 18, GOLD))
+	for id in WCat.BARDING:
+		if id == "":
+			continue
+		var b: Dictionary = WCat.BARDING[id]
+		var on: bool = c.barding == id
+		var cost: Dictionary = b.cost
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var nm := _label("%s  (turns aside %d%%)" % [b.name, int(b.guard * 100.0)], 17, GOLD if on else PALE)
+		nm.custom_minimum_size.x = 300
+		row.add_child(nm)
+		if on:
+			row.add_child(_label("Worn", 16, GOLD))
+		else:
+			row.add_child(_secondary("Make and fit", func(): _arms_pay(cost, func(): c.barding = id; c._refresh()), w.stock_has_all(w.skills.cost(cost))))
+			row.add_child(_cost_line(w.skills.cost(cost)))
+		_body.add_child(row)
+
+
 # ------------------------------------------------------------------ the waystone
 
 func open_portal(pid: int) -> void:
@@ -3029,6 +3084,14 @@ class MapDraw extends Control:
 			var p := _to(w.bedroll)
 			draw_line(p - Vector2(5, 0), p + Vector2(5, 0), Color(0.6, 0.85, 1.0), 2.0)
 			draw_line(p - Vector2(0, 5), p + Vector2(0, 5), Color(0.6, 0.85, 1.0), 2.0)
+		if w.cat and not w.cat.ridden:
+			# Your cat: a little head with two ears, and its name
+			var p := _to(w.cat.global_position)
+			var cc := Color(0.98, 0.8, 0.45)
+			draw_circle(p, 5.5, cc)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, -2), p + Vector2(-4, -9), p + Vector2(-1, -4)]), cc)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(5, -2), p + Vector2(4, -9), p + Vector2(1, -4)]), cc)
+			draw_string(font, p + Vector2(9, 5), w.cat.cat_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, cc)
 		for sid in w.satchels:
 			if w.satchels[sid].grave:
 				var p := _to(w.satchels[sid].pos)

@@ -15,6 +15,7 @@ var walk_speed := 3.4
 var run_speed := 5.8
 var soft_speed := 1.3
 var speed_cap := -1.0
+var mount = null           ## the cat being ridden (the waste), or null on foot
 var carry_slow := 1.0      ## a heavy gun in hand slows the step
 var can_run := true
 var can_jump := true
@@ -239,9 +240,13 @@ func _physics_process(delta: float) -> void:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var sp := walk_speed
 	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
-	if running:
+	if mount:
+		# Riding: the cat's pace, and its own breath for a sprint; the rider's is spared
+		sp = mount.pace(running and input.length() > 0.1, delta)
+		running = false
+	elif running:
 		sp = run_speed
-	if Input.is_action_pressed("soft"):
+	if Input.is_action_pressed("soft") and not mount:
 		sp = soft_speed
 	if Game.blessed("floofspeeb"):
 		sp *= 1.12
@@ -272,12 +277,14 @@ func _physics_process(delta: float) -> void:
 		_step_t += delta * cur_speed
 		if _step_t > (2.1 if running else 1.7):
 			_step_t = 0.0
-			_footfall(running)
+			if not mount:
+				_footfall(running)
 	if on_floor and not _was_floor:
 		_footfall(true)
 	_was_floor = on_floor
 	var bob := bob_amount if Game.head_bob else 0.0
-	cam.position.y = sin(_bob_t) * 0.04 * bob
+	head.position.y = lerpf(head.position.y, 1.6 + (0.75 if mount else 0.0), minf(1.0, delta * 6.0))
+	cam.position.y = sin(_bob_t) * 0.04 * bob * (0.5 if mount else 1.0)
 	cam.position.x = cos(_bob_t * 0.5) * 0.025 * bob
 	_trauma = maxf(0.0, _trauma - delta * 1.8)
 	var tr := _trauma * _trauma
@@ -349,7 +356,10 @@ func _stamina_tick(delta: float, running: bool) -> void:
 	if winded and stamina >= STAMINA_MAX * 0.25:
 		winded = false
 	if Game.main and Game.main.hud:
-		Game.main.hud.set_stamina(stamina / STAMINA_MAX, armed, winded)
+		if mount:
+			Game.main.hud.set_stamina(mount.breath / mount.BREATH_MAX, armed, mount.winded)   # the cat's breath while riding
+		else:
+			Game.main.hud.set_stamina(stamina / STAMINA_MAX, armed, winded)
 
 
 func reset_max_health() -> void:

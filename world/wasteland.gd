@@ -18,6 +18,10 @@ const REVEAL_N := 256
 
 var terrain: WTerrain
 var inv := Inventory.new()
+var cat: WCat = null      ## this survivor's own riding cat, once one is tamed
+var _cat_saved := {}      ## the cat as saved, until the world is ready to place it
+var _stray: WCat = null   ## a stray near a town that could be won over
+var _stray_t := 5.0
 var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and kit
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -291,6 +295,7 @@ func _process(delta: float) -> void:
 		if _bed_t <= 0.0:
 			_bed_t = 0.5
 			_place_sounds()
+		_cat_tick(delta)
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -2700,6 +2705,125 @@ func _w_slain(p: Vector3, kind: String, by := 0) -> void:
 
 # ================================================================== falling, and rising again
 
+# ================================================================== the riding cat
+
+## Places a saved cat once the world is there; now and then sets a stray near a town while you have none.
+func _cat_tick(delta: float) -> void:
+	if not ready_world:
+		return
+	if not player.interact_pressed.is_connected(_on_interact_pressed):
+		player.interact_pressed.connect(_on_interact_pressed)
+	if cat == null and not _cat_saved.is_empty():
+		var s := _cat_saved
+		_cat_saved = {}
+		var face := str(s.get("face", "_speeb"))
+		if not face in WCat.FACES:
+			face = "_speeb"
+		cat = WCat.new().setup(self, face, false)
+		cat.cat_name = str(s.get("name", "Ember")).left(20)
+		cat.barding = str(s.get("barding", "")) if WCat.BARDING.has(str(s.get("barding", ""))) else ""
+		cat.hp = clampf(float(s.get("hp", WCat.HP_MAX)), 1.0, WCat.HP_MAX)
+		add_child(cat)
+		var pos = s.get("pos", [])
+		var at := Vector2(player.global_position.x + 4.0, player.global_position.z) if not (pos is Array and pos.size() == 2) else Vector2(float(pos[0]), float(pos[1]))
+		cat.global_position = gpos(at)
+	if Input.is_action_just_pressed("whistle") and not player.input_locked and cat:
+		sfx("bell", -14, null, 2.2)
+		cat.call_to(player)
+		hud.notify("You whistle for %s." % cat.cat_name)
+	_stray_t -= delta
+	if _stray_t > 0.0:
+		return
+	_stray_t = 4.0
+	if cat != null:
+		if _stray:
+			_stray.queue_free()
+			_stray = null
+		return
+	if _stray and is_instance_valid(_stray):
+		if _stray.global_position.distance_to(player.global_position) > 160.0:
+			_stray.queue_free()
+			_stray = null
+		return
+	# By day, near a town, a stray cat may be about
+	var town := settlement_at(player.global_position, 120.0)
+	if town == "" or night or randf() > 0.25:
+		return
+	var a := randf() * TAU
+	var at := player.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(22.0, 35.0)
+	_stray = WCat.new().setup(self, WCat.FACES[randi() % WCat.FACES.size()], true)
+	add_child(_stray)
+	_stray.global_position = gpos(Vector2(at.x, at.z))
+
+
+## Interact on a cat: a stray is fed (three meals win it over); your own is mounted.
+func cat_used(c: WCat) -> void:
+	if c.wild:
+		var food := ""
+		for f in ["raw_meat", "meat", "roast"]:
+			if inv.count(f) > 0:
+				food = f
+				break
+		if food == "":
+			hud.notify("The cat sniffs your hands and finds nothing. It would take meat.")
+			return
+		inv.take(food, 1)
+		c.fed += 1
+		c._shy = 0.0
+		sfx("carve", -12, c.global_position, 1.4)
+		if c.fed < 3:
+			hud.notify("The cat eats, and watches you. (%d of 3)" % c.fed)
+			c._refresh()
+			return
+		c.wild = false
+		c.cat_name = WCat.NAMES[randi() % WCat.NAMES.size()]
+		cat = c
+		_stray = null
+		c._refresh()
+		sfx("choir", -10, null, 1.4)
+		hud.say("The cat is yours. Its name is %s, unless you give it another. Hold [%s] on it to name it and fit its barding." % [c.cat_name, Game.key_text("interact")], 6.0)
+		return
+	if c != cat:
+		return
+	if not c.can_ride():
+		hud.notify("%s is hurt and will not carry you yet." % c.cat_name)
+		return
+	ride()
+
+
+func cat_menu(c: WCat) -> void:
+	if c == cat:
+		ui.open_cat()
+
+
+func ride() -> void:
+	if cat == null or player.mount:
+		return
+	player.global_position = cat.global_position + Vector3(0, 0.3, 0)
+	player.yaw = cat.rotation.y - PI
+	player.mount = cat
+	cat.ridden = true
+	cat._refresh()
+	sfx("carve", -12, null, 0.8)
+
+
+func dismount() -> void:
+	if cat == null or player.mount == null:
+		return
+	player.mount = null
+	cat.ridden = false
+	var side := player.global_transform.basis.x * 1.4
+	cat.global_position = gpos(Vector2(player.global_position.x, player.global_position.z))
+	player.global_position += side
+	cat._refresh()
+
+
+func _on_interact_pressed() -> void:
+	# Riding, with nothing in front to use: get down
+	if player.mount and player.target == null and not player.input_locked:
+		dismount()
+
+
 func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated:
 		return
@@ -2722,6 +2846,14 @@ func damage_player(amount: float, from: Vector3) -> void:
 				hud.hitmarker(false, true)
 				if amount < 1.0:
 					return
+	# Riding, the cat takes half of the blow; hurt out, it throws its rider and runs off a while
+	if player.mount and cat:
+		if cat.take(amount * 0.5):
+			dismount()
+			hud.say("%s throws you and bolts. It will be back when it has licked its wounds." % cat.cat_name, 4.0)
+			cat.call_to(player)
+			cat._call = false
+		amount *= 0.5
 	# Plate worn on the body (or the helm, now and then) soaks part of the blow and wears down
 	var pt := WArms.plate_take(arms, amount, randf() < 0.25)
 	if pt[0] < amount:
@@ -2756,6 +2888,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		if Net.online and targets().size() > 0:
 			_bleed_t = 45.0
 			_give_up_t = 0.0
+			dismount()
 			_go_down()
 		else:
 			_perish("You fell in the dust, and the forms went on without you.")
@@ -2794,6 +2927,7 @@ func _check_wipe() -> void:
 func _perish(message: String) -> void:
 	if _pfail:
 		return
+	dismount()
 	life_kills = 0
 	_pfail = true
 	player.input_locked = true
@@ -3028,7 +3162,7 @@ func char_data() -> Dictionary:
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
-		"guide": guide.step if guide else -1,
+		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 	}
 
 
@@ -3040,6 +3174,11 @@ func apply_char(d: Dictionary) -> void:
 	seen_biomes = d.get("biomes", {}) if d.get("biomes") is Dictionary else {}
 	inv.from_data(d.get("inv", []))
 	arms = WArms.clean(d.get("warms"))
+	_cat_saved = d.get("cat", {}) if d.get("cat") is Dictionary else {}
+	if cat:
+		dismount()
+		cat.queue_free()
+		cat = null
 	food = clampf(float(d.get("food", 100.0)), 0.0, 100.0)
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	Game.warms = arms
@@ -4957,6 +5096,47 @@ func debug_glass() -> void:
 	get_tree().quit()
 
 
+## Testing aid: a stray is won over with three meals, carries you faster, sprints on its breath,
+## shares the harm, gets down, and comes back from a save.
+func debug_cat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	inv.add("raw_meat", 3)
+	var c := WCat.new().setup(self, "floofspeeb", true)
+	add_child(c)
+	c.global_position = gpos(Vector2(player.global_position.x + 3.0, player.global_position.z))
+	for i in 3:
+		cat_used(c)
+	var tamed := cat == c and not c.wild
+	cat_used(c)
+	var riding: bool = player.mount == c
+	var walk: float = c.pace(false, 0.016)
+	var sprint: float = c.pace(true, 0.016)
+	var b0 := c.breath
+	for i in 60:
+		c.pace(true, 0.1)
+	var spent := c.breath < b0
+	player.max_health = 1000.0
+	player.health = 1000.0
+	var h0 := player.health
+	var c0 := c.hp
+	damage_player(40.0, player.global_position + Vector3(0, 0, -3))
+	var shared := c.hp < c0 and h0 - player.health < 40.0
+	await get_tree().create_timer(0.3).timeout
+	var followed := c.global_position.distance_to(player.global_position) < 0.5
+	dismount()
+	var off: bool = player.mount == null and not c.ridden
+	var saved := c.to_data()
+	saved.name = "Biscuit"
+	c.queue_free()
+	cat = null
+	_cat_saved = saved
+	await get_tree().create_timer(0.5).timeout
+	print("CAT tamed=%s riding=%s faster=%s sprint=%s spent=%s shared=%s followed=%s off=%s back=%s" % [tamed, riding, walk > player.walk_speed, sprint > walk * 1.5, spent, shared, followed, off, cat != null and cat.cat_name == "Biscuit"])
+	get_tree().quit()
+
+
 ## Testing aid: a struck form bleeds, and does not when blood is turned off.
 func debug_blood() -> void:
 	while not ready_world:
@@ -5223,6 +5403,20 @@ func debug_screen() -> void:
 			var e := spawn_at("unlit_gun", player.global_position + f.normalized() * 30.0 + Vector3(0, 1.0, 0))
 			e.set_meta("raid", true)
 			e._attack_cd = 999.0
+		"cat", "ride":
+			var c := WCat.new().setup(self, "floofspeeb", false)
+			c.cat_name = "Biscuit"
+			c.barding = "bone_barding"
+			cat = c
+			add_child(c)
+			var f := -player.global_transform.basis.z
+			f.y = 0.0
+			var at := player.global_position + f.normalized() * 4.0
+			c.global_position = gpos(Vector2(at.x, at.z))
+			c.rotation.y = player.yaw + PI * 0.6
+			c._refresh()
+			if which == "ride":
+				ride()
 		"reload":
 			# A reload held still at one moment (k=0..1), on the gun named by gun=
 			var g := "machine_gun"
@@ -5259,3 +5453,53 @@ func debug_restshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
 	ui.ask_rest("bed")
+
+
+
+## Shoots each foe of the waste with a body at its feet, chest and head: every shot should strike it and
+## harm it, and the one at the head should count as a head shot.
+func debug_hitbox() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var all := true
+	var heads := true
+	for k in ["unlit_gun", "unlit_blade", "unlit_brute", "hollow", "saltbone", "vigil", "warden"]:
+		var e = spawn_at(k, player.global_position + f * 8.0 + Vector3(0, 1.0, 0))
+		e.set_meta("raid", true)
+		e.set_physics_process(false)
+		e.set_process(false)
+		for i in 20:
+			await get_tree().physics_frame
+		var base: Vector3 = e.global_position
+		var lo := 1e9
+		var hi := -1e9
+		for mi in e._fb.find_children("*", "MeshInstance3D", true, false):
+			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			lo = minf(lo, ab.position.y)
+			hi = maxf(hi, ab.end.y)
+		var line := ""
+		var space := get_world_3d().direct_space_state
+		for frac in [0.2, 0.5, 0.85]:
+			var o := Vector3(base.x, lerpf(lo, hi, frac), base.z) - f * 3.0
+			var q := PhysicsRayQueryParameters3D.create(o, o + f * 6.0, 2)
+			var r := space.intersect_ray(q)
+			var struck: bool = not r.is_empty() and r.collider == e
+			line += "X" if struck else "."
+			all = all and struck
+			if frac == 0.85 and k != "vigil":
+				var wp: Array = e.weak_point()
+				var head_hit := not wp.is_empty() and Arms._ray_near(o, f, wp[0], wp[1])
+				heads = heads and head_hit
+		var hp0: float = e.hp
+		e.hurt(10.0, f)
+		all = all and e.hp < hp0
+		print("HIT %s %.2f..%.2f %s" % [k, lo - base.y, hi - base.y, line])
+		e.queue_free()
+	print("HITBOX all=%s heads=%s" % [all, heads])
+	get_tree().quit()

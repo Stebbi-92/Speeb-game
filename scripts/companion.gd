@@ -15,6 +15,8 @@ var _gun: Node3D
 var _gun_model: Node3D
 var _gun_key := ""
 var _gun_id := ""
+var _cat: WCat = null       ## the cat a friend rides, under them
+var _ride_key := ""
 var _tip := Vector3(0, -0.2, 1.2)
 var _label: Label3D
 var _lamp: OmniLight3D
@@ -127,6 +129,24 @@ func pose(data: Array) -> void:
 		if key != _gun_key:
 			_gun_key = key
 			_show_gun(str(data[8]), mn)
+	# Riding: their cat under them, with its face and barding
+	var ride := str(data[10]) if data.size() > 10 else ""
+	if ride != _ride_key:
+		_ride_key = ride
+		if _cat:
+			_cat.queue_free()
+			_cat = null
+		var bits := ride.split("|")
+		if ride != "" and bits[0] in WCat.FACES and WCat.BARDING.has(bits[1] if bits.size() > 1 else ""):
+			_cat = WCat.new().setup(null, bits[0], false)
+			_cat.barding = bits[1] if bits.size() > 1 else ""
+			_cat.ridden = true
+			_cat.puppet = true
+			add_child(_cat)
+	if _cat:
+		_body.position.y = 0.75
+	elif _body.position.y != 0.0:
+		_body.position.y = 0.0
 	_lamp.light_energy = 2.0 if data[7] else 0.0
 	if not _has_pose or global_position.distance_to(_to) > 6.0:
 		global_position = _to

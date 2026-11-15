@@ -2068,7 +2068,8 @@ func _net_tick(delta: float) -> void:
 		Net.send_pose([player.global_position, player.yaw, player.pitch, downed, player.health / player.max_health,
 			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
 			player.weapon.gun() if player.weapon else "shotgun",
-			Game.mounts_of(player.weapon.gun()) if player.weapon else []])
+			Game.mounts_of(player.weapon.gun()) if player.weapon else [],
+			"%s|%s" % [player.mount.face, player.mount.barding] if player.mount else ""])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:
