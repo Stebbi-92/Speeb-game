@@ -942,6 +942,7 @@ func _needs_tick(delta: float) -> void:
 	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
 	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
 	_meals_tick(delta)
+	_land_tick(delta)
 	if food <= 0.0:
 		_starve_t -= delta
 		if _starve_t <= 0.0:
@@ -994,6 +995,78 @@ func eat(id: String) -> bool:
 	if h < 0.0:
 		hud.notify("Raw meat turns your stomach. Cook it first.")
 	return true
+
+
+# ------------------------------------------------------------------ lands that ask for gear
+
+## Each land is harder than the one before, and has a hardship that only gear made from the land
+## before it keeps out (Valheim's lands). The Ash Plains are where everyone starts.
+const LAND_TIER := {"ash": 1, "dunes": 2, "forest": 2, "salt": 3, "marsh": 3, "basalt": 4}
+const TIER_HP := [1.0, 1.35, 1.8, 2.4]       ## a foe's health in a land of each danger
+const TIER_HARM := [1.0, 1.25, 1.55, 1.9]    ## and the harm it does
+## land: [ward carried against it, the hardship in a few words]
+const LAND_WARD := {
+	"dunes": ["veil", "The heat: your breath comes back slowly."],
+	"forest": ["spore_mask", "The spores eat at your health."],
+	"salt": ["goggles", "The glare burns you by day."],
+	"marsh": ["tar_boots", "The tar holds your feet."],
+	"basalt": ["ember_cloak", "The stone's heat burns you."],
+}
+## What each land yields besides the common stuff: [node kind, item, chance]
+const LAND_STUFF := {
+	"dunes": ["scrap", "red_iron", 0.4], "forest": ["tree", "heartwood", 0.35], "salt": ["salt", "salt_crystal", 0.35],
+	"marsh": ["herb", "tar", 0.5], "basalt": ["rock", "obsidian", 0.35],
+}
+var _land_t := 0.0
+
+
+func land_tier(bn: String) -> int:
+	return int(LAND_TIER.get(bn, 1))
+
+
+func land_at(p: Vector3) -> String:
+	return terrain.biome_name(p.x, p.z) if terrain else "ash"
+
+
+## Whether this pilgrim carries the ward against a land's hardship (or the land has none).
+func warded(bn: String) -> bool:
+	return not LAND_WARD.has(bn) or inv.count(LAND_WARD[bn][0]) > 0
+
+
+func land_warning(bn: String) -> String:
+	if warded(bn):
+		return ""
+	return "\n%s Carry %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
+
+
+## A foe is as strong as the land it rises in.
+func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
+	var e := super(kind, p)
+	if e and Game.wasteland and terrain:
+		var m: float = TIER_HP[land_tier(land_at(p)) - 1]
+		e.hp *= m
+		e.max_hp *= m
+	return e
+
+
+## The hardship of the land underfoot, for one without its ward.
+func _land_tick(delta: float) -> void:
+	var bn := land_at(player.global_position)
+	if warded(bn) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0:
+		return
+	match bn:
+		"dunes":
+			player.stamina_mult *= 0.5
+		"forest", "salt", "basalt":
+			if bn == "salt" and night:
+				return
+			_land_t -= delta
+			if _land_t <= 0.0:
+				_land_t = 5.0
+				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0}[bn] as float
+				player.health = maxf(1.0, player.health - loss)
+				hud.set_health(player.health / player.max_health, true)
+				_regen_wait = maxf(_regen_wait, 4.0)
 
 
 # ------------------------------------------------------------------ meals and comfort
@@ -2334,6 +2407,10 @@ func _rq_gather(by: int, id: int) -> void:
 			out.append(["bone", rr.randi_range(2, 4)])
 			if rr.randf() < 0.2:
 				out.append(["cloth", 1])
+	var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
+	var ls: Array = LAND_STUFF.get(land_at(np), [])
+	if not ls.is_empty() and ls[0] == nd.kind and rr.randf() < float(ls[2]):
+		out.append([ls[1], rr.randi_range(1, 2)])
 	shared("_w_node", [id, nd.charges - 1, day + 2])
 	Net.call_peer(by, "_w_gathered", [id, out])
 
@@ -2972,6 +3049,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		hud.hitmarker(false, true)
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
+	amount *= TIER_HARM[land_tier(land_at(from)) - 1]
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -3174,13 +3252,13 @@ func _visit_check() -> void:
 	var bn := terrain.biome_name(player.global_position.x, player.global_position.z)
 	if bn != _biome:
 		if _biome != "":
-			hud.notify("%s\n%s" % [WTerrain.BIOME_NAMES[bn], BIOME_TEXT[bn]])
+			hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], land_tier(bn), BIOME_TEXT[bn], land_warning(bn)])
 		_biome = bn
 		if not seen_biomes.has(bn):
 			seen_biomes[bn] = true
 			if seen_biomes.size() > 1:
 				award("biome")
-	player.speed_cap = 3.6 if bn == "marsh" and settlement_at(player.global_position, 4.0) == "" else -1.0
+	player.speed_cap = 3.6 if bn == "marsh" and inv.count("tar_boots") <= 0 and settlement_at(player.global_position, 4.0) == "" else -1.0
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
@@ -5661,6 +5739,9 @@ func debug_meals() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
 	clock = 12.0
+	inv.from_data([])
+	meals.clear()
+	_meal_stats()
 	food = 30.0
 	var hp0 := player.max_health
 	var st0: float = player.stamina_max
@@ -5697,4 +5778,55 @@ func debug_meals() -> void:
 	rested = 0.0
 	apply_char(d)
 	print("MEALS hp=%s stam=%s three=%s held=%s swapped=%s worn=%s comfort=%d rested=%s xp=%s saved=%s" % [hp_up, st_up, three, held, swapped, worn, c_open, rest_on, more, rested > 0.0])
+	get_tree().quit()
+
+
+## Lands that ask for gear: foes are stronger in harder lands, a land's hardship bites until its ward is
+## carried, and its own stuff comes from its nodes.
+func debug_lands() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	inv.from_data([])
+	var home := player.global_position
+	var spot := {}
+	var r := RandomNumberGenerator.new()
+	r.seed = 7
+	for i in 6000:
+		var p := Vector3(r.randf_range(-1800, 1800), 0, r.randf_range(-1800, 1800))
+		var bn := land_at(p)
+		if not spot.has(bn) and settlement_at(p, 30.0) == "" and base_at(p, 0.0, true) < 0 and terrain.biome_name(p.x + 30, p.z + 30) == bn:
+			spot[bn] = gpos(Vector2(p.x, p.z))
+	var a = spawn_at("rusher", spot["ash"] + Vector3(0, 2, 0))
+	var b = spawn_at("rusher", spot["basalt"] + Vector3(0, 2, 0))
+	var harder: bool = b.max_hp > a.max_hp * 2.0
+	a.die(false)
+	b.die(false)
+	player.place(spot["forest"] + Vector3(0, 0.5, 0), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	inv.take("spore_mask", 99)
+	var h0 := player.health
+	await get_tree().create_timer(6.0).timeout
+	var bites := player.health < h0
+	inv.add("spore_mask", 1)
+	h0 = player.health
+	await get_tree().create_timer(6.0).timeout
+	var warded_ok := player.health >= h0
+	var stuff := 0
+	for nd in nodes:
+		if nd.kind == "scrap" and land_at(nd.pos) == "dunes":
+			var before := inv.count("red_iron")
+			for k in 30:
+				nodes[nd.id].charges = 3
+				_rq_gather(Net.me(), nd.id)
+			await get_tree().create_timer(0.5).timeout
+			stuff = inv.count("red_iron") - before
+			break
+	player.place(home, 0.0)
+	await get_tree().create_timer(1.0).timeout
+	autosave_soon(0.1)
+	await get_tree().create_timer(1.0).timeout
+	print("LANDS tiers=%d harder=%s bites=%s warded=%s stuff=%s" % [spot.size(), harder, bites, warded_ok, stuff > 0])
 	get_tree().quit()
