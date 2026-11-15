@@ -83,6 +83,8 @@ var _flash := 0.0
 var _alive := true
 var _t := 0.0
 var _knock := Vector3.ZERO
+var _knock_on := Vector3.ZERO   ## the push already in the velocity, so it is added once and not every frame
+var _shot_slow := 0.0            ## a heavy form under fire slows for a moment, and keeps coming
 var _strafe := 1.0
 var _disc: Node3D
 var _beam: MeshInstance3D
@@ -258,7 +260,7 @@ func _physics_process(delta: float) -> void:
 	if walks():
 		_spider_move(delta, p, dist, frozen)
 		return
-	var speed: float = spec.speed * Game.difficulty_scale("speed")
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0)
 	if not frozen:
 		match kind:
 			"spitter":
@@ -297,7 +299,9 @@ func _physics_process(delta: float) -> void:
 			velocity = Vector3.ZERO
 	else:
 		want.y += sin(_t * 2.6) * 0.4
-	velocity = velocity.lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
+	_shot_slow = maxf(0.0, _shot_slow - delta)
+	velocity = (velocity - _knock_on).lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
+	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
 	var real_v := velocity
 	velocity *= level.enemy_time
@@ -443,7 +447,8 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	flat.y = 0
 	var fd := flat.length()
 	var dir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0) * (0.55 if _shot_slow > 0.0 else 1.0)
+	_shot_slow = maxf(0.0, _shot_slow - delta)
 	var on_floor := is_on_floor()
 	var cat := kind != "spider"
 	if _charge <= 0.0:
@@ -485,7 +490,8 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
 	velocity.y -= 22.0 * delta
-	velocity += _knock
+	velocity += _knock - _knock_on
+	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
 	var real_v := velocity
 	velocity *= level.enemy_time
@@ -859,7 +865,12 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		amount *= 0.12
 	hp -= amount
 	_flash = 1.0 if full else 0.3
-	_knock += from_dir.normalized() * amount * (0.0 if boss != "" else (0.08 if kind == "elite" else 0.25))
+	# Heavy forms barely give ground unless the blow is a heavy one; they slow under fire instead
+	var heavy_blow := amount >= 60.0 or harm_kind == "blast"
+	var steady := kind in ["idol", "brute", "elite"]
+	_knock += from_dir.normalized() * minf(amount, 80.0) * (0.0 if boss != "" else (0.03 if steady and not heavy_blow else (0.08 if kind == "elite" else 0.2)))
+	if steady:
+		_shot_slow = 0.6
 	# Enough harm at once, or a blade to something not too great, and it reels: its bite is broken off
 	_dmg_win += amount
 	if boss == "" and full and _stagger <= 0.0 and not kind in ["saucer", "unseen"] and \
@@ -869,7 +880,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		if _wind > 0.0:
 			_wind = 0.0
 			_show_wind(-1.0)
-		_knock += from_dir.normalized() * 3.0
+		if not steady or heavy_blow:
+			_knock += from_dir.normalized() * 3.0
 	hp_frac = hp / max_hp
 	if hp <= 0.0:
 		die(true)

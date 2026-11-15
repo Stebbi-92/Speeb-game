@@ -4583,6 +4583,31 @@ func debug_blade() -> void:
 	get_tree().quit()
 
 
+## Testing aid: shot at steadily, a gilded form keeps coming, slower; a rusher is pushed back a little.
+func debug_knock() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for k in ["idol", "rusher"]:
+		var fwd: Vector3 = -player.global_transform.basis.z
+		var e := spawn_at(k, player.global_position + fwd * 12.0 + Vector3(0, 0.5, 0))
+		e.set_meta("raid", true)
+		e.hp = 5000.0
+		e._attack_cd = 99.0
+		await get_tree().create_timer(0.5).timeout
+		var d0: float = e.global_position.distance_to(player.global_position)
+		var far := 0.0
+		for i in 12:
+			LesserSpeeb.harm_kind = "bullet"
+			e.hurt(24.0, fwd)
+			LesserSpeeb.harm_kind = ""
+			await get_tree().create_timer(0.16).timeout
+			far = maxf(far, e.global_position.distance_to(player.global_position))
+		var d1: float = e.global_position.distance_to(player.global_position)
+		print("KNOCK %s start=%.1f furthest=%.1f end=%.1f" % [k, d0, far, d1])
+		e.die(false)
+	get_tree().quit()
+
+
 ## Testing aid: the blade held, for a picture.
 func debug_bladeshot() -> void:
 	while not ready_world:
