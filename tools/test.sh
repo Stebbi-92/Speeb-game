@@ -40,6 +40,8 @@ check newfoes   debug_newfoes  "NEWFOES made=8 hit=8 burning=true slowed=true hu
 check questfoes debug_questfoes "QUESTFOES cleared=true"
 check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
 check packfit   debug_packfit  "PACKFIT fits=true"
+check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"
+check power     debug_power    "POWER base=true grows=true hp_grows=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

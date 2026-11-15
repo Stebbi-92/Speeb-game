@@ -1236,11 +1236,26 @@ func land_warning(bn: String) -> String:
 	return "\n%s Carry %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
 
 
-## A foe is as strong as the land it rises in.
+## How far the fellowship's arms have come: upgraded guns, fitted parts and experience. The forms
+## grow to meet it, so the near lands stay worth fearing once a gun is improved.
+func foe_power() -> float:
+	var best := 0
+	var tiers = Game.warms.get("tier", {}) if Game.warms is Dictionary else {}
+	if tiers is Dictionary:
+		for g in tiers:
+			best = maxi(best, int(tiers[g]))
+	var fitted := 0
+	if arms and arms.primary != "" and arms.parts.has(arms.primary):
+		fitted = (arms.parts[arms.primary] as Array).size()
+	var lv: int = skills.level if skills else 1
+	return clampf(1.0 + 0.15 * best + 0.04 * mini(fitted, 5) + 0.02 * (lv - 1), 1.0, 2.2)
+
+
+## A foe is as strong as the land it rises in, and as the arms it will face.
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var m: float = TIER_HP[land_tier(land_at(p)) - 1]
+		var m: float = TIER_HP[land_tier(land_at(p)) - 1] * foe_power()
 		e.hp *= m
 		e.max_hp *= m
 	return e
@@ -2861,6 +2876,7 @@ func _world_tick(delta: float) -> void:
 		if _day_t <= 0.0:
 			_day_t = 6.0
 			_day_watch()
+	_regrow_tick(delta)
 	_quest_t -= delta
 	if _quest_t <= 0.0:
 		_quest_t = 5.0
@@ -2917,6 +2933,32 @@ func _w_dawn(d: int) -> void:
 func _nth_night(n: int) -> String:
 	var words := ["", "the first night", "the second night", "the third night", "the fourth night", "the fifth night", "the sixth night", "the seventh night"]
 	return words[n] if n < words.size() else "%d nights" % n
+
+
+var _regrow_t := 20.0
+const REGROW_CHANCE := 0.04   ## each 20 s, the chance a gathered tree, rock or heap gets one share back
+
+
+## What is taken from the land slowly comes back, here and there, a share at a time: never under
+## someone's nose, so a picked-over place fills again while you are away.
+func _regrow_tick(delta: float) -> void:
+	_regrow_t -= delta
+	if _regrow_t > 0.0 or not Net.authority():
+		return
+	_regrow_t = 20.0
+	var tg := targets()
+	for nd in nodes:
+		var full := int(NODE_KINDS[nd.kind].charges)
+		if int(nd.charges) >= full or randf() >= REGROW_CHANCE:
+			continue
+		var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
+		var seen := false
+		for t in tg:
+			if t.global_position.distance_squared_to(np) < 400.0:
+				seen = true
+				break
+		if not seen:
+			shared("_w_node", [nd.id, int(nd.charges) + 1, int(nd.back)])
 
 
 ## At dawn what was taken from the land begins to come back, and the people have new work.
@@ -3338,7 +3380,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		hud.hitmarker(false, true)
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
-	amount *= TIER_HARM[land_tier(land_at(from)) - 1]
+	amount *= TIER_HARM[land_tier(land_at(from)) - 1] * sqrt(foe_power())
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -5666,6 +5708,51 @@ func debug_packfit() -> void:
 			worst = maxf(worst, r.size.y)
 			top = minf(top, r.position.y)
 	print("PACKFIT fits=%s" % (worst <= 701.0))
+	get_tree().quit()
+
+## Testing aid: a picked-clean node far off comes back a share at a time; one beside you does not.
+func debug_regrow() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var near_id := -1
+	var far_id := -1
+	for nd in nodes:
+		var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
+		var d := Vector2(np.x, np.z).distance_to(Vector2(player.global_position.x, player.global_position.z))
+		if far_id < 0 and d > 200.0:
+			far_id = nd.id
+		if near_id < 0 and d > 3.0 and d < 15.0:
+			near_id = nd.id
+	if near_id < 0:
+		var nd0: Dictionary = nodes[0]
+		var np0: Vector3 = nd0.pos if nd0.pos is Vector3 else Vector3(nd0.pos.x, 0, nd0.pos.y)
+		player.place(np0 + Vector3(5, 1.5, 0), 0.0)
+		near_id = 0
+		await get_tree().create_timer(0.5).timeout
+	_w_node(far_id, 0, day + 5)
+	_w_node(near_id, 0, day + 5)
+	for i in 200:
+		_regrow_t = 0.0
+		_regrow_tick(0.0)
+		await get_tree().process_frame
+	print("REGROW far=%s near_kept=%s seen=%s" % [int(nodes[far_id].charges) > 0, int(nodes[near_id].charges) == 0, nodes[far_id].node.visible])
+	get_tree().quit()
+
+## Testing aid: the forms grow with the arms they face.
+func debug_power() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var p0 := foe_power()
+	var e0 := spawn_at("rusher", player.global_position + Vector3(0, 1.5, -20))
+	var h0: float = e0.max_hp
+	e0.die(false)
+	Game.warms["tier"] = {"shotgun": 3}
+	var p1 := foe_power()
+	var e1 := spawn_at("rusher", player.global_position + Vector3(0, 1.5, -20))
+	var h1: float = e1.max_hp
+	e1.die(false)
+	Game.warms["tier"] = {}
+	print("POWER base=%s grows=%s hp_grows=%s" % [is_equal_approx(p0, 1.0) or p0 < 1.1, p1 > p0 + 0.4, h1 > h0 * 1.3])
 	get_tree().quit()
 
 ## Testing aid: plate on both sides. A body shot on a Breaker is mostly soaked, a head shot and a
