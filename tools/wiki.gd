@@ -87,6 +87,7 @@ func _building() -> void:
 func _creatures() -> void:
 	var t := "# Creatures\n\n" + NOTE
 	t += "The forms of the waste. Most bite: watch for the head swelling and glowing, then dodge (**Q**) or step back. Heavy harm at once, or a blade, makes them reel. A shot to the head does more.\n\n"
+	t += "Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) keep to their camps and ruins until they see or hear you. Gunfire carries far; a suppressed shot hardly at all. One that spots you calls the others.\n\n"
 	t += "| Creature | Health | Bite | Weak to | Hard against | How to fight it |\n|---|---|---|---|---|---|\n"
 	var harms := {"shot": "shotgun spread", "bullet": "bullets", "blast": "blasts", "blade": "blades", "fire": "fire"}
 	for k in LesserSpeeb.KINDS:
@@ -97,9 +98,12 @@ func _creatures() -> void:
 		var tough: Array = []
 		for h in s.tough:
 			tough.append(harms.get(h, h))
-		t += "| **%s** | %d | %s | %s | %s | %s |\n" % [s.name, int(s.hp), str(int(s.bite)) if float(s.bite) > 0.0 else "none", ", ".join(weak), ", ".join(tough), s.text]
+		var how: String = s.text
+		if float(s.get("plate", 0.0)) > 0.0:
+			how += " Wears plate (%d): aim for the head, or use piercing rounds." % int(s.plate)
+		t += "| **%s** | %d | %s | %s | %s | %s |\n" % [s.name, int(s.hp), str(int(s.bite)) if float(s.bite) > 0.0 else "none", ", ".join(weak), ", ".join(tough), how]
 	t += "\n## The great ones\n\nEach land has one, in its lair. When its lair is ready it shows on the map as a red mark. Bring friends.\n\n| Great one | Land | Health | Its ways |\n|---|---|---|---|\n"
-	var ways := {"slam": "breaks the ground around it", "brood": "brings forth lesser forms", "volley": "a fan of bolts", "blink": "watched too long, it is suddenly elsewhere"}
+	var ways := {"slam": "breaks the ground around it", "brood": "brings forth lesser forms", "volley": "a fan of bolts", "blink": "watched too long, it is suddenly elsewhere", "charge": "charges in a straight line", "rain": "rains fire in circles"}
 	for b in LesserSpeeb.BOSSES:
 		var s: Dictionary = LesserSpeeb.BOSSES[b]
 		var w: Array = []

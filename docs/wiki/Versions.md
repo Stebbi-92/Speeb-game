@@ -2,6 +2,16 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.6.0 (arms and fighting)
+
+- Arms screen with a live gun, parts by place, grades and traits; ten ranks of practice for each gun and the blade.
+- Fixed recoil patterns, spread marks, visible reloads, piercing and hollow rounds.
+- Sniper: iron sights until a Scope is fitted; a new scope with breath you can hold, and its own sensitivity setting.
+- Armour that soaks harm, breaks and is mended at a workbench.
+- New foes: the Unlit (raiders in Speeb masks), the Hollowed, Salt-Bones, Lost Vigil and Gravewarden. Foes keep to their camps until they see or hear you; suppressors keep you quiet.
+- Great ones charge, rain fire and slam, with ground warnings.
+- New sounds, a volume per kind of sound, and blood (can be turned off).
+
 ## 0.5.3
 
 - Fixed: the hotbar was missing in the Ashen Waste. It now sits low in the middle with stamina above it.

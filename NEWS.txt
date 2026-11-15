@@ -1,3 +1,32 @@
+Brelm alpha 0.6.0: Arms and fighting
+
+Guns
+- A new Arms screen: your gun turns slowly as it is fitted, with every part it can take, grouped by place.
+- Make barrels, stocks and receivers at a workbench. Fittings found in the waste rework a part to Fine, Rare or Storied, each with its own traits.
+- Each gun kicks sideways in its own fixed way, so you can learn to hold it. Marks around the dot show how wide your shots may stray.
+- Practice: every gun and the blade get better the more you use them, through ten ranks.
+- Two new loads: Piercing Rounds go through armour; Hollow Rounds hit flesh harder but stop on plate.
+- Reloads you can see: the magazine drops out and a fresh one clicks home. The shotgun takes shells one by one.
+- The sniper rifle has iron sights until you fit a Scope. Rifles from older saves keep theirs.
+- A new scope: a clearer glass and crosshair, with marks for the drop. Your aim drifts with your breath; hold Hasten (Shift) to steady it for a few seconds.
+- Looking down a sight or scope now turns the view at the same pace on screen as from the hip. A new setting, "Aiming and scope sensitivity", tunes it.
+
+Armour
+- Iron Helm, Bone Mail, Scrap Plate and the new Salt-crust Plate soak harm until they break. Mend them at a workbench for scrap. A thin bar above your health shows what is left.
+- Head shots go over armour.
+
+Foes
+- The Unlit: raiders in Speeb masks. Gunmen keep their distance and shoot. Blades raise a guard against your gun. Breakers carry plate and a great maul. They camp by the roads.
+- The Hollowed, the Salt-Bones, the Lost Vigil and the Gravewarden walk the ruins and the night.
+- Foes of the waste keep to their camps until they see or hear you. Gunfire carries far; a suppressed shot hardly at all. One that spots you calls the rest, they search where they last saw you, and a badly hurt Unlit runs, then comes back.
+- Turn a blade's blow with your guard and it reels open.
+- Great ones charge, rain fire and slam the ground, with warnings on the ground first. After a charge they stand spent and take more harm, and at half health they grow wroth.
+
+Sound and blood
+- New sounds throughout: real gunshots (with distant versions), blades, hits, parries, roars, footsteps that change with the ground, and the sound of towns, nights and caves.
+- Volume for guns, creatures, world and menus, each on its own slider.
+- Blood when you hit something. You can turn it off in Settings.
+
 Brelm alpha 0.5.3
 
 - The hotbar shows again in the Ashen Waste. It had been drawn off the screen. It now sits low in the middle, with the stamina bar just above it.

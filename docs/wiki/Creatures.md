@@ -4,6 +4,8 @@ _This page is made from the game's own data by `tools/wiki.gd`. Edit the game, n
 
 The forms of the waste. Most bite: watch for the head swelling and glowing, then dodge (**Q**) or step back. Heavy harm at once, or a blade, makes them reel. A shot to the head does more.
 
+Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) keep to their camps and ruins until they see or hear you. Gunfire carries far; a suppressed shot hardly at all. One that spots you calls the others.
+
 | Creature | Health | Bite | Weak to | Hard against | How to fight it |
 |---|---|---|---|---|---|
 | **Ash Stalker** | 52 | 18 | shotgun spread |  | Runs you down and springs at the last. |
@@ -19,6 +21,13 @@ The forms of the waste. Most bite: watch for the head swelling and glowing, then
 | **Howler** | 70 | 14 | bullets | fire | Stands back and screams. The cry hurts and drives the others on. |
 | **Ember Sack** | 30 | none | bullets | blades | Bursts into fire when it reaches you, or when it dies. Shoot it far off. |
 | **Dune Lurker** | 80 | 24 | shotgun spread | bullets | Swims under the sand and rises at your feet. |
+| **Unlit Gunman** | 60 | 9 | bullets, blades |  | One of those who put out the beacons. Keeps its distance and shoots. Close in, or out-shoot it. Wears plate (30): aim for the head, or use piercing rounds. |
+| **Unlit Blade** | 85 | 20 | blasts |  | Guards against shots from the front. Strike when it swings, or turn its blade with your own guard. Wears plate (50): aim for the head, or use piercing rounds. |
+| **Unlit Breaker** | 200 | 34 | blades | shotgun spread | A great maul, a slow swing, and thick plate. Step out of the swing, then strike. Wears plate (120): aim for the head, or use piercing rounds. |
+| **The Hollowed** | 55 | 15 | fire, shotgun spread |  | Pilgrims the night took. Slow, and never alone. |
+| **Salt-Bones** | 40 | 13 | blades, blasts, shotgun spread | bullets | Bones the salt kept. Quick, and bullets slip through them. Use shot or the blade. |
+| **Lost Vigil** | 70 | 12 | fire, blades | bullets, shotgun spread | A beacon-keeper who never left the dark. It drifts through, and steals warmth. |
+| **Gravewarden** | 260 | 30 | fire | bullets | It keeps the Hollowed. Where it walks, more of them rise. |
 
 ## The great ones
 
@@ -26,9 +35,9 @@ Each land has one, in its lair. When its lair is ready it shows on the map as a 
 
 | Great one | Land | Health | Its ways |
 |---|---|---|---|
-| **The Cinder Matron** | Ash | 2400 | breaks the ground around it; brings forth lesser forms |
-| **The Sand Choir** | Dunes | 1700 | a fan of bolts; brings forth lesser forms |
-| **The White Disc** | Salt | 2000 | a fan of bolts |
-| **The Long Watcher** | Forest | 1600 | watched too long, it is suddenly elsewhere |
-| **The Basalt Idol** | Basalt | 2600 | breaks the ground around it; a fan of bolts |
-| **The Tar Mother** | Marsh | 1800 | brings forth lesser forms |
+| **The Cinder Matron** | Ash | 2400 | breaks the ground around it; brings forth lesser forms; charges in a straight line |
+| **The Sand Choir** | Dunes | 1700 | a fan of bolts; brings forth lesser forms; rains fire in circles |
+| **The White Disc** | Salt | 2000 | a fan of bolts; rains fire in circles; charges in a straight line |
+| **The Long Watcher** | Forest | 1600 | watched too long, it is suddenly elsewhere; charges in a straight line |
+| **The Basalt Idol** | Basalt | 2600 | breaks the ground around it; a fan of bolts; charges in a straight line |
+| **The Tar Mother** | Marsh | 1800 | brings forth lesser forms; rains fire in circles; charges in a straight line |

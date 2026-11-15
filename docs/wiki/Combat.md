@@ -10,5 +10,12 @@
 - **Use the right harm.** Each creature is weak to some kinds of harm and hard against others: shotgun spread, bullets, blasts, blades and fire. See [[Creatures]].
 - **Watch the sides.** Stalkers and crawlers swing wide and come at you from the flanks.
 - **Great ones** each have a lair. They are much stronger, and some bring other creatures with them.
+- **Armour.** Helms and body plate soak part of each blow and wear down. Broken plate covers little; mend it at a workbench (Arms, Clothing) for scrap. The thin bar above your health shows what is left.
+- **Foes in plate.** The Unlit wear iron. Shots ring off it until it breaks. Aim for the head, or load Piercing Rounds. Hollow Rounds hit flesh harder but stop on plate.
+- **Stay quiet.** Foes keep to their camps until they see or hear you. A bare gunshot carries over a hundred metres; a suppressed one about twenty. Tread softly (Ctrl) and they see you from less far, and at night less far again.
+- **Turn the blow.** Guard with the blade as an Unlit swings and it reels open.
+- **Recoil.** Each gun pulls sideways in its own fixed way, the same every time. Pull against it, and fire in short strings.
+- **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks.
+- **The scope.** Your aim drifts with your breath. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
 
-Guns and their parts are changed under **Arms** in your pack. Better parts are made at a workbench.
+Guns and their parts are changed under **Arms** in your pack. Parts are made at a workbench, and fittings found in the waste rework them to better grades.

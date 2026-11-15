@@ -46,7 +46,7 @@ const KINDS := {
 	"unlit_blade": {"name": "Unlit Blade", "hp": 85.0, "size": 1.0, "speed": 5.0, "bite": 20.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.65, "plate": 50.0,
 		"weak": {"blast": 1.4}, "tough": {}, "text": "Guards against shots from the front. Strike when it swings, or turn its blade with your own guard."},
 	"unlit_brute": {"name": "Unlit Breaker", "hp": 200.0, "size": 1.3, "speed": 3.4, "bite": 34.0, "radius": 0.6, "body": "model", "role": "melee", "head_y": 0.95, "plate": 120.0,
-		"weak": {"blade": 1.3}, "tough": {"shot": 0.8}, "text": "A great maul, a slow swing, and thick plate. Aim for the head, or load piercing rounds."},
+		"weak": {"blade": 1.3}, "tough": {"shot": 0.8}, "text": "A great maul, a slow swing, and thick plate. Step out of the swing, then strike."},
 	"hollow": {"name": "The Hollowed", "hp": 55.0, "size": 1.0, "speed": 2.4, "bite": 15.0, "radius": 0.45, "body": "model", "role": "melee", "head_y": 0.7,
 		"weak": {"fire": 1.8, "shot": 1.2}, "tough": {}, "text": "Pilgrims the night took. Slow, and never alone."},
 	"saltbone": {"name": "Salt-Bones", "hp": 40.0, "size": 0.9, "speed": 6.0, "bite": 13.0, "radius": 0.4, "body": "model", "role": "melee", "head_y": 0.62,
