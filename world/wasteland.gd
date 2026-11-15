@@ -4758,6 +4758,47 @@ func debug_craftshot() -> void:
 	ui.open_inventory("craft" if not "pack" in OS.get_cmdline_user_args() else "pack")
 
 
+## Testing aid: one screen, named by screen=NAME, for a picture.
+func debug_screen() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var which := "pack"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("screen="):
+			which = a.substr(7)
+	for it in [["wood", 30], ["scrap", 20], ["cloth", 8], ["stone", 20], ["meat", 3], ["shells", 30], ["bandage", 2], ["coin", 6], ["herb", 5], ["bone", 6]]:
+		inv.add(it[0], it[1])
+	skills.points = 2
+	ui.debug_bench = true
+	match which:
+		"pack", "craft", "arms", "build":
+			ui.open_inventory(which)
+		"chest":
+			builder._rq_build(1, "chest", player.global_position + Vector3(3, 0, 0), 0.0)
+			await get_tree().create_timer(0.3).timeout
+			_rq_open(1, "p%d" % pieces.keys()[0])
+		"talk", "trade":
+			var pid: String = WPlaces.PEOPLE.keys()[0]
+			for k in WPlaces.PEOPLE:
+				if Items.STOCK.has(WPlaces.PEOPLE[k].role):
+					pid = k
+					break
+			ui.open_dialogue(pid)
+			if which == "trade":
+				await get_tree().create_timer(1.0).timeout
+				ui._tsel = "bandage"
+				ui._tside = "buy"
+				ui._trade()
+		"journal":
+			ui.open_journal()
+		"skills":
+			ui.open_skills()
+		"map":
+			ui.open_map()
+		"rest":
+			ui.ask_rest("bed")
+
+
 func debug_restshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
