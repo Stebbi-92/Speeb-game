@@ -17,5 +17,8 @@ check combat     debug_combat   "COMBAT wind frames=[1-9]" "COMBAT dodged hp ([0
 check guide      debug_guide    "GUIDE start step=0" "GUIDE saved step=[1-9]"
 check base_stock debug_basestock "STOCK paid true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
+check knock      debug_knock    "KNOCK idol start=[0-9.]+ furthest=(1[0-2]|[0-9])\\." "KNOCK rusher start=[0-9.]+ furthest=(1[0-3]|[0-9])\\."
+check chest_name debug_chestname "CHESTNAME .*panel=container saved=mjikbr"
+check blade      debug_blade    "BLADE out=true light=[1-9][0-9]* heavy=[1-9][0-9]*" "BLADE guarded=[0-9.]+ open=[0-9.]+ stamina_after_guard<100=true" "BLADE winded=true refused=true" "BLADE sheathed=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

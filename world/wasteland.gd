@@ -3716,7 +3716,10 @@ func debug_chestname() -> void:
 	inv.add("wood", 40)
 	builder._rq_build(1, "chest", player.global_position + Vector3(3, 0, 0), 0.0)
 	await get_tree().create_timer(0.5).timeout
-	var pid: int = pieces.keys()[0]
+	var pid := -1
+	for k in pieces:
+		if pieces[k].kind == "chest":
+			pid = k
 	_rq_open(1, "p%d" % pid)
 	await get_tree().create_timer(0.5).timeout
 	var field: LineEdit = null
@@ -3738,7 +3741,7 @@ func debug_chestname() -> void:
 	ent.keycode = KEY_ENTER
 	ent.pressed = true
 	Input.parse_input_event(ent)
-	await get_tree().create_timer(0.3).timeout
+	await get_tree().create_timer(1.5).timeout
 	print("CHESTNAME text=%s panel=%s saved=%s" % [field.text if is_instance_valid(field) else "?", ui._panel_name, pieces[pid].get("name", "")])
 	get_tree().quit()
 
@@ -4374,6 +4377,8 @@ func debug_basestock() -> void:
 
 
 func debug_floors() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
 	var o := player.global_position + Vector3(30, 0, 30)
 	var ci0 := floori(o.x / WBuilder.GRID)
 	var cj0 := floori(o.z / WBuilder.GRID)
@@ -4637,7 +4642,7 @@ func debug_knock() -> void:
 			await get_tree().create_timer(0.16).timeout
 			far = maxf(far, e.global_position.distance_to(player.global_position))
 		var d1: float = e.global_position.distance_to(player.global_position)
-		print("KNOCK %s start=%.1f furthest=%.1f end=%.1f" % [k, d0, far, d1])
+		print("KNOCK %s start=%.1f furthest=%.1f end=%.1f player=%s foe=%s" % [k, d0, far, d1, player.global_position, e.global_position])
 		e.die(false)
 	get_tree().quit()
 

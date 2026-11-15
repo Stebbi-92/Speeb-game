@@ -1764,7 +1764,7 @@ func _draw_container() -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 16)
 	top.add_child(_title(name))
-	if cpid >= 0 and w.pieces.has(cpid):
+	if cpid >= 0 and w.pieces.has(cpid) and w.pieces[cpid].kind == "chest":
 		# A chest may be named, and the name shows above it
 		var field := LineEdit.new()
 		field.text = str(w.pieces[cpid].get("name", ""))

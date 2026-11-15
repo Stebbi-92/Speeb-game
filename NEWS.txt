@@ -1,3 +1,19 @@
+Brelm alpha 0.5.2
+
+Screens
+- A new look everywhere: every item has its own picture, screens have a cleaner frame with tabs and a close button, and the world dims behind them.
+- Making: groups down the side (healing, food, ammunition, tools, materials). Each thing has a card showing what it takes, with a Make button.
+- Arms and Build: the same cards and groups, with bars for harm, fire rate, reach and rounds.
+- The pack and chests use square slots with large pictures.
+
+Fighting
+- Press 3 to take your blade in hand. Tap fire to swing. Hold fire and let go for a heavy blow. Hold aim to guard.
+- A stamina bar for running, dodging and blade swings. Run it dry and you are winded for a moment.
+
+Fixes
+- Shot creatures no longer fly across the map. Heavy creatures like the gilded idols slow down under fire and keep coming.
+- Typing a chest's name no longer opens the map or other screens.
+
 Brelm alpha 0.5.1
 
 World settings

@@ -2,6 +2,15 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.5.2
+
+- New look for every screen: drawn pictures for every item, a new frame with tabs and a close button, and the world dimmed behind it.
+- Making, Arms and Build are now grouped down the side, with a card and a button for each thing.
+- The pack and chests use square slots with large pictures.
+- The blade on key 3: tap to swing, hold for a heavy blow, aim to guard. A stamina bar for running, dodging and swings.
+- Fixed: shot creatures no longer fly across the map. Heavy creatures slow down and keep coming.
+- Fixed: typing a chest's name no longer opens the map or other screens.
+
 ## 0.5.1
 
 - World settings for each world: difficulty, enemy skill, enemy numbers, resources, hunger, air support, ammunition and what you drop when you fall.
