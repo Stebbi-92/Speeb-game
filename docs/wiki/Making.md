@@ -41,10 +41,5 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 2 Rocket | 6 Scrap Iron, 2 Lamp Oil, 10 Salt |  |
 | 1 Pick | 4 Deadwood, 4 Scrap Iron |  |
 | 1 Hatchet | 3 Deadwood, 3 Scrap Iron |  |
-| 1 Dust Veil | 4 Cloth, 2 Ash-bloom |  |
-| 1 Spore Mask | 3 Cloth, 4 Bone, 3 Ash-bloom |  |
-| 1 Salt Goggles | 4 Red Iron, 2 Heartwood, 2 Cloth |  |
-| 1 Tar Boots | 4 Heartwood, 2 Red Iron, 3 Hide |  |
-| 1 Ember Cloak | 5 Salt Crystal, 4 Tar, 4 Hide |  |
 | 1 Pry Bar | 8 Scrap Iron |  |
 | 1 Beacon Oil | 2 Lamp Oil, 10 Salt, 4 Ash-bloom | Learned during the main story |

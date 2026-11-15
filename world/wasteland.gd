@@ -5619,9 +5619,13 @@ func debug_newfoes() -> void:
 		e.die(false)
 	var burning := _burn > 0.0
 	var slowed := _slow > 0.0
+	afflict("slow", 3.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var slow_speed := player.walk_speed < 3.0
 	var h1 := player.health
 	await get_tree().create_timer(1.0).timeout
-	print("NEWFOES made=%d hit=%d burning=%s slowed=%s hurts=%s slow_speed=%s" % [made, hit, burning, slowed, player.health < h1, player.walk_speed < 3.0])
+	print("NEWFOES made=%d hit=%d burning=%s slowed=%s hurts=%s slow_speed=%s" % [made, hit, burning, slowed, player.health < h1, slow_speed])
 	get_tree().quit()
 
 ## Testing aid: a clearing quest at a ruin keeps sending forms until the count is made, by day.
@@ -5714,21 +5718,17 @@ func debug_packfit() -> void:
 func debug_regrow() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
-	var near_id := -1
+	var nd0: Dictionary = nodes[0]
+	var np0: Vector3 = nd0.pos if nd0.pos is Vector3 else Vector3(nd0.pos.x, 0, nd0.pos.y)
+	player.place(np0 + Vector3(5, 1.5, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var near_id := 0
 	var far_id := -1
 	for nd in nodes:
 		var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
-		var d := Vector2(np.x, np.z).distance_to(Vector2(player.global_position.x, player.global_position.z))
-		if far_id < 0 and d > 200.0:
+		if Vector2(np.x, np.z).distance_to(Vector2(np0.x, np0.z)) > 200.0:
 			far_id = nd.id
-		if near_id < 0 and d > 3.0 and d < 15.0:
-			near_id = nd.id
-	if near_id < 0:
-		var nd0: Dictionary = nodes[0]
-		var np0: Vector3 = nd0.pos if nd0.pos is Vector3 else Vector3(nd0.pos.x, 0, nd0.pos.y)
-		player.place(np0 + Vector3(5, 1.5, 0), 0.0)
-		near_id = 0
-		await get_tree().create_timer(0.5).timeout
+			break
 	_w_node(far_id, 0, day + 5)
 	_w_node(near_id, 0, day + 5)
 	for i in 200:
@@ -6299,7 +6299,7 @@ func debug_hitbox() -> void:
 		e.set_meta("raid", true)
 		e.set_physics_process(false)
 		e.set_process(false)
-		for i in 20:
+		for i in 40:
 			await get_tree().physics_frame
 		var base: Vector3 = e.global_position
 		var lo := 1e9

@@ -252,6 +252,8 @@ func _ready() -> void:
 		if plate > 0.0:
 			_fb.wear_plate(kind in ["unlit_brute", "knight"])
 		_fit_shape(cs)
+		# Once its arms and plate are on and it has found its stance, fitted again
+		get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -1240,7 +1242,7 @@ func _fit_shape(cs: CollisionShape3D) -> void:
 	var r := float(spec.radius)
 	var c := CapsuleShape3D.new()
 	c.radius = r
-	c.height = maxf(2.0 * r, top + r)
+	c.height = maxf(2.0 * r, top + 0.12 + r)   # a little over the crown, so a shot at the top of the head lands
 	cs.shape = c
 	cs.position.y = -r + c.height * 0.5
 

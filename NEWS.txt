@@ -1,3 +1,19 @@
+Brelm alpha 0.7.1: Fixes, clothing, and a living land
+
+Fixes
+- Fixed a crash when starting a game in the waste. The new wall and furniture models were missing from 0.7.0.
+- The map is now drawn bit by bit as you play, so it never freezes and can't crash a hosted game.
+
+Clothing (an early look at 0.8)
+- A new Wear tab in the pack shows you as you stand, with eight places to wear things: head, eyes, face, neck, body, cloak, hands and feet.
+- Make clothes there at a workbench, wear them, or take them off.
+- The lands' wards are now worn, not carried: the Dust Veil at the neck, the Spore Mask (or a Gas Mask) on the face, Salt Goggles over the eyes, the Ember Cloak on the back and Tar Boots on the feet.
+- New pieces: Wool Scarf, Travelling Cloak and Hide Gloves.
+
+The land
+- Trees, rocks and heaps you have picked clean slowly come back, a little at a time, while no one is near.
+- Foes grow tougher as your guns improve, so the near lands stay dangerous after an upgrade.
+
 Brelm alpha 0.7.0: The journey
 
 Meals and rest

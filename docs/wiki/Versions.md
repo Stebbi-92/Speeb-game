@@ -2,6 +2,12 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.7.1 (fixes, clothing)
+
+- Fixed a crash when starting a game in the waste (the new building models were missing from 0.7.0).
+- A Wear tab with eight clothing slots. The lands' wards are now worn there.
+- Gathered resources slowly come back. Foes grow tougher as your guns improve.
+
 ## 0.7.0 (the journey)
 
 - Meals: up to three at once, each adding health, stamina or healing for a while. New foods: Bloom Tea, Bone Broth, Salt-crust Pie.

@@ -72,11 +72,6 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | Item | Stack | Worth | Notes |
 |---|---|---|---|
 | **Pick** | 1 | 25 | Stone and salt come away twice as fast. |
-| **Dust Veil** | 1 | 20 | Carry it in the Rust Dunes. Keeps out the heat: your breath comes back as it should. |
-| **Spore Mask** | 1 | 20 | Carry it in the Dead Forest. Keeps out the spores that eat at you. |
-| **Salt Goggles** | 1 | 40 | Carry them on the Salt Flats. The white glare no longer burns. |
-| **Tar Boots** | 1 | 40 | Carry them in the Tar Marsh. The tar no longer holds your feet. |
-| **Ember Cloak** | 1 | 80 | Carry it on the Basalt Heights. The heat of the stone no longer burns. |
 | **Hatchet** | 1 | 20 | Deadwood comes away twice as fast. |
 | **Pry Bar** | 1 | 30 | Opens what was sealed: iron chests and vault doors. |
 
