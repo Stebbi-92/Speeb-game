@@ -6689,6 +6689,7 @@ func debug_packfit() -> void:
 func debug_regrow() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	clock = 10.0   # well clear of dawn, which clears foes and refills the land
 	var nd0: Dictionary = nodes[0]
 	var np0: Vector3 = nd0.pos if nd0.pos is Vector3 else Vector3(nd0.pos.x, 0, nd0.pos.y)
 	player.place(np0 + Vector3(5, 1.5, 0), 0.0)
@@ -7016,6 +7017,7 @@ func debug_blood() -> void:
 func debug_knock() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	clock = 10.0   # well clear of dawn, which clears foes and refills the land
 	for k in ["idol", "rusher"]:
 		var fwd: Vector3 = -player.global_transform.basis.z
 		var e := spawn_at(k, player.global_position + fwd * 12.0 + Vector3(0, 0.5, 0))
