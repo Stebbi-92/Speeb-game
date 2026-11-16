@@ -11,13 +11,16 @@ const KINDS := {
 	"star": {"name": "A fallen star", "say": "Something bright fell out of the sky", "color": Color(0.6, 0.85, 1.0, 0.22)},
 	"cache": {"name": "A supply cache", "say": "A flare goes up: someone left a cache, and it will not stay hidden long", "color": Color(0.95, 0.4, 0.3, 0.2)},
 	"swarm": {"name": "A box cat swarm", "say": "Screaming from the ruins: box cats are gathering", "color": Color(0.85, 0.85, 0.6, 0.2)},
+	"camp": {"name": "A raid camp", "say": "Left alone, the raiders dug in: a raid camp", "color": Color(0.9, 0.2, 0.15, 0.24)},
 }
+const CAMP_LAST := 1200.0   ## a raid camp stays until it is broken, or for twenty minutes
 ## What each gives every pilgrim near when it is done: [item, low, high].
 const GIVES := {
 	"caravan": [["salt", 30, 60], ["rounds", 10, 24], ["fittings_fine", 1, 2]],
 	"star": [["salt_crystal", 3, 6], ["tempered", 1, 2], ["clockwork", 1, 1]],
 	"cache": [["rifle", 20, 40], ["shells", 8, 16], ["bandage", 2, 3], ["oil", 2, 4]],
 	"swarm": [["salt", 20, 40], ["meat", 2, 4], ["fittings_fine", 1, 1]],
+	"camp": [["salt", 60, 110], ["rounds", 20, 40], ["fittings_fine", 2, 3], ["tempered", 1, 2], ["bandage", 2, 4]],
 }
 
 var w
@@ -40,21 +43,47 @@ func host_tick(delta: float) -> void:
 	var cap := 2 if w.targets().size() >= 4 else 1
 	if _t <= 0.0:
 		_t = randf_range(EVERY.x, EVERY.y)
-		if active.size() < cap:
+		if active.values().filter(func(x): return x.kind != "camp").size() < cap:
 			_start_one()
 	for id in active.keys():
 		var e: Dictionary = active[id]
 		e.left -= delta
 		if e.left <= 0.0:
 			w.shared("_w_event_end", [id, false, -1])
+			if e.kind in ["caravan", "swarm"] and _alive(e) > 0:
+				_dig_in(e.pos)
 			continue
-		if e.kind in ["caravan", "swarm"] and e.has("foes") and e.foes.size() > 0:
-			var alive := 0
-			for f in e.foes:
-				if is_instance_valid(f) and f.is_alive():
-					alive += 1
-			if alive == 0:
+		if e.kind in ["caravan", "swarm", "camp"] and e.has("foes") and e.foes.size() > 0:
+			if _alive(e) == 0:
 				w.shared("_w_event_end", [id, true, -1])
+
+
+func _alive(e: Dictionary) -> int:
+	var n := 0
+	for f in e.get("foes", []):
+		if is_instance_valid(f) and f.is_alive():
+			n += 1
+	return n
+
+
+## Host: an event left alone grows into a raid camp where it was: more of them, an elite at its heart,
+## and more to take when it is broken.
+func _dig_in(p: Vector3) -> void:
+	var nid := _next_id
+	w.shared("_w_event_start", [nid, "camp", p])
+	_next_id = maxi(_next_id, nid + 1)
+	var e: Dictionary = active.get(nid, {})
+	if e.is_empty():
+		return
+	e["foes"] = []
+	var roster: Array = w.forms_at(p)
+	for k in randi_range(6, 9):
+		var f = w._spawn_one(roster[randi() % roster.size()], p, 4.0, 16.0, true)
+		if f:
+			e.foes.append(f)
+	var boss = w._spawn_one("elite", p, 2.0, 6.0, true)
+	if boss:
+		e.foes.append(boss)
 
 
 func _start_one() -> void:
@@ -63,6 +92,7 @@ func _start_one() -> void:
 		return
 	var t: Node3D = ts[randi() % ts.size()]
 	var kinds := KINDS.keys()
+	kinds.erase("camp")   # a camp only grows out of an event left alone
 	if w.night:
 		kinds.erase("star")   # a star is a day's find; the night has enough
 	var kind: String = kinds[randi() % kinds.size()]
@@ -76,9 +106,10 @@ func _start_one() -> void:
 		var p := Vector3(x, w.terrain.height_at(x, z), z)
 		if w.safe_at(p) or w.settlement_at(p, 60.0) != "":
 			continue
-		w.shared("_w_event_start", [_next_id, kind, p])
-		_next_id += 1
-		var e: Dictionary = active.get(_next_id - 1, {})
+		var nid := _next_id
+		w.shared("_w_event_start", [nid, kind, p])
+		_next_id = maxi(_next_id, nid + 1)
+		var e: Dictionary = active.get(nid, {})
 		if e.is_empty():
 			return
 		e["foes"] = []
@@ -140,6 +171,19 @@ func start(id: int, kind: String, p: Vector3) -> void:
 		"cache":
 			_part(n, w.box(Vector3.ZERO, Vector3(1.2, 0.7, 0.8), w._m.rust, true), Vector3(0, 0.35, 0), Vector3.ZERO)
 			_part(n, w.box(Vector3.ZERO, Vector3(1.0, 0.5, 0.7), w._m.cloth, true), Vector3(0.2, 0.95, 0.1), Vector3(0, 0.3, 0))
+		"camp":
+			for k2 in 3:
+				var a := TAU * k2 / 3.0
+				_part(n, w.box(Vector3.ZERO, Vector3(2.4, 1.6, 2.4), w._m.cloth, true), Vector3(cos(a) * 6.0, 0.8, sin(a) * 6.0), Vector3(0, a, 0.0))
+			for k2 in 6:
+				var a := TAU * k2 / 6.0 + 0.3
+				_part(n, w.box(Vector3.ZERO, Vector3(0.25, 2.2, 0.25), w._m.darkwood, true), Vector3(cos(a) * 10.0, 1.1, sin(a) * 10.0), Vector3(0.25, a, 0))
+			var fire := OmniLight3D.new()
+			fire.light_color = Color(1.0, 0.5, 0.2)
+			fire.light_energy = 2.5
+			fire.omni_range = 16.0
+			fire.position = Vector3(0, 1.2, 0)
+			n.add_child(fire)
 		"swarm":
 			for k2 in 5:
 				var a := TAU * k2 / 5.0
@@ -149,7 +193,7 @@ func start(id: int, kind: String, p: Vector3) -> void:
 		var a: Area3D = w.interact_area(p + Vector3(0, 1.0, 0), 2.4, "Take it" if kind == "star" else "Open the cache", func():
 			w.shared("_w_event_end", [eid, true, Net.me()]), 0.6, false)
 		n.set_meta("area", a)
-	active[id] = {"kind": kind, "pos": p, "left": LAST, "node": n, "done": false}
+	active[id] = {"kind": kind, "pos": p, "left": CAMP_LAST if kind == "camp" else LAST, "node": n, "done": false}
 	var me: Vector3 = w.player.global_position
 	if not Net.dedicated:
 		w.hud.notify("%s, %d m %s." % [k.say, int(Vector2(p.x - me.x, p.z - me.z).length()), WPlaces.dir_word(Vector2(me.x, me.z), Vector2(p.x, p.z))])

@@ -2004,6 +2004,39 @@ func focus_pos() -> Vector3:
 	return t[randi() % t.size()].global_position
 
 
+const FOE_SYNC_NEAR := 170.0    ## a pilgrim is told of the foes within this far (a great one, further)
+const FOE_SYNC_MAX := 48        ## and of at most this many, the nearest first
+const FOE_SYNC_BATCH := 20      ## in packets of this many, so none grows too large to arrive
+
+## Host: each pilgrim hears only of the foes near them, nearest first, in small packets. A foe a
+## pilgrim is not told of for a while fades from their world, and comes back when it is near again.
+func _send_foes_near(live: Array) -> void:
+	var states := {}
+	for id in avatars:
+		var a = avatars[id]
+		if not is_instance_valid(a):
+			continue
+		var at: Vector3 = a.global_position
+		var near := []
+		for e in live:
+			var d: float = (e.global_position as Vector3).distance_to(at)
+			var reach := FOE_SYNC_NEAR * (2.5 if str(e.get("boss")) != "" else 1.0)
+			if d < reach:
+				near.append([d, e])
+		near.sort_custom(func(x, y): return x[0] < y[0])
+		var batch := []
+		for k in mini(near.size(), FOE_SYNC_MAX):
+			var e = near[k][1]
+			if not states.has(e):
+				states[e] = e.net_state()
+			batch.append(states[e])
+			if batch.size() >= FOE_SYNC_BATCH:
+				Net.send_foes_to(int(id), batch)
+				batch = []
+		if not batch.is_empty():
+			Net.send_foes_to(int(id), batch)
+
+
 ## Who the lesser forms may hunt: every pilgrim still standing.
 func targets() -> Array:
 	var out := []
@@ -2071,7 +2104,33 @@ func _cat_pose() -> String:
 	return ""
 
 
+var _beat_t := 1.0
+var _host_quiet := false
+
+## Who has gone quiet: a pilgrim not heard from for ten seconds stops standing about in the world (and
+## being hunted), and the host's silence is said on screen instead of the world simply freezing.
+func _silence_tick(delta: float) -> void:
+	_beat_t -= delta
+	if _beat_t > 0.0:
+		return
+	_beat_t = 1.0
+	if Net.is_host():
+		Net.beat()
+	for id in avatars:
+		var a = avatars[id]
+		if is_instance_valid(a) and a.visible and Net.silent_for(int(id)) > 10.0:
+			a.visible = false   # comes back with its next pose
+	if not Net.is_host() and not Net.dedicated:
+		var quiet: bool = Net.silent_for(1) > 4.0
+		if quiet and not _host_quiet:
+			hud.notify("The host is not answering. Waiting for them...")
+		elif not quiet and _host_quiet:
+			hud.notify("The host answers again.")
+		_host_quiet = quiet
+
+
 func _net_tick(delta: float) -> void:
+	_silence_tick(delta)
 	_pose_t -= delta
 	if _pose_t <= 0.0 and not Net.dedicated:
 		_pose_t = 0.05
@@ -2085,14 +2144,14 @@ func _net_tick(delta: float) -> void:
 		_foes_t -= delta
 		if _foes_t <= 0.0:
 			_foes_t = 1.0 / 15.0
-			var batch := []
+			var live := []
 			for id in foes.keys():
 				var e = foes[id]
 				if not is_instance_valid(e) or not e.is_alive():
 					foes.erase(id)
 					continue
-				batch.append(e.net_state())
-			Net.send_foes(batch)
+				live.append(e)
+			_send_foes_near(live)
 	else:
 		# A form the host has not spoken of for a while is gone
 		var now := Time.get_ticks_msec()
@@ -2100,7 +2159,7 @@ func _net_tick(delta: float) -> void:
 			var e = foes[id]
 			if not is_instance_valid(e):
 				foes.erase(id)
-			elif now - e.heard_at > 2000:
+			elif now - e.heard_at > 4000:   # out of reach for a while (or packets lost): let it go
 				foes.erase(id)
 				e.die(false)
 	_roster_t -= delta
@@ -2426,12 +2485,19 @@ func net_foe_died(id: int, slain: bool, killer: int) -> void:
 		e.die(slain)
 
 
-func net_hit(by: int, id: int, amount: float, dir: Vector3) -> void:
+func net_hit(by: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
 	var e = foes.get(id)
 	if e == null or not is_instance_valid(e) or not e.is_alive():
 		return
 	e.last_hitter = by
+	var was := [LesserSpeeb.harm_kind, LesserSpeeb.harm_head, LesserSpeeb.harm_pierce]
+	LesserSpeeb.harm_kind = kind
+	LesserSpeeb.harm_head = head
+	LesserSpeeb.harm_pierce = pierce
 	e.hurt(amount, dir)
+	LesserSpeeb.harm_kind = was[0]
+	LesserSpeeb.harm_head = was[1]
+	LesserSpeeb.harm_pierce = was[2]
 	if e.is_alive():
 		e.last_hitter = Net.me()
 

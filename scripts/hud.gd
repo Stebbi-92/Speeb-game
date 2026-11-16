@@ -1083,6 +1083,7 @@ func clear_all() -> void:
 var _save_btn: Button
 var _restart_btn: Button
 var _rules_btn: Button
+var _stuck_btn: Button
 
 
 ## Writes everything down at once: the pilgrim's own record, and in the waste the world and what is carried.
@@ -1123,6 +1124,12 @@ func _build_pause() -> void:
 		if lvl and lvl.has_method("set_rules"):
 			show_rules(lvl.rules, Net.authority(), func(r): lvl.set_rules(r)))
 	v.add_child(_rules_btn)
+	_stuck_btn = button("I'm stuck", func():
+		var lvl = Game.main.level
+		if lvl and lvl.has_method("unstick"):
+			toggle_pause()
+			lvl.unstick(false))
+	v.add_child(_stuck_btn)
 	_restart_btn = button("Restart this trial", func(): toggle_pause(); Game.main.restart_level())
 	v.add_child(_restart_btn)
 	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
@@ -1265,6 +1272,8 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable, vows_ope
 func toggle_pause() -> void:
 	if _rules_btn:
 		_rules_btn.visible = Game.wasteland
+	if _stuck_btn:
+		_stuck_btn.visible = Game.wasteland
 	if options_panel.visible:
 		hide_options()
 		return

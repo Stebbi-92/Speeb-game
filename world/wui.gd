@@ -393,7 +393,34 @@ func _pin(c: Control, ax: float, ay: float, r: Rect2) -> void:
 
 func _on_inv() -> void:
 	if _panel != null and _panel_name in ["pack", "container"]:
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_redraw_on_release = true   # never pull a button out from under a press: redraw when it lets go
+			return
 		_redraw.call_deferred()
+
+
+var _redraw_on_release := false
+
+func _release_check(e: InputEvent) -> void:
+	if _redraw_on_release and e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+		_redraw_on_release = false
+		if _panel != null and _panel_name in ["pack", "container"]:
+			_redraw.call_deferred()
+
+
+## Standing at a bench: near any bench piece (measured flat, so a bench a step up or down still counts),
+## or near the one this screen was opened at.
+func at_bench() -> bool:
+	if debug_bench:
+		return true
+	var p: Vector3 = w.player.global_position
+	for pid in w.pieces:
+		var pc: Dictionary = w.pieces[pid]
+		if pc.kind == "bench" or w.builder.acts(pc.kind) == "bench":
+			var q: Vector3 = pc.pos
+			if Vector2(q.x - p.x, q.z - p.z).length() < 6.5 and absf(q.y - p.y) < 4.0:
+				return true
+	return false
 
 
 func _label(t: String, size: int, c: Color) -> Label:
@@ -453,6 +480,7 @@ func _scroll(min_h := 420.0) -> VBoxContainer:
 # ------------------------------------------------------------------ keys
 
 func _input(e: InputEvent) -> void:
+	_release_check(e)
 	if not (e is InputEventKey or e is InputEventMouseButton or e is InputEventJoypadButton) or w.player == null:
 		return
 	if e is InputEventJoypadButton and _panel != null and e.pressed:
@@ -1136,6 +1164,7 @@ func _give_to(id: int, i: int, n: int) -> void:
 	if it == null:
 		return
 	w.shared("_rq_gift", [Net.me(), id, [it]])
+	w.char_save_soon()
 	w.hud.notify("Gave %d %s to %s." % [it[1], Items.iname(it[0]), Net.name_of(id)])
 
 
@@ -1251,7 +1280,7 @@ func _card_grid(min_h := 470.0) -> GridContainer:
 
 func _draw_arms() -> void:
 	var a: Dictionary = w.arms
-	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	var bench: bool = at_bench()
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	top.add_child(_pill("Workbench" if bench else "Making and fitting need a workbench", bench))
@@ -1718,7 +1747,7 @@ var _wslot := "head"
 ## worn, in the pack, or made here at a workbench. A land's ward goes on like any other piece.
 func _draw_wear() -> void:
 	var a: Dictionary = w.arms
-	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	var bench: bool = at_bench()
 	var wn := WArms.worn(a)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
@@ -1987,7 +2016,7 @@ func _make_group(r: Dictionary) -> String:
 
 
 func _draw_craft() -> void:
-	var bench: bool = debug_bench or w.builder.near_kind(w.player.global_position, "bench", 5.0)
+	var bench: bool = at_bench()
 	var pot: int = w.builder.near_pid(w.player.global_position, "cookpot", 5.0)
 	var fire: bool = (pot >= 0 and w.burning(pot)) or w.settlement_at(w.player.global_position) != ""
 	var chests: int = w.base_chests().size()
@@ -2361,6 +2390,7 @@ func _put(i: int) -> void:
 	if it == null:
 		return
 	w.shared("_rq_put", [Net.me(), _cont_id, it.id, int(it.n)])
+	w.char_save_soon()
 
 
 func _take_all() -> void:

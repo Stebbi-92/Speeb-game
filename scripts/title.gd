@@ -32,6 +32,7 @@ const PLACES := [
 
 
 func _ready() -> void:
+	Updater.mark_booted()   # the game reached its title: the version it runs on starts here
 	hud = Game.main.hud
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var env := Environment.new()

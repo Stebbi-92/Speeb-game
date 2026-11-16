@@ -232,8 +232,19 @@ func label() -> String:
 
 
 ## Whether there is a roof (or anything solid) over this spot: a hut keeps the weather off.
+## Something was built or taken down nearby: the rain's picture of what is overhead is drawn again.
+func roofs_changed() -> void:
+	if _hf == null:
+		return
+	_hf.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_ALWAYS
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(_hf):
+		_hf.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+
+
 func _roofed(at: Vector3) -> bool:
-	var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, 1.0, 0), at + Vector3(0, 9.0, 0), 1)
+	var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, 1.0, 0), at + Vector3(0, 20.0, 0), 1)
 	if w.player is CollisionObject3D:
 		q.exclude = [w.player.get_rid()]
 	return not get_world_3d().direct_space_state.intersect_ray(q).is_empty()

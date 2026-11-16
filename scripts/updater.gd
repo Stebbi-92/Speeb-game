@@ -22,6 +22,14 @@ const VERSION_FILE := DIR + "version.txt"
 ## only in the moment before this process restarts and ends.
 const NEXT := DIR + "Brelm.next.pck"
 const NEXT_VERSION := DIR + "next.txt"
+## A pack is tried once: STARTED names the version a restart went onto, BOOTED the one that then reached
+## the title screen. A start that finds STARTED without its BOOTED skips that pack, so a broken update
+## can never lock the game in a loop of crashing starts.
+const STARTED := DIR + "started.txt"
+const BOOTED := DIR + "booted.txt"
+const FAILED := DIR + "failed.txt"
+
+var failed := ""          ## a version whose pack would not start here; not offered as a patch again
 
 var current := ""
 var latest := {}          ## {version, name, notes, page, news, pack_url, pack_size}
@@ -37,6 +45,17 @@ var _tried_github := false
 
 func _enter_tree() -> void:
 	current = str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+	failed = _read(FAILED) if FileAccess.file_exists(FAILED) else ""
+	var tried := _read(STARTED) if FileAccess.file_exists(STARTED) else ""
+	var booted := _read(BOOTED) if FileAccess.file_exists(BOOTED) else ""
+	if tried != "" and tried != current and tried != booted:
+		# The last restart went onto a pack that never reached the title: leave it, run the installed game
+		failed = tried
+		_write(FAILED, tried)
+		DirAccess.remove_absolute(STARTED)
+		_clear_next()
+		_clear()
+		return
 	var held := "noupdate" in OS.get_cmdline_user_args() or (OS.has_feature("editor") and "updtest" not in OS.get_cmdline_user_args())
 	var nxt := _read(NEXT_VERSION) if FileAccess.file_exists(NEXT) else ""
 	var live := _read(VERSION_FILE) if FileAccess.file_exists(PACK) else ""
@@ -66,6 +85,8 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	# Half a minute up (a dedicated server shows no title) also counts as having started
+	get_tree().create_timer(30.0).timeout.connect(mark_booted)
 	_http = HTTPRequest.new()
 	_http.timeout = 10.0
 	_http.request_completed.connect(_on_latest)
@@ -125,7 +146,7 @@ func _on_latest(result: int, code: int, _h: PackedStringArray, body: PackedByteA
 		"notes": str(data.get("notes", "")), "page": str(data.get("page", "")), "news": str(data.get("news", "")),
 		"pack_url": str(pack.get("url", "")), "pack_size": int(pack.get("size", 0))}
 	available = latest.version != "" and compare(latest.version, current) > 0
-	can_patch = available and latest.pack_url != ""
+	can_patch = available and latest.pack_url != "" and latest.version != failed   # a pack that would not start here is not offered again
 	if available and staged == latest.version:
 		can_patch = false    # already fetched; it waits for a restart
 	checked.emit()
@@ -216,6 +237,9 @@ func _swap_and_go() -> void:
 
 
 func _relaunch(hard: bool) -> void:
+	var to := _read(VERSION_FILE) if FileAccess.file_exists(VERSION_FILE) else ""
+	if to != "" and to != _read_or(BOOTED):
+		_write(STARTED, to)   # cleared, or found unanswered, on the next start
 	var args := PackedStringArray(["--main-pack", ProjectSettings.globalize_path(PACK)])
 	if DisplayServer.get_name() == "headless":    # a dedicated server keeps running without a window
 		args.append("--headless")
@@ -245,6 +269,20 @@ func _write(path: String, text: String) -> void:
 	if f:
 		f.store_string(text)
 		f.close()
+
+
+## The game came up on this version: the pack it runs on (if any) is good.
+func mark_booted() -> void:
+	if FileAccess.file_exists(STARTED) and _read(STARTED) == current:
+		_write(BOOTED, current)
+		DirAccess.remove_absolute(STARTED)
+	if failed != "" and compare(current, failed) >= 0:
+		failed = ""
+		DirAccess.remove_absolute(FAILED)
+
+
+func _read_or(path: String) -> String:
+	return _read(path) if FileAccess.file_exists(path) else ""
 
 
 func _clear() -> void:

@@ -1184,6 +1184,7 @@ func _on_plate(amount: float) -> float:
 func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive or hidden:
 		return false
+	var raw := amount   # what a puppet sends on: the host weighs weakness, plate and guard itself
 	if harm_kind != "" and boss == "":
 		# A blunt blow is a blade's to a form that has no word on blunt harm
 		var hk := harm_kind
@@ -1210,7 +1211,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		bleed(from_dir, amount)
 	if puppet:
 		# The blow is sent to the host, who alone decides whether the form is undone
-		Net.hit(net_id, amount, from_dir)
+		Net.hit(net_id, raw, from_dir, harm_kind, harm_head, harm_pierce)
 		_flash = 1.0 if full else 0.3
 		return full and not plated
 	if not full:

@@ -368,6 +368,7 @@ func _process(delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
 	if player and hud and not Net.dedicated:
+		_stuck_tick(delta)
 		_boss_watch()
 		_bed_t -= delta
 		if _bed_t <= 0.0:
@@ -3101,6 +3102,8 @@ func _w_crate_day(id: String, d: int) -> void:
 
 func _w_cont(id: String, data: Array) -> void:
 	containers[id] = data
+	if _owns_world:
+		autosave_soon(1.5)   # what a chest holds is kept with the world: write it soon
 	if ui:
 		ui.container_changed(id)
 
@@ -3240,6 +3243,7 @@ func _w_give(items: Array) -> void:
 		hud.notify("Your pack is full. The rest is left on the ground.")
 		shared("_rq_satchel", [Net.me(), player.global_position, spill, false])
 	quests.refresh_hud()
+	char_save_soon()
 
 
 func give(items: Array) -> void:
@@ -3968,6 +3972,87 @@ func _physics_process(delta: float) -> void:
 		_save_soon -= delta
 	if _save_t <= 0.0 or (_save_soon >= 0.0 and _save_soon <= 0.0):
 		save_all()
+	if _char_soon >= 0.0:
+		_char_soon -= delta
+		if _char_soon < 0.0:
+			save_char_now()
+
+
+var _char_soon := -1.0
+
+var _safe_spots: Array = []   ## where this pilgrim last stood on open ground, every few seconds, newest last
+var _footing_t := 0.0
+var _under_t := 0.0
+
+## Fallen through the ground (or out of the world): set back on top of it. Also keeps a short trail
+## of good footing, for "I'm stuck" in the pause menu.
+func _stuck_tick(delta: float) -> void:
+	if not ready_world or not is_instance_valid(player) or not player.is_inside_tree() or terrain == null:
+		return
+	var p: Vector3 = player.global_position
+	var ground: float = terrain.height_at(p.x, p.z)
+	var below: bool = (p.y < ground - 3.0 and not (hall and hall.inside(p))) or p.y < -400.0
+	if below and player.vessel == null and player.mount == null:
+		_under_t += delta
+		if _under_t > 1.5:
+			_under_t = 0.0
+			unstick(true)
+		return
+	_under_t = 0.0
+	_footing_t -= delta
+	if _footing_t <= 0.0 and player.is_on_floor() and absf(p.y - ground) < 2.5 and not terrain.is_water(p.x, p.z, 0.3) and not (hall and hall.inside(p)):
+		_footing_t = 3.0
+		_safe_spots.append(p)
+		if _safe_spots.size() > 6:
+			_safe_spots.pop_front()
+
+
+## Where this pilgrim may honestly be kept: never a spot under the ground.
+func safe_keep_pos() -> Vector3:
+	var p: Vector3 = player.global_position if player.is_inside_tree() else player.position
+	if terrain and p.y < terrain.height_at(p.x, p.z) - 3.0 and not (hall and hall.inside(p)) and not _safe_spots.is_empty():
+		return _safe_spots[-1]
+	return p
+
+
+## Sets the pilgrim back on good ground: straight up onto the surface when under it, or else back to
+## where they last stood freely (a few seconds ago), or the nearest town if there is no such place.
+func unstick(fell_through := false) -> void:
+	var p: Vector3 = player.global_position
+	var to := Vector3.INF
+	if fell_through and p.y > -400.0:
+		to = Vector3(p.x, terrain.height_at(p.x, p.z) + 1.5, p.z)
+	else:
+		for i in range(_safe_spots.size() - 1, -1, -1):
+			if (_safe_spots[i] as Vector3).distance_to(p) > 4.0:
+				to = _safe_spots[i] + Vector3(0, 1.0, 0)
+				break
+	if to == Vector3.INF:
+		var best := "cinderwick"
+		var bd := INF
+		for k in WPlaces.SETTLEMENTS:
+			var d := Vector2(p.x, p.z).distance_to(WPlaces.spos(k))
+			if d < bd:
+				bd = d
+				best = k
+		var c := gpos(WPlaces.spos(best))
+		to = c + Vector3(6, 1.5, 6)
+	player.place(to, player.yaw)
+	hud.notify("You climb back onto firm ground.")
+
+## Things moved between this pilgrim's pack and the world (a chest, a gift): the pack is written at
+## once, so a crash on either side cannot lose them or leave a copy behind.
+func char_save_soon() -> void:
+	if _char_soon < 0.0:
+		_char_soon = 0.3
+
+
+func save_char_now() -> void:
+	_char_soon = -1.0
+	if world_uid == "" or not is_instance_valid(player) or Net.dedicated or _pfail:
+		return
+	DirAccess.make_dir_recursive_absolute("user://wasteland")
+	Game.write_safe(_char_path(), var_to_str(char_data()))
 
 
 var _drown_t := 0.0
@@ -5415,7 +5500,7 @@ func apply_world(d: Dictionary) -> void:
 func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
-		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
+		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
@@ -5590,6 +5675,8 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 	builder._w_piece(pid, k, p, yaw, hp)
 	if ready_world:
 		autosave_soon(5.0)
+		if weather and is_instance_valid(player) and p.distance_to(player.global_position) < 40.0:
+			weather.roofs_changed()
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -5600,6 +5687,8 @@ func _w_piece_gone(pid: int) -> void:
 	builder._w_piece_gone(pid)
 	if ready_world:
 		autosave_soon(5.0)
+		if weather:
+			weather.roofs_changed()
 
 
 func _rq_door(pid: int) -> void:
@@ -10491,6 +10580,98 @@ func debug_events() -> void:
 		made += 1
 	await get_tree().process_frame
 	print("EVENTS started=%d kind=%s shown=%s ended=%s gave=%s made=%d" % [started, kind, shown, not events.active.has(id), have1 > have0, events.active.size()])
+	get_tree().quit()
+
+
+## Testing aid: Escape closes the topmost layer only: a dialog over the menu, then the menu.
+func debug_escape() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	hud.toggle_pause()
+	await get_tree().process_frame
+	hud.show_rules(rules, true, func(_r): pass)
+	await get_tree().process_frame
+	var dlg: Array = get_tree().get_nodes_in_group("hud_dialog")
+	# A button in the dialog has the focus, as after a click
+	for b in (dlg[0] as Node).find_children("*", "Button", true, false):
+		(b as Button).grab_focus()
+		break
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.physical_keycode = KEY_ESCAPE
+	esc.pressed = true
+	Input.parse_input_event(esc)
+	await get_tree().process_frame
+	var up := InputEventKey.new()
+	up.keycode = KEY_ESCAPE
+	up.physical_keycode = KEY_ESCAPE
+	Input.parse_input_event(up)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var left: int = get_tree().get_nodes_in_group("hud_dialog").filter(func(d): return is_instance_valid(d) and not d.is_queued_for_deletion()).size()
+	var menu_after_one: bool = hud.pause_panel.visible
+	Input.parse_input_event(esc)
+	await get_tree().process_frame
+	Input.parse_input_event(up)
+	await get_tree().process_frame
+	print("ESCAPE dialogs=%d->%d menu_kept=%s menu_closed=%s" % [dlg.size(), left, menu_after_one, not hud.pause_panel.visible])
+	get_tree().quit()
+
+
+## Testing aid: a pilgrim fallen through the ground is set back on top, and never kept below it.
+func debug_stuck() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(8.0).timeout   # a few good spots to fall back on
+	var spots := _safe_spots.size()
+	var p: Vector3 = player.global_position
+	var g: float = terrain.height_at(p.x, p.z)
+	player.global_position = Vector3(p.x, g - 12.0, p.z)
+	player.set_physics_process(false)
+	var kept: Vector3 = char_data().pos
+	var kept_ok: bool = kept.y > g - 3.0
+	player.set_physics_process(true)
+	await get_tree().create_timer(2.5).timeout
+	var back: bool = player.global_position.y > terrain.height_at(player.global_position.x, player.global_position.z) - 1.0
+	player.place(p + Vector3(40, 0, 0), 0.0)
+	unstick(false)
+	var to_spot: bool = player.global_position.distance_to(p) < 30.0
+	print("STUCK spots=%d kept_ok=%s back=%s menu=%s" % [spots, kept_ok, back, to_spot])
+	get_tree().quit()
+
+
+## Testing aid: a swarm left alone digs in as a raid camp, and breaking the camp pays.
+func debug_raidcamp() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var p: Vector3 = player.global_position + Vector3(60, 0, 0)
+	p.y = terrain.height_at(p.x, p.z)
+	shared("_w_event_start", [50, "swarm", p])
+	var e: Dictionary = events.active[50]
+	var f0 = null
+	for k in 6:
+		f0 = _spawn_one("rusher", p, 3.0, 14.0, true)
+		if f0:
+			break
+	e["foes"] = [f0]
+	e.left = 0.05
+	events.host_tick(0.1)
+	var camp_id := -1
+	for id in events.active:
+		if events.active[id].kind == "camp":
+			camp_id = id
+	var dug: bool = camp_id >= 0 and not events.active.has(50)
+	var foes: int = events._alive(events.active[camp_id]) if dug else 0
+	var salt0 := inv.count("salt")
+	player.place(p + Vector3(3, 1, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	for f in events.active[camp_id].foes:
+		if is_instance_valid(f):
+			f.die(false)
+	events.host_tick(0.1)
+	await get_tree().create_timer(0.5).timeout
+	print("CAMP dug=%s foes=%d broken=%s paid=%s" % [dug, foes, not events.active.has(camp_id), inv.count("salt") > salt0])
 	get_tree().quit()
 
 

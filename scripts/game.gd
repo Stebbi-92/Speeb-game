@@ -566,15 +566,15 @@ func load_save() -> void:
 		reached = int(d.get("reached", 0))
 		for c in d.get("found", []):
 			found[c] = true
-		sensitivity = float(d.get("sensitivity", sensitivity))
+		sensitivity = clampf(float(d.get("sensitivity", sensitivity)), 0.0005, 0.006)
 		aim_sens = clampf(float(d.get("aim_sens", aim_sens)), 0.2, 2.0)
-		volume = float(d.get("volume", volume))
+		volume = clampf(float(d.get("volume", volume)), 0.0, 1.0)
 		var bv = d.get("bus_vol", {})
 		if bv is Dictionary:
 			for k in BUSES:
 				bus_vol[k] = clampf(float(bv.get(k, 1.0)), 0.0, 1.0)
-		difficulty = int(d.get("difficulty", difficulty))
-		judgments = d.get("judgments", {})
+		difficulty = clampi(int(d.get("difficulty", difficulty)), 0, 2)
+		judgments = d.get("judgments", {}) if d.get("judgments", {}) is Dictionary else {}
 		for r in d.get("relics", []):
 			relics[r] = true
 		milk = int(d.get("milk", milk))
@@ -583,7 +583,7 @@ func load_save() -> void:
 		vsync = bool(d.get("vsync", vsync))
 		fps_cap = clampi(int(d.get("fps_cap", fps_cap)), 0, FPS_CAPS.size() - 1)
 		aa = clampi(int(d.get("aa", aa)), 0, 2)
-		fov = float(d.get("fov", fov))
+		fov = clampf(float(d.get("fov", fov)), 60.0, 100.0)
 		blood = bool(d.get("blood", blood))
 		embers_on = bool(d.get("embers", embers_on))
 		head_bob = bool(d.get("head_bob", head_bob))

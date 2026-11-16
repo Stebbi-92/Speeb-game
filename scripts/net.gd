@@ -13,7 +13,7 @@ const DEFAULT_PORT := 24600
 const DISCOVERY_PORT := 24601
 const MAX_PLAYERS := 8        ## the Ashen Waste
 const MAX_TRIALS := 4         ## the trials were made for four
-const PROTOCOL := "brelm-fellowship-3"
+const PROTOCOL := "brelm-fellowship-4"
 const ANNOUNCE_EVERY := 50.0
 ## The internet list of fellowships: a small Cloudflare Worker (see tools/lobby-worker.js).
 ## Leave empty to use only the local network and joining by address; it can also be set in Options.
@@ -289,8 +289,10 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	if not is_host():
 		return
 	var id := multiplayer.get_remote_sender_id()
-	if proto != PROTOCOL:
-		_refused.rpc_id(id, "This fellowship walks a different version of Brelm (%s)." % version)
+	var mine := str(ProjectSettings.get_setting("application/config/version", ""))
+	if proto != PROTOCOL or (version != mine and version != "" and mine != ""):
+		# Builds that differ disagree on items, foes and the world, even when the wire looks the same
+		_refused.rpc_id(id, "This fellowship walks Brelm %s, and you have %s. Update to join (the menu offers it)." % [mine, version])
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
 	if password != "" and word.strip_edges() != password:
@@ -511,8 +513,12 @@ func call_shared(method: String, args: Array) -> void:
 
 @rpc("any_peer", "call_remote", "reliable")
 func _call_req(s: int, method: String, args: Array) -> void:
-	if is_host() and _here(s) and method.begins_with("_"):
-		_call.rpc(s, method, args)
+	if not is_host() or not _here(s) or not method.begins_with("_"):
+		return
+	var from := multiplayer.get_remote_sender_id()
+	if not players.has(from):
+		return   # not yet one of the fellowship (it has not said hello, or was refused)
+	_call.rpc(s, method, args)
 
 
 @rpc("authority", "call_local", "reliable")
@@ -570,8 +576,27 @@ func send_pose(data: Array) -> void:
 	_pose.rpc(seq, data)
 
 
+var heard := {}   ## peer id -> when (msec) we last heard anything from them: a pose or a beat
+
+
+## The host's pulse, once a second, so the others can tell a quiet host from a gone one.
+func beat() -> void:
+	_beat.rpc()
+
+
+@rpc("authority", "call_remote", "unreliable")
+func _beat() -> void:
+	heard[1] = Time.get_ticks_msec()
+
+
+## How long since this peer was last heard from, in seconds (0 if never asked about).
+func silent_for(id: int) -> float:
+	return (Time.get_ticks_msec() - int(heard.get(id, Time.get_ticks_msec()))) / 1000.0
+
+
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
 func _pose(s: int, data: Array) -> void:
+	heard[multiplayer.get_remote_sender_id()] = Time.get_ticks_msec()
 	var lvl = _here(s)
 	if lvl:
 		lvl.net_pose(multiplayer.get_remote_sender_id(), data)
@@ -640,8 +665,14 @@ func send_foes(batch: Array) -> void:
 	_foes.rpc(seq, batch)
 
 
+func send_foes_to(peer_id: int, batch: Array) -> void:
+	if multiplayer.multiplayer_peer and peer_id in multiplayer.get_peers():
+		_foes.rpc_id(peer_id, seq, batch)
+
+
 @rpc("authority", "call_remote", "unreliable_ordered", 3)
 func _foes(s: int, batch: Array) -> void:
+	heard[1] = Time.get_ticks_msec()
 	var lvl = _here(s)
 	if lvl:
 		lvl.net_foes(batch)
@@ -658,15 +689,17 @@ func _foe_died(s: int, id: int, slain: bool, killer: int) -> void:
 		lvl.net_foe_died(id, slain, killer)
 
 
-func hit(id: int, amount: float, dir: Vector3) -> void:
-	_hit.rpc_id(1, seq, id, amount, dir)
+func hit(id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
+	_hit.rpc_id(1, seq, id, amount, dir, kind, head, pierce)
 
 
+## A pilgrim's blow on a form, with what kind of harm it was, so the host weighs plate, guard,
+## weakness and stagger just as it would for its own.
 @rpc("any_peer", "call_remote", "reliable")
-func _hit(s: int, id: int, amount: float, dir: Vector3) -> void:
+func _hit(s: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
 	var lvl = _here(s)
 	if lvl and is_host():
-		lvl.net_hit(multiplayer.get_remote_sender_id(), id, amount, dir)
+		lvl.net_hit(multiplayer.get_remote_sender_id(), id, clampf(amount, 0.0, 5000.0), dir, kind, head, pierce)
 
 
 func bolt(from: Vector3, vel: Vector3, dmg: float) -> void:
@@ -778,8 +811,9 @@ func _on_code(result: int, code: int, _headers: PackedStringArray, body: PackedB
 		last_error = "No fellowship answers to that code. It may have ended, or the host is not online." if code == 404 else "The internet list did not answer."
 		_log(last_error)
 		return
-	if str(data.get("proto", PROTOCOL)) != PROTOCOL:
-		last_error = "That fellowship walks a different version of Brelm (%s)." % data.get("version", "?")
+	var mine := str(ProjectSettings.get_setting("application/config/version", ""))
+	if str(data.get("proto", PROTOCOL)) != PROTOCOL or (str(data.get("version", mine)) != mine and str(data.get("version", "")) != ""):
+		last_error = "That fellowship walks Brelm %s, and you have %s. Update to join." % [data.get("version", "?"), mine]
 		_log(last_error)
 		return
 	join(best_address(data), int(data.port))
