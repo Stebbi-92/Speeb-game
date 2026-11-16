@@ -3737,6 +3737,15 @@ class Compass extends Control:
 				marks.append([t, Color(0.95, 0.82, 0.5), 7.0])
 		for i in w.lit:
 			marks.append([w.beacon_nodes[i].pos, Color(1, 0.97, 0.85, 0.6), 4.0])
+		if q == null:
+			# Nothing tracked: the beacon road still shows the way
+			var nb: int = w.next_dark_beacon(w.player.global_position)
+			if nb >= 0:
+				marks.append([w.beacon_nodes[nb].pos, Color(0.95, 0.5, 0.35, 0.9), 6.0])
+		if w.events:
+			for id in w.events.active:
+				var ev: Dictionary = w.events.active[id]
+				marks.append([ev.pos, Color(1.0, 0.85, 0.35), 6.5, WEvents.KINDS[ev.kind].name])
 		for m in w.map_marks:
 			marks.append([m[0] + Vector3(0, w.player.global_position.y, 0), Color(0.6, 0.85, 1.0, 0.95) if not Net.online else Net.color_of(int(m[1])).lightened(0.25), 6.0])
 		for k in w.visited:

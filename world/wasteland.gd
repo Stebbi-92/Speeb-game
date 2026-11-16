@@ -34,6 +34,7 @@ var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts 
 var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
+var events: WEvents      ## roaming events: short goals between the long ones
 var spirits: WSpirits    ## spirit-cat relics, and the one running with you
 var trades: WTrades      ## the pilgrim's trade: smith, cook, alchemist or tinker
 var endings: WEndings    ## Mother Ruth, and the leaves of Brelm's journal
@@ -127,6 +128,8 @@ func build() -> void:
 	dread = WDread.new(self)
 	settlers = WSettlers.new(self)
 	kraken = WKraken.new(self)
+	events = WEvents.new().setup(self)
+	add_child(events)
 	spirits = WSpirits.new(self)
 	trades = WTrades.new(self)
 	endings = WEndings.new(self)
@@ -3916,6 +3919,8 @@ func _sea_tick(delta: float) -> void:
 				deep.host_tick(1.0)
 			if kraken:
 				kraken.host_tick()
+			if events:
+				events.host_tick(1.0)
 			_serpent_t -= 1.0
 			if _serpent_t <= 0.0:
 				_serpent_t = 10.0
@@ -10142,6 +10147,11 @@ func what_now() -> Array:
 			if p.distance_to(me) < nd:
 				nd = p.distance_to(me)
 				near = {"kind": "near", "title": WPlaces.SETTLEMENTS[k].name, "text": "A settlement you have not seen. Its people will have work, and things to trade.", "at": p}
+	if events:
+		var ev: Dictionary = events.nearest(me)
+		if not ev.is_empty() and ev.pos.distance_to(me) < 500.0:   # it will not wait: it comes first
+			nd = ev.pos.distance_to(me)
+			near = {"kind": "near", "title": WEvents.KINDS[ev.kind].name, "text": "Go now: it will not wait long.", "at": ev.pos}
 	for l in lairs:
 		if lair_ready(l) and l.pos.distance_to(me) < minf(nd, 700.0):
 			nd = l.pos.distance_to(me)
@@ -10183,4 +10193,53 @@ func debug_whatnow() -> void:
 	skills.boon_offer = ["fleet", "packrat", "salvager"]
 	var boon_first: bool = what_now()[2].title == "A beacon boon waits"
 	print("WHATNOW n=%d kinds=%s road_at=%s shown=%s boon=%s first=%s" % [g.size(), ",".join(kinds), g[0].at is Vector3, shown, boon_first, g[0].text.left(40)])
+	get_tree().quit()
+
+
+
+func _w_event_start(id: int, kind: String, p: Vector3) -> void:
+	if events:
+		events.start(id, kind, p)
+
+
+func _w_event_end(id: int, won: bool, by: int) -> void:
+	if events:
+		events.end(id, won, by)
+
+
+## Testing aid: a roaming event starts near, shows on What now, ends when its foes fall, and gives.
+func debug_events() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	events._t = 0.0
+	events.host_tick(0.1)
+	var started := events.active.size()
+	var id: int = events.active.keys()[0] if started > 0 else -1
+	var kind: String = events.active[id].kind if id >= 0 else ""
+	var shown: bool = what_now()[1].title == WEvents.KINDS.get(kind, {}).get("name", "?")
+	var salt0 := inv.count("salt")
+	var have0 := 0
+	for g in WEvents.GIVES.get(kind, []):
+		have0 += inv.count(g[0])
+	player.place(events.active[id].pos + Vector3(3, 1, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	if kind in ["star", "cache"]:
+		_w_event_end(id, true, Net.me())
+	else:
+		for f in events.active[id].foes:
+			if is_instance_valid(f):
+				f.die(false)
+		events.host_tick(0.1)
+	await get_tree().create_timer(0.5).timeout
+	var have1 := 0
+	for g in WEvents.GIVES.get(kind, []):
+		have1 += inv.count(g[0])
+	# Every kind can be made
+	var made := 0
+	for k in WEvents.KINDS:
+		_w_event_start(900 + made, k, player.global_position + Vector3(30 + made * 10, 0, 0))
+		made += 1
+	await get_tree().process_frame
+	print("EVENTS started=%d kind=%s shown=%s ended=%s gave=%s made=%d" % [started, kind, shown, not events.active.has(id), have1 > have0, events.active.size()])
 	get_tree().quit()

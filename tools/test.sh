@@ -75,5 +75,6 @@ check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 check ammo      debug_ammo     "AMMO piles=[0-9]+ shown=[0-9]+ gathered=true cases=5 theirs=3"
 check boons     debug_boons    "BOONS gift=true offered=3 opened=true took=true faster=true bigger=true kept=true next=true"
 check whatnow   debug_whatnow  "WHATNOW n=3 kinds=road,near,grow road_at=true shown=true boon=true"
+check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=4"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
