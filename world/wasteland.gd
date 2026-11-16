@@ -829,6 +829,8 @@ func _town_paths(k: String) -> void:
 
 ## A house of the kit, its door toward the fire: floor, walls, a roof, and what people keep inside.
 ## An inn is larger, with tables, a counter for hot meals and talk, and beds to rent.
+var town_doors: Array = []   ## [a step outside a house's door, a step inside it], for the walk test
+
 func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	if not b.kind in ["house", "inn"]:
 		_town_extra(k, c, b)
@@ -839,7 +841,13 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	var n := Node3D.new()
 	add_child(n)
 	var at := c + Vector3(b.off.x, 0, b.off.y)
-	n.position = Vector3(at.x, terrain.height_at(at.x, at.z) + 0.15, at.z)
+	# The floor sits on the highest ground under the house, so no corner of the land pokes through it
+	var hi := terrain.height_at(at.x, at.z)
+	for cx in [-0.5, 0.5]:
+		for cz in [-0.5, 0.5]:
+			var q := at + Vector3(cx * W, 0, cz * D).rotated(Vector3.UP, b.yaw)
+			hi = maxf(hi, terrain.height_at(q.x, q.z))
+	n.position = Vector3(at.x, hi + 0.05, at.z)
 	n.rotation.y = b.yaw
 	var rr := RandomNumberGenerator.new()
 	rr.seed = hash(k) + int(b.off.x * 13.0) + int(b.off.y * 7.0)
@@ -859,6 +867,21 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	builder._kit(n, "planks", Vector3(W, 1.0, D), Vector3(0, -0.02, 0), 0.0)
 	# The walls, cell by cell; the door in the middle of the front, toward the fire
 	var door_i := int(b.w) / 2
+	# A ramp up to the door where the ground falls away below the floor
+	var door_x := -W * 0.5 + (door_i + 0.5) * G
+	var ramp_len := 1.8
+	var outside := n.position + Vector3(door_x, 0, D * 0.5 + ramp_len).rotated(Vector3.UP, b.yaw)
+	var lip := n.position.y - terrain.height_at(outside.x, outside.z)
+	town_doors.append([outside, n.position + Vector3(door_x, 0.2, D * 0.5 - G * 0.6).rotated(Vector3.UP, b.yaw)])
+	if lip > 0.12:
+		var run := sqrt(ramp_len * ramp_len + lip * lip)
+		var ramp := builder._part(n, fb, Vector3(G * 0.8, 0.2, run), Vector3(door_x, -lip * 0.5 - 0.1, D * 0.5 + ramp_len * 0.5), _m.darkwood, false)
+		var tilt := atan2(lip, ramp_len)
+		if ramp is Node3D:
+			(ramp as Node3D).rotation.x = tilt
+		var rcs := fb.get_child(fb.get_child_count() - 1)
+		if rcs is CollisionShape3D:
+			(rcs as CollisionShape3D).rotation.x = tilt
 	for i in int(b.w):
 		var x := -W * 0.5 + (i + 0.5) * G
 		_town_wall(n, "doorway" if i == door_i else ("window" if rr.randf() < 0.6 else "wall"), Vector3(x, 0, D * 0.5), 0.0, tier)
@@ -10580,6 +10603,41 @@ func debug_events() -> void:
 		made += 1
 	await get_tree().process_frame
 	print("EVENTS started=%d kind=%s shown=%s ended=%s gave=%s made=%d" % [started, kind, shown, not events.active.has(id), have1 > have0, events.active.size()])
+	get_tree().quit()
+
+
+## Testing aid: walk in at the doors of houses near the start, from a step outside.
+func debug_doorwalk() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var me: Vector3 = player.global_position
+	var doors := town_doors.duplicate()
+	doors.sort_custom(func(a, b): return (a[0] as Vector3).distance_to(me) < (b[0] as Vector3).distance_to(me))
+	var tried := 0
+	var inside := 0
+	for d in doors.slice(0, 8):
+		var from: Vector3 = d[0]
+		var to: Vector3 = d[1]
+		player.place(Vector3(from.x, terrain.height_at(from.x, from.z) + 1.0, from.z), 0.0)
+		var dir := Vector3(to.x - from.x, 0, to.z - from.z).normalized()
+		player.yaw = atan2(-dir.x, -dir.z)
+		player.rotation.y = player.yaw
+		await get_tree().create_timer(0.4).timeout
+		Input.action_press("move_forward")
+		var t := 0.0
+		var ok := false
+		while t < 4.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			var p: Vector3 = player.global_position
+			if Vector2(p.x - to.x, p.z - to.z).length() < 1.2:
+				ok = true
+				break
+		Input.action_release("move_forward")
+		tried += 1
+		if ok:
+			inside += 1
+	print("DOORWALK tried=%d inside=%d" % [tried, inside])
 	get_tree().quit()
 
 
