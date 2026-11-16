@@ -2,7 +2,7 @@
 
 Each source file holds several takes of one shot with silence between them. Every take becomes one
 variation: <sound>_<n>.ogg (close, for your own gun) and <sound>_far_<n>.ogg (from further off, for
-other pilgrims' shots). Run: python3 tools/cut_gunshots.py "<path to Prepared SFX Library>"
+other pilgrims' shots). Run: python3 tools/cut_gunshots.py "<path to Prepared SFX Library>" [only,these]
 """
 import os, re, subprocess, sys
 
@@ -16,7 +16,10 @@ GUNS = {
 	"pistol": ("Walther PPQ/X_39P", "Walther PPQ/X_31P", 0.9, -1),
 	"revolver": ("Smith & Wesson 642/V_27P", "Smith & Wesson 642/V_22P", 1.3, 0),
 	"minigun": ("PPSh/P_30P", "PPSh/P_16P", 0.28, -4),
+	"rifle": ("AR-15/D_32P", "AR-15/D_24P", 0.6, -1),        # the HK416's sharper 5.56 crack
+	"pistol45": ("1911/A_42P", "1911/A_34P", 0.9, 0),        # the service pistol's heavier .45
 }
+ONLY = sys.argv[2].split(",") if len(sys.argv) > 2 else None
 
 
 def onsets(path):
@@ -32,6 +35,8 @@ def cut(path, at, length, gain, dest):
 
 
 for name, (near, mid, length, gain) in GUNS.items():
+	if ONLY and name not in ONLY:
+		continue
 	for tag, f in (("", near), ("_far", mid)):
 		path = os.path.join(SRC, f + ".wav")
 		takes = [t for t in onsets(path) if t < 1000][:-1] or onsets(path)[:1]

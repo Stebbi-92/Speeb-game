@@ -7129,6 +7129,24 @@ func debug_recoil() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the scans that came as one piece have their moving parts cut out (pump, slide, magazine).
+func debug_gunparts() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn = player.weapon
+	var out: Array = []
+	for g in Arms.CARVE:
+		var n: Node3D = wpn._build(g, [])
+		var parts := 0
+		for role in ["pump", "mag"]:
+			if n.has_meta(role):
+				parts += (n.get_meta(role) as Node3D).find_children("*", "MeshInstance3D", true, false).size()
+		out.append("%s=%d" % [g, parts])
+		n.free()
+	print("GUNPARTS ", " ".join(out))
+	get_tree().quit()
+
+
 ## Testing aid: sway down the sights shrinks with practice, and moves the aim itself.
 func debug_sway() -> void:
 	while not ready_world:

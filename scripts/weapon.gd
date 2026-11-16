@@ -519,7 +519,11 @@ func _process(delta: float) -> void:
 		var phase := 0.0
 		if _cool > 0.0 and s.mode in ["pump", "bolt"]:
 			phase = sin(clampf(1.0 - _cool / float(s.rate), 0.0, 1.0) * PI)
-		_pump.position.z = phase * (0.1 if s.mode == "pump" else 0.06)
+		elif s.mode in ["semi", "auto"] and _quiet < 0.08:
+			phase = sin(_quiet / 0.08 * PI)   # the slide or bolt blown back by the shot, and home again
+		_pump.position.z = phase * (0.1 if s.mode == "pump" else (0.06 if s.mode == "bolt" else 0.03))
+		if s.mode == "rocket" and not _reloading:
+			_pump.visible = shells > 0   # the rocket is gone once fired, till the next goes in
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
 	var aiming := not blade_out and (debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
@@ -619,11 +623,10 @@ func _reload_pose(k: float, delta: float) -> void:
 	_holder.rotation.x += 0.32 * tilt
 	_holder.position += Vector3(-0.09, 0.11, 0.06) * tilt
 	if s.mode == "rocket" and _pump:
-		# The spent tube's head goes, and a new rocket slides in at the front
-		var out_k := smoothstep(0.12, 0.4, k)
+		# A new rocket slides in at the front
 		var in_k := smoothstep(0.5, 0.82, k)
-		_pump.visible = k < 0.4 or k > 0.5
-		_pump.position.z = -0.45 * (out_k if k < 0.45 else 1.0 - in_k)
+		_pump.visible = k > 0.5
+		_pump.position.z = -0.45 * (1.0 - in_k)
 	elif mag:
 		var drop := Vector3(0, -0.32, 0.06)
 		if k < 0.5:
@@ -2003,7 +2006,9 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		copy.material_override = copy_mat.get(mi)
 		copy.transform = tr
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		copy.set_meta("src", String(mi.name))
 		holder.add_child(copy)
+	_carve_parts(g, n, {"pump": pump, "mag": mag})
 	# What spins (a minigun's barrels) turns about its own middle: the pump is moved there
 	var spun: Array = pump.get_children().filter(func(c): return c is MeshInstance3D)
 	var spin_bb := AABB()
@@ -2020,6 +2025,100 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 			(c as Node3D).position -= axis
 	inst.free()
 	return bb.end.y * sc + off.y
+
+
+## Parts cut out of a scan that came as one piece, so they can move: [role, min corner, max corner, from
+## which piece ("" any)], in the built gun's own metres (z toward the butt, y up). A triangle goes with the
+## part when its middle is in a box. A pump's forend is cut around its tube, so the tube stays whole.
+const CARVE := {
+	"shotgun": [["pump", Vector3(0.017, 0.0, -0.49), Vector3(0.045, 0.068, -0.24), ""],
+		["pump", Vector3(-0.045, 0.0, -0.49), Vector3(-0.017, 0.068, -0.24), ""],
+		["pump", Vector3(-0.017, 0.052, -0.49), Vector3(0.017, 0.066, -0.24), ""],
+		["pump", Vector3(-0.017, -0.005, -0.49), Vector3(0.017, 0.018, -0.24), ""]],
+	"machine_gun": [["mag", Vector3(-0.05, -0.22, -0.125), Vector3(0.05, -0.042, 0.005), ""]],
+	"pistol9": [["pump", Vector3(-0.05, 0.032, -0.21), Vector3(0.05, 0.08, 0.04), "Cube_005_9m2_0"],
+		["mag", Vector3(-0.05, -0.1, -0.05), Vector3(0.05, 0.031, 0.06), "Cube_005_9m2_0"]],
+	"rocket": [["pump", Vector3(-0.08, -0.03, -0.72), Vector3(0.08, 0.1, -0.175), ""]],
+}
+static var _carved := {}
+
+
+## Cuts a scan's moving parts out of its one piece and hands them to the pump or the magazine.
+func _carve_parts(g: String, n: Node3D, holders: Dictionary) -> void:
+	if not CARVE.has(g):
+		return
+	var by_role := {}
+	for c in CARVE[g]:
+		if not by_role.has(c[0]):
+			by_role[c[0]] = []
+		by_role[c[0]].append(c)
+	for role in by_role:
+		var holder: Node3D = holders.get(role)
+		if holder == null:
+			continue
+		for c in n.get_children():
+			if not (c is MeshInstance3D) or not c.has_meta("src"):
+				continue
+			var mi := c as MeshInstance3D
+			var boxes: Array = by_role[role].filter(func(b): return b[3] == "" or b[3] == mi.get_meta("src"))
+			if boxes.is_empty():
+				continue
+			var key := "%s:%s:%d" % [g, role, mi.mesh.get_instance_id()]
+			if not _carved.has(key):
+				_carved[key] = _split_mesh(mi.mesh, mi.transform, boxes)
+			var pair: Array = _carved[key]
+			if pair[0] == null:
+				continue
+			mi.mesh = pair[1]
+			var part := MeshInstance3D.new()
+			part.mesh = pair[0]
+			part.transform = mi.transform
+			part.material_override = mi.material_override
+			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			holder.add_child(part)
+
+
+## A mesh split in two by boxes (seen through tr): [what is inside or null, what is left].
+static func _split_mesh(mesh: Mesh, tr: Transform3D, boxes: Array) -> Array:
+	var inside := ArrayMesh.new()
+	var outside := ArrayMesh.new()
+	var any := false
+	for si in mesh.get_surface_count():
+		var arr: Array = mesh.surface_get_arrays(si)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		if idx.is_empty():
+			idx.resize(vs.size())
+			for i in vs.size():
+				idx[i] = i
+		var a_in := PackedInt32Array()
+		var a_out := PackedInt32Array()
+		for t in range(0, idx.size() - 2, 3):
+			var mid: Vector3 = tr * ((vs[idx[t]] + vs[idx[t + 1]] + vs[idx[t + 2]]) / 3.0)
+			var hit := false
+			for b in boxes:
+				var lo: Vector3 = b[1]
+				var hi: Vector3 = b[2]
+				if mid.x >= lo.x and mid.x <= hi.x and mid.y >= lo.y and mid.y <= hi.y and mid.z >= lo.z and mid.z <= hi.z:
+					hit = true
+					break
+			if hit:
+				a_in.append_array([idx[t], idx[t + 1], idx[t + 2]])
+			else:
+				a_out.append_array([idx[t], idx[t + 1], idx[t + 2]])
+		var mat := mesh.surface_get_material(si)
+		for pr in [[inside, a_in], [outside, a_out]]:
+			if (pr[1] as PackedInt32Array).is_empty():
+				continue
+			var a2 := arr.duplicate()
+			a2[Mesh.ARRAY_INDEX] = pr[1]
+			for ci in [Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM1, Mesh.ARRAY_CUSTOM2, Mesh.ARRAY_CUSTOM3, Mesh.ARRAY_BONES, Mesh.ARRAY_WEIGHTS]:
+				a2[ci] = null   # what a gun scan does not use, and what will not go back in without its format
+			(pr[0] as ArrayMesh).add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a2)
+			(pr[0] as ArrayMesh).surface_set_material((pr[0] as ArrayMesh).get_surface_count() - 1, mat)
+		if not a_in.is_empty():
+			any = true
+	return [inside if any else null, outside]
 
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.

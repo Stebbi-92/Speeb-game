@@ -15,7 +15,8 @@
 - **Stay quiet.** Foes keep to their camps until they see or hear you. A bare gunshot carries over a hundred metres; a suppressed one about twenty. Tread softly (Ctrl) and they see you from less far, and at night less far again.
 - **Turn the blow.** Guard with the blade as an Unlit swings and it reels open.
 - **Recoil.** Each gun pulls sideways in its own fixed way, the same every time. Pull against it, and fire in short strings.
-- **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks.
-- **The scope.** Your aim drifts with your breath. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
+- **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks. A practised hand also sways less down the sights: at the top rank the sway is about half.
+- **Sway.** Down the sights your aim sways a little, and the shot goes where the sights are. Heavy guns and rifles sway more, pistols less, and a foregrip steadies it. Walking or being winded makes it worse.
+- **The scope.** Behind a scope the sway is bigger. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
 
 Guns and their parts are changed under **Arms** in your pack. Parts are made at a workbench, and fittings found in the waste rework them to better grades.
