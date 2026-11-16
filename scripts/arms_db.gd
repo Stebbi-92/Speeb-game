@@ -44,6 +44,7 @@ const MELEE := {
 	"machete": {"name": "Machete", "dmg": 40.0, "rate": 0.38, "reach": 2.8, "arc": 0.5, "unlock": 4, "text": "Lighter and quicker, for the swarm."},
 	"sword": {"name": "Sword", "dmg": 66.0, "rate": 0.48, "reach": 3.0, "arc": 0.55, "unlock": 6, "text": "Old iron with a true edge. Quick enough, and long."},
 	"sledge": {"name": "Sledge", "dmg": 100.0, "rate": 1.1, "reach": 2.9, "pierce": 2.0, "unlock": 9, "text": "Slow, and it breaks whatever it meets. Plate does not stop it."},
+	"glaive": {"name": "Obsidian Glaive", "dmg": 150.0, "rate": 0.85, "reach": 3.6, "arc": 0.45, "pierce": 1.5, "unlock": 16, "text": "Black glass on a long haft. The longest reach, and it bites through plate."},
 	"battle_axe": {"name": "Battle Axe", "dmg": 125.0, "rate": 0.95, "reach": 3.2, "arc": 0.3, "unlock": 11, "text": "A long haft and a bearded head. It sweeps all before it."},
 }
 

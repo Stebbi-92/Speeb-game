@@ -8455,7 +8455,7 @@ func debug_newarms() -> void:
 	player.health = 100000.0
 	var wpn: Arms = player.weapon
 	var out := {}
-	for id in ["knife", "sword", "battle_axe"]:
+	for id in ["knife", "sword", "battle_axe", "glaive"]:
 		arms.blades.append(id)
 		arms.melee = id
 		rearm()
@@ -8515,7 +8515,7 @@ func debug_newarms() -> void:
 		if c is CPUParticles3D and c.one_shot:
 			jets += 1
 	var fuel_ok: bool = Items.AMMO.get("flamer", "") == "fuel" and Items.DB.has("fuel")
-	print("NEWARMS knife=%s sword=%s axe=%s flamer_burnt=%d/4 jets=%s fuel=%s" % [out.knife, out.sword, out.battle_axe, burnt, jets > 0, fuel_ok])
+	print("NEWARMS knife=%s sword=%s axe=%s glaive=%s flamer_burnt=%d/4 jets=%s fuel=%s" % [out.knife, out.sword, out.battle_axe, out.glaive, burnt, jets > 0, fuel_ok])
 	get_tree().quit()
 
 

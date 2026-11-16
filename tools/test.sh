@@ -58,7 +58,7 @@ check serpent   debug_serpent  "SERPENT open_water_found=true" "SERPENT rose=tru
 check greatraid debug_great "GREAT seventh=true warn=1 tonight=0" "GREAT spawned=[1-9][0-9]* alive=[0-9]+" "GREAT spoils=true"
 check powers  debug_powers   "POWERS built=true refused=true laid=true lighter=true ended=true"
 check tales   debug_tales    "TALES bad=\[\] told=([0-9]+)/\1"
-check newarms   debug_newarms  "NEWARMS knife=\[[1-2], 26\] sword=\[[2-3], 66\] axe=\[3, 125\] flamer_burnt=[3-4]/4 jets=true fuel=true"
+check newarms   debug_newarms  "NEWARMS knife=\[[1-2], 26\] sword=\[[2-3], 66\] axe=\[3, 125\] glaive=\[[2-3], 150\] flamer_burnt=[3-4]/4 jets=true fuel=true"
 check dev       debug_dev      "DEV opened=true buttons=[3-9][0-9] lands=6/6 unharmed=true spawned=[1-9] killed=[1-9] all_arms=true fast=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"

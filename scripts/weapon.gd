@@ -1659,6 +1659,11 @@ func _build_melee(id: String) -> Node3D:
 			_box(Vector3(0.034, 0.03, 0.034), Vector3(0, -0.08, 0), steel, n)
 			_box(Vector3(0.03, 0.02, 0.17), Vector3(0, 0.08, 0), steel, n)
 			_box(Vector3(0.007, 0.72, 0.042), Vector3(0, 0.45, 0), steel, n)
+		"glaive":
+			var glass := _mat(Color(0.06, 0.05, 0.08), 0.6, 0.15)
+			_box(Vector3(0.032, 0.95, 0.032), Vector3(0, 0.3, 0), wood, n)
+			_box(Vector3(0.04, 0.03, 0.04), Vector3(0, 0.78, 0), steel, n)
+			_box(Vector3(0.012, 0.32, 0.07), Vector3(0, 0.95, -0.015), glass, n)
 		"battle_axe":
 			_box(Vector3(0.035, 0.78, 0.035), Vector3(0, 0.25, 0), wood, n)
 			_box(Vector3(0.014, 0.2, 0.2), Vector3(0, 0.55, -0.1), steel, n)
