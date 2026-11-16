@@ -154,9 +154,10 @@ func pose(data: Array) -> void:
 		_cat.global_position = _cat.global_position.lerp(at, 0.5) if _cat.global_position.distance_to(at) < 6.0 else at
 		_cat.rotation.y = float(bits[6])
 	if _cat and not parked:
-		_body.position.y = 0.75
+		_body.position.y = 0.38
 	elif _body.position.y != 0.0:
 		_body.position.y = 0.0
+	_fig.seated = _cat != null and not parked
 	_lamp.light_energy = 2.0 if data[7] else 0.0
 	if not _has_pose or global_position.distance_to(_to) > 6.0:
 		global_position = _to

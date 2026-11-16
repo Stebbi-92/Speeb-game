@@ -38,6 +38,7 @@ var _going := Vector3.ZERO  ## where it trots to when called (or a stray wanders
 var _call := false
 var _t := 0.0
 var _speed := 0.0
+var _ph := 0.0
 var _body: Node3D
 var _legs: Array = []
 var _tail: Node3D
@@ -204,8 +205,10 @@ func _process(delta: float) -> void:
 	else:
 		_walk(delta)
 	# The gait: legs swing faster and further the quicker it goes; the tail sways at rest
-	var k := clampf(_speed / 4.0, 0.0, 1.6)
-	var ph := _t * (4.0 + _speed * 1.6)
+	# A long, loping stride: the paws turn over about once and a half a second at full run
+	var k := clampf(_speed / 4.0, 0.0, 1.1)
+	_ph += delta * (2.5 + _speed * 0.5)
+	var ph := _ph
 	for i in _legs.size():
 		var leg: Node3D = _legs[i]
 		leg.rotation.x = sin(ph + (PI if i in [1, 2] else 0.0)) * 0.55 * k

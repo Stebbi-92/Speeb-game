@@ -28,6 +28,7 @@ const DEFAULT := {"build": 1, "skin": 1, "face": 1, "hair": 1, "head": 1, "coat"
 var look := DEFAULT.duplicate()
 var walk := 0.0            ## the stride's phase; the owner advances it
 var stride := 0.0          ## 0 standing, 1 walking
+var seated := false        ## astride a riding cat, legs either side of it
 var arms_forward := true   ## holding something before them
 var hold := false          ## both hands on a gun, at GRIP and FORE
 var aim := 0.0             ## how far the gun is raised or lowered, in radians
@@ -264,8 +265,13 @@ func _process(delta: float) -> void:
 			_mouth.scale.y = move_toward(_mouth.scale.y, 1.0, delta * 20.0)
 			_mouth.position.y = -0.058 - _mouth.scale.y * 0.002
 	var s := sin(walk) * 0.55 * stride
-	_legs[0].rotation.x = s
-	_legs[1].rotation.x = -s
+	if seated:
+		s = 0.0
+		for leg in _legs:
+			leg.rotation = Vector3(-0.45, 0, signf(leg.position.x) * 0.55)
+	else:
+		_legs[0].rotation = Vector3(s, 0, 0)
+		_legs[1].rotation = Vector3(-s, 0, 0)
 	if hold:
 		var pts := [FORE, GRIP]
 		for i in 2:

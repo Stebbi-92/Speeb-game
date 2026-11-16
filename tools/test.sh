@@ -35,6 +35,7 @@ check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swa
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"
 check build     debug_build    "BUILD up=true kept=true bed=true stove=true shelf=true snug=true"
 check inn       debug_inn      "INN towns=true meal=true talk=true snug=true walls=true"
+check tabsfit    debug_tabsfit  "TABSFIT { \"craft\": 700, \"arms\": 700, \"wear\": 700, \"build\": 700 }"
 check fixes     debug_fixes    "FIXES map_ready=true map_open_fast=true slept=true woke=true"
 check newfoes   debug_newfoes  "NEWFOES made=8 hit=8 burning=true slowed=true hurts=true slow_speed=true"
 check questfoes debug_questfoes "QUESTFOES cleared=true"

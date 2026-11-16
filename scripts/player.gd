@@ -199,6 +199,10 @@ func _footfall(hard: bool) -> void:
 	_step.stream = takes[randi() % takes.size()]
 	_step.pitch_scale = randf_range(0.93, 1.07)
 	_step.volume_db = (-12.0 if hard else -15.0) + randf_range(-1.5, 0.5)
+	if speed_cap > 0.0:
+		# Held by the tar: a slow, deep, sucking step
+		_step.pitch_scale = randf_range(0.5, 0.58)
+		_step.volume_db += 4.0
 	_step.play()
 
 
@@ -261,7 +265,8 @@ func _physics_process(delta: float) -> void:
 		sp *= 1.12
 	sp *= carry_slow
 	if speed_cap > 0.0:
-		sp = minf(sp, speed_cap)
+		# A cat's broad paws ride over the tar; it is only slowed a little
+		sp = minf(sp, speed_cap) if not mount else sp * 0.85
 	var dir := (transform.basis * Vector3(input.x, 0, input.y))
 	if dir.length() > 1.0:
 		dir = dir.normalized()

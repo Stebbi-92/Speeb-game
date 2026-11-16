@@ -149,6 +149,12 @@ func _ready() -> void:
 	_boons = _label("", 13, Color(0.92, 0.82, 0.55, 0.9))
 	_pin(_boons, 0.0, 1.0, Rect2(36, -56, 420, 18))
 	add_child(_boons)
+	_hazard = _label("", 15, Color(0.95, 0.45, 0.35, 0.95))
+	_pin(_hazard, 0.0, 1.0, Rect2(36, -80, 520, 20))
+	_hazard.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	_hazard.add_theme_constant_override("shadow_offset_x", 1)
+	_hazard.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(_hazard)
 	_saved = _label("", 16, DIM)
 	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
 	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -162,6 +168,17 @@ var _boons: Label
 
 
 ## The meals you have eaten and your rest, as a short line over the food and rest bars.
+var _hazard: Label
+
+
+## The land's hardship while it is on you, in red above the bars: what it does and what wards it.
+func set_hazard(t: String) -> void:
+	if _hazard == null:
+		return
+	_hazard.text = t
+	_hazard.modulate.a = 0.65 + 0.35 * absf(sin(Time.get_ticks_msec() * 0.003)) if t != "" else 1.0
+
+
 func set_boons(meals: Dictionary, rested: float) -> void:
 	if _boons == null:
 		return
@@ -1649,7 +1666,7 @@ func _draw_wear() -> void:
 	me.add_theme_constant_override("separation", 6)
 	me.custom_minimum_size.x = 280
 	split.add_child(me)
-	me.add_child(_figure_preview(Vector2(280, 420)))
+	me.add_child(_figure_preview(Vector2(280, 340)))
 	var lines: Array = []
 	if wn.speed != 1.0:
 		lines.append("Pace %+d%%" % int(round((wn.speed - 1.0) * 100.0)))
@@ -1664,15 +1681,23 @@ func _draw_wear() -> void:
 	# A place for each thing worn
 	var rail := VBoxContainer.new()
 	rail.add_theme_constant_override("separation", 4)
-	rail.custom_minimum_size.x = 190
+	rail.custom_minimum_size.x = 230
 	split.add_child(rail)
 	for sl in WArms.WEAR_SLOTS:
 		var on := str(a.wear.get(sl[0], ""))
-		var t: String = sl[1] + ("\n   " + WArms.WEAR[on].name if on != "" else "\n   nothing")
+		var t: String = "%s:  %s" % [sl[1], WArms.WEAR[on].name if on != "" else "nothing"]
 		var b := _rail_btn(t, 0, sl[0] == _wslot, func(): _wslot = sl[0]; _redraw())
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.add_theme_font_size_override("font_size", 16)
+		for st in ["normal", "hover", "pressed"]:
+			var sb := b.get_theme_stylebox(st) as StyleBoxFlat
+			if sb:
+				sb.content_margin_top = 3
+				sb.content_margin_bottom = 3
 		rail.add_child(b)
 	# What can go there
-	var grid := _card_grid()
+	var grid := _card_grid(400.0)
 	split.add_child(grid.get_parent())
 	for id in WArms.WEAR:
 		var it: Dictionary = WArms.WEAR[id]
