@@ -2754,6 +2754,36 @@ func _build_ruin(r: Dictionary) -> void:
 var _scans := {}
 
 
+var _cut_wood: StandardMaterial3D
+var _cut_notch: StandardMaterial3D
+
+func _cut_wood_mat() -> StandardMaterial3D:
+	if _cut_wood == null:
+		_cut_wood = StandardMaterial3D.new()
+		_cut_wood.albedo_color = Color(0.85, 0.5, 0.22, 0.32)
+		_cut_wood.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_cut_wood.roughness = 0.9
+	return _cut_wood
+
+
+var _cut_rag: StandardMaterial3D
+
+func _cut_rag_mat() -> StandardMaterial3D:
+	if _cut_rag == null:
+		_cut_rag = StandardMaterial3D.new()
+		_cut_rag.albedo_color = Color(0.72, 0.16, 0.1)
+		_cut_rag.roughness = 1.0
+	return _cut_rag
+
+
+func _cut_notch_mat() -> StandardMaterial3D:
+	if _cut_notch == null:
+		_cut_notch = StandardMaterial3D.new()
+		_cut_notch.albedo_color = Color(0.93, 0.8, 0.58)
+		_cut_notch.roughness = 0.8
+	return _cut_notch
+
+
 func _add_scan(parent: Node3D, key: String, size: float, at := Vector3.ZERO, turn := 0.0, reach := 420.0) -> Node3D:
 	if not _scans.has(key):
 		_scans[key] = load("res://assets/models/nature/%s/%s.gltf" % [key, key])
@@ -3535,6 +3565,12 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 			tr.rotation.x = r.randf_range(-0.08, 0.08)
 			if r.randf() < 0.5:
 				_add_scan(n, "dead_quiver_branch_01", r.randf_range(2.0, 3.0), Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)), r.randf() * TAU)
+			# Wood you can cut stands out from the dead trees you cannot: warm, sound wood, with a
+			# pale axe-notch at the base and a band of rag tied round it by whoever marked it
+			for mi in n.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).material_overlay = _cut_wood_mat()
+			_add(n, box(Vector3.ZERO, Vector3(0.42, 0.28, 0.2), _cut_notch_mat(), false), Vector3(0, 0.55, 0.22)).rotation.y = tr.rotation.y
+			_add(n, cyl(Vector3.ZERO, 0.4, 0.14, _cut_rag_mat(), false, -1.0, 10), Vector3(0, 1.5, 0))
 			var cap := CapsuleShape3D.new()
 			cap.radius = 0.35
 			cap.height = h
@@ -10242,4 +10278,27 @@ func debug_events() -> void:
 		made += 1
 	await get_tree().process_frame
 	print("EVENTS started=%d kind=%s shown=%s ended=%s gave=%s made=%d" % [started, kind, shown, not events.active.has(id), have1 > have0, events.active.size()])
+	get_tree().quit()
+
+
+## Testing aid: a tree that can be cut beside the dead trees that cannot; saves what is seen.
+func debug_treeshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var best = null
+	var bd := INF
+	for nd in nodes:
+		if nd.kind == "tree" and nd.pos.distance_to(player.global_position) < bd:
+			bd = nd.pos.distance_to(player.global_position)
+			best = nd
+	var at: Vector3 = best.pos + Vector3(6, 0, 6)
+	at.y = terrain.height_at(at.x, at.z) + 0.3
+	player.place(at, 0.0)
+	player.face(best.pos + Vector3(0, 2.0, 0))
+	for k in 30:
+		await get_tree().process_frame
+	await get_tree().create_timer(2.0).timeout
+	get_viewport().get_texture().get_image().save_png("/tmp/claude-0/tree.png")
+	print("TREESHOT at=%s" % best.pos)
 	get_tree().quit()

@@ -42,6 +42,7 @@ var _storm_snd: AudioStreamPlayer
 var _hurt_t := 5.0
 var sheltered := false     ## under a roof just now: the weather does not reach
 var _roof_t := 0.0
+var _hf: GPUParticlesCollisionHeightField3D
 var _wind_turn := 0.0
 
 
@@ -56,6 +57,14 @@ func _ready() -> void:
 	_rain = _particles(Color(0.7, 0.75, 0.8, 0.5), Vector2(0.03, 0.7), 900, 14.0, 1.0)
 	_ash = _particles(Color(0.45, 0.4, 0.36, 0.7), Vector2(0.12, 0.12), 1200, 3.0, 2.5)
 	_rain_snd = w.ambient("amb_rain", -60)
+	# Drops and flakes stop on whatever is above the ground: a roof keeps them off those under it
+	for ps in [_rain, _ash]:
+		(ps.process_material as ParticleProcessMaterial).collision_mode = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
+	_hf = GPUParticlesCollisionHeightField3D.new()
+	_hf.size = Vector3(48, 44, 48)
+	_hf.resolution = GPUParticlesCollisionHeightField3D.RESOLUTION_256
+	_hf.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+	add_child(_hf)
 	_storm_snd = w.ambient("amb_storm", -60)
 
 
@@ -154,6 +163,8 @@ func _process(delta: float) -> void:
 	var at: Vector3 = w.player.global_position
 	for ps in [_rain, _ash]:
 		ps.global_position = at + Vector3(0, 12, 0)
+	if _hf:
+		_hf.global_position = Vector3(snappedf(at.x, 4.0), at.y + 4.0, snappedf(at.z, 4.0))
 	var under: bool = w.hall != null and w.hall.inside(at)
 	_rain.emitting = k > 0.3 and kind in ["rain", "gale"] and not under
 	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"] and not under
@@ -161,7 +172,7 @@ func _process(delta: float) -> void:
 	_ash.process_material.initial_velocity_min = 2.0 if kind == "ashstorm" else 1.0
 	var wa: float = w.sea.wind_ang if w.sea else 0.0
 	_ash.process_material.direction = Vector3(cos(wa) * 2.0, -1.0, sin(wa) * 2.0) if kind == "ashstorm" else Vector3(0.1, -1, 0)
-	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, -14.0 if kind == "rain" and k > 0.2 and not under else -60.0, delta * 15.0)
+	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, (-26.0 if sheltered else -14.0) if kind == "rain" and k > 0.2 and not under else -60.0, delta * 15.0)
 	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, -10.0 if kind in ["gale", "ashstorm"] and k > 0.2 and not under else -60.0, delta * 15.0)
 	_roof_t -= delta
 	if _roof_t <= 0.0:
