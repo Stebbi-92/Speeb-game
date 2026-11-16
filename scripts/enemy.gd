@@ -20,7 +20,41 @@ const FORM_TIER := {
 	"idol": 2, "lurker": 2, "vigil": 2, "drowned": 2, "wisp": 2, "saltrifle": 2, "unlit_gun": 2, "unlit_blade": 2, "unlit_flame": 2,
 	"deacon": 3, "brute": 3, "warden": 3, "unlit_mark": 3, "unseen": 2, "elite": 3, "saucer": 2,
 	"colossus": 4, "knight": 4, "unlit_brute": 3,
+	"cinder_hound": 1, "rust_stalker": 2, "bog_crawler": 2, "rime_bones": 3, "bile_elder": 2, "mourner": 2,
+	"dirge_howler": 3, "iron_idol": 3, "pyre_sack": 3, "sand_maw": 3, "tar_giant": 3, "glass_crawler": 4, "cinder_hauler": 4,
 }
+
+## Kin of the common forms, bred hard by their own lands: each moves and fights as its "base" does,
+## with its own name, numbers and colour. Met further out than the form they come from.
+const VARIANTS := {
+	"cinder_hound": {"base": "rusher", "name": "Cinder Hound", "hp": 40.0, "speed": 6.4, "bite": 12.0, "tint": Color(0.95, 0.45, 0.15),
+		"weak": {"bullet": 1.3}, "tough": {"fire": 0.4}, "text": "Lean and quick, warm to the touch. Fire does little to it."},
+	"rust_stalker": {"base": "rusher", "name": "Rust Stalker", "hp": 78.0, "size": 1.15, "bite": 20.0, "tint": Color(0.6, 0.25, 0.15),
+		"text": "A stalker of the dunes, heavier and redder."},
+	"bog_crawler": {"base": "spider", "name": "Bog Crawler", "hp": 70.0, "bite": 16.0, "size": 0.95, "tint": Color(0.25, 0.4, 0.2),
+		"text": "Slick with marsh water. Fire still undoes it."},
+	"glass_crawler": {"base": "spider", "name": "Glass Crawler", "hp": 95.0, "bite": 20.0, "tint": Color(0.08, 0.06, 0.1),
+		"weak": {"blast": 1.5, "blade": 1.3}, "tough": {"bullet": 0.6, "fire": 0.8}, "text": "Its back is black glass. Rounds glance off it."},
+	"bile_elder": {"base": "spitter", "name": "Bile Elder", "hp": 85.0, "size": 1.1, "tint": Color(0.55, 0.65, 0.25),
+		"text": "An old voice of the choir. It spits further."},
+	"dirge_howler": {"base": "howler", "name": "Dirge Howler", "hp": 140.0, "size": 1.4, "bite": 20.0, "tint": Color(0.35, 0.3, 0.45),
+		"text": "Its cry carries over the hills and brings the rest at a run."},
+	"mourner": {"base": "hollow", "name": "Hollow Mourner", "hp": 110.0, "bite": 22.0, "size": 1.15, "tint": Color(0.4, 0.42, 0.35),
+		"text": "One of the Hollowed that still weeps. Slow, and hard to stop."},
+	"rime_bones": {"base": "saltbone", "name": "Rime-Bones", "hp": 72.0, "bite": 18.0, "speed": 6.4, "tint": Color(0.7, 0.85, 1.0),
+		"text": "Salt-Bones furred with frost. Faster than they look."},
+	"pyre_sack": {"base": "bloater", "name": "Pyre Sack", "hp": 70.0, "size": 1.5, "tint": Color(0.9, 0.3, 0.1),
+		"text": "A great sack of embers. Its burst is wide. Shoot it far off."},
+	"iron_idol": {"base": "idol", "name": "Iron Idol", "hp": 165.0, "bite": 34.0, "size": 1.35, "tint": Color(0.45, 0.45, 0.5),
+		"text": "An idol with an iron face. Go round it, or bring a blast."},
+	"cinder_hauler": {"base": "brute", "name": "Cinder Hauler", "hp": 330.0, "bite": 40.0, "size": 1.8, "tint": Color(0.3, 0.15, 0.1),
+		"tough": {"shot": 0.6, "bullet": 0.8, "fire": 0.5}, "text": "A hauler of the heights, charred black. Its charge breaks walls."},
+	"sand_maw": {"base": "lurker", "name": "Sand Maw", "hp": 150.0, "bite": 34.0, "size": 1.35, "tint": Color(0.75, 0.5, 0.3),
+		"text": "A lurker grown huge. The ground opens under you."},
+	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
+		"text": "Something drowned long ago and grown in the tar. It clings."},
+}
+
 
 const KINDS := {
 	"rusher": {"name": "Ash Stalker", "hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 15.0, "radius": 0.45, "body": "cat",
@@ -135,6 +169,7 @@ var head: LesserHead
 var _legs: Array = []
 var _leap_cd := 2.0
 var spec: Dictionary
+var variant := ""      ## a kin of the base form, if it is one (see VARIANTS)
 var _attack_cd := 1.0
 var _flash := 0.0
 var _alive := true
@@ -207,10 +242,17 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 	if BOSSES.has(k):
 		boss = k
 		k = BOSSES[k].base
+	if VARIANTS.has(k):
+		variant = k
+		k = VARIANTS[k].base
 	kind = k
 	code = IDOL_CODES[randi() % IDOL_CODES.size()] if k == "idol" else c
 	level = lvl
 	spec = BOSSES[boss] if boss != "" else KINDS[k]
+	if variant != "":
+		spec = KINDS[k].duplicate(true)
+		for key in VARIANTS[variant]:
+			spec[key] = VARIANTS[variant][key]
 	hp = spec.hp * Game.difficulty_scale("hp")
 	if boss != "":
 		hp *= 1.0 + 0.6 * maxi(0, lvl.targets().size() - 1)
@@ -284,6 +326,8 @@ func _ready() -> void:
 			_name_l.position.y = float(spec.head_y) + 0.8 * spec.size
 		if _bar:
 			_bar.position.y = float(spec.head_y) + 0.6 * spec.size
+	if spec.has("tint"):
+		_tint(spec.tint)
 	_remember_head()
 	scale = Vector3.ONE * 0.01
 	create_tween().tween_property(self, "scale", Vector3.ONE, 0.8).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -877,6 +921,18 @@ var _name_l: Label3D
 
 
 ## Its name, shown in the colour of the forms when it is hurt or close by.
+## Lays the kin's colour over all of it.
+func _tint(c: Color) -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(c, 0.42)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if c.v < 0.2 else BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	for g in find_children("*", "GeometryInstance3D", true, false):
+		if g is Label3D or g is CPUParticles3D or g is GPUParticles3D:
+			continue
+		(g as GeometryInstance3D).material_overlay = m
+
+
 func _make_name() -> void:
 	_name_l = Label3D.new()
 	_name_l.text = str(spec.get("name", "")) if boss == "" else ""
@@ -1319,7 +1375,7 @@ func weak_point() -> Array:
 
 
 func net_state() -> Array:
-	return [net_id, boss if boss != "" else kind, code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0]
+	return [net_id, boss if boss != "" else (variant if variant != "" else kind), code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0]
 
 
 func net_apply(st: Array) -> void:

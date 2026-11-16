@@ -3126,12 +3126,12 @@ const BIOME_TEXT := {
 }
 ## What the night sends, by land.
 const BIOME_FORMS := {
-	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil", "deacon"],
-	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone", "saltrifle", "wisp"],
-	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil", "saltrifle", "saltrifle"],
-	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow", "deacon", "colossus"],
-	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight"],
-	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus"],
+	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil", "deacon", "cinder_hound", "bile_elder", "dirge_howler"],
+	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone", "saltrifle", "wisp", "rust_stalker", "rust_stalker", "sand_maw"],
+	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil", "saltrifle", "saltrifle", "rime_bones", "rime_bones", "iron_idol"],
+	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow", "deacon", "colossus", "mourner", "mourner", "dirge_howler"],
+	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight", "glass_crawler", "pyre_sack", "cinder_hauler", "cinder_hound"],
+	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus", "bog_crawler", "bog_crawler", "tar_giant"],
 }
 
 
@@ -7491,6 +7491,23 @@ func debug_screen() -> void:
 		player.set_physics_process(false)
 		clock = 19.6
 		hud.visible = false
+	if which == "kin":
+		# The kin of the common forms, in a row at noon, standing still
+		clock = 12.0
+		var f := -player.global_transform.basis.z
+		f.y = 0.0
+		f = f.normalized()
+		var r := f.cross(Vector3.UP)
+		var vs: Array = LesserSpeeb.VARIANTS.keys().slice(0, 7)
+		for i in vs.size():
+			var at: Vector3 = player.global_position + f * 9.0 + r * (i - 3) * 2.6
+			at.y = terrain.height_at(at.x, at.z) + 1.0
+			var e := spawn_at(vs[i], at)
+			e.set_meta("raid", true)
+			e.set_physics_process(false)
+			e.look_at(player.global_position, Vector3.UP, true)
+		player.set_physics_process(false)
+		hud.visible = false
 	if which == "vault":
 		# The first room of a deep vault, looking on toward its gate
 		var b8: Vector2 = WPlaces.bpos(8)
@@ -8710,6 +8727,44 @@ func debug_settlers() -> void:
 	pieces[fire].fuel = world_hours() - 1.0
 	settlers.host_dawn(0.0)
 	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty()])
+	get_tree().quit()
+
+
+## Testing aid: every kin of the common forms rises with its own name, numbers and colour, and
+## a joiner's copy of it is the same kin.
+func debug_kin() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var ok := 0
+	var bad := []
+	var copies := 0
+	for v in LesserSpeeb.VARIANTS:
+		var at := player.global_position + Vector3(randf_range(-15, 15), 0, randf_range(20, 30))
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e := spawn_at(v, at)
+		await get_tree().process_frame
+		var spec_ok: bool = e.variant == v and e.spec.name == LesserSpeeb.VARIANTS[v].name and e.kind == LesserSpeeb.VARIANTS[v].base
+		var tinted := false
+		for g in e.find_children("*", "GeometryInstance3D", true, false):
+			if (g as GeometryInstance3D).material_overlay != null:
+				tinted = true
+		var st: Array = e.net_state()
+		var copy := LesserSpeeb.new().setup(st[2], st[1], self)
+		if copy.variant == v:
+			copies += 1
+		copy.free()
+		if spec_ok and tinted and int(LesserSpeeb.FORM_TIER.get(v, 0)) > 0:
+			ok += 1
+		else:
+			bad.append(v)
+		e.die(false)
+	var in_lands := 0
+	for v in LesserSpeeb.VARIANTS:
+		for b in BIOME_FORMS:
+			if v in BIOME_FORMS[b]:
+				in_lands += 1
+				break
+	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.size(), copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
 	get_tree().quit()
 
 

@@ -185,7 +185,7 @@ func spawn_tier(t: int) -> int:
 		return 0
 	var n := 0
 	for k in LesserSpeeb.FORM_TIER:
-		if int(LesserSpeeb.FORM_TIER[k]) != t or not LesserSpeeb.KINDS.has(k) or k in ["saucer", "unseen"]:
+		if int(LesserSpeeb.FORM_TIER[k]) != t or not (LesserSpeeb.KINDS.has(k) or LesserSpeeb.VARIANTS.has(k)) or k in ["saucer", "unseen"]:
 			continue
 		if w._spawn_near(k, w.player.global_position, 10.0, 16.0, true):
 			n += 1

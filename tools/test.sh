@@ -7,7 +7,7 @@ pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
-	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
 	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
@@ -63,6 +63,7 @@ check dev       debug_dev      "DEV opened=true buttons=[3-9][0-9] lands=6/6 unh
 check brew      debug_brew     "BREW first=mend again=breath third= sour=true got=keen have=1 learned=true keener=true ward=true fireproof=true kept=true panel=true"
 check dread     debug_dread    "DREAD dark=([5-9]|1[0-9]) lamp=[2-7] drawn=true by_fire=[5-7][0-9] day=[2-4][0-9]"
 check settlers  debug_settlers "SETTLERS snug=[4-8] room=true came=2 shown=2 brought=12 reloaded=true gone=true"
+check kin       debug_kin      "KIN made=13/13 copies=13 in_lands=13 bad=\[\] kinds=4[0-9]"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
