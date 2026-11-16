@@ -81,7 +81,7 @@ var wasteland := false
 ## Revelations: deeds the pilgrimage remembers.
 const REVELATIONS := {
 	"first_blood": ["The First Undoing", "Undo a lesser form."],
-	"hundred": ["A Hundred Undone", "Undo one hundred lesser forms. The gilded shotgun is yours."],
+	"hundred": ["A Hundred Undone", "Undo one hundred lesser forms. The gilded finish is yours: turn it on in Settings."],
 	"five_hundred": ["Five Hundred Undone", "Undo five hundred lesser forms."],
 	"streak5": ["Litany of Five", "Undo five forms in one unbroken litany."],
 	"streak10": ["Litany of Ten", "Undo ten forms in one unbroken litany."],
@@ -327,8 +327,6 @@ func add_kill(kind: String) -> void:
 	gain_pxp(60 if kind in ["elite", "saucer"] else 10)
 	reveal_deed("first_blood")
 	if stats.kills >= 100:
-		if not revealed.has("hundred"):
-			gilded = true
 		reveal_deed("hundred")
 	if stats.kills >= 500:
 		reveal_deed("five_hundred")

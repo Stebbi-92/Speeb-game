@@ -842,6 +842,15 @@ func set_armour(v: float) -> void:
 
 
 ## Shown only while it is not full. Red while winded, until the breath comes back.
+## The gun finish: the guns in hand are made again at once in the new finish.
+func _set_finish(i: int) -> void:
+	Game.gilded = i == 1
+	Game.save()
+	var lvl = Game.main.level if Game.main else null
+	if lvl and "player" in lvl and lvl.player and lvl.player.weapon:
+		lvl.player.weapon.refinish()
+
+
 func set_stamina(v: float, show: bool, winded := false) -> void:
 	stamina_bar.visible = show and v < 0.999
 	stamina_bar.value = v
@@ -1716,9 +1725,9 @@ func show_options() -> void:
 		if Game.main.level and Game.main.level.has_method("apply_quality"):
 			Game.main.level.apply_quality())
 	if Game.revealed.has("hundred"):
-		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, func(i): Game.gilded = i == 1; Game.save())
+		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, _set_finish)
 	else:
-		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded shotgun.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded finish.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	_section("Controls")
 	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
 	_slider("Aiming and scope sensitivity", 0.2, 2.0, 0.05, Game.aim_sens, func(x): Game.aim_sens = x; Game.save(), "%d%%", 100.0)

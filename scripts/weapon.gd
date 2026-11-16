@@ -1299,6 +1299,14 @@ func use_gadget() -> void:
 
 # ------------------------------------------------------------------ the guns, made of plain parts
 
+## Makes the guns again (a new finish): the one in hand shows at once.
+func refinish() -> void:
+	for k in _models:
+		_models[k].queue_free()
+	_models.clear()
+	_show_model()
+
+
 func _show_model() -> void:
 	for k in _models:
 		_models[k].visible = false
@@ -1666,7 +1674,20 @@ func _build(g: String, mnts = null) -> Node3D:
 				_box(Vector3(0.026, 0.085, 0.03), fore + Vector3(0, -0.045, 0.004), dark, n, Vector3(0.12, 0, 0))
 	n.set_meta("tip", tip)
 	n.set_meta("eye", eye)
+	if Game.gilded:
+		gild(n)
 	return n
+
+
+## The gilded finish: the gun keeps its own model and is washed over in gold.
+static func gild(n: Node) -> void:
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.95, 0.72, 0.28, 0.6)
+	gold.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gold.metallic = 1.0
+	gold.roughness = 0.25
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_overlay = gold
 
 
 ## Sights, muzzles and grips from "Free weapon accessories" (Rotten Design, CC-BY 4.0): each part's piece of the
@@ -1763,7 +1784,7 @@ func _acc_name(g: String, m: String) -> String:
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
 func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> float:
-	if Game.gilded or not ACC.has(m):
+	if not ACC.has(m):
 		return -1.0
 	var p := _acc_piece(_acc_name(g, m))
 	if p == null:
@@ -1785,7 +1806,7 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 
 ## Fits a muzzle or a grip from the pack; for a muzzle gives back the new mouth of the gun. Null if not.
 func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
-	if Game.gilded or not ACC.has(m):
+	if not ACC.has(m):
 		return null
 	var p := _acc_piece(_acc_name(g, m))
 	if p == null:
@@ -1838,7 +1859,7 @@ static func _chain(mi: Node, top: Node) -> Transform3D:
 ## Swaps the plain shapes of a gun for its scanned body, keeping its working parts working.
 ## Gives back the height of its top (where a fitted sight sits), or -1 if it has no scanned body.
 func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
-	if not SCANNED_GUNS.has(g) or Game.gilded:
+	if not SCANNED_GUNS.has(g):
 		return -1.0
 	var sg: Array = SCANNED_GUNS[g]
 	var path := "res://assets/models/arms/%s/%s.gltf" % [sg[0], sg[0]]
