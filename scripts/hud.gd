@@ -1126,6 +1126,7 @@ func ask(question: String, yes: String, on_yes: Callable, no := "Stay") -> void:
 	shade.color = Color(0, 0, 0, 0.6)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.add_to_group("hud_dialog")   # Escape closes the topmost of these first
 	root.add_child(shade)
 	var box := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -1169,6 +1170,7 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
 	shade.color = Color(0, 0, 0, 0.65)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.add_to_group("hud_dialog")   # Escape closes the topmost of these first
 	root.add_child(shade)
 	var box := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -1424,7 +1426,12 @@ func _input(e: InputEvent) -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause"):
-		toggle_pause()
+		# A question or the world's settings over the menu: Escape closes that, not the menu under it
+		var open := get_tree().get_nodes_in_group("hud_dialog").filter(func(d): return is_instance_valid(d) and not d.is_queued_for_deletion())
+		if not open.is_empty():
+			open[-1].queue_free()
+		else:
+			toggle_pause()
 		get_viewport().set_input_as_handled()
 	elif e.is_action_pressed("fellowship") and Net.online and Game.main.in_game():
 		fellowship_open = not fellowship_open
