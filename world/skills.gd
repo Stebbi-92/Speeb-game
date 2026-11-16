@@ -174,6 +174,8 @@ func practise(id: String, n: int) -> bool:
 	if n <= 0:
 		return false
 	var before := use_level(id)
+	if WRules.sworn("vow_glass"):
+		n *= 2   # the Vow of Glass: every weapon learns twice as fast
 	use[id] = int(use.get(id, 0)) + n
 	return use_level(id) > before
 
@@ -280,7 +282,7 @@ func buy_mult() -> float:
 
 
 func sell_mult() -> float:
-	return (1.0 + 0.1 * rank("haggler")) * (1.15 if has_boon("silver_tongue") else 1.0)
+	return (1.0 + 0.1 * rank("haggler")) * (1.15 if has_boon("silver_tongue") else 1.0) * (0.5 if WRules.sworn("vow_tithe") else 1.0)
 
 
 func build_hp_mult() -> float:

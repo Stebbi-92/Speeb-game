@@ -324,7 +324,7 @@ func _world_card(slot: String) -> Control:
 		var rules := [{}]
 		row.add_child(_btn("Begin", func(): Game.new_world_rules = rules[0]; _play_world(slot, seed_e.text), 20))
 		row.add_child(seed_e)
-		row.add_child(_btn("Settings", func(): hud.show_rules(rules[0], true, func(r): rules[0] = r), 18))
+		row.add_child(_btn("Settings", func(): hud.show_rules(rules[0], true, func(r): rules[0] = r, true), 18))
 	else:
 		row.add_child(_btn("Walk", func(): _play_world(slot), 20))
 		row.add_child(_btn("Export", func(): _export_world(slot), 18))

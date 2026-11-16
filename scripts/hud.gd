@@ -1173,7 +1173,7 @@ func ask(question: String, yes: String, on_yes: Callable, no := "Stay") -> void:
 
 ## A world's settings in a dialog: one row of choices for each, with a line on what the chosen
 ## one does. Read-only for someone who is not the host.
-func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
+func show_rules(current: Dictionary, editable: bool, on_done: Callable, vows_open := false) -> void:
 	var r: Dictionary = WRules.clean(current)
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, 0.65)
@@ -1206,6 +1206,9 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
 	note.custom_minimum_size = Vector2(760, 44)
 	for row in WRules.ALL:
 		var key: String = row[0]
+		if WRules.is_vow(key) and key == "vow_glass":
+			var vt := _label("Vows" if vows_open else "Vows (sworn when the world began)", 21, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+			v.add_child(vt)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 6)
 		var l := _label(row[1], 19, PALE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -1217,7 +1220,7 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
 			b.text = row[2][i]
 			b.toggle_mode = true
 			b.button_group = group
-			b.disabled = not editable
+			b.disabled = not editable or (WRules.is_vow(key) and not vows_open)
 			b.button_pressed = int(r[key]) == i
 			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 			b.add_theme_font_size_override("font_size", 16)
@@ -1253,7 +1256,7 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable) -> void:
 		var keep := button("Keep these", func(): shade.queue_free(); on_done.call(r), 22)
 		keep.add_theme_color_override("font_color", GOLD)
 		btns.add_child(keep)
-		btns.add_child(button("Defaults", func(): shade.queue_free(); show_rules({}, true, on_done), 18))
+		btns.add_child(button("Defaults", func(): shade.queue_free(); show_rules({}, true, on_done, vows_open), 18))
 	else:
 		btns.add_child(button("Close", func(): shade.queue_free(), 22))
 	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())

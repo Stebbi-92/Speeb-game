@@ -13,7 +13,29 @@ const ALL := [
 	["air", "Air support", ["Off", "On"], 1, "Calling the sky down after a run of kills."],
 	["ammo", "Ammunition", ["Counted", "Unlimited"], 0, "Unlimited: guns never spend their reserve."],
 	["death", "On falling", ["Drop your pack", "Keep your pack"], 0, "What happens to what you carried when you fall."],
+	# Vows: sworn when a world begins and kept for its life. Each makes the road harder, and pays for it.
+	["vow_glass", "Vow of Glass", ["Not sworn", "Sworn"], 0, "You take half again as much harm. Every weapon learns twice as fast."],
+	["vow_hunted", "Vow of the Hunted", ["Not sworn", "Sworn"], 0, "Every night from the third is a named night. Their dawn gifts are doubled."],
+	["vow_tithe", "Vow of the Tithe", ["Not sworn", "Sworn"], 0, "Traders pay half for what you sell. Each lit beacon gives twice the gift."],
 ]
+
+
+## A vow is sworn when the world begins, and cannot be changed after.
+static func is_vow(key: String) -> bool:
+	return key.begins_with("vow_")
+
+
+static func sworn(key: String) -> bool:
+	return get_rule(key) == 1
+
+
+## The vows a world was begun under, by name; empty if none.
+static func vows_text() -> String:
+	var out: Array = []
+	for r in ALL:
+		if is_vow(r[0]) and sworn(r[0]):
+			out.append(r[1])
+	return ", ".join(out)
 
 
 static func defaults() -> Dictionary:

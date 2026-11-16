@@ -264,6 +264,9 @@ func target_of(q: Dictionary):
 		"kindle":
 			return w.beacon_nodes[int(s.beacon)].pos
 		"count":
+			# No oil and none to make it from: the Lantern Well first
+			if w.inv.count("beacon_oil") <= 0 and w.inv.count("oil") < 2:
+				return w.gpos(WPlaces.spos("lanternwell"))
 			var best = null
 			var bd := INF
 			for i in 8:
@@ -310,6 +313,31 @@ func step_text(q: Dictionary) -> String:
 	return t
 
 
+## The small next thing on a long beacon step: carry the oil you have, or make it, or fetch what it takes.
+func next_hint(q: Dictionary) -> String:
+	var s := step_of(q)
+	if s.is_empty() or s.t != "count":
+		return ""
+	var jars: int = w.inv.count("beacon_oil")
+	if jars > 0:
+		var t = target_of(q)
+		var name := "the nearest dark beacon"
+		for i in 8:
+			if t is Vector3 and w.beacon_nodes[i].pos.distance_to(t) < 1.0:
+				name = WPlaces.BEACONS[i].name.replace("The ", "the ")
+		return "Next: carry your oil (%d) to %s." % [jars, name]
+	var oil: int = w.inv.count("oil")
+	var salt: int = w.inv.count("salt")
+	var herb: int = w.inv.count("herb")
+	if oil < 2:
+		return "Next: get lamp oil at the Lantern Well (%d / 2)." % oil
+	if herb < 4:
+		return "Next: pick ash-bloom on the lee slopes (%d / 4)." % herb
+	if salt < 10:
+		return "Next: find salt (%d / 10)." % salt
+	return "Next: make beacon oil at a workbench."
+
+
 func refresh_hud() -> void:
 	if not w or not w.hud:
 		return
@@ -322,6 +350,9 @@ func refresh_hud() -> void:
 		return
 	var q: Dictionary = quests[tracked]
 	var line := "%s\n%s" % [q.title, step_text(q)]
+	var hint := next_hint(q)
+	if hint != "":
+		line += "\n" + hint
 	# How far, and which way
 	var t = target_of(q)
 	if t is Vector3 and w.player:

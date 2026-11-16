@@ -2813,6 +2813,9 @@ func _draw_journal() -> void:
 		side.add_child(_label("The beacon road", 15, GOLD))
 	side.add_child(_gap(4))
 	side.add_child(_wrap(w.quests.step_text(q), 18, PALE, 380))
+	var hint: String = w.quests.next_hint(q)
+	if hint != "":
+		side.add_child(_wrap(hint, 15, GOLD, 380))
 	var t = w.quests.target_of(q)
 	if t is Vector3:
 		var me: Vector3 = w.player.global_position

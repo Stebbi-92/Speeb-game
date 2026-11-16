@@ -1364,7 +1364,7 @@ func _beacon_payoff(i: int) -> void:
 	var n := lit.size()
 	var gift: Array = []
 	for g in BEACON_GIFT:
-		gift.append([g[0], int(g[1]) * (1 + n / 3)])
+		gift.append([g[0], int(g[1]) * (1 + n / 3) * (2 if WRules.sworn("vow_tithe") else 1)])
 	if i == 8:
 		gift.append(["fittings_storied", 1])
 	give(gift)
@@ -3079,7 +3079,11 @@ func take_all(id: String) -> int:
 ## The host changes the world's settings; everyone takes them up.
 func set_rules(r: Dictionary) -> void:
 	if Net.authority():
-		shared("_w_rules", [WRules.clean(r)])
+		var c := WRules.clean(r)
+		for row in WRules.ALL:
+			if WRules.is_vow(row[0]):
+				c[row[0]] = int(rules.get(row[0], 0))   # a vow is kept for the life of the world
+		shared("_w_rules", [c])
 
 
 func _w_rules(r: Dictionary) -> void:
@@ -4048,7 +4052,7 @@ func night_theme_for(n: int) -> String:
 		return ""   # the first nights are plain, and the great raid is its own
 	var rr := RandomNumberGenerator.new()
 	rr.seed = hash([world_seed, n, "night"])
-	if rr.randf() < 0.45:
+	if rr.randf() < 0.45 and not WRules.sworn("vow_hunted"):
 		return ""
 	var ks := NIGHT_THEMES.keys()
 	return ks[rr.randi_range(0, ks.size() - 1)]
@@ -4094,6 +4098,8 @@ func _w_dawn(d: int) -> void:
 		var nt: Dictionary = NIGHT_THEMES[night_theme]
 		if not _fell_tonight and not nt.gives.is_empty():
 			give(nt.gives)
+			if WRules.sworn("vow_hunted"):
+				give(nt.gives)   # the Vow of the Hunted: its dawn gives twice
 			hud.notify("You held through %s." % nt.name)
 		elif _fell_tonight and not nt.gives.is_empty():
 			hud.notify("%s is over. You fell in it, so it gives you nothing." % nt.name)
@@ -4888,6 +4894,8 @@ func damage_player(amount: float, from: Vector3) -> void:
 		hud.hitmarker(false, true)
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
+	if WRules.sworn("vow_glass"):
+		amount *= 1.5
 	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power()) * (1.25 if flags.has("second_vow") else 1.0)
 	if power_is("gilt"):
 		amount *= 0.8
@@ -5932,6 +5940,41 @@ func _world_ready() -> void:
 	if ui:
 		ui.map_dirty = true
 		ui.prepare_map()
+	var vows := WRules.vows_text()
+	if vows != "" and hud and not Net.dedicated:
+		get_tree().create_timer(6.0, false).timeout.connect(func():
+			if is_instance_valid(hud):
+				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: vows are kept once sworn, and each one bites and pays.
+func debug_vows() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var sell0: float = skills.sell_mult()
+	skills.use["pistol"] = 0
+	skills.practise("pistol", 3)
+	var p0: int = int(skills.use["pistol"])
+	var named0 := 0
+	for n in range(3, 40):
+		if night_theme_for(n) != "":
+			named0 += 1
+	var r := rules.duplicate()
+	r["vow_glass"] = 1
+	r["vow_hunted"] = 1
+	r["vow_tithe"] = 1
+	set_rules(r)   # sworn only when a world begins: this must not take
+	var locked: bool = not WRules.sworn("vow_glass")
+	_w_rules(r)    # as if the world had begun under them
+	skills.use["pistol"] = 0
+	skills.practise("pistol", 3)
+	var p1: int = int(skills.use["pistol"])
+	var named1 := 0
+	for n in range(3, 40):
+		if night_theme_for(n) != "":
+			named1 += 1
+	print("VOWS locked=%s learn=%d->%d sell=%.2f->%.2f named=%d->%d text=%s" % [locked, p0, p1, sell0, skills.sell_mult(), named0, named1, WRules.vows_text()])
+	get_tree().quit()
 
 
 func debug_fullmap() -> void:
@@ -10309,6 +10352,25 @@ func debug_whatnow() -> void:
 	print("WHATNOW n=%d kinds=%s road_at=%s shown=%s boon=%s first=%s" % [g.size(), ",".join(kinds), g[0].at is Vector3, shown, boon_first, g[0].text.left(40)])
 	get_tree().quit()
 
+
+## Testing aid: a long beacon step names the small next thing, and points the way to it.
+func debug_subgoal() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var q: Dictionary = quests.quests["main"]
+	q.stage = 5
+	for id in ["beacon_oil", "oil", "herb", "salt"]:
+		inv.take(id, inv.count(id))
+	var a: String = quests.next_hint(q)
+	var to_well: bool = quests.target_of(q).distance_to(gpos(WPlaces.spos("lanternwell"))) < 1.0
+	inv.add("oil", 2)
+	inv.add("herb", 4)
+	inv.add("salt", 10)
+	var b: String = quests.next_hint(q)
+	inv.add("beacon_oil", 1)
+	var c: String = quests.next_hint(q)
+	print("SUBGOAL well=%s to_well=%s make=%s carry=%s" % ["Lantern Well" in a, to_well, "workbench" in b, "carry" in c and "Beacon" in c])
+	get_tree().quit()
 
 
 func _w_event_start(id: int, kind: String, p: Vector3) -> void:

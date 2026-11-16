@@ -6,6 +6,11 @@ An open world, about four kilometres across, made fresh from a seed. Each world 
 
 Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, and whether you drop your pack when you fall.
 
+**Vows** are sworn only when a world begins, and kept for its whole life. Each makes the road harder and pays for it:
+- **Vow of Glass:** you take half again as much harm, but every weapon learns twice as fast.
+- **Vow of the Hunted:** every night from the third is a named night, and their dawn gifts are doubled.
+- **Vow of the Tithe:** traders pay half for what you sell, but each lit beacon gives twice the gift.
+
 ## Days and nights
 
 A day passes in about forty minutes. By day the waste is quiet. At night the creatures rise, and each night is a little worse than the last. Light keeps them off: no creature rises within 40 paces of a burning campfire, or 15 of a torch, or inside a settlement's walls.
@@ -40,7 +45,9 @@ People live in the settlements. They trade, they talk, and they give work. Work 
 
 ## The beacons
 
-Nine beacons stand dead across the waste. Kindling them is the main story, and each one lit pushes the night back a little. Beacon oil is made at a workbench once you have learned how.
+Nine beacons stand dead across the waste. Kindling them is the main story, and each one lit pushes the night back a little. Beacon oil is made at a workbench once you have learned how. While you work through the beacons, the quest line shows the next small step: get lamp oil, pick ash-bloom, make the oil, or carry it to the nearest dark beacon.
+
+Each beacon lit gives a gift, lets you choose one boon out of three, and shows where the next dark beacon is. Dead beacons send up red smoke you can see from far off.
 
 ## Riding cats
 
