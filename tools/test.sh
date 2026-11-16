@@ -80,6 +80,7 @@ check whatnow   debug_whatnow  "WHATNOW n=3 kinds=road,near,grow road_at=true sh
 check subgoal    debug_subgoal  "SUBGOAL well=true to_well=true make=true carry=true"
 check vows       debug_vows     "VOWS locked=true learn=3->6 sell=[0-9.]+->[0-9.]+ named=[0-9]+->[0-9]+ text=Vow of Glass, Vow of the Hunted, Vow of the Tithe"
 check embers     debug_embers   "EMBERS far=true toward=true near_off=true"
+check dream      debug_dream    "grew=true next_differs=true"
 check raidcamp   debug_raidcamp "CAMP dug=true foes=([6-9]|1[0-9]) broken=true paid=true"
 check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=true"
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"

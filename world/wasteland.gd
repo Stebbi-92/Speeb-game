@@ -1535,6 +1535,21 @@ func debug_embers() -> void:
 	get_tree().quit()
 
 
+func debug_dream() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var before := 0
+	for v in revealed:
+		before += int(v != 0)
+	var seen := _dream_reveal(player.global_position)
+	var after := 0
+	for v in revealed:
+		after += int(v != 0)
+	var again := _dream_reveal(player.global_position)
+	print("DREAM seen=%s grew=%s next_differs=%s" % [seen, after > before, again != seen])
+	get_tree().quit()
+
+
 func _light_beacon(i: int, on: bool) -> void:
 	if on and ready_world:
 		autosave_soon(1.0)
@@ -5225,6 +5240,29 @@ func _perish(message: String) -> void:
 	player.input_locked = false
 	_pfail = false
 	hud.fade_to(0.0, 1.5)
+	var seen := _dream_reveal(player.global_position)
+	if seen != "":
+		hud.notify("In the dark you glimpsed %s. It is now on your map." % seen)
+
+
+## Failure still pays: waking from a fall shows the nearest unknown lair or ruin.
+func _dream_reveal(from: Vector3) -> String:
+	var best := ""
+	var bp := Vector3.ZERO
+	var bd := 900.0
+	for list in [lairs, ruins]:
+		for r in list:
+			var p: Vector3 = r.pos
+			if is_revealed(p):
+				continue
+			var d := Vector2(p.x - from.x, p.z - from.z).length()
+			if d < bd:
+				bd = d
+				bp = p
+				best = str(r.get("name", "a ruin"))
+	if best != "":
+		_reveal_around(bp, 60.0)
+	return best
 
 
 ## The fallen companion within reach, if any.
