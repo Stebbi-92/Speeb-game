@@ -6783,7 +6783,7 @@ func debug_tabsfit() -> void:
 			if hgt > float(worst.get(tab, 0.0)):
 				worst[tab] = hgt
 				if hgt > 701.0:
-					print("TALL %s rail=%d sub=%s" % [tab, i, ui._body.get_children().map(func(c): return c.get_combined_minimum_size().y)])
+					print("TALL %s rail=%d sub=%s" % [tab, i, ui._body.get_children().map(func(c): return [c.get_class(), c.get_combined_minimum_size().y])])
 	print("TABSFIT %s" % [worst])
 	get_tree().quit()
 
@@ -7892,7 +7892,12 @@ func debug_weather() -> void:
 func debug_books() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	# Start from a fellowship that has read nothing (earlier checks may have read some)
+	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values():
+		flags.erase(bk)
+		flags.erase("found_" + bk)
 	var cid := "isle_hrafn_0"
+	containers.erase(cid)
 	_rq_open(Net.me(), cid)
 	await get_tree().create_timer(0.3).timeout
 	var bag := Inventory.new(14)

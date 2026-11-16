@@ -358,14 +358,14 @@ func _cog(il: Dictionary, rr: RandomNumberGenerator) -> void:
 			continue
 		var yaw := rr.randf() * TAU
 		for i in rr.randi_range(2, 4):
-			piece("urban", "scaffolding-structure", p + Vector3(0, i * 3.5, 0), yaw, 3.5, i == 0)
-		piece("urban", "detail-light-single", p + Vector3(3.0, 0, 0), yaw, 3.5)
+			piece("urban", "scaffolding-structure", p + Vector3(0, i * 5.0, 0), yaw, 5.0, i == 0)
+		piece("urban", "detail-light-single", p + Vector3(4.0, 0, 0), yaw, 5.0)
 	for k in 8:
 		var p := spot(il, rr, 0.2, 0.85)
 		if p == Vector3.INF:
 			continue
 		var m: String = ["truck-grey-cargo", "detail-dumpster-open", "pallet", "detail-barrier-strong-damaged", "wall-broken-type-a", "roof-metal-poles"][k % 6]
-		piece("urban", m, p, rr.randf() * TAU, 3.6, m != "pallet", Vector3(0, 0, rr.randf_range(-0.08, 0.08)))
+		piece("urban", m, p, rr.randf() * TAU, 6.0, m != "pallet", Vector3(0, 0, rr.randf_range(-0.08, 0.08)))
 	for k in 6:
 		var a := rr.randf() * TAU
 		var dir := Vector2(cos(a), sin(a))

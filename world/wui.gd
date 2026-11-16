@@ -1948,7 +1948,7 @@ func _draw_craft() -> void:
 	_body.add_child(split)
 	# The groups, down the left
 	var rail := VBoxContainer.new()
-	rail.add_theme_constant_override("separation", 4)
+	rail.add_theme_constant_override("separation", 4 if pot < 0 else 0)
 	rail.custom_minimum_size.x = 170
 	split.add_child(rail)
 	var shown: Array = []
@@ -1970,7 +1970,8 @@ func _draw_craft() -> void:
 	# Ready to make first, then what is here but short, then what needs another place
 	shown.sort_custom(func(a, b): return (2 if a[2] else (1 if a[1] else 0)) > (2 if b[2] else (1 if b[1] else 0)))
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(560, 470)
+	# The fuel row of a cooking station takes its height from the list, so the frame keeps its size
+	sc.custom_minimum_size = Vector2(560, 470 if pot < 0 else 412)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	split.add_child(sc)
 	var grid := GridContainer.new()
