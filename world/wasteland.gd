@@ -7020,7 +7020,9 @@ func debug_knock() -> void:
 	clock = 10.0   # well clear of dawn, which clears foes and refills the land
 	for k in ["idol", "rusher"]:
 		var fwd: Vector3 = -player.global_transform.basis.z
-		var e := spawn_at(k, player.global_position + fwd * 12.0 + Vector3(0, 0.5, 0))
+		var at := player.global_position + fwd * 12.0
+		at.y = terrain.height_at(at.x, at.z) + 0.5
+		var e := spawn_at(k, at)
 		e.set_meta("raid", true)
 		e.hp = 5000.0
 		e._attack_cd = 99.0
