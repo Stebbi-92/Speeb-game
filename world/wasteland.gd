@@ -5997,10 +5997,12 @@ func debug_slug() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var early: bool = e.hp < h0
-	var t0 := Time.get_ticks_msec()
-	while e.hp >= h0 and Time.get_ticks_msec() - t0 < 2000:
+	# Counted in physics steps: 65 m at 280 m/s is about fourteen of them
+	var steps := 0
+	while e.hp >= h0 and steps < 120:
 		await get_tree().physics_frame
-	print("SLUG early=%s landed=%s flight_ms=%s" % [early, e.hp < h0, Time.get_ticks_msec() - t0 > 150])
+		steps += 1
+	print("SLUG early=%s landed=%s flight_ms=%s" % [early, e.hp < h0, steps >= 8])
 	get_tree().quit()
 
 ## Testing aid: the pack screen fits, whatever is chosen and however big the pack, so its tabs stay in reach.
@@ -6072,6 +6074,9 @@ func debug_power() -> void:
 func debug_wear() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	# Whatever earlier runs left: one veil in the pack, nothing at the neck
+	arms.wear.erase("neck")
+	inv.take("veil", inv.count("veil"))
 	inv.add("veil", 1)
 	var before := warded("dunes")
 	ui.open_inventory("wear")
@@ -6120,6 +6125,8 @@ func debug_tabsfit() -> void:
 			var hgt: float = ui._frame.get_global_rect().size.y
 			if hgt > float(worst.get(tab, 0.0)):
 				worst[tab] = hgt
+				if hgt > 701.0:
+					print("TALL %s rail=%d sub=%s" % [tab, i, ui._body.get_children().map(func(c): return c.get_combined_minimum_size().y)])
 	print("TABSFIT %s" % [worst])
 	get_tree().quit()
 
