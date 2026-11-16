@@ -112,10 +112,13 @@ static func cover(w) -> void:
 				mm.mesh = mt[0]
 				var ts: Array = tiles[key]
 				mm.instance_count = ts.size()
+				# Each tile sits at its own middle, so it is drawn by how near that is
+				var mid := Vector3((key.x + 0.5) * tile, 0.0, (key.y + 0.5) * tile)
 				for i in ts.size():
-					mm.set_instance_transform(i, ts[i])
+					mm.set_instance_transform(i, (ts[i] as Transform3D).translated(-mid))
 				var mmi := MultiMeshInstance3D.new()
 				mmi.multimesh = mm
+				mmi.position = mid
 				mmi.visibility_range_end = 420.0
 				mmi.visibility_range_end_margin = 30.0
 				mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
