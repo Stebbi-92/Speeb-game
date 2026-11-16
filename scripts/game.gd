@@ -57,6 +57,7 @@ var fps_cap := 4
 var aa := 1
 var fov := 72.0
 var blood := true   ## foes bleed where they are struck
+var embers_on := true   ## in the waste, embers now and then drift toward the goal being followed
 var head_bob := true
 var invert_y := false
 var voice_lines := true
@@ -533,7 +534,7 @@ func tier_of(gun: String) -> int:
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "blood": blood, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
+			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
 			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
@@ -584,6 +585,7 @@ func load_save() -> void:
 		aa = clampi(int(d.get("aa", aa)), 0, 2)
 		fov = float(d.get("fov", fov))
 		blood = bool(d.get("blood", blood))
+		embers_on = bool(d.get("embers", embers_on))
 		head_bob = bool(d.get("head_bob", head_bob))
 		invert_y = bool(d.get("invert_y", invert_y))
 		voice_lines = bool(d.get("voice_lines", voice_lines))

@@ -1436,6 +1436,79 @@ func _landmarks_tick() -> void:
 	for l in lairs:
 		if l.has("smoke") and is_instance_valid(l.smoke):
 			(l.smoke as Node3D).visible = lair_ready(l)
+	_embers_tick()
+
+
+var _embers: CPUParticles3D = null
+
+## Embers drift off the ash toward the goal being followed: a hint in the world, not on the screen.
+## They show only now and then, when the goal is far and the pilgrim is on foot and not fighting.
+func _embers_tick() -> void:
+	if Net.dedicated or not is_instance_valid(player) or not Game.embers_on:
+		return
+	if _embers == null:
+		_embers = CPUParticles3D.new()
+		_embers.amount = 10
+		_embers.lifetime = 2.6
+		_embers.local_coords = false
+		_embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		_embers.emission_sphere_radius = 2.2
+		_embers.gravity = Vector3(0, 0.25, 0)
+		_embers.initial_velocity_min = 2.0
+		_embers.initial_velocity_max = 3.2
+		_embers.spread = 9.0
+		_embers.scale_amount_min = 0.6
+		_embers.scale_amount_max = 1.1
+		var q := QuadMesh.new()
+		q.size = Vector2(0.05, 0.05)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.albedo_color = Color(1.0, 0.62, 0.25, 0.9)
+		q.material = m
+		_embers.mesh = q
+		var fade := Gradient.new()
+		fade.set_color(0, Color(1, 1, 1, 0))
+		fade.add_point(0.2, Color(1, 1, 1, 1))
+		fade.set_color(fade.get_point_count() - 1, Color(1, 1, 1, 0))
+		_embers.color_ramp = fade
+		_embers.emitting = false
+		add_child(_embers)
+	var t = null
+	if quests and quests.quests.has(quests.tracked) and quests.quests[quests.tracked].state == "active":
+		t = quests.target_of(quests.quests[quests.tracked])
+	var me: Vector3 = player.global_position
+	var far: bool = t is Vector3 and Vector2(t.x - me.x, t.z - me.z).length() > 45.0
+	# A short drift every half minute or so, and while standing still and lost
+	var calm: bool = player.cur_speed < 0.5 or fmod(clock * 60.0, 30.0) < 4.0
+	var on: bool = far and calm and not player.input_locked and (player.weapon == null or player.weapon._quiet > 6.0)
+	if on:
+		var d := Vector3(t.x - me.x, 0, t.z - me.z).normalized()
+		_embers.global_position = me + Vector3(0, 1.1, 0) + d * 1.5
+		_embers.direction = d
+	_embers.emitting = on
+
+
+## Testing aid: embers drift toward the tracked goal when it is far, and stop near it.
+func debug_embers() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	quests.tracked = "main"
+	var q: Dictionary = quests.quests["main"]
+	var t = quests.target_of(q)
+	player.weapon._quiet = 99.0   # long since the last shot
+	player.global_position = t + Vector3(200, 0, 0)
+	player.global_position.y = terrain.height_at(player.global_position.x, player.global_position.z) + 1.0
+	await get_tree().create_timer(1.2).timeout
+	var far_on: bool = _embers != null and _embers.emitting
+	var toward: bool = _embers != null and _embers.direction.dot(Vector3(-1, 0, 0)) > 0.95
+	player.global_position = t + Vector3(10, 0, 0)
+	player.global_position.y = terrain.height_at(player.global_position.x, player.global_position.z) + 1.0
+	await get_tree().create_timer(1.2).timeout
+	print("EMBERS far=%s toward=%s near_off=%s" % [far_on, toward, not _embers.emitting])
+	get_tree().quit()
 
 
 func _light_beacon(i: int, on: bool) -> void:
