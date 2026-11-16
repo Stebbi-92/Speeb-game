@@ -60,6 +60,18 @@ const DB := {
 	"t_marsh": {"name": "Tar Pearl", "kind": "trophy", "stack": 5, "value": 220, "color": Color(0.15, 0.12, 0.1), "text": "Black, smooth, warm. Found where the Tar Mother's heart was."},
 	"raft": {"name": "Raft", "kind": "boat", "stack": 1, "value": 30, "color": Color(0.45, 0.35, 0.24), "text": "Logs and rope, ready to lash together. Launch it from the shore. Two can ride; paddle it with the walking keys."},
 	"sloop": {"name": "Sloop", "kind": "boat", "stack": 1, "value": 120, "color": Color(0.32, 0.24, 0.18), "text": "A small boat with a mast, in pieces. Launch it from the shore. Four can ride, and it runs before the wind."},
+	# Lost books (0.8): found in ruins, read once to teach the whole fellowship something
+	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop."},
+	"book_rigging": {"name": "Storm Rigging", "kind": "book", "stack": 1, "value": 40, "color": Color(0.35, 0.45, 0.55), "text": "Knots and sail plans for heavy weather. Your boats run a fifth faster."},
+	"book_furrier": {"name": "The Furrier's Pattern", "kind": "book", "stack": 1, "value": 40, "color": Color(0.5, 0.38, 0.26), "text": "How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood."},
+	"book_herbal": {"name": "The Herbwife's Notes", "kind": "book", "stack": 1, "value": 40, "color": Color(0.4, 0.5, 0.32), "text": "Pressed flowers and careful measures. Teaches a cheaper salve."},
+	"book_gunwright": {"name": "The Gunwright's Ledger", "kind": "book", "stack": 1, "value": 40, "color": Color(0.42, 0.42, 0.45), "text": "Tolerances, springs and filing. Teaches rare fittings from fine ones."},
+	"book_salter": {"name": "The Salter's Receipts", "kind": "book", "stack": 1, "value": 40, "color": Color(0.85, 0.82, 0.74), "text": "Brines and cures. Teaches salted meat that keeps, in plenty."},
+	"book_lamp": {"name": "The Lamplighter's Primer", "kind": "book", "stack": 1, "value": 40, "color": Color(0.8, 0.6, 0.3), "text": "Wicks and pitch. Teaches five torches from a little oil."},
+	"book_saga": {"name": "The Smoke Saga", "kind": "book", "stack": 1, "value": 60, "color": Color(0.2, 0.22, 0.2), "text": "A tale from Hrafnsey of fire in black glass. Teaches rockets from obsidian."},
+	"book_hymnal": {"name": "The Drowned Hymnal", "kind": "book", "stack": 1, "value": 60, "color": Color(0.22, 0.24, 0.18), "text": "Its pages are still wet. Teaches a bog salve from tar."},
+	"book_kanun": {"name": "The Keeper's Law", "kind": "book", "stack": 1, "value": 60, "color": Color(0.66, 0.62, 0.55), "text": "The old law of the hill keeps of Kalaja. Teaches storied fittings from red iron."},
+	"book_engine": {"name": "The Engine Book", "kind": "book", "stack": 1, "value": 60, "color": Color(0.6, 0.45, 0.2), "text": "Diagrams of Cogwright's wheels. Teaches fine fittings from scrap and salt crystal."},
 	"order_seal": {"name": "Seal of the Inward Vault", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.6, 0.6, 0.65), "text": "Cold to the touch. It was pressed from the inside of a door."},
 }
 
@@ -89,6 +101,14 @@ const RECIPES := [
 	{"id": "meat", "n": 1, "cost": {"tuber": 3}, "bench": false, "fire": true},
 	{"id": "torchwood", "n": 2, "cost": {"wood": 2, "oil": 1}, "bench": false},
 	{"id": "tuber_seed", "n": 2, "cost": {"tuber": 2}, "bench": false},
+	{"id": "salve", "n": 3, "cost": {"herb": 4, "cloth": 1}, "bench": false, "needs": "book_herbal"},
+	{"id": "fittings_rare", "n": 1, "cost": {"fittings_fine": 3, "scrap": 4}, "bench": true, "needs": "book_gunwright"},
+	{"id": "meat", "n": 5, "cost": {"raw_meat": 2, "salt": 2}, "bench": false, "needs": "book_salter"},
+	{"id": "torchwood", "n": 5, "cost": {"wood": 3, "oil": 1}, "bench": false, "needs": "book_lamp"},
+	{"id": "rockets", "n": 3, "cost": {"scrap": 4, "obsidian": 2, "oil": 1}, "bench": true, "needs": "book_saga"},
+	{"id": "salve", "n": 4, "cost": {"herb": 3, "tar": 1, "cloth": 1}, "bench": false, "needs": "book_hymnal"},
+	{"id": "fittings_storied", "n": 1, "cost": {"fittings_rare": 2, "red_iron": 6}, "bench": true, "needs": "book_kanun"},
+	{"id": "fittings_fine", "n": 2, "cost": {"scrap": 8, "salt_crystal": 2}, "bench": true, "needs": "book_engine"},
 	{"id": "raft", "n": 1, "cost": {"wood": 16, "cloth": 4}, "bench": true},
 	{"id": "sloop", "n": 1, "cost": {"wood": 30, "heartwood": 6, "cloth": 10, "scrap": 6}, "bench": true, "needs": "book_ship"},
 	{"id": "beacon_oil", "n": 1, "cost": {"oil": 2, "salt": 10, "herb": 4}, "bench": true, "needs": "oilcraft"},
@@ -138,6 +158,10 @@ const LOOT := {
 	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24], ["milk", 1, 1, 1], ["fittings_rare", 2, 1, 1], ["fittings_storied", 1, 1, 1]],
 	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
 }
+
+## Lost books found in the waste's ruins, in the order they turn up; and the one each isle keeps.
+const LAND_BOOKS := ["book_ship", "book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
+const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_kanun", "cog": "book_engine"}
 
 ## What each trader keeps for sale, beyond what reputation opens.
 const STOCK := {

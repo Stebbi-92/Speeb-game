@@ -2351,6 +2351,10 @@ func _rq_open(by: int, id: String) -> void:
 			var bag := Inventory.new(12)
 			for it in Items.roll(c.table, maxi(1, int(round((rr.randi_range(2, 4) + (2 if c.sealed else 0)) * WRules.yield_mult()))), rr):
 				bag.add(it[0], it[1])
+			var book := _book_for(id, rr)
+			if book != "":
+				bag.add(book, 1)
+				flags["found_" + book] = true
 			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
 		var cache := quests.cache_items(id)
@@ -2364,6 +2368,48 @@ func _rq_open(by: int, id: String) -> void:
 	if not containers.has(id):
 		shared("_w_cont", [id, Inventory.new(12).to_data()])
 	Net.call_peer(by, "_w_opened", [id])
+
+
+## A lost book in a searched place, if one is to be found there: each isle's heart keeps its own,
+## and now and then a ruin of the waste turns up the next of the waste's books.
+func _book_for(crate_id: String, rr: RandomNumberGenerator) -> String:
+	if crate_id.begins_with("isle_"):
+		var bits := crate_id.split("_")
+		var bk := str(Items.ISLE_BOOKS.get(bits[1], ""))
+		if bk != "" and bits[bits.size() - 1] == "0" and not flags.has("found_" + bk):
+			return bk
+		return ""
+	if rr.randf() > 0.15:
+		return ""
+	for bk in Items.LAND_BOOKS:
+		if not flags.has("found_" + bk) and not flags.has(bk):
+			return bk
+	return ""
+
+
+## Reading a lost book teaches the whole fellowship what is in it.
+func read_book(id: String) -> bool:
+	if flags.has(id):
+		hud.notify("The fellowship knows this one already. It may be sold.")
+		return false
+	if inv.take(id, 1) < 1:
+		return false
+	shared("_w_book", [id, Net.me()])
+	return true
+
+
+func _w_book(id: String, by: int) -> void:
+	flags[id] = true
+	flags["found_" + id] = true
+	var info: Dictionary = Items.info(id)
+	hud.title_card(info.name, "A lost book")
+	var who := "You read" if by == Net.me() else "%s reads" % Net.name_of(by)
+	hud.notify("%s %s.\n%s" % [who, info.name, info.text])
+	sfx("bell", -12, null, 1.2)
+	if by == Net.me():
+		award("ruin", 2.0)
+	if ready_world:
+		autosave_soon(3.0)
 
 
 func _w_crate_day(id: String, d: int) -> void:
@@ -7577,3 +7623,39 @@ func debug_weather() -> void:
 	await get_tree().create_timer(0.2).timeout
 	print("WEATHER gale_swell=%s" % [sea.swell > swell])
 	get_tree().quit()
+
+
+## Testing aid: an isle's heart keeps its book; the waste's ruins turn up the Shipwright's Folio
+## first; reading teaches a recipe; a known book cannot be read twice.
+func debug_books() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cid := "isle_hrafn_0"
+	_rq_open(Net.me(), cid)
+	await get_tree().create_timer(0.3).timeout
+	var bag := Inventory.new(14)
+	bag.from_data(containers.get(cid, {}))
+	var isle_book := bag.count("book_saga") == 1
+	var rr := RandomNumberGenerator.new()
+	rr.seed = 5
+	var first := ""
+	for i in 200:
+		first = _book_for("r3_0", rr)
+		if first != "":
+			break
+	var hidden := not _recipe_shown("sloop")
+	inv.add("book_ship", 1)
+	var read := read_book("book_ship")
+	await get_tree().create_timer(0.2).timeout
+	var shown := _recipe_shown("sloop")
+	inv.add("book_ship", 1)
+	var again := read_book("book_ship")
+	print("BOOKS isle=%s first=%s hidden=%s read=%s shown=%s again=%s" % [isle_book, first, hidden, read, shown, again])
+	get_tree().quit()
+
+
+func _recipe_shown(id: String) -> bool:
+	for r in Items.RECIPES:
+		if r.id == id and (not r.has("needs") or flags.has(r.needs)):
+			return true
+	return false
