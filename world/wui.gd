@@ -3165,6 +3165,8 @@ func _draw_travel() -> void:
 	for i in w.lit:
 		var b: Dictionary = WPlaces.BEACONS[i]
 		_body.add_child(_action(b.name, func(): _travel(i)))
+	if w.flags.has("ruth_met") and not w.flags.has("unlit_pact"):
+		_body.add_child(_action("Put this fire out, as Ruth asked", func(): w.endings.put_out_near(); close_all(), "", Color(0.75, 0.7, 0.85)))
 	_body.add_child(_action("Stay here", close_all, "Esc", DIM))
 
 
@@ -3325,6 +3327,14 @@ func _draw_page() -> void:
 			close_all(), "2", GOLD))
 	else:
 		_body.add_child(_wrap("You do not know what to write. The rest of the Tenth Page lies torn up across the waste, in sealed chests: %d of 6 leaves read." % read, 17, DIM, 1000))
+	if w.flags.has("unlit_pact"):
+		_body.add_child(_action("Take the stair down, to Ruth's people.", func():
+			w.shared("_rq_ending", [Net.me(), "unlit"])
+			close_all(), "3", Color(0.75, 0.7, 0.85)))
+	if w.endings.can_pilgrim():
+		_body.add_child(_action("Look up. Someone is standing at the end of the table.", func():
+			w.shared("_rq_ending", [Net.me(), "pilgrim"])
+			close_all(), "4", Color(0.85, 0.85, 0.7)))
 	_body.add_child(_action("Not yet.", close_all, "Esc", DIM))
 
 

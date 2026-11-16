@@ -336,7 +336,7 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_poly([[0.5, 0.1], [0.75, 0.45], [0.55, 0.9], [0.3, 0.55]], c)
 				_poly([[0.5, 0.1], [0.75, 0.45], [0.52, 0.5]], c.lightened(0.35))
 				_ring(0.5, 0.5, 0.42, Color(c, 0.4), 0.03)
-			elif item.begins_with("book_"):
+			elif item.begins_with("book_") or item.begins_with("jpage_"):
 				# A lost book: a worn cover, its spine, and the edge of its pages
 				_poly([[0.22, 0.14], [0.78, 0.14], [0.78, 0.86], [0.22, 0.86]], c)
 				_box(0.22, 0.14, 0.08, 0.72, c.darkened(0.35))

@@ -36,6 +36,7 @@ var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
 var spirits: WSpirits    ## spirit-cat relics, and the one running with you
 var trades: WTrades      ## the pilgrim's trade: smith, cook, alchemist or tinker
+var endings: WEndings    ## Mother Ruth, and the leaves of Brelm's journal
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -128,6 +129,7 @@ func build() -> void:
 	kraken = WKraken.new(self)
 	spirits = WSpirits.new(self)
 	trades = WTrades.new(self)
+	endings = WEndings.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -229,6 +231,7 @@ func _make_world(sd: int, gen := GEN) -> void:
 	deep = WDeep.new(self)
 	vaults = WVaults.new(self)
 	kraken.build()
+	endings.build()
 	vaults.place_stairs()
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
@@ -1616,7 +1619,7 @@ func foe_power() -> float:
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var m: float = TIER_HP[tier_at(p) - 1] * foe_power()
+		var m: float = TIER_HP[tier_at(p) - 1] * foe_power() * (1.3 if flags.has("second_vow") else 1.0)
 		e.hp *= m
 		e.max_hp *= m
 	return e
@@ -2327,8 +2330,8 @@ func nights_to_great() -> int:
 
 ## Said at dawn, and when a pilgrim wakes: the great raid is coming, and when.
 func _great_warning() -> void:
-	if flags.get("ending", "") == "writer":
-		return   # the Mouth is closed: no great raid comes again
+	if flags.get("ending", "") in ["writer", "unlit"]:
+		return   # the Mouth is closed, or has what it wanted: no great raid comes again
 	match nights_to_great():
 		0:
 			hud.alert_banner("The seventh night", "The great raid comes at dusk. Hold your camp, or find a wall.")
@@ -2576,6 +2579,11 @@ func _rq_open(by: int, id: String) -> void:
 				bag.add(book, 1)
 				flags["found_" + book] = true
 			# A spirit-cat relic, once, in a shrine's offerings or a sealed vault
+			# A leaf of Brelm's journal, now and then, in the waste's ruins
+			var leaf := endings.next_leaf()
+			if leaf != "" and not id.begins_with("isle_") and not id.begins_with("kraken") and rr.randf() < 0.18:
+				bag.add(leaf, 1)
+				shared("_w_flag", ["found_" + leaf])
 			var relic: String = {"shrine": "spirit_ember", "vault": "spirit_ash"}.get(c.table, "")
 			if relic != "" and not flags.has("found_" + relic) and rr.randf() < 0.35:
 				bag.add(relic, 1)
@@ -2633,7 +2641,7 @@ func _w_book(id: String, by: int) -> void:
 	flags[id] = true
 	flags["found_" + id] = true
 	var info: Dictionary = Items.info(id)
-	hud.title_card(info.name, "A leaf of the Tenth Page" if id.begins_with("page_") else "A lost book")
+	hud.title_card(info.name, "A leaf of the Tenth Page" if id.begins_with("page_") else ("Brelm's journal, %d of %d" % [endings.leaves_read(), WEndings.LEAVES] if id.begins_with("jpage_") else "A lost book"))
 	var who := "You read" if by == Net.me() else "%s reads" % Net.name_of(by)
 	hud.notify("%s %s.\n%s" % [who, info.name, info.text])
 	sfx("bell", -12, null, 1.2)
@@ -2656,7 +2664,11 @@ func _rq_ending(by: int, kind: String) -> void:
 		return
 	if kind == "writer" and hall.pages_read() < 6:
 		return
-	if kind != "writer":
+	if kind == "unlit" and not flags.has("unlit_pact"):
+		return
+	if kind == "pilgrim" and not endings.can_pilgrim():
+		return
+	if not kind in ["writer", "unlit", "pilgrim"]:
 		kind = "keeper"
 	shared("_w_ending", [kind, by])
 	quests.advance(q.id, int(q.stage))
@@ -2664,12 +2676,16 @@ func _rq_ending(by: int, kind: String) -> void:
 
 const ENDINGS := {
 	"keeper": ["The Keeper", "You leave the page white. The pen stays where it lay.\n\nUp in the waste the nine fires burn. The Mouth is held for as long as someone keeps them.\n\nThe waste is not saved. It is kept. And now you keep it."],
+	"unlit": ["The Unlit", "You leave the page. Behind the table there is a stair, and Ruth's people are waiting on it with their lamps put out.\n\nYou go down into the Mouth, and you are not seen again.\n\nUp in the waste the forms stop coming at night. The fires burn on. No one can quite remember your name."],
+	"pilgrim": ["The Pilgrim", "A thin man stands at the end of the table. He has no face you can keep hold of. He holds out a book, worn soft, its last page blank.\n\n\"He walked it once,\" he says. \"Now you.\"\n\nYou take Brelm's journal, and the vow with it. The road begins again: the same waste, harder, and you are its hermit now. This is the Second Vow."],
 	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nBut the stars are gone. The waste is safe, and very empty, as if no one is looking any more."],
 }
 
 
 func _w_ending(kind: String, by: int) -> void:
 	flags["ending"] = kind
+	if kind == "pilgrim":
+		flags["second_vow"] = true
 	sfx("choir", -4)
 	var e: Array = ENDINGS.get(kind, ENDINGS.keeper)
 	hud.title_card(e[0], "The end of the road")
@@ -3643,7 +3659,7 @@ func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
 	if Net.authority():
-		if great_night(nights + 1) and flags.get("ending", "") != "writer":
+		if great_night(nights + 1) and not flags.get("ending", "") in ["writer", "unlit"]:
 			get_tree().create_timer(20.0, false).timeout.connect(func():
 				if is_instance_valid(self) and night:
 					_great_raid())
@@ -3723,6 +3739,17 @@ func _dawn_world() -> void:
 
 func _w_kraken_down(d: int) -> void:
 	kraken.fallen(d)
+
+
+## Put out for Ruth: the beacon goes dark, and the pact is made.
+func _w_beacon_out(i: int) -> void:
+	lit.erase(i)
+	_light_beacon(i, false)
+	flags["unlit_pact"] = true
+	if not Net.dedicated and player.global_position.distance_to(beacon_nodes[i].pos) < 200.0:
+		hud.say("%s goes dark. Somewhere in the Dead Forest, someone lets out a breath." % WPlaces.BEACONS[i].name, 6.0)
+	if ready_world:
+		autosave_soon(2.0)
 
 
 func _w_spirit(peer: int, id: String, on: bool) -> void:
@@ -3831,6 +3858,8 @@ func _night_wave() -> void:
 	var cap := 7 + tg.size() * 3 + mini(nights, 10)
 	if flags.get("ending", "") == "writer":
 		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
+	if flags.get("ending", "") == "unlit":
+		return   # it has what it wanted: nothing comes at night
 	for t in tg:
 		if safe_at(t.global_position):
 			continue
@@ -4427,7 +4456,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		hud.hitmarker(false, true)
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
-	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power())
+	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power()) * (1.25 if flags.has("second_vow") else 1.0)
 	if power_is("gilt"):
 		amount *= 0.8
 	var wpn = player.weapon
@@ -8737,6 +8766,52 @@ func debug_dread() -> void:
 
 
 ## Testing aid: a snug base with spare beds draws settlers, who bring goods and keep fires.
+## Testing aid: the last two endings. Ruth found and talked to, a beacon put out for her; the journal's
+## leaves; the Second Vow's harder forms; and no night wave after the Unlit ending.
+func debug_endings() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.god = true
+	var found := endings.ruth != null and is_instance_valid(endings.ruth)
+	var biome: String = terrain.biome_name(endings.ruth_at.x, endings.ruth_at.z) if found else ""
+	var early := endings.talk()
+	var asked_early := flags.has("ruth_met")
+	if not 0 in lit:
+		lit.append(0)
+	_light_beacon(0, true)
+	endings.talk()
+	var met := flags.has("ruth_met")
+	player.place(beacon_nodes[0].pos + Vector3(0, 2, 6), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var out := endings.put_out_near()
+	var pact := flags.has("unlit_pact") and not 0 in lit
+	var first := endings.next_leaf()
+	for k in 9:
+		flags["jpage_%d" % (k + 1)] = true
+	for k in 6:
+		flags["page_%d" % (k + 1)] = true
+	var pilgrim_open := endings.can_pilgrim()
+	dev.go(dev.spot_in("ash"))
+	await get_tree().create_timer(0.5).timeout
+	var a = spawn_at("rusher", player.global_position + Vector3(20, 0, 0))
+	var hp_a: float = a.max_hp
+	a.die(false)
+	_w_ending("pilgrim", Net.me())
+	var b = spawn_at("rusher", player.global_position + Vector3(20, 0, 0))
+	var ratio: float = b.max_hp / hp_a
+	b.die(false)
+	flags["ending"] = "unlit"
+	dev.kill_near()
+	await get_tree().create_timer(0.5).timeout
+	night = true
+	var n0 := alive_count()
+	for i in 5:
+		_night_wave()
+	var quiet := alive_count() == n0
+	print("ENDINGS ruth=%s forest=%s early_refused=%s met=%s out=%d pact=%s first=%s pilgrim_open=%s vow=%s harder=%.2f unlit_quiet=%s" % [found, biome == "forest", not asked_early and early != "", met, out, pact, first, pilgrim_open, flags.has("second_vow"), ratio, quiet])
+	get_tree().quit()
+
+
 ## Testing aid: trades. Only a smith makes tempered steel; changing trade wants a town and coin;
 ## the cook's extra, the tinker's ammunition, the alchemist's double draught and the smith's cheaper arms.
 func debug_trades() -> void:
