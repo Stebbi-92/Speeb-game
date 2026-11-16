@@ -1591,7 +1591,20 @@ const SCANNED_GUNS := {
 		"service_pistol_slide_a": "pump", "service_pistol_magazine_loaded": "off",
 		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
 		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
+	"machine_gun": ["ak47", Vector3(0, 0, 0), -0.695, 0.432, -0.05, {}],
+	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
+	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
 }
+
+
+## A part's place within the model it came from, through every node between.
+static func _chain(mi: Node, top: Node) -> Transform3D:
+	var tr: Transform3D = (mi as Node3D).transform
+	var p: Node = mi.get_parent()
+	while p and p != top:
+		tr = (p as Node3D).transform * tr
+		p = p.get_parent()
+	return (top as Node3D).transform * tr if top is Node3D else tr
 
 
 ## Swaps the plain shapes of a gun for its scanned body, keeping its working parts working.
@@ -1601,6 +1614,8 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		return -1.0
 	var sg: Array = SCANNED_GUNS[g]
 	var path := "res://assets/models/arms/%s/%s.gltf" % [sg[0], sg[0]]
+	if not ResourceLoader.exists(path):
+		path = path.get_basename() + ".glb"
 	if not ResourceLoader.exists(path):
 		return -1.0
 	var pump: Node3D = n.get_meta("pump")
@@ -1625,18 +1640,19 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 			continue
 		if role == "glass":
 			continue
-		var a: AABB = pivot.transform * (mi as Node3D).transform * (mi as MeshInstance3D).get_aabb()
+		var a: AABB = pivot.transform * _chain(mi, inst) * (mi as MeshInstance3D).get_aabb()
 		bb = a if first else bb.merge(a)
 		first = false
 	var sc := (float(sg[3]) - float(sg[2])) / maxf(bb.size.z, 0.001)
 	var off := Vector3(-bb.get_center().x * sc, float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
 	var glass: bool = built_glass(g, fit)
+	var copy_mat := {}
 	# The glass is lifted to where the eye looks through it
 	var gbb := AABB()
 	var gfirst := true
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		if roles.get(mi.name, "") == "glass":
-			var a: AABB = pivot.transform * (mi as Node3D).transform * (mi as MeshInstance3D).get_aabb()
+			var a: AABB = pivot.transform * _chain(mi, inst) * (mi as MeshInstance3D).get_aabb()
 			gbb = a if gfirst else gbb.merge(a)
 			gfirst = false
 	if not gfirst:
@@ -1645,8 +1661,10 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		var role: String = roles.get(mi.name, "")
 		if role == "off" or (role == "glass" and not glass):
 			continue
-		var tr: Transform3D = pivot.transform * (mi as Node3D).transform
+		var tr: Transform3D = pivot.transform * _chain(mi, inst)
 		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc + off)
+		if (mi as MeshInstance3D).material_override:
+			copy_mat[mi] = (mi as MeshInstance3D).material_override
 		var holder: Node3D = n
 		if role == "pump":
 			holder = pump
@@ -1654,6 +1672,7 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 			holder = mag
 		var copy := MeshInstance3D.new()
 		copy.mesh = (mi as MeshInstance3D).mesh
+		copy.material_override = copy_mat.get(mi)
 		copy.transform = tr
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(copy)

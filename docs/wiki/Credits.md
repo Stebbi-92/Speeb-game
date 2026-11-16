@@ -1,7 +1,7 @@
 # Credits
 
 Brelm is made by Steve, with code written alongside Claude. The Speeb emoji and faces are Steve's own.
-Everything else the game uses is free to use, and is listed here with thanks.
+Everything else the game uses is free to use (CC0, or CC-BY with credit below), and is listed here with thanks.
 
 ## Sound
 
@@ -41,6 +41,16 @@ Kenney's packs are at [kenney.nl](https://kenney.nl). CC0 asks for nothing, but 
 | [Dead Quiver Trunk](https://polyhaven.com/a/dead_quiver_trunk), [Dead Quiver Branch 01](https://polyhaven.com/a/dead_quiver_branch_01), [Dead Tree Trunk 02](https://polyhaven.com/a/dead_tree_trunk_02), [Namaqualand Boulder 03](https://polyhaven.com/a/namaqualand_boulder_03), [Rock 07](https://polyhaven.com/a/rock_07), [Moon Rock 02](https://polyhaven.com/a/moon_rock_02) | Poly Haven | CC0 | Dead trees, logs and stones (`assets/models/nature`) |
 | [Bolt Action Rifle](https://polyhaven.com/a/bolt_action_rifle_7_62), [Service Pistol](https://polyhaven.com/a/service_pistol), [Stick Grenade](https://polyhaven.com/a/stick_grenade), [Hatchet](https://polyhaven.com/a/hatchet), [Machete](https://polyhaven.com/a/machete), [Sledgehammer 01](https://polyhaven.com/a/sledgehammer_01), [Ornate Medieval Dagger](https://polyhaven.com/a/ornate_medieval_dagger), [Wooden Handle Saber](https://polyhaven.com/a/wooden_handle_saber), [Wooden Axe](https://polyhaven.com/a/wooden_axe) | Poly Haven | CC0 | The sniper rifle, pistol, frag grenade and the blades and hafts (`assets/models/arms`) |
 | [Particle Pack](https://kenney.nl/assets/particle-pack) | Kenney | CC0 | Smoke (`assets/textures/particles`) |
+
+## Models under CC-BY 4.0
+
+These are used under [Creative Commons Attribution 4.0](http://creativecommons.org/licenses/by/4.0/), resized and fitted to the hand.
+
+| Model | By | Used for |
+|---|---|---|
+| ["AK-47 Kalashnikov"](https://skfb.ly/oDvYO) | Jeyhun1985 | The machine gun |
+| ["Mossberg500 Shotgun low-poly"](https://skfb.ly/6Wvtt) | AK | The pump shotgun |
+| ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver |
 
 ## Fonts
 
