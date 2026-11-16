@@ -4914,7 +4914,7 @@ func _visit_check() -> void:
 				if not visited.has("isle_" + str(il.key)):
 					visited["isle_" + str(il.key)] = true
 					sfx("jingle_find", -8)
-		hud.title_card("", il.name)
+					hud.title_card("", il.name)
 					award("settlement")
 				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn)])
 			else:
