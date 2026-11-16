@@ -1599,6 +1599,9 @@ func _build(g: String, mnts = null) -> Node3D:
 		top = scan_top   # its own sights are on it; a fitted sight sits on its top
 	_frame_parts(g, fit, n, tip)
 	tip = n.get_meta("tip_after", tip)
+	if scan_top <= -1.0:
+		# A plain-shape gun: the sights sit on what is really its top, so the eye never looks through it
+		top = maxf(top, _geo_top(n))
 	var eye := top + 0.012
 	var sight := ""
 	for m in fit:
@@ -1681,6 +1684,22 @@ const ACC := {
 const ACC_RAIL := {"red_dot": "Rail 2", "reflex": "Rail 2", "holo": "Rail 1", "scope": "Rail 1", "combat_scope": "Rail 3"}
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
+## The height of the highest visible piece of a gun, in its own space.
+func _geo_top(n: Node3D) -> float:
+	var best := -1.0
+	var stack: Array = [[n, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var it: Array = stack.pop_back()
+		for c in (it[0] as Node).get_children():
+			if not (c is Node3D) or not (c as Node3D).visible:
+				continue
+			var t: Transform3D = it[1] * (c as Node3D).transform
+			if c is MeshInstance3D and (c as MeshInstance3D).mesh != null:
+				best = maxf(best, (t * (c as MeshInstance3D).mesh.get_aabb()).end.y)
+			stack.append([c, t])
+	return best
+
+
 ## What a new part looks like when it is drawn in plain shapes (the gilded arms)
 const ACC_FAMILY := {"reflex": "red_dot", "holo": "red_dot", "combat_scope": "scope", "heavy_suppressor": "suppressor",
 	"compensator": "suppressor", "muzzle_brake": "suppressor", "flash_hider": "suppressor", "angled_grip": "foregrip", "slim_grip": "foregrip"}

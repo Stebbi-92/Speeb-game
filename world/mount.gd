@@ -20,6 +20,7 @@ const WALK := 1.8         ## times the rider's walking pace
 const SPRINT := 2.8       ## times the rider's walking pace, on the cat's breath
 const BREATH_MAX := 100.0
 const HP_MAX := 160.0
+const SOLID_LAYER := 64   ## the cat's body: only foes collide with it
 const REST_HURT := 30.0   ## seconds a hurt-out cat sulks before it will carry you again (meat ends it at once)
 
 var w                       ## the wasteland
@@ -47,6 +48,7 @@ var _bard: Node3D
 var _label: Label3D
 var _rest := 0.0           ## hurt out, it sulks a while before it can be ridden again
 var _shy := 0.0
+var _sprint_t := 0.0       ## time since the last sprint step; breath only returns once it runs out
 
 
 func setup(lvl, f: String, is_wild: bool) -> WCat:
@@ -66,6 +68,16 @@ func _ready() -> void:
 	cs.shape = sh
 	cs.position.y = 0.75
 	add_child(cs)
+	# A solid body foes run into (and not through); the rider's own step ignores it
+	var solid := AnimatableBody3D.new()
+	solid.sync_to_physics = false
+	solid.collision_layer = SOLID_LAYER
+	solid.collision_mask = 0
+	var scs := CollisionShape3D.new()
+	scs.shape = sh
+	scs.position.y = 0.75
+	solid.add_child(scs)
+	add_child(solid)
 	_build()
 	_label = Label3D.new()
 	_label.font_size = 40
@@ -172,6 +184,7 @@ func _refresh() -> void:
 func pace(sprint: bool, delta: float) -> float:
 	var base: float = w.player.walk_speed
 	if sprint and not winded and breath > 0.0:
+		_sprint_t = 0.6
 		breath = maxf(0.0, breath - delta * 7.0)
 		if breath <= 0.0:
 			winded = true
@@ -190,7 +203,9 @@ func _process(delta: float) -> void:
 				_refresh()
 	if puppet:
 		pass
-	elif not ridden or w.player.cur_speed < w.player.walk_speed * (WALK + 0.3):
+	elif _sprint_t > 0.0:
+		_sprint_t = maxf(0.0, _sprint_t - delta)   # a sprint just now: no breath comes back yet
+	else:
 		breath = minf(BREATH_MAX, breath + delta * 14.0)
 		if winded and breath >= 25.0:
 			winded = false

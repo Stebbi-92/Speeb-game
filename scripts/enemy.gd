@@ -312,7 +312,7 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 
 func _ready() -> void:
 	collision_layer = 2
-	collision_mask = 0 if puppet else (1 | 2)
+	collision_mask = 0 if puppet else (1 | 2 | WCat.SOLID_LAYER)
 	_net_to = position
 	heard_at = Time.get_ticks_msec()
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED if walks() else CharacterBody3D.MOTION_MODE_FLOATING

@@ -7569,6 +7569,25 @@ func debug_cat() -> void:
 	for i in 60:
 		c.pace(true, 0.1)
 	var spent := c.breath < b0
+	# Sprinting slowly (a heavy gun, the tar) must still spend breath, not refill it
+	var b1 := c.breath
+	for i in 10:
+		c.pace(true, 0.1)
+		c._process(0.1)
+	var drains := c.breath < b1
+	# A foe running at the cat is stopped by its body
+	c.global_position = player.global_position
+	var ax := c.global_basis.z.normalized()
+	var e := spawn_at("rusher", player.global_position + ax * 4.0 + Vector3(0, 0.5, 0))
+	e.set_physics_process(false)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for i in 40:
+		e.velocity = -ax * 6.0
+		e.move_and_slide()
+		await get_tree().physics_frame
+	var blocked: bool = (e.global_position - player.global_position).dot(ax) > 1.0
+	e.queue_free()
 	player.max_health = 1000.0
 	player.health = 1000.0
 	var h0 := player.health
@@ -7585,7 +7604,7 @@ func debug_cat() -> void:
 	cat = null
 	_cat_saved = saved
 	await get_tree().create_timer(0.5).timeout
-	print("CAT tamed=%s riding=%s faster=%s sprint=%s spent=%s shared=%s followed=%s off=%s back=%s" % [tamed, riding, walk > player.walk_speed, sprint > walk * 1.5, spent, shared, followed, off, cat != null and cat.cat_name == "Biscuit"])
+	print("CAT drains=%s blocked=%s tamed=%s riding=%s faster=%s sprint=%s spent=%s shared=%s followed=%s off=%s back=%s" % [drains, blocked, tamed, riding, walk > player.walk_speed, sprint > walk * 1.5, spent, shared, followed, off, cat != null and cat.cat_name == "Biscuit"])
 	get_tree().quit()
 
 

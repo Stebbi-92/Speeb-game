@@ -29,7 +29,7 @@ check foes      debug_foes     "FOES gunman shot=true" "FOES parried=true guarde
 check armour    debug_armour   "ARMOUR foe plate=120 body=[0-9]+ head=40 pierce=[0-9]+ broken=true" "ARMOUR worn left=[0-9]+ took=[0-9]+ mend=\{ \"scrap\": [0-9]+ \} whole=120 kept=7"
 check minds     debug_minds    "MINDS calm=calm quiet=calm loud=(search|hunt) band=(search|hunt) saw=hunt hurt=flee back=hunt"
 check glass     debug_glass    "GLASS old=true new=false"
-check cat       debug_cat      "CAT tamed=true riding=true faster=true sprint=true spent=true shared=true followed=true off=true back=true"
+check cat       debug_cat      "CAT drains=true blocked=true tamed=true riding=true faster=true sprint=true spent=true shared=true followed=true off=true back=true"
 check hitbox    debug_hitbox   "HITBOX all=true heads=true"
 check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"
