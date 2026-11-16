@@ -47,6 +47,7 @@ check wear      debug_wear     "WEAR before=false on=true off=true moved=true"
 check sprint    debug_sprint   "SPRINT faster=true spends=true"
 check sea       debug_sea      "SEA isles=4 dry=4 nodes=[1-9][0-9]+ ruins=4 open=true name=The Grey Sea" "SEA swimming=true afloat=true" "SEA tires=true" "SEA spawn_in_water=false"
 check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT aboard=true helm=true" "BOAT moved=[1-9][0-9.]* carried=true" "BOAT off=true riders=0" "BOAT sail=2 sloop_speed=([5-9]|1[0-9])\." "BOAT wrecked=true thrown=true"
+check weather   debug_weather  "WEATHER long_night=true thaw=true cold=true warm=true choke=true covered=true hurt=true" "WEATHER gale_swell=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

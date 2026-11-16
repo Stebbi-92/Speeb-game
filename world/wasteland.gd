@@ -19,6 +19,7 @@ const REVEAL_N := 256
 var terrain: WTerrain
 var sea: WSea
 var boats := {}          ## boat id -> WBoat, on the Grey Sea
+var weather: WWeather
 var boat_next := 1
 var inv := Inventory.new()
 var cat: WCat = null      ## this survivor's own riding cat, once one is tamed
@@ -104,6 +105,8 @@ func build() -> void:
 	sun.directional_shadow_max_distance = 90
 	_make_stars()
 	_materials()
+	weather = WWeather.new().setup(self)
+	add_child(weather)
 	builder = WBuilder.new()
 	builder.w = self
 	add_child(builder)
@@ -1539,7 +1542,9 @@ func _land_tick(delta: float) -> void:
 	var bn := land_at(player.global_position)
 	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn == "salt" and night):
 		if ui:
-			ui.set_hazard("")
+			# The weather may still ask something, out in the open
+			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" else ""
+			ui.set_hazard(why)
 		return
 	if ui:
 		ui.set_hazard("%s  Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name])
@@ -2119,7 +2124,7 @@ func _w_sleep_through() -> void:
 	player.input_locked = true
 	await hud.fade_to(1.0, 1.5)
 	if Net.authority():
-		clock = DAWN - 0.02
+		clock = weather.dawn() - 0.02
 	rest = 100.0
 	food = maxf(0.0, food - 15.0)
 	player.health = player.max_health
@@ -3209,7 +3214,9 @@ func _world_tick(delta: float) -> void:
 	if _sync_t <= 0.0 and Net.online:
 		_sync_t = 10.0
 		shared("_w_clock", [clock, day, nights])
-	var is_night := clock >= DUSK or clock < DAWN
+	var is_night := clock >= weather.dusk() or clock < weather.dawn()
+	if sea:
+		weather.host_tick(delta)
 	if is_night != night:
 		shared("_w_nightfall" if is_night else "_w_dawn", [day])
 	if not vigils.is_empty():
@@ -3236,6 +3243,26 @@ func _world_tick(delta: float) -> void:
 	_spikes(delta)
 	_lair_tick()
 	_beast_tick(delta)
+
+
+func _w_weather(k: String, secs: float, ang: float) -> void:
+	weather.set_kind(k, secs, ang)
+
+
+func _w_wind(ang: float) -> void:
+	if sea:
+		sea.wind_ang = ang
+
+
+## A fire burning close by: a lit campfire, stove, cooking station or torch, or a town's hearths.
+func near_fire(at: Vector3, reach := 8.0) -> bool:
+	if settlement_at(at, 0.0) != "":
+		return true
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind in FIRE_KINDS and burning(pid) and pc.pos.distance_to(at) < reach:
+			return true
+	return false
 
 
 func _w_clock(c: float, d: int, n: int) -> void:
@@ -3268,6 +3295,10 @@ func _w_dawn(d: int) -> void:
 	_my_vote = false
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
+	if d > 1 and WWeather.season_of(d) != WWeather.season_of(d - 1):
+		var se: Dictionary = WWeather.SEASONS[WWeather.season_of(d)]
+		hud.title_card("", se.name)
+		hud.notify(se.text)
 	if Net.authority():
 		for e in enemies:
 			if is_instance_valid(e) and e.is_alive():
@@ -3357,8 +3388,14 @@ func _apply_skills() -> void:
 
 func _apply_time(force: bool) -> void:
 	# The sun rises at six and sets at eighteen; the moon has the rest
-	var t := clock / 24.0
-	var sun_ang := (t - 0.25) * TAU
+	# The season sets the length of the day: the sun is up an hour after dawn and down two before dusk
+	var rise := weather.dawn() + 1.0
+	var down := weather.dusk() - 2.0
+	var sun_ang: float
+	if clock >= rise and clock < down:
+		sun_ang = (clock - rise) / (down - rise) * PI
+	else:
+		sun_ang = PI + wrapf(clock - down, 0.0, 24.0) / (24.0 - (down - rise)) * PI
 	var day_k := clampf(sin(sun_ang) * 3.0 + 0.3, 0.0, 1.0)
 	var dusk_k := clampf(1.0 - absf(sin(sun_ang)) * 4.0, 0.0, 1.0) * clampf(day_k * 2.0, 0.0, 1.0)
 	if day_k > 0.01:
@@ -3376,6 +3413,7 @@ func _apply_time(force: bool) -> void:
 	env.fog_light_color = Color(0.62, 0.55, 0.46).lerp(Color(0.025, 0.03, 0.04), night_k)
 	env.fog_density = lerpf(0.0035, 0.011, night_k)
 	env.ambient_light_energy = lerpf(0.7, 0.07, night_k)
+	weather.apply_env(env, night_k)
 	if _stars:
 		_stars.material_override.albedo_color.a = clampf(night_k * 1.5 - 0.3, 0.0, 1.0)
 		_stars.visible = night_k > 0.2
@@ -4285,6 +4323,7 @@ func world_data() -> Dictionary:
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
+		"weather": [weather.kind, weather.left, sea.wind_ang if sea else 0.0],
 	}
 
 
@@ -4330,6 +4369,10 @@ func apply_world(d: Dictionary) -> void:
 	for sid in d.get("satchels", {}):
 		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
 	satchel_next = int(d.get("satchel_next", 1))
+	var wd = d.get("weather", [])
+	if wd is Array and wd.size() >= 3:
+		weather.set_kind(str(wd[0]), float(wd[1]), float(wd[2]))
+		weather.k = 0.0 if str(wd[0]) == "clear" else 1.0
 	boat_next = maxi(boat_next, int(d.get("boat_next", 1)))
 	var bd = d.get("boats", {})
 	if bd is Dictionary:
@@ -7486,4 +7529,51 @@ func debug_boat() -> void:
 	hurt_boat(s, 9999.0)
 	await get_tree().create_timer(0.5).timeout
 	print("BOAT wrecked=%s thrown=%s" % [not boats.has(99), player.vessel == null])
+	get_tree().quit()
+
+
+
+## Testing aid: the seasons set the length of the night; salt frost bites the thinly dressed by
+## night away from a fire, and an ash storm chokes one with an uncovered face.
+func debug_weather() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var frost_day := 1 + WWeather.SEASON_DAYS * 3
+	day = frost_day
+	var long_night := weather.dusk() < 19.0 and weather.dawn() > 6.0
+	day = 1
+	var thaw := weather.dusk() == 20.0
+	day = frost_day
+	clock = 23.0
+	night = true
+	# Out in the open, well past the gentle lands about the start
+	for r in ruins:
+		if Vector2(r.pos.x, r.pos.z).distance_to(WPlaces.start) > 700.0 and not r.has("isle") and settlement_at(r.pos, 60.0) == "":
+			player.global_position = r.pos + Vector3(20, 0.5, 0)
+			player.global_position.y = terrain.height_at(player.global_position.x, player.global_position.z) + 0.5
+			break
+	await get_tree().create_timer(0.5).timeout
+	arms.wear = {}
+	_w_weather("frost", 600.0, 0.0)
+	weather.k = 1.0
+	var cold := weather.hardship(player.global_position) != ""
+	arms.wear = {"body": "fur_coat"}
+	var warm := weather.hardship(player.global_position) == ""
+	arms.wear = {}
+	_w_weather("ashstorm", 600.0, 0.0)
+	weather.k = 1.0
+	var choke := weather.hardship(player.global_position) != ""
+	arms.wear = {"neck": "scarf"}
+	var covered := weather.hardship(player.global_position) == ""
+	arms.wear = {}
+	player.health = 100.0
+	weather._hurt_t = 0.0
+	await get_tree().create_timer(0.3).timeout
+	var hurt := player.health < 100.0
+	var swell := sea.swell
+	print("WEATHER long_night=%s thaw=%s cold=%s warm=%s choke=%s covered=%s hurt=%s label=%s" % [long_night, thaw, cold, warm, choke, covered, hurt, weather.label()])
+	_w_weather("gale", 600.0, 0.0)
+	weather.k = 1.0
+	await get_tree().create_timer(0.2).timeout
+	print("WEATHER gale_swell=%s" % [sea.swell > swell])
 	get_tree().quit()

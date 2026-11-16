@@ -659,6 +659,8 @@ func _process(_delta: float) -> void:
 	var mn := int((w.clock - h) * 60.0)
 	var part := "Night" if w.night else ("Dawn" if w.clock < 7.0 else ("Dusk" if w.clock >= 18.0 else "Day"))
 	_clock.text = "Day %d   %02d:%02d   %s" % [w.day, h, mn, part]
+	if w.weather:
+		_clock.text += "\n" + w.weather.label()
 	_compass.w = w
 	_compass.queue_redraw()
 	_keys.visible = _panel == null and not w.builder.active
@@ -1714,6 +1716,8 @@ func _draw_wear() -> void:
 		var it: Dictionary = WArms.WEAR[id]
 		if it.slot != _wslot:
 			continue
+		if it.has("needs") and not w.flags.has(it.needs) and w.inv.count(id) <= 0 and str(a.wear.get(_wslot, "")) != id:
+			continue   # taught by a lost book not yet found
 		var sub := _wear_sub(it)
 		if str(a.wear.get(_wslot, "")) == id:
 			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass))
@@ -1731,6 +1735,8 @@ func _wear_sub(it: Dictionary) -> String:
 		bits.append("guard %d%%" % int(round(float(it.guard) * 100.0)))
 	if it.has("ward"):
 		bits.append("ward")
+	if float(it.get("warm", 0.0)) >= 1.0:
+		bits.append("warm")
 	for k in [["speed", "pace"], ["hunger", "hunger"], ["weary", "tiring"], ["gather", "gathering"]]:
 		if it.has(k[0]):
 			bits.append("%s %+d%%" % [k[1], int(round((float(it[k[0]]) - 1.0) * 100.0))])
