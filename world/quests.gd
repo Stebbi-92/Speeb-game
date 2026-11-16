@@ -174,7 +174,7 @@ const STORIES := {
 			{"t": "recover", "crate": "wreck_cog_0", "item": "coal_chart", "text": "Search the wreck off Cogwright, <dir:R:wreck_cog_0:emberhollow> across the sea, for the coal chart."},
 			{"t": "talk", "who": "gorm", "text": "Bring the chart to Gorm at Emberhollow.", "ask": "The chart. Coal, it says, here.",
 				"say": "On Cogwright itself. So that is what fed the engines.\n\nI will send men when the sea is calm. You have done the hollow a great service, and it will not forget.", "take": ["coal_chart", 1]},
-		], "reward": {"salt": 90, "items": [["coin", 3], ["torch", 4]], "rep": 3}},
+		], "reward": {"salt": 90, "items": [["coin", 3], ["torchwood", 4]], "rep": 3}},
 }
 
 const KEEPSAKES := ["a child's carved cat", "her mother's prayer beads", "the bell from our chapel", "a box of letters", "my father's knife", "a painted icon of Speeb", "the deed to our well", "his spectacles"]

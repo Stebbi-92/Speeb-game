@@ -40,6 +40,12 @@ SOUNDS = {
 	"amb_surf": ("loop", ["Shore_01.wav"], 50.0, 1, ""),
 	"amb_rain": ("loop", ["Rain Light 1.wav"], 50.0, 1, ""),
 	"amb_storm": ("loop", ["Rain Downpour 1.wav"], 50.0, 1, ""),
+	# The lands' own sound (0.8)
+	"amb_forest": ("loop", ["Forest 2.wav"], 50.0, 1, ""),
+	"amb_birds": ("loop", ["Birds Forest 3.wav"], 50.0, 1, ""),
+	"amb_crickets": ("loop", ["Crickets Night 2.wav"], 50.0, 1, ""),
+	"amb_lake": ("loop", ["Lake Shore Windy Day .wav"], 50.0, 1, ""),
+	"amb_river": ("loop", ["Calm River.wav"], 50.0, 1, ""),
 }
 
 

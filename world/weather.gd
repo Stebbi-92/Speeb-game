@@ -40,6 +40,8 @@ var _ash: GPUParticles3D
 var _rain_snd: AudioStreamPlayer
 var _storm_snd: AudioStreamPlayer
 var _hurt_t := 5.0
+var sheltered := false     ## under a roof just now: the weather does not reach
+var _roof_t := 0.0
 var _wind_turn := 0.0
 
 
@@ -152,7 +154,6 @@ func _process(delta: float) -> void:
 	var at: Vector3 = w.player.global_position
 	for ps in [_rain, _ash]:
 		ps.global_position = at + Vector3(0, 12, 0)
-	var under: bool = w.base_at(at, 0.0) >= 0 or w.settlement_at(at, 0.0) != ""
 	_rain.emitting = k > 0.3 and kind in ["rain", "gale"]
 	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"]
 	_ash.process_material.color = Color(0.45, 0.4, 0.36, 0.7) if kind == "ashstorm" else Color(0.92, 0.94, 0.96, 0.8)
@@ -161,10 +162,14 @@ func _process(delta: float) -> void:
 	_ash.process_material.direction = Vector3(cos(wa) * 2.0, -1.0, sin(wa) * 2.0) if kind == "ashstorm" else Vector3(0.1, -1, 0)
 	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, -14.0 if kind == "rain" and k > 0.2 else -60.0, delta * 15.0)
 	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, -10.0 if kind in ["gale", "ashstorm"] and k > 0.2 else -60.0, delta * 15.0)
+	_roof_t -= delta
+	if _roof_t <= 0.0:
+		_roof_t = 0.5
+		sheltered = k > 0.0 and _roofed(at)
 	_hurt_t -= delta
 	if _hurt_t <= 0.0:
 		_hurt_t = 5.0
-		_harm(at, under)
+		_harm(at, w.base_at(at, 0.0) >= 0 or w.settlement_at(at, 0.0) != "" or sheltered)
 
 
 ## Fog and colour laid over the time of day: called after the sun is set for the hour.
@@ -212,3 +217,11 @@ func label() -> String:
 	if kind != "clear" and k > 0.3:
 		t += ",  " + str(KINDS[kind].name).to_lower()
 	return t
+
+
+## Whether there is a roof (or anything solid) over this spot: a hut keeps the weather off.
+func _roofed(at: Vector3) -> bool:
+	var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, 1.0, 0), at + Vector3(0, 9.0, 0), 1)
+	if w.player is CollisionObject3D:
+		q.exclude = [w.player.get_rid()]
+	return not get_world_3d().direct_space_state.intersect_ray(q).is_empty()

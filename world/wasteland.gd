@@ -128,7 +128,9 @@ func build() -> void:
 	else:
 		spawn_pos = Vector3(0, 400, 0)
 	ambient("wind", -10)
-	_beds = {"night": ambient("amb_desert_night", -60), "town": ambient("amb_town", -60), "cave": ambient("amb_cave", -60)}
+	_beds = {"night": ambient("amb_desert_night", -60), "town": ambient("amb_town", -60), "cave": ambient("amb_cave", -60),
+		"forest": ambient("amb_forest", -60), "birds": ambient("amb_birds", -60), "crickets": ambient("amb_crickets", -60),
+		"lake": ambient("amb_lake", -60), "river": ambient("amb_river", -60)}
 
 
 var world_seed := 0
@@ -337,7 +339,20 @@ func _place_sounds() -> void:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(r.pos.x, r.pos.z)) - 10.0) / 30.0, 0.0, 1.0))
 	for l in lairs:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(l.pos.x, l.pos.z)) - 15.0) / 35.0, 0.0, 1.0))
-	var want := {"night": (1.0 if night else 0.0) * (1.0 - town * 0.5), "town": town * (0.35 if night else 1.0), "cave": cave * 0.8}
+	# Each land has its own sound under the wind: the forest's leaves, the marsh's water, birds on the
+	# green isles, insects in the wet places after dark
+	var land := str(terrain.biome_name(p.x, p.z))
+	var il: Dictionary = terrain.isle_at(p.x, p.z, 1.2)
+	var isle: String = str(il.get("key", ""))
+	var day_k := 0.0 if night else 1.0
+	var open := (1.0 - town) * (1.0 - cave * 0.6)
+	var wet := land == "marsh" or isle == "fen"
+	var want := {"night": (1.0 if night else 0.0) * (1.0 - town * 0.5) * (0.4 if wet or land == "forest" else 1.0), "town": town * (0.35 if night else 1.0), "cave": cave * 0.8,
+		"forest": (0.9 if land == "forest" and isle == "" else 0.0) * day_k * open,
+		"birds": (0.8 if isle in ["hrafn", "kala"] else 0.0) * day_k * open,
+		"crickets": (0.9 if wet or land == "forest" or isle == "kala" else 0.0) * (1.0 - day_k) * open,
+		"lake": (0.8 if wet else 0.0) * open,
+		"river": (0.7 if isle == "cog" else 0.0) * open}
 	for k in _beds:
 		var pl: AudioStreamPlayer = _beds[k]
 		if not is_instance_valid(pl):
@@ -1270,14 +1285,7 @@ const RAID_CHANCE := 0.07  ## each night, the chance a camp with someone near it
 
 var raiding := {}          ## campfire piece id -> seconds the raid has left
 ## The great ones' powers: a trophy laid at a shrine once, and then taken up there for a while.
-const POWERS := {
-	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},
-	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Forms see you at little more than half the distance."},
-	"t_salt": {"key": "white", "name": "White Breath", "text": "Running, swinging and swimming cost far less breath."},
-	"t_forest": {"key": "eye", "name": "The Watcher's Eye", "text": "Your blows and shots strike a fifth harder."},
-	"t_basalt": {"key": "gilt", "name": "Gilded Skin", "text": "Every blow you take is a fifth lighter."},
-	"t_marsh": {"key": "tar", "name": "Tar Lungs", "text": "You swim without tiring, and the sea cannot drown you."},
-}
+const POWERS := Items.POWERS
 const POWER_SECS := 1800.0  ## how long a power lasts once taken up
 var power := ""             ## the trophy whose power this pilgrim carries now
 var power_left := 0.0
@@ -1563,7 +1571,7 @@ func _land_tick(delta: float) -> void:
 	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn == "salt" and night):
 		if ui:
 			# The weather may still ask something, out in the open
-			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" else ""
+			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" and not weather.sheltered else ""
 			ui.set_hazard(why)
 		return
 	if ui:
@@ -1800,9 +1808,9 @@ func _beast_tick(delta: float) -> void:
 			continue
 		var a := randf() * TAU
 		var at := p + Vector3(cos(a), 0, sin(a)) * randf_range(70.0, 130.0)
-		if absf(at.x) > 1900.0 or absf(at.z) > 1900.0:
-			continue
 		at.y = terrain.height_at(at.x, at.z)
+		if at.y < WIsles.SEA_Y + 0.6:
+			continue   # not in the sea; the isles have their own herds
 		if safe_at(at) or settlement_at(at, 60.0) != "" or terrain.normal_at(at.x, at.z).y < 0.8:
 			continue
 		var land := terrain.biome_name(at.x, at.z)
@@ -4519,7 +4527,13 @@ func _visit_check() -> void:
 	for r in ruins:
 		if not known_ruins.has(r.id) and player.global_position.distance_to(r.pos) < 40.0:
 			known_ruins[r.id] = true
-			hud.notify(r.name)
+			var tale := WPlaces.ruin_story(str(r.id), str(r.kind))
+			if tale == "":
+				hud.notify(r.name)
+			elif str(r.id).begins_with("isle_"):
+				hud.notify(tale)
+			else:
+				hud.notify("%s\n%s" % [r.name, tale])
 			award("ruin")
 	quests.on_event("move", {"pos": player.global_position})
 
@@ -4536,6 +4550,10 @@ func _rq_hello(by: int) -> void:
 		_waiting_hello.append(by)
 		return
 	Net.call_peer(by, "_w_snapshot", [world_data()])
+	# Who is aboard what, so the newcomer sees them seated
+	for bid in boats:
+		if is_instance_valid(boats[bid]) and not boats[bid].riders.is_empty():
+			Net.call_peer(by, "_w_riders", [bid, boats[bid].riders])
 
 
 func _w_snapshot(d: Dictionary) -> void:
@@ -8041,15 +8059,23 @@ func debug_powers() -> void:
 	builder._rq_build(1, "shrine", at, 0.0)
 	await get_tree().create_timer(0.5).timeout
 	var built := false
+	var spid := -1
 	for pid in pieces:
 		if pieces[pid].kind == "shrine":
 			built = true
+			spid = pid
 	inv.add("t_basalt", 1)
+	ui.open_shrine(spid)
+	await get_tree().create_timer(0.3).timeout
+	ui.close_all()
 	take_power("t_basalt")
 	var refused := not power_is("gilt")
 	lay_trophy("t_basalt")
 	await get_tree().create_timer(0.3).timeout
 	take_power("t_basalt")
+	ui.open_shrine(spid)
+	await get_tree().create_timer(0.3).timeout
+	ui.close_all()
 	var hp0 := player.health
 	damage_player(20.0, player.global_position + Vector3(8, 0, 0))
 	var with := hp0 - player.health
@@ -8060,4 +8086,44 @@ func debug_powers() -> void:
 	var without := hp0 - player.health
 	player.health = player.max_health
 	print("POWERS built=%s refused=%s laid=%s lighter=%s ended=%s" % [built, refused, flags.has("shrine_t_basalt"), with < without - 0.1, power == ""])
+	get_tree().quit()
+
+
+## Every tale's places, chests, people and rewards are real, and its words read cleanly.
+func debug_tales() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var bad: Array = []
+	var ruin_ids := {}
+	for r in ruins:
+		ruin_ids[r.id] = true
+	for sid in WQuests.STORIES:
+		var st: Dictionary = WQuests.STORIES[sid]
+		if not WPlaces.PEOPLE.has(st.giver):
+			bad.append("%s giver" % sid)
+		if "<dir" in WPlaces.words(st.pitch):
+			bad.append("%s pitch" % sid)
+		if st.has("after") and not (str(st.after).begins_with("done_") or str(st.after) in ["oilcraft"]):
+			bad.append("%s after" % sid)
+		if str(st.get("after", "")).begins_with("done_") and not WQuests.STORIES.has(str(st.after).substr(5)):
+			bad.append("%s after-tale" % sid)
+		for s in st.steps:
+			if "<dir" in WPlaces.words(s.text) or (s.has("say") and "<dir" in WPlaces.words(s.say)):
+				bad.append("%s words" % sid)
+			if s.has("crate") and not crates.has(s.crate):
+				bad.append("%s crate %s" % [sid, s.crate])
+			if s.has("ruin") and not ruin_ids.has(s.ruin):
+				bad.append("%s ruin %s" % [sid, s.ruin])
+			if s.has("who") and not WPlaces.PEOPLE.has(s.who):
+				bad.append("%s who %s" % [sid, s.who])
+			if s.has("item") and not (Items.DB.has(s.item) or WArms.WEAR.has(s.item)):
+				bad.append("%s item %s" % [sid, s.item])
+		for it in st.reward.get("items", []):
+			if not (Items.DB.has(it[0]) or WArms.WEAR.has(it[0])):
+				bad.append("%s reward %s" % [sid, it[0]])
+	var told := 0
+	for r in ruins:
+		if WPlaces.ruin_story(str(r.id), str(r.kind)) != "":
+			told += 1
+	print("TALES bad=%s told=%d/%d" % [bad, told, ruins.size()])
 	get_tree().quit()

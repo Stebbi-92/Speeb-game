@@ -225,6 +225,67 @@ const BEACONS := [
 ]
 const BEACON_SAFE := 140.0
 
+## What happened at a ruin, told the first time you come to it: one of a few for each kind of ruin.
+const RUIN_STORIES := {
+	"wreck": [
+		"The wagons are drawn into a ring. Whatever came, it came from inside the ring.",
+		"The oxen were cut loose. The drivers were not so lucky.",
+		"Someone scratched a tally into the axle: nine nights. There is no tenth mark.",
+		"The cargo was salt. It is still here. Nobody came back for it.",
+		"A child's shoe, a broken lamp, and the cart turned over to make a wall.",
+	],
+	"shrine": [
+		"The face of Speeb has been chipped from the stone, carefully, by someone with time to spare.",
+		"Offerings are still left here: salt, a ribbon, a bullet. Someone still comes.",
+		"The roof fell in on the last service. The pews are still full.",
+		"Candle wax a hand deep on the altar. They prayed here a long time before the end.",
+		"A name is cut into the step, over and over, in different hands.",
+	],
+	"tower": [
+		"The Order watched the road from here. The last watchman's log ends in the middle of a word.",
+		"The stair was broken from above, so nothing could climb up. It did not help.",
+		"Arrow slits face out. The scratches on the door face in.",
+		"The beacon bowl on the roof is full of sand, poured in by hand.",
+		"Bunks for twelve. Twelve packs, still on their pegs.",
+	],
+	"camp": [
+		"The fire was kicked out in a hurry. The pot is still on it.",
+		"Tents for a family. Footprints leading away, then running.",
+		"They dug a trench round the camp and filled it with oil. The oil was never lit.",
+		"A letter, unsent: we will wait here one more day for you.",
+		"Bones by the fire, picked clean and neatly stacked. Forms do not stack bones.",
+	],
+	"vault": [
+		"The Order sealed its dead in here, and some of its living.",
+		"The door was locked from both sides.",
+		"Shelves of jars, each one labelled with a name and a date. All the dates are the same.",
+		"Iron and stone, built to keep something out. Or in.",
+	],
+	"stones": [
+		"A ring of stones older than the Order. The forms will not stand inside it at noon.",
+		"Names are cut into every stone, so worn they can only be felt.",
+		"The stones lean outward, as if something pushed up from the middle.",
+		"Someone has been keeping the grass cut here. Recently.",
+	],
+}
+## The isles' ruins have their own.
+const ISLE_STORIES := {
+	"isle_hrafn": "The Saga Stones. The names of the first folk who sailed here, and of everyone who came after. The last name was cut the year the beacons died.",
+	"isle_fen": "The Drowned Chapel. The sea came up a hand a year, and the folk kept praying until it reached the altar. The bell still rings at night.",
+	"isle_kala": "The Old Keep. Built against an enemy from the sea, and manned for sixty years. The enemy never sailed. The night came from behind.",
+	"isle_cog": "The Engine Vault. The engines that turn every wheel on Cogwright. Nobody stokes them. They turn anyway.",
+}
+
+
+static func ruin_story(id: String, kind: String) -> String:
+	if ISLE_STORIES.has(id):
+		return ISLE_STORIES[id]
+	var pool: Array = RUIN_STORIES.get(kind, [])
+	if pool.is_empty():
+		return ""
+	return pool[absi(hash(id)) % pool.size()]
+
+
 ## Kinds of ruin, and what may be found in them.
 const RUIN_KINDS := {
 	"wreck": {"name": "Caravan wreck", "loot": "caravan", "crates": 2},

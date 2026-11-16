@@ -104,4 +104,14 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Bundle of Goods** | 5 | 0 | Wrapped and corded. Promised to someone. |
 | **Keepsake** | 5 | 0 | Something lost, that someone wants back. |
 | **Piet's Ring** | 1 | 0 | A potter's ring, thumb-worn. Ysolde will know it. |
+| **Ferryman's Log** | 1 | 0 | Salt-stained pages. Crossings, names and fares, in a careful hand. |
+| **Chapel Bell** | 1 | 0 | A small bronze bell, green with the fen. It still rings true. |
+| **Engine Key** | 1 | 0 | A heavy iron key with too many teeth. Something on Cogwright was locked with it. |
+| **Cask of Olives** | 1 | 0 | Sealed with pitch. Orla has not tasted one since she was a girl. |
+| **Muster Roll** | 1 | 0 | The names of the keep's garrison, every one marked present, every day for sixty years. |
+| **Sea Iron** | 3 | 0 | Good iron from a wreck, rusted only on the skin. |
+| **Stone Rubbing** | 1 | 0 | Charcoal on cloth: the names cut into one of the Saga Stones. |
+| **Fen Moss** | 3 | 0 | Grey-green and damp. Tamsin says it closes a wound that will not close. |
+| **Lamp Lens** | 1 | 0 | A thick glass lens from the Old Keep's lamp room. Not one scratch on it. |
+| **Coal Chart** | 1 | 0 | A chart of the sea, with Cogwright marked in black and the words: coal here. |
 | **Seal of the Inward Vault** | 1 | 0 | Cold to the touch. It was pressed from the inside of a door. |

@@ -14,6 +14,9 @@
 - [[Combat]]
 - [[Skills]]
 - [[Places]]
+- [[The Grey Sea|The-Grey-Sea]]
+- [[Seasons and Weather|Seasons-and-Weather]]
+- [[Tales]]
 
 **The Trials**
 - [[The Trials|The-Trials]]

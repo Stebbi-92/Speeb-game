@@ -17,6 +17,7 @@ Press **B** to build. Scroll to choose a piece, left click to place it, **R** to
 | **Planter Box** | 4 Deadwood, 2 Stone, 2 Bone | 150 | Plant seeds here. Come back in a day. |
 | **Waystone** | 12 Stone, 6 Scrap Iron, 2 Lamp Oil | 600 | Name it. Two waystones of one name lead to each other. |
 | **Oil Lamp** | 2 Scrap Iron, 1 Lamp Oil | 150 | A tall light. |
+| **Trophy Shrine** | 10 Stone, 4 Bone, 2 Scrap Iron | 400 | Lay a great one's trophy here once. After that, kneel to take its power for a while. |
 
 ## Frame
 

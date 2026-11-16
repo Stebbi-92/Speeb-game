@@ -2,6 +2,16 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.8.0 (the Grey Sea)
+
+- A coast, the Grey Sea and four isles to explore: Hrafnsey, the Sunk Fen, Kalaja and Cogwright.
+- Swimming, a raft and a sloop, and something in the deep water.
+- Four seasons and changing weather: rain, gales, ash storms and salt frost.
+- Eleven lost books that teach new things to make.
+- Ten new tales from the towns, most sending you across the sea.
+- The great raid every seventh night, and trophy powers at a shrine.
+- Every ruin has a short story. Each land has its own sound.
+
 ## 0.7.1 (fixes, clothing)
 
 - Fixed a crash when starting a game in the waste (the new building models were missing from 0.7.0).

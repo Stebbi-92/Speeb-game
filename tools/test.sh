@@ -52,6 +52,7 @@ check books     debug_books    "BOOKS isle=true first=book_ship hidden=true read
 check serpent   debug_serpent  "SERPENT open_water_found=true" "SERPENT rose=true" "SERPENT boat_hurt=true"
 check greatraid debug_great "GREAT seventh=true warn=1 tonight=0" "GREAT spawned=[1-9][0-9]* alive=[0-9]+" "GREAT spoils=true"
 check powers  debug_powers   "POWERS built=true refused=true laid=true lighter=true ended=true"
+check tales   debug_tales    "TALES bad=\[\] told=([0-9]+)/\1"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

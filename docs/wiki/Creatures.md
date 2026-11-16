@@ -34,6 +34,7 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 | **Tar-Drowned** | 70 | 12 | fire | bullets, shotgun spread | Risen from the marsh, still dripping. Its grip leaves tar on your legs and slows you. |
 | **Hollow Colossus** | 480 | 42 | blasts, fire | bullets, blades | Many Hollowed, grown into one. Slow, and each blow lands like a falling wall. Keep away. |
 | **Ember Wisp** | 45 | 8 | shotgun spread, blades | fire, bullets | A live coal with a will. It drifts close and sets you burning. |
+| **Grey Wyrm** | 420 | 26 | blasts, bullets | fire | It lives under the Grey Sea and follows boats that stray far from land. Shoot it as it rises. |
 | **Ashen Knight** | 240 | 30 | blasts | shotgun spread | Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it. Wears plate (160): aim for the head, or use piercing rounds. |
 | **Salt Rifleman** | 45 | 11 | blades, blasts, shotgun spread | bullets | A soldier the salt kept, still holding its rifle. Bullets slip through; use shot. |
 

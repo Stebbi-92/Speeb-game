@@ -186,7 +186,7 @@ func _landing(il: Dictionary, rr: RandomNumberGenerator) -> void:
 	var g := _ground(hq)
 	if g.y > WIsles.SEA_Y + 0.5:
 		piece("pirate", "structure", g, atan2(toward.x, toward.y), 1.6, false)
-		piece("pirate", "structure-roof", g + Vector3(0, 3.4, 0), atan2(toward.x, toward.y), 1.6)
+		piece("pirate", "structure-roof", g + Vector3(0, 3.4, 0), atan2(toward.x, toward.y), 1.6, true)
 		piece("pirate", "flag-pirate-high", g + Vector3(2.4, 0, 2.4), 0.0, 1.4)
 
 
@@ -201,10 +201,18 @@ func _coast_landing(il: Dictionary, rr: RandomNumberGenerator) -> void:
 
 ## A ship that did not make it: on the strand, heeled over, with what it carried still aboard.
 func _wreck(il: Dictionary, rr: RandomNumberGenerator, k: int) -> void:
-	var c: Vector2 = il.c
-	var a := rr.randf() * TAU
-	var dir := Vector2(cos(a), sin(a))
-	var s := _shore(c, dir, float(il.r) * 1.6)
+	var c: Vector2 = w.terrain.isle_heart(il)
+	var dir := Vector2.RIGHT
+	var s := Vector2.INF
+	# Round the isle until a strand is found with dry ground to leave the cargo on
+	var a0 := rr.randf() * TAU + k * PI
+	for tries in 16:
+		var a := a0 + tries * TAU / 16.0
+		dir = Vector2(cos(a), sin(a))
+		s = _shore(c, dir, float(il.r) * 1.8)
+		if s != Vector2.INF and s != c and w.terrain.height_at((s - dir * 4.0).x, (s - dir * 4.0).y) > WIsles.SEA_Y + 0.2:
+			break
+		s = Vector2.INF
 	if s == Vector2.INF:
 		return
 	var q := s + dir * 6.0
@@ -214,7 +222,7 @@ func _wreck(il: Dictionary, rr: RandomNumberGenerator, k: int) -> void:
 	var cq := s - dir * 4.0
 	var cg := _ground(cq)
 	WPlaces.ruin_at["wreck_%s_%d" % [il.key, k]] = cq
-	if cg.y > WIsles.SEA_Y:
+	if cg.y > WIsles.SEA_Y + 0.2:
 		w._crate("wreck_%s_%d" % [il.key, k], cg, "caravan", rr.randf() * TAU)
 		piece("pirate", "barrel", cg + Vector3(1.6, 0, 0.8), rr.randf() * TAU, 0.8, false, Vector3(PI * 0.5, 0, 0))
 		piece("pirate", "bottle-large", cg + Vector3(-1.2, 0, 1.0), rr.randf() * TAU, 0.7)
@@ -244,7 +252,7 @@ func _hrafn(il: Dictionary, rr: RandomNumberGenerator) -> void:
 			continue
 		var yaw := rr.randf() * TAU
 		piece("pirate", "structure", p, yaw, 1.6, false)
-		piece("pirate", "structure-roof", p + Vector3(0, 3.4, 0), yaw, 1.6)
+		piece("pirate", "structure-roof", p + Vector3(0, 3.4, 0), yaw, 1.6, true)
 		piece("pirate", "barrel", p + Vector3(3.2, 0, 1.0), rr.randf() * TAU, 0.8, true)
 		piece("castle", "tree-small", p + Vector3(-4.0, 0, 2.0), 0.0, 3.0)
 

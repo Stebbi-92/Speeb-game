@@ -21,6 +21,9 @@ There are two ways to play, in one install:
 - [[Creatures]] and [[Combat]]
 - [[Skills]]
 - [[Places]]
+- [[The Grey Sea|The-Grey-Sea]]: the isles, swimming, boats and lost books
+- [[Seasons and Weather|Seasons-and-Weather]]: seasons, weather, the seventh night and trophy powers
+- [[Tales]]: the townsfolk's stories
 
 ## Other
 

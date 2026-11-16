@@ -160,6 +160,16 @@ const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]
 
+## The great ones' powers, taken up at a Trophy Shrine (see the waste's take_power).
+const POWERS := {
+	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},
+	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Forms see you at little more than half the distance."},
+	"t_salt": {"key": "white", "name": "White Breath", "text": "Running, swinging and swimming cost far less breath."},
+	"t_forest": {"key": "eye", "name": "The Watcher's Eye", "text": "Your blows and shots strike a fifth harder."},
+	"t_basalt": {"key": "gilt", "name": "Gilded Skin", "text": "Every blow you take is a fifth lighter."},
+	"t_marsh": {"key": "tar", "name": "Tar Lungs", "text": "You swim without tiring, and the sea cannot drown you."},
+}
+
 ## Loot tables: [item, weight, min, max]
 const LOOT := {
 	"caravan": [["tuber_seed", 2, 2, 5], ["herb_seed", 1, 1, 3], ["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2], ["fittings_fine", 1, 1, 1]],

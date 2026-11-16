@@ -1,3 +1,51 @@
+Brelm alpha 0.8.0: The Grey Sea
+
+The sea and its isles
+- The waste now ends at a coast. Past it lies the Grey Sea, and four isles, each its own land:
+  Hrafnsey, with black sand, pines, hot springs and vents of scalding steam;
+  the Sunk Fen, a drowned graveyard where lights drift over the water at night;
+  Kalaja, with pale hills, olive trees, an old keep and siege engines facing the sea;
+  Cogwright, an isle of iron, with mills, scaffolds and wheels that still turn.
+- Each isle has a pier facing the waste, a hut to wait out a storm, two wrecks with something left aboard, and a ruin at its heart that keeps a lost book.
+- You can swim, but it tires you. Run out of breath in deep water and you drown.
+- Something lives in the deep water. Keep near the shore, or keep moving.
+
+Boats
+- Make a Raft at a workbench and paddle it, or learn to build a Sloop and sail it before the wind.
+- Launch a boat from your pack at the shore. Up to four can ride a sloop; the first aboard takes the helm.
+- Boats run aground in the shallows and can be wrecked. Hold the use key on a hurt boat to mend it with wood.
+
+Seasons and weather
+- Four seasons turn every five days: the Thaw, High Ember, Ashfall and Salt Frost. The nights are longer or shorter with them.
+- Rain, gales, ash storms and salt frost come and go. Ash storms choke you unless your face is covered; salt frost bites at night unless you dress warm or keep near a fire.
+- New warm clothes: the Fur Coat and Fur Hood.
+
+Lost books
+- Eleven lost books are hidden in ruins and on the isles. Reading one teaches the whole fellowship new things to make.
+
+Town quest lines
+- Ten new tales from seven towns, each opening the next, and most of them sending you across the sea.
+
+The seventh night
+- Every seventh night the great raid comes, in three waves, for your camp or for you. You are warned two nights ahead.
+- Beat it back and the forms leave behind what they carried.
+
+Trophy powers
+- Build a Trophy Shrine. Lay a great one's trophy on it once, and from then on you can kneel there to take up its power for half an hour.
+
+The land
+- Every ruin has a short story to tell the first time you find it.
+- Each land has its own sound: leaves in the forest, water in the marsh, birds on the green isles and insects after dark.
+- Beasts now graze on the isles too.
+- Towns are laid out in different ways, with houses of different sizes, a smithy, a well, stalls and a watchtower.
+- The lands near where you woke are gentle, with no hardship; danger grows the further out you go. Tar slows a run instead of stopping it.
+- A red line says what a land is doing to you and what to wear.
+- Friends sit astride their cats properly. Press Y near a fallen friend to use smelling salts.
+
+Fixes
+- The Wear tab no longer overflows its frame.
+- Fixed a script error when foes looked for a second player in co-op.
+
 Brelm alpha 0.7.1: Fixes, clothing, and a living land
 
 Fixes

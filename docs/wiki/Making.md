@@ -18,6 +18,10 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 3 Cloth | 2 Hide |  |
 | 2 Torch | 2 Deadwood, 1 Lamp Oil |  |
 | 2 Tuber Eyes | 2 Ash Tuber |  |
+| 3 Ash-bloom Salve | 4 Ash-bloom, 1 Cloth | Learned during the main story |
+| 5 Salted Meat | 2 Raw Meat, 2 Salt | Learned during the main story |
+| 5 Torch | 3 Deadwood, 1 Lamp Oil | Learned during the main story |
+| 4 Ash-bloom Salve | 3 Ash-bloom, 1 Tar, 1 Cloth | Learned during the main story |
 
 ## At a cooking station
 
@@ -42,4 +46,10 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 1 Pick | 4 Deadwood, 4 Scrap Iron |  |
 | 1 Hatchet | 3 Deadwood, 3 Scrap Iron |  |
 | 1 Pry Bar | 8 Scrap Iron |  |
+| 1 Rare Fittings | 3 Fine Fittings, 4 Scrap Iron | Learned during the main story |
+| 3 Rocket | 4 Scrap Iron, 2 Obsidian, 1 Lamp Oil | Learned during the main story |
+| 1 Storied Fittings | 2 Rare Fittings, 6 Red Iron | Learned during the main story |
+| 2 Fine Fittings | 8 Scrap Iron, 2 Salt Crystal | Learned during the main story |
+| 1 Raft | 16 Deadwood, 4 Cloth |  |
+| 1 Sloop | 30 Deadwood, 6 Heartwood, 10 Cloth, 6 Scrap Iron | Learned during the main story |
 | 1 Beacon Oil | 2 Lamp Oil, 10 Salt, 4 Ash-bloom | Learned during the main story |

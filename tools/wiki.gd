@@ -15,6 +15,9 @@ func _init() -> void:
 	_skills()
 	_controls()
 	_places()
+	_sea()
+	_seasons()
+	_tales()
 	print("wiki pages written")
 	quit()
 
@@ -163,3 +166,53 @@ func _places() -> void:
 		t += "- **%s**: %s\n" % [s.name, s.blurb]
 	t += "\n## Lands\n\nThe waste is made of six lands, each with its own ground, its own weather and its own great one: %s.\n" % ", ".join(Array(WTerrain.BIOMES).map(func(b): return str(b).capitalize()))
 	_write("Places", t)
+
+
+func _sea() -> void:
+	var t := "# The Grey Sea\n\n" + NOTE + "Past the coast of the waste lies the Grey Sea, and four isles. Each isle is its own land, with its own foes, and a ruin at its heart that keeps a lost book.\n\n## The isles\n\n"
+	for k in WIsles.ORDER:
+		var th: Dictionary = WIsles.THEMES[k]
+		t += "- **%s**: %s Its ruin is %s.\n" % [th.name, th.text, th.ruin[0]]
+	t += "\nEach isle has a pier facing the waste, a hut by it, and two wrecks with something left aboard.\n"
+	t += "\n## Swimming\n\nSwimming costs breath, and running in the water costs much more. Out of breath in deep water, you drown. Something lives in the open sea, far from land: keep moving, or keep near the shore.\n"
+	t += "\n## Boats\n\n| Boat | Seats | Strength | How it moves |\n|---|---|---|---|\n"
+	for k in WBoat.KINDS:
+		var b: Dictionary = WBoat.KINDS[k]
+		t += "| %s | %d | %d | %s |\n" % [b.name, int(b.seats), int(b.hp), b.text]
+	t += "\nMake a boat at a workbench, then use it from your pack at the shore to launch it. The first aboard takes the helm. Boats run aground in the shallows. Hold the use key on a hurt boat to mend it with 4 wood.\n"
+	t += "\n## Lost books\n\nRead a lost book and the whole fellowship learns what it teaches.\n\n"
+	for id in Items.LAND_BOOKS + Items.ISLE_BOOKS.values():
+		var info: Dictionary = Items.info(id)
+		t += "- **%s**: %s\n" % [info.name, info.text]
+	_write("The-Grey-Sea", t)
+
+
+func _seasons() -> void:
+	var t := "# Seasons and Weather\n\n" + NOTE + "A season lasts %d days. The nights grow longer or shorter with it.\n\n| Season | Night falls | Dawn |\n|---|---|---|\n" % WWeather.SEASON_DAYS
+	for se in WWeather.SEASONS:
+		t += "| %s | %s | %s |\n" % [se.name, _hour(float(se.dusk)), _hour(float(se.dawn))]
+	t += "\n## Weather\n\n"
+	for k in WWeather.KINDS:
+		if k != "clear":
+			t += "- **%s**: %s\n" % [WWeather.KINDS[k].name, WWeather.COMING[k]]
+	t += "\nAn ash storm chokes anyone whose face is not covered. Salt frost bites at night unless you dress warm (a fur coat, or two warm things) or keep near a fire. In your camp or in a town, the weather does not reach you.\n"
+	t += "\n## The seventh night\n\nEvery seventh night the great raid comes, in three waves, for the camp you keep or for you. You are warned two nights ahead. Beat it back, and the forms leave what they carried.\n"
+	t += "\n## Trophy powers\n\nBuild a Trophy Shrine at your camp. Lay a great one's trophy on it once; from then on, kneel at any shrine to take up its power for half an hour. One power at a time.\n\n"
+	for k in Items.POWERS:
+		t += "- **%s** (%s): %s\n" % [Items.POWERS[k].name, Items.iname(k), Items.POWERS[k].text]
+	_write("Seasons-and-Weather", t)
+
+
+func _hour(h: float) -> String:
+	return "%d:%02d" % [int(h), int(round((h - floor(h)) * 60.0))]
+
+
+func _tales() -> void:
+	var t := "# Tales\n\n" + NOTE + "The people of the towns have their own stories. Each tale is offered by one person; some open only when an earlier tale is done.\n\n| Tale | Who | Where | Opens after |\n|---|---|---|---|\n"
+	for sid in WQuests.STORIES:
+		var st: Dictionary = WQuests.STORIES[sid]
+		var after := ""
+		if str(st.get("after", "")).begins_with("done_"):
+			after = WQuests.STORIES[str(st.after).substr(5)].title
+		t += "| %s | %s | %s | %s |\n" % [st.title, WPlaces.PEOPLE[st.giver].name, WPlaces.SETTLEMENTS[st.at].name, after]
+	_write("Tales", t)

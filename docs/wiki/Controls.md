@@ -25,6 +25,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Dodge (the waste), Swift Cast | Q |
 | Riftwalk | V |
 | Whistle for your cat (the waste) | N |
+| Use smelling salts on a fallen friend | Y |
 | Relic 1 (arms) | 1 |
 | Relic 2 | 2 |
 | Relic 3 | 3 |
