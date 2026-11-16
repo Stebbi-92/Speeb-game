@@ -33,6 +33,7 @@ var dev: WDev            ## the hidden playtest menu's tools
 var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts working now
 var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
+var kraken: WKraken      ## the whirlpool out past the Sunk Fen
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -122,6 +123,7 @@ func build() -> void:
 	alchemy = WAlchemy.new(self)
 	dread = WDread.new(self)
 	settlers = WSettlers.new(self)
+	kraken = WKraken.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -222,6 +224,7 @@ func _make_world(sd: int, gen := GEN) -> void:
 	hall.build()
 	deep = WDeep.new(self)
 	vaults = WVaults.new(self)
+	kraken.build()
 	vaults.place_stairs()
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
@@ -355,6 +358,8 @@ func _process(delta: float) -> void:
 			deep.local_tick()
 		if dread and ready_world:
 			dread.local_tick(delta)
+		if kraken and ready_world:
+			kraken.local_tick(delta)
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -3544,6 +3549,8 @@ func _sea_tick(delta: float) -> void:
 					e.die(false)   # it will not follow onto land; it sinks back
 			if deep:
 				deep.host_tick(1.0)
+			if kraken:
+				kraken.host_tick()
 			_serpent_t -= 1.0
 			if _serpent_t <= 0.0:
 				_serpent_t = 10.0
@@ -3699,6 +3706,10 @@ func _dawn_world() -> void:
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
 	quests.refresh_offers()
 	settlers.host_dawn()
+
+
+func _w_kraken_down(d: int) -> void:
+	kraken.fallen(d)
 
 
 func _w_settler(s: Dictionary) -> void:
@@ -3999,6 +4010,9 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	shared("_w_slain", [e.global_position, e.kind, Net.me()])
 	if e.boss != "":
 		shared("_w_boss_down", [e.boss, e.global_position])
+		return
+	if e.variant == "bellwound":
+		shared("_w_kraken_down", [day])
 		return
 	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
 	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12) + skills.drop_bonus():
@@ -7491,6 +7505,21 @@ func debug_screen() -> void:
 		player.set_physics_process(false)
 		clock = 19.6
 		hud.visible = false
+	if which == "kraken":
+		# The whirlpool and the drowned tower, from a boat at its edge
+		clock = 16.0
+		var at: Vector3 = kraken.spot + Vector3(38, 0, 12)
+		_w_boat(77, "sloop", at, 0.0, 420.0)
+		player.place(at + Vector3(0, 1.5, 0), 0.0)
+		await get_tree().create_timer(4.0).timeout
+		player.place(at + Vector3(0, 1.5, 0), 0.0)
+		var to: Vector3 = kraken.spot + Vector3(0, 2, 0) - (at + Vector3(0, 2.5, 0))
+		player.yaw = atan2(-to.x, -to.z)
+		player.rotation.y = player.yaw
+		player.pitch = -0.05
+		player.head.rotation.x = player.pitch
+		player.set_physics_process(false)
+		hud.visible = false
 	if which == "kin":
 		# The kin of the common forms, in a row at noon, standing still
 		clock = 12.0
@@ -8738,7 +8767,7 @@ func debug_kin() -> void:
 	var ok := 0
 	var bad := []
 	var copies := 0
-	for v in LesserSpeeb.VARIANTS:
+	for v in LesserSpeeb.VARIANTS.keys().filter(func(x): return LesserSpeeb.VARIANTS[x].base != "serpent"):
 		var at := player.global_position + Vector3(randf_range(-15, 15), 0, randf_range(20, 30))
 		at.y = terrain.height_at(at.x, at.z) + 1.0
 		var e := spawn_at(v, at)
@@ -8759,12 +8788,51 @@ func debug_kin() -> void:
 			bad.append(v)
 		e.die(false)
 	var in_lands := 0
-	for v in LesserSpeeb.VARIANTS:
+	for v in LesserSpeeb.VARIANTS.keys().filter(func(x): return LesserSpeeb.VARIANTS[x].base != "serpent"):
 		for b in BIOME_FORMS:
 			if v in BIOME_FORMS[b]:
 				in_lands += 1
 				break
-	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.size(), copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
+	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.size() - 1, copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
+	get_tree().quit()
+
+
+## Testing aid: the Kraken-Bell's whirlpool draws a boat in, the Bell-Wound rises, and its fall
+## leaves the tower's chest and a trophy.
+func debug_kraken() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var found := kraken.spot != Vector3.INF
+	if not found:
+		print("KRAKEN found=false")
+		get_tree().quit()
+		return
+	var start: Vector3 = kraken.spot + Vector3(70, 0, 0)
+	_w_boat(79, "sloop", start, 0.0, 420.0)
+	var b: WBoat = boats[79]
+	player.place(start + Vector3(0, 1, 0), 0.0)
+	boat_used(b)
+	await get_tree().create_timer(0.5).timeout
+	var d0: float = Vector2(b.global_position.x, b.global_position.z).distance_to(Vector2(kraken.spot.x, kraken.spot.z))
+	for i in 60:
+		kraken.local_tick(0.1)
+	var d1: float = Vector2(b.global_position.x, b.global_position.z).distance_to(Vector2(kraken.spot.x, kraken.spot.z))
+	b.global_position = kraken.spot + Vector3(25, 0, 0)
+	await get_tree().create_timer(0.3).timeout
+	kraken.host_tick()
+	var rose: bool = kraken.beast != null and is_instance_valid(kraken.beast) and kraken.beast.variant == "bellwound"
+	var hp: float = kraken.beast.max_hp if rose else 0.0
+	if rose:
+		var e = kraken.beast
+		e.hurt(99999.0, Vector3.FORWARD)
+	await get_tree().create_timer(0.5).timeout
+	var chest: bool = crates.has("kraken_%d" % day)
+	var trophy: int = inv.count("t_kraken")
+	kraken.host_tick()
+	var again: bool = kraken.beast != null
+	print("KRAKEN found=%s pulled=%s rose=%s hp=%d chest=%s trophy=%d stays_down=%s" % [found, d1 < d0 - 5.0, rose, int(hp), chest, trophy, not again])
 	get_tree().quit()
 
 

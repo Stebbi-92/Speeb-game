@@ -51,6 +51,8 @@ const VARIANTS := {
 		"tough": {"shot": 0.6, "bullet": 0.8, "fire": 0.5}, "text": "A hauler of the heights, charred black. Its charge breaks walls."},
 	"sand_maw": {"base": "lurker", "name": "Sand Maw", "hp": 150.0, "bite": 34.0, "size": 1.35, "tint": Color(0.75, 0.5, 0.3),
 		"text": "A lurker grown huge. The ground opens under you."},
+	"bellwound": {"base": "serpent", "name": "The Bell-Wound", "hp": 2400.0, "size": 5.0, "bite": 46.0, "radius": 2.2, "speed": 5.6,
+		"text": "Wound about the drowned tower of the Kraken-Bell. It pulls boats down."},
 	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
 		"text": "Something drowned long ago and grown in the tar. It clings."},
 }
@@ -291,7 +293,9 @@ func _ready() -> void:
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
-	if kind == "serpent":
+	if variant == "bellwound":
+		_build_serpent(Color(0.2, 0.16, 0.22), 2.6, 11)
+	elif kind == "serpent":
 		_build_serpent()
 	if kind == "lampeater":
 		_build_serpent(Color(0.78, 0.76, 0.7), 1.9, 7)

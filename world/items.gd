@@ -59,6 +59,7 @@ const DB := {
 	"goods": {"name": "Bundle of Goods", "kind": "quest", "stack": 5, "value": 0, "color": Color(0.55, 0.45, 0.3), "text": "Wrapped and corded. Promised to someone."},
 	"keepsake": {"name": "Keepsake", "kind": "quest", "stack": 5, "value": 0, "color": Color(0.7, 0.6, 0.5), "text": "Something lost, that someone wants back."},
 	"piet_ring": {"name": "Piet's Ring", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.8, 0.7, 0.4), "text": "A potter's ring, thumb-worn. Ysolde will know it."},
+	"t_kraken": {"name": "Drowned Clapper", "kind": "trophy", "stack": 5, "value": 260, "color": Color(0.3, 0.45, 0.38), "text": "The tongue of the Kraken-Bell, green with the sea. Hold it to your ear and it rings."},
 	"t_ash": {"name": "Matron's Ember", "kind": "trophy", "stack": 5, "value": 220, "color": Color(1.0, 0.45, 0.2), "text": "A coal from the Cinder Matron. It has not cooled, and does not burn the hand."},
 	"t_dunes": {"name": "Choir Tongue", "kind": "trophy", "stack": 5, "value": 200, "color": Color(0.85, 0.6, 0.35), "text": "Dried and cracked. Some nights it still hums the note it knew."},
 	"t_salt": {"name": "White Shard", "kind": "trophy", "stack": 5, "value": 240, "color": Color(0.9, 0.92, 0.95), "text": "A piece of the White Disc. Light passes through it, and comes out colder."},

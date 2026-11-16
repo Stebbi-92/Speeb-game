@@ -79,6 +79,8 @@ func places() -> Array:
 		out.append([s.name, Vector3(s.pos.x, 0, s.pos.y) + Vector3(0, 0, s.radius + 6.0)])
 	for il in w.terrain.isles:
 		out.append(["Isle: %s" % il.name, Vector3(il.c.x, 0, il.c.y)])
+	if w.kraken and w.kraken.spot != Vector3.INF:
+		out.append(["The Kraken-Bell", w.kraken.spot + Vector3(30, 0, 0)])
 	if w.hall and w.hall.stair_top != Vector3.ZERO:
 		out.append(["The Lake Stair", w.hall.stair_top + Vector3(0, 0, 6.0)])
 	var p: Vector3 = w.player.global_position
@@ -185,7 +187,7 @@ func spawn_tier(t: int) -> int:
 		return 0
 	var n := 0
 	for k in LesserSpeeb.FORM_TIER:
-		if int(LesserSpeeb.FORM_TIER[k]) != t or not (LesserSpeeb.KINDS.has(k) or LesserSpeeb.VARIANTS.has(k)) or k in ["saucer", "unseen"]:
+		if int(LesserSpeeb.FORM_TIER[k]) != t or not (LesserSpeeb.KINDS.has(k) or LesserSpeeb.VARIANTS.has(k)) or k in ["saucer", "unseen", "bellwound"]:
 			continue
 		if w._spawn_near(k, w.player.global_position, 10.0, 16.0, true):
 			n += 1
