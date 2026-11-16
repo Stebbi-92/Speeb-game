@@ -8,7 +8,7 @@ Everything else the game uses is free to use, and is listed here with thanks.
 | Pack | By | Licence | Used for |
 |---|---|---|---|
 | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far (`tools/cut_gunshots.py`) |
-| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices, footsteps, town, night and cave sounds (`tools/cut_sounds.py`) |
+| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`) |
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley |
 
 Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). Those are not CC0, and the game does not use them.

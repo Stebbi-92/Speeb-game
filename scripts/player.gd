@@ -16,6 +16,9 @@ var run_speed := 5.8
 var soft_speed := 1.3
 var speed_cap := -1.0
 var mount = null           ## the cat being ridden (the waste), or null on foot
+var vessel = null          ## the boat the pilgrim is aboard (the waste); it carries them, and they look and shoot
+var water_y := -INF        ## the sea's surface here when the ground is well under it (set by the land), else -INF
+var swimming := false
 var carry_slow := 1.0      ## a heavy gun in hand slows the step
 var can_run := true
 var can_jump := true
@@ -248,6 +251,16 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		_update_target(delta)
 		return
+	if vessel != null and is_instance_valid(vessel):
+		# Aboard: the boat carries you; you look about and shoot from it
+		global_position = vessel.seat_pos(self)
+		velocity = Vector3.ZERO
+		cur_speed = 0.0
+		swimming = false
+		_stamina_tick(delta, false)
+		head.position.y = lerpf(head.position.y, 1.6, minf(1.0, delta * 6.0))
+		_update_target(delta)
+		return
 	var input := Vector2.ZERO
 	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -271,7 +284,22 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 1.0:
 		dir = dir.normalized()
 	var on_floor := is_on_floor()
-	if flung:
+	swimming = water_y > -1.0e8 and global_position.y < water_y - 1.05 and mount == null
+	if swimming:
+		# In the sea: slow strokes, a hard pull to keep the head up, and it tires you
+		var stroke := walk_speed * (0.8 if running and not winded else 0.5)
+		velocity.x = lerpf(velocity.x, dir.x * stroke, minf(1.0, 3.0 * delta))
+		velocity.z = lerpf(velocity.z, dir.z * stroke, minf(1.0, 3.0 * delta))
+		var float_y := water_y - 1.3 + (0.7 if Input.is_action_pressed("jump") and not input_locked else 0.0)
+		velocity.y = lerpf(velocity.y, clampf((float_y - global_position.y) * 2.5, -4.0, 3.0), minf(1.0, 4.0 * delta))
+		if Input.is_action_pressed("soft") and not input_locked:
+			velocity.y = -2.5
+		stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta)
+		_breath = 0.6
+		if stamina <= 0.0:
+			winded = true
+		running = false
+	elif flung:
 		velocity.y -= gravity * 0.5 * delta
 	else:
 		var accel := 9.0 if on_floor else 2.5

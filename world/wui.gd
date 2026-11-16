@@ -892,8 +892,8 @@ func _draw_pack() -> void:
 	if not facts.is_empty():
 		side.add_child(_label(",  ".join(facts), 16, GOLD))
 	side.add_child(_gap(6))
-	if info.kind in ["food", "medicine"]:
-		side.add_child(_action("Eat" if info.kind == "food" else "Use", func(): _use_item(_sel), "Right click"))
+	if info.kind in ["food", "medicine", "boat", "book"]:
+		side.add_child(_action({"food": "Eat", "boat": "Launch", "book": "Read"}.get(info.kind, "Use"), func(): _use_item(_sel), "Right click"))
 	if info.kind == "wear":
 		var sid: String = s.id
 		side.add_child(_action("Wear", func(): _wear(sid); _sel = -1; _redraw(), "Right click"))
@@ -908,7 +908,7 @@ func _draw_pack() -> void:
 
 const FILTERS := [["all", "All"], ["food", "Food and aid"], ["material", "Materials"], ["gear", "Gear and ammo"], ["keep", "Keepsakes"]]
 const KIND_NAMES := {"material": "Material", "food": "Food", "medicine": "Medicine", "aid": "Aid", "seed": "Seed", "tool": "Tool",
-	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand"}
+	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand", "boat": "Boat", "book": "Lost book"}
 var _filter := "all"
 
 
@@ -1049,7 +1049,18 @@ func _use_item(i: int) -> void:
 	var s = w.inv.slots[i]
 	if s == null:
 		return
-	if w.eat(s.id):
+	var kind: String = Items.info(s.id).kind
+	var done := false
+	if kind == "boat":
+		done = w.launch_boat(s.id)
+		if done:
+			close_all()
+			return
+	elif kind == "book":
+		done = w.read_book(s.id)
+	else:
+		done = w.eat(s.id)
+	if done:
 		if w.inv.slots[i] == null:
 			_sel = -1
 		_redraw()
@@ -1875,7 +1886,7 @@ func _pack_click(i: int, right: bool) -> void:
 	if right:
 		# The quick use: eat it, use it, or put it on. Nothing is dropped by accident.
 		var kind: String = Items.info(s.id).kind
-		if kind in ["food", "medicine"]:
+		if kind in ["food", "medicine", "boat", "book"]:
 			_use_item(i)
 			return
 		if kind == "wear":
@@ -1903,7 +1914,7 @@ func _make_group(r: Dictionary) -> String:
 			return "food"
 		"ammo":
 			return "ammo"
-		"tool":
+		"tool", "boat":
 			return "tool"
 	return "material"
 
@@ -2766,6 +2777,7 @@ func open_map() -> void:
 var _map_zoom := 1.0
 var _map_off := Vector2.ZERO   ## where the map's top left sits inside its window
 var _map_canvas: Control
+var _map_fog: Control
 var _map_drag := false
 const MAP_VIEW := 640.0
 
@@ -2803,6 +2815,7 @@ func _draw_map() -> void:
 	fog.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_canvas.add_child(fog)
+	_map_fog = fog
 	_map_draw = MapDraw.new()
 	_map_draw.w = w
 	_map_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2847,13 +2860,17 @@ func _map_layout() -> void:
 	for c in _map_canvas.get_children():
 		c.position = Vector2.ZERO
 		c.size = Vector2(full, full)
+	# The fog of the unknown lies over the waste itself; the sea and its isles are charted
+	var k := WPlaces.HALF / WIsles.MAP_HALF
+	_map_fog.position = Vector2(full, full) * (1.0 - k) * 0.5
+	_map_fog.size = Vector2(full, full) * k
 	_map_draw.zoom = _map_zoom
 	_map_draw.queue_redraw()
 
 
 func _map_center_on(p: Vector3) -> void:
 	var full := MAP_VIEW * _map_zoom
-	var m := Vector2((p.x + WPlaces.HALF) / WPlaces.SIZE, (p.z + WPlaces.HALF) / WPlaces.SIZE) * full
+	var m := Vector2((p.x + WIsles.MAP_HALF) / (WIsles.MAP_HALF * 2.0), (p.z + WIsles.MAP_HALF) / (WIsles.MAP_HALF * 2.0)) * full
 	_map_off = Vector2(MAP_VIEW, MAP_VIEW) * 0.5 - m
 	_map_layout()
 
@@ -2861,7 +2878,7 @@ func _map_center_on(p: Vector3) -> void:
 ## Map point (inside the window) to the world, and back.
 func _map_world(v: Vector2) -> Vector3:
 	var u := (v - _map_off) / (MAP_VIEW * _map_zoom)
-	return Vector3(u.x * WPlaces.SIZE - WPlaces.HALF, 0, u.y * WPlaces.SIZE - WPlaces.HALF)
+	return Vector3(u.x * WIsles.MAP_HALF * 2.0 - WIsles.MAP_HALF, 0, u.y * WIsles.MAP_HALF * 2.0 - WIsles.MAP_HALF)
 
 
 func _map_input(e: InputEvent) -> void:
@@ -2881,7 +2898,7 @@ func _map_input(e: InputEvent) -> void:
 		accept_event()
 	elif e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_RIGHT:
 		# Taking away a mark is easy at any zoom: within about 12 pixels of it
-		w.toggle_mark(_map_world(e.position), 12.0 / (MAP_VIEW * _map_zoom) * WPlaces.SIZE)
+		w.toggle_mark(_map_world(e.position), 12.0 / (MAP_VIEW * _map_zoom) * WIsles.MAP_HALF * 2.0)
 		w.sfx("tick", -6)
 		_map_draw.queue_redraw()
 		accept_event()
@@ -3273,12 +3290,15 @@ class MapDraw extends Control:
 	var zoom := 1.0
 
 	func _to(p: Vector3) -> Vector2:
-		return Vector2((p.x + WPlaces.HALF) / WPlaces.SIZE, (p.z + WPlaces.HALF) / WPlaces.SIZE) * size
+		return Vector2((p.x + WIsles.MAP_HALF) / (WIsles.MAP_HALF * 2.0), (p.z + WIsles.MAP_HALF) / (WIsles.MAP_HALF * 2.0)) * size
 
 	func _draw() -> void:
 		if w == null or w.player == null:
 			return
 		var font := ThemeDB.fallback_font
+		for il in w.terrain.isles:
+			var ip := _to(Vector3(il.c.x, 0, il.c.y))
+			draw_string(font, ip + Vector2(-80, -float(il.r) / (WIsles.MAP_HALF * 2.0) * size.x - 6.0), il.name, HORIZONTAL_ALIGNMENT_CENTER, 160, 15, Color(0.85, 0.9, 0.92, 0.9))
 		for r in w.ruins:
 			if w.known_ruins.has(r.id) or w.is_revealed(r.pos):
 				var p := _to(r.pos)

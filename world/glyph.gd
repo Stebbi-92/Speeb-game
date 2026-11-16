@@ -245,6 +245,17 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 			_ln([0.5, 0.9], [0.5, 0.45], Color(0.5, 0.42, 0.32), 0.05)
 			for sx in [-1, 0, 1]:
 				draw_arc(P(0.5 + sx * 0.14, 0.32), 0.14 * _s, PI * 0.6 if sx < 0 else (PI * 1.1 if sx == 0 else PI * 1.6), PI * 1.4 if sx < 0 else (PI * 1.9 if sx == 0 else PI * 2.4), 10, steel, 0.06 * _s, true)
+		"raft":
+			for i in 5:
+				_box(0.14 + i * 0.15, 0.45, 0.12, 0.38, Color(0.5, 0.38, 0.26).darkened(0.1 * (i % 2)))
+			_box(0.1, 0.52, 0.8, 0.05, Color(0.3, 0.22, 0.15))
+			_box(0.1, 0.72, 0.8, 0.05, Color(0.3, 0.22, 0.15))
+			_ln([0.8, 0.15], [0.55, 0.6], Color(0.35, 0.26, 0.18), 0.05)
+		"sloop":
+			_poly([[0.1, 0.68], [0.9, 0.68], [0.78, 0.86], [0.2, 0.86]], Color(0.35, 0.25, 0.18))
+			_ln([0.5, 0.1], [0.5, 0.68], Color(0.3, 0.22, 0.15), 0.05)
+			_poly([[0.53, 0.14], [0.85, 0.6], [0.53, 0.6]], Color(0.82, 0.78, 0.68))
+			_poly([[0.47, 0.22], [0.2, 0.6], [0.47, 0.6]], Color(0.72, 0.68, 0.6))
 		"censer":
 			_ln([0.5, 0.08], [0.5, 0.3], Color(0.6, 0.6, 0.6), 0.03)
 			_poly([[0.3, 0.35], [0.7, 0.35], [0.64, 0.7], [0.36, 0.7]], Color(0.75, 0.6, 0.3))
@@ -260,6 +271,12 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_poly([[0.5, 0.1], [0.75, 0.45], [0.55, 0.9], [0.3, 0.55]], c)
 				_poly([[0.5, 0.1], [0.75, 0.45], [0.52, 0.5]], c.lightened(0.35))
 				_ring(0.5, 0.5, 0.42, Color(c, 0.4), 0.03)
+			elif item.begins_with("book_"):
+				# A lost book: a worn cover, its spine, and the edge of its pages
+				_poly([[0.22, 0.14], [0.78, 0.14], [0.78, 0.86], [0.22, 0.86]], c)
+				_box(0.22, 0.14, 0.08, 0.72, c.darkened(0.35))
+				_box(0.74, 0.18, 0.04, 0.64, Color(0.86, 0.82, 0.7))
+				_ring(0.52, 0.45, 0.12, Color(0.9, 0.78, 0.4, 0.8), 0.03)
 			elif WArms.WEAR.has(item):
 				_wear(WArms.WEAR[item].slot, c)
 			else:

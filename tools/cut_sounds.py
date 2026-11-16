@@ -35,6 +35,11 @@ SOUNDS = {
 	"amb_desert_night": ("loop", ["Desert KalNight .wav"], 60.0, 1, ""),
 	"amb_town": ("loop", ["Town_01.wav"], 60.0, 1, ""),
 	"amb_cave": ("loop", ["Cave Ambience Wind.wav"], 50.0, 1, ""),
+	# The sea and the weather (0.8)
+	"amb_sea": ("loop", ["Small Waves Lapping Beach .wav"], 50.0, 1, ""),
+	"amb_surf": ("loop", ["Shore_01.wav"], 50.0, 1, ""),
+	"amb_rain": ("loop", ["Rain Light 1.wav"], 50.0, 1, ""),
+	"amb_storm": ("loop", ["Rain Downpour 1.wav"], 50.0, 1, ""),
 }
 
 

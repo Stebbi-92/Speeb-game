@@ -17,6 +17,9 @@ const FUEL_START := 72.0     ## a new fire is laid with three days' wood
 const REVEAL_N := 256
 
 var terrain: WTerrain
+var sea: WSea
+var boats := {}          ## boat id -> WBoat, on the Grey Sea
+var boat_next := 1
 var inv := Inventory.new()
 var cat: WCat = null      ## this survivor's own riding cat, once one is tamed
 var _cat_saved := {}      ## the cat as saved, until the world is ready to place it
@@ -155,7 +158,15 @@ func _make_world(sd: int) -> void:
 	for l in lairs:
 		l.pos.y = terrain.height_at(l.pos.x, l.pos.z)
 	terrain.build(_m.ground)
+	terrain.make_isles(_m.ground)
 	add_child(terrain)
+	# The isles' hearts: a ruin on each, keeping a lost book (their own ids, after all the rest)
+	for il in terrain.isles:
+		var hp: Vector2 = terrain.isle_heart(il)
+		var th: Dictionary = WIsles.THEMES[il.key]
+		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
+	sea = WSea.new().setup(self)
+	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
 		_build_settlement(k)
 	for i in WPlaces.BEACONS.size():
@@ -168,6 +179,8 @@ func _make_world(sd: int) -> void:
 	for l in lairs:
 		_build_lair(l)
 	_scatter_nodes()
+	_scatter_isle_nodes()
+	sea.build_isles()
 	for nd in nodes:
 		_off_the_road(nd)
 		_fade_far(nd.node, 420.0)
@@ -1480,6 +1493,8 @@ func gentle_at(p: Vector3) -> bool:
 
 
 func land_at(p: Vector3) -> String:
+	if terrain and terrain.is_water(p.x, p.z, 0.8):
+		return "sea"   # no land's hardship out on the water
 	return terrain.biome_name(p.x, p.z) if terrain else "ash"
 
 
@@ -2158,7 +2173,7 @@ func _maybe_raid() -> void:
 	shared("_w_raid", [pieces[pid].pos])
 	var c: Vector3 = pieces[pid].pos
 	var n := 5 + mini(nights, 8) + targets().size() * 2
-	var roster: Array = BIOME_FORMS[terrain.biome_name(c.x, c.z)]
+	var roster: Array = forms_at(c)
 	for k in n:
 		get_tree().create_timer(randf_range(2.0, 20.0), false).timeout.connect(func():
 			if is_instance_valid(self) and night:
@@ -2749,6 +2764,39 @@ func _scatter_nodes() -> void:
 		far += 1
 
 
+## What grows and lies on the isles, by their own dice, after everything on the mainland.
+func _scatter_isle_nodes() -> void:
+	for il in terrain.isles:
+		var th: Dictionary = WIsles.THEMES[il.key]
+		var r := RandomNumberGenerator.new()
+		r.seed = world_seed + 6060 + hash(il.key)
+		var heart: Vector2 = terrain.isle_heart(il)
+		var made := 0
+		for tries in 600:
+			if made >= 70:
+				break
+			var a := r.randf() * TAU
+			var p2: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.85
+			if p2.distance_to(heart) < 30.0:
+				continue
+			var p := gpos(p2)
+			if p.y < WIsles.SEA_Y + 0.6 or terrain.normal_at(p.x, p.z).y < 0.8:
+				continue
+			var t: Array = th.nodes
+			var total := 0
+			for row in t:
+				total += int(row[1])
+			var roll := r.randi_range(1, total)
+			var kind := ""
+			for row in t:
+				roll -= int(row[1])
+				if roll <= 0:
+					kind = row[0]
+					break
+			_make_node(nodes.size(), kind, p, r)
+			made += 1
+
+
 ## The lie of the land as it was before the waste grew, so that the old middle is gathered from as it was.
 func _legacy_normal(p2: Vector2) -> Vector3:
 	if maxf(absf(p2.x), absf(p2.y)) < 800.0:
@@ -2785,6 +2833,14 @@ const BIOME_FORMS := {
 	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight"],
 	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus"],
 }
+
+
+## What rises at a place: an isle's own foes, or its land's.
+func forms_at(p: Vector3) -> Array:
+	var il := terrain.isle_at(p.x, p.z, 1.3)
+	if not il.is_empty():
+		return WIsles.THEMES[il.key].forms
+	return BIOME_FORMS[terrain.biome_name(p.x, p.z)]
 
 
 func _node_kind(p: Vector2, r: RandomNumberGenerator) -> String:
@@ -3079,6 +3135,7 @@ func _physics_process(delta: float) -> void:
 	if Net.authority():
 		_world_tick(delta)
 	_needs_tick(delta)
+	_sea_tick(delta)
 	_reveal_t -= delta
 	if _reveal_t <= 0.0 and not Net.dedicated:
 		_reveal_t = 0.5
@@ -3116,6 +3173,35 @@ func _physics_process(delta: float) -> void:
 		_save_soon -= delta
 	if _save_t <= 0.0 or (_save_soon >= 0.0 and _save_soon <= 0.0):
 		save_all()
+
+
+var _drown_t := 0.0
+var _foe_sea_t := 1.0
+
+
+## The sea: where its surface lies under you, a swimmer who has spent their breath, and foes
+## that follow too far into deep water.
+func _sea_tick(delta: float) -> void:
+	var p := player.global_position
+	player.water_y = sea.surface(p.x, p.z) if terrain.is_water(p.x, p.z, 1.0) else -INF
+	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated:
+		_drown_t -= delta
+		if _drown_t <= 0.0:
+			_drown_t = 1.0
+			hud.notify("You are drowning. Get to shore.")
+		player.health = maxf(1.0, player.health - 7.0 * delta)
+		hud.set_health(player.health / player.max_health, true)
+		_regen_wait = maxf(_regen_wait, 3.0)
+		if player.health <= 1.0:
+			player.dodge_t = 0.0
+			damage_player(9999.0, p)
+	if Net.authority():
+		_foe_sea_t -= delta
+		if _foe_sea_t <= 0.0:
+			_foe_sea_t = 1.0
+			for e in enemies:
+				if is_instance_valid(e) and e.is_alive() and e.walks() and e.global_position.y < WIsles.SEA_Y - 2.0 and terrain.is_water(e.global_position.x, e.global_position.z, 2.0):
+					e.die(false)
 
 
 func _world_tick(delta: float) -> void:
@@ -3307,7 +3393,7 @@ func _night_wave() -> void:
 		if alive_count() >= cap:
 			return
 		var n := 2 + int(nights * 0.5) + randi() % 2
-		var roster: Array = BIOME_FORMS[terrain.biome_name(t.global_position.x, t.global_position.z)]
+		var roster: Array = forms_at(t.global_position)
 		for k in n:
 			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
 			# The night's walkers come looking for the living; they need not see you yet
@@ -3362,7 +3448,7 @@ func _quest_foes() -> void:
 		for e in enemies:
 			if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(c) < 45.0:
 				here += 1
-		var roster: Array = BIOME_FORMS[terrain.biome_name(c.x, c.z)]
+		var roster: Array = forms_at(c)
 		for k in mini(2, mini(3, left) - here):
 			_spawn_one(roster[randi() % roster.size()], c, 6.0, 16.0, true)
 
@@ -3379,10 +3465,18 @@ func _day_watch() -> void:
 			if int(r.guard_day) != day and p.distance_to(r.pos) < 55.0:
 				r.guard_day = day
 				var n := 2 + randi() % 3
+				if r.has("isle"):
+					# An isle's heart is kept more fiercely, by its own kind
+					var roster: Array = forms_at(r.pos)
+					for k in n + 2:
+						_spawn_near(roster[randi() % roster.size()], r.pos, 8.0, 18.0, true)
+					continue
 				for k in n:
 					_spawn_near(["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"][randi() % 10], r.pos, 6.0, 14.0, true)
 		if alive_count() < 2 and randf() < 0.08:
-			_spawn_near(["rusher", "spider", "swarm"][randi() % 3], p, 40.0, 60.0)
+			var isle := not terrain.isle_at(p.x, p.z, 1.3).is_empty()
+			var roster: Array = forms_at(p) if isle else ["rusher", "spider", "swarm"]
+			_spawn_near(roster[randi() % roster.size()], p, 40.0, 60.0)
 
 
 func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
@@ -3403,6 +3497,8 @@ func _spawn_one(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := 
 		var x := c.x + cos(a) * d
 		var z := c.z + sin(a) * d
 		var gy := terrain.height_at(x, z)
+		if terrain.is_water(x, z, 0.3):
+			continue   # nothing rises out of the open sea (save what lives in it)
 		var p := Vector3(x, gy + (randf_range(7.0, 9.0) if kind == "saucer" else (0.6 if kind == "spider" else randf_range(1.2, 2.2))), z)
 		if safe_at(p) and not anywhere:
 			continue
@@ -3504,6 +3600,206 @@ func _w_slain(p: Vector3, kind: String, by := 0) -> void:
 
 
 # ================================================================== falling, and rising again
+
+# ================================================================== boats
+
+## Puts a boat from the pack into the water at the shore before you.
+func launch_boat(item: String) -> bool:
+	var k := {"raft": "raft", "sloop": "sloop"}.get(item, "") as String
+	if k == "":
+		return false
+	if player.vessel != null or player.mount != null:
+		hud.notify("Get down first.")
+		return false
+	var at := player.global_position
+	var best := Vector3.INF
+	for ring in range(1, 8):
+		var r := ring * 2.5
+		for j in 16:
+			var a := TAU * j / 16.0
+			var q := at + Vector3(cos(a), 0, sin(a)) * r
+			if terrain.is_water(q.x, q.z, 1.2 if k == "raft" else 1.8):
+				best = Vector3(q.x, WIsles.SEA_Y, q.z)
+				break
+		if best != Vector3.INF:
+			break
+	if best == Vector3.INF:
+		hud.notify("Launch it from the shore: stand at the water's edge.")
+		return false
+	if inv.take(item, 1) < 1:
+		return false
+	var to := best - at
+	shared("_rq_launch", [Net.me(), k, best, atan2(to.x, to.z)])
+	hud.notify("You push the %s into the water." % str(WBoat.KINDS[k].name).to_lower())
+	sfx("carve", -8, best, 0.7)
+	return true
+
+
+func _rq_launch(_by: int, k: String, p: Vector3, yaw: float) -> void:
+	if not Net.authority():
+		return
+	var bid := boat_next
+	boat_next += 1
+	shared("_w_boat", [bid, k, p, yaw, float(WBoat.KINDS[k].hp)])
+
+
+func _w_boat(bid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
+	if boats.has(bid) and is_instance_valid(boats[bid]):
+		return
+	boat_next = maxi(boat_next, bid + 1)
+	var b := WBoat.new().setup(self, bid, k)
+	b.yaw = yaw
+	b.hp = hp
+	add_child(b)
+	b.global_position = p
+	b.net_set(p, yaw, 0.0, 0)
+	boats[bid] = b
+	if ready_world:
+		autosave_soon(5.0)
+
+
+## Interact on a boat: board it (the helm first), step off it, or mend it.
+func boat_used(b: WBoat) -> void:
+	if b.riders.has(Net.me()):
+		_leave_boat(b)
+		return
+	if player.mount:
+		hud.notify("Get down from your cat first.")
+		return
+	if player.vessel != null:
+		return
+	if b.hp < float(b.spec.hp) - 1.0 and inv.count("wood") >= 4:
+		inv.take("wood", 4)
+		shared("_rq_boat_hp", [b.id, minf(float(b.spec.hp), b.hp + float(b.spec.hp) * 0.4)])
+		hud.notify("You mend the %s." % str(b.spec.name).to_lower())
+		sfx("carve", -6, b.global_position)
+		return
+	if b.free_seat() < 0:
+		hud.notify("There is no room aboard.")
+		return
+	shared("_rq_board", [b.id, Net.me()])
+
+
+func _rq_board(bid: int, by: int) -> void:
+	if not Net.authority() or not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	if b.riders.has(by):
+		return
+	var seat := b.free_seat()
+	if seat < 0:
+		return
+	var r := b.riders.duplicate()
+	r[by] = seat
+	shared("_w_riders", [bid, r])
+
+
+func _rq_leave(bid: int, by: int) -> void:
+	if not Net.authority() or not boats.has(bid):
+		return
+	var r: Dictionary = boats[bid].riders.duplicate()
+	r.erase(by)
+	shared("_w_riders", [bid, r])
+
+
+func _w_riders(bid: int, r: Dictionary) -> void:
+	if not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	var was: bool = b.riders.has(Net.me())
+	b.set_riders(r)
+	if r.has(Net.me()) and not was:
+		player.vessel = b
+		player.velocity = Vector3.ZERO
+		if int(r[Net.me()]) == 0:
+			var how := "Steer with [%s] and [%s]. " % [Game.key_text("move_left"), Game.key_text("move_right")]
+			if float(b.spec.sail) > 0.0:
+				how += "[%s] raises the sail, [%s] lowers it; it runs best before the wind." % [Game.key_text("move_forward"), Game.key_text("move_back")]
+			else:
+				how += "[%s] and [%s] paddle." % [Game.key_text("move_forward"), Game.key_text("move_back")]
+			hud.notify(how)
+		else:
+			hud.notify("You sit aboard. Shoot from here; [%s] on the boat to step off." % Game.key_text("interact"))
+	elif not r.has(Net.me()) and was and player.vessel == b:
+		player.vessel = null
+
+
+## Off the boat: onto dry ground near it if there is any, or into the water beside it.
+func _leave_boat(b: WBoat) -> void:
+	shared("_rq_leave", [b.id, Net.me()])
+	player.vessel = null
+	var at := b.global_position
+	var spot := at + Vector3(b.global_transform.basis.x) * 2.5
+	for ring in range(1, 6):
+		var found := false
+		for j in 12:
+			var a := TAU * j / 12.0
+			var q := at + Vector3(cos(a), 0, sin(a)) * ring * 2.5
+			if not terrain.is_water(q.x, q.z, -0.2):
+				spot = q
+				found = true
+				break
+		if found:
+			break
+	spot.y = maxf(terrain.height_at(spot.x, spot.z), WIsles.SEA_Y - 1.0) + 0.3
+	player.global_position = spot
+	player.velocity = Vector3.ZERO
+
+
+func _w_boat_move(bid: int, p: Vector3, yaw: float, sp: float, sl: int) -> void:
+	if not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	if b.riders.has(Net.me()) and int(b.riders[Net.me()]) == 0:
+		return   # it is ours to steer
+	b.net_set(p, yaw, sp, sl)
+
+
+func _rq_boat_hp(bid: int, hp: float) -> void:
+	if Net.authority() and boats.has(bid):
+		shared("_w_boat_hp", [bid, hp])
+
+
+func _w_boat_hp(bid: int, hp: float) -> void:
+	if not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	b.hp = hp
+	b._refresh_prompt()
+	if hp <= 0.0 and Net.authority():
+		shared("_w_boat_gone", [bid, true])
+
+
+## Harm to a boat (only the host's count of it matters).
+func hurt_boat(b: WBoat, amount: float) -> void:
+	if Net.authority():
+		shared("_w_boat_hp", [b.id, b.hp - amount])
+	if b.riders.has(Net.me()):
+		player.shake(0.3)
+		hud.notify("The %s shudders." % str(b.spec.name).to_lower())
+
+
+func _w_boat_gone(bid: int, wrecked: bool) -> void:
+	if not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	boats.erase(bid)
+	if player.vessel == b:
+		player.vessel = null
+		player.global_position = b.global_position + Vector3(0, -0.5, 0)
+		if wrecked:
+			hud.notify("The %s breaks up under you. Swim for it." % str(b.spec.name).to_lower())
+	if wrecked:
+		sfx("crumble", -2, b.global_position)
+	b.queue_free()
+	if ready_world:
+		autosave_soon(5.0)
+
+
+## Lost books may teach a better rig.
+func boat_speed_mult() -> float:
+	return 1.2 if flags.has("book_rigging") else 1.0
+
 
 # ================================================================== the riding cat
 
@@ -3877,6 +4173,8 @@ func reveal_place(p: Vector2, radius: float) -> void:
 
 
 func is_revealed(p: Vector3) -> bool:
+	if maxf(absf(p.x), absf(p.z)) > WPlaces.HALF:
+		return true   # the sea and its isles are on the old charts
 	var cell := WPlaces.SIZE / REVEAL_N
 	var i := clampi(int((p.x + WPlaces.HALF) / cell), 0, REVEAL_N - 1)
 	var j := clampi(int((p.z + WPlaces.HALF) / cell), 0, REVEAL_N - 1)
@@ -3886,11 +4184,27 @@ func is_revealed(p: Vector3) -> bool:
 var _biome := ""
 
 
+var _region := ""
+
+
 func _visit_check() -> void:
-	var bn := terrain.biome_name(player.global_position.x, player.global_position.z)
+	var bn := land_at(player.global_position)
+	var region := terrain.region_name(player.global_position.x, player.global_position.z)
+	if region != _region:
+		var il := terrain.isle_at(player.global_position.x, player.global_position.z, 1.4)
+		if _region != "":
+			if region == "The Grey Sea":
+				hud.notify("The Grey Sea\nOpen water. Keep to a boat: a swimmer tires, and things live under it.")
+			elif not il.is_empty() and region == il.name:
+				if not visited.has("isle_" + str(il.key)):
+					visited["isle_" + str(il.key)] = true
+					hud.title_card("", il.name)
+					award("settlement")
+				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn)])
+			else:
+				hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], tier_at(player.global_position), BIOME_TEXT[bn], "" if gentle_at(player.global_position) else land_warning(bn)])
+		_region = region
 	if bn != _biome:
-		if _biome != "":
-			hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], tier_at(player.global_position), BIOME_TEXT[bn], "" if gentle_at(player.global_position) else land_warning(bn)])
 		_biome = bn
 		if not seen_biomes.has(bn):
 			seen_biomes[bn] = true
@@ -3940,6 +4254,11 @@ func _w_snapshot(d: Dictionary) -> void:
 
 func net_left(id: int) -> void:
 	super.net_left(id)
+	# One who leaves is off any boat they were on
+	if Net.authority():
+		for bid in boats:
+			if boats[bid].riders.has(id):
+				_rq_leave(bid, id)
 	autosave_soon(1.0)
 
 
@@ -3965,8 +4284,17 @@ func world_data() -> Dictionary:
 		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
-		"marks": map_marks, "rules": rules,
+		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
 	}
+
+
+func _boats_data() -> Dictionary:
+	var out := {}
+	for bid in boats:
+		var b: WBoat = boats[bid]
+		if is_instance_valid(b):
+			out[bid] = [b.kind, b.global_position, b.yaw, b.hp]
+	return out
 
 
 func apply_world(d: Dictionary) -> void:
@@ -4002,6 +4330,13 @@ func apply_world(d: Dictionary) -> void:
 	for sid in d.get("satchels", {}):
 		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
 	satchel_next = int(d.get("satchel_next", 1))
+	boat_next = maxi(boat_next, int(d.get("boat_next", 1)))
+	var bd = d.get("boats", {})
+	if bd is Dictionary:
+		for bid in bd:
+			var e = bd[bid]
+			if e is Array and e.size() >= 4 and WBoat.KINDS.has(str(e[0])) and e[1] is Vector3:
+				_w_boat(int(bid), str(e[0]), e[1], float(e[2]), float(e[3]))
 	rules = WRules.clean(d.get("rules"))
 	Game.wrules = rules
 	map_marks = []
@@ -6630,6 +6965,37 @@ func debug_screen() -> void:
 				eye.y = terrain.height_at(eye.x, eye.z) + 0.5
 				to = ib - eye
 			player.place(eye, atan2(-to.x, -to.z))
+		"coast", "hrafn", "fen", "kala", "cog":
+			var il: Dictionary = terrain.isles[0]
+			for i2 in terrain.isles:
+				if i2.key == which:
+					il = i2
+			var c2: Vector2 = il.c
+			var eye: Vector3
+			var look: Vector3
+			if which == "coast":
+				# Walk out from the middle toward the isle until the ground meets the sea
+				var dir2 := c2 / maxf(absf(c2.x), absf(c2.y))
+				var at2 := dir2 * 1700.0
+				for k2 in 400:
+					at2 = dir2 * (1700.0 + k2 * 2.0)
+					if terrain.height_at(at2.x, at2.y) < WIsles.SEA_Y + 2.0:
+						break
+				eye = Vector3(at2.x, terrain.height_at(at2.x, at2.y) + 6.0, at2.y) - Vector3(dir2.x, 0, dir2.y) * 30.0
+				look = Vector3(c2.x, WIsles.SEA_Y + 20.0, c2.y)
+			else:
+				var hp2: Vector2 = terrain.isle_heart(il)
+				var out2 := (hp2 - c2).normalized() if hp2 != c2 else Vector2(1, 0)
+				var at3: Vector2 = c2 + out2 * float(il.r) * 1.6
+				eye = Vector3(at3.x, WIsles.SEA_Y + 45.0, at3.y)
+				look = Vector3(c2.x, terrain.height_at(c2.x, c2.y), c2.y)
+			player.place(eye, 0.0)
+			var to3 := look - eye
+			player.yaw = atan2(-to3.x, -to3.z)
+			player.pitch = atan2(to3.y, Vector2(to3.x, to3.z).length())
+			player.rotation.y = player.yaw
+			player.head.rotation.x = player.pitch
+			player.set_physics_process(false)
 		"over_cinderwick", "over_hesk", "over_kiln", "over_lanternwell":
 			var c := gpos(WPlaces.spos(which.substr(5)))
 			var eye := c + Vector3(34, 0, 34)
@@ -7025,4 +7391,99 @@ func debug_fixes() -> void:
 	_lair_tick()
 	var woke: bool = _lair_boss.get(l.id) != null
 	print("FIXES map_ready=%s map_open_fast=%s slept=%s woke=%s" % [ui._map_tex != null, open_ms < 400, slept, woke])
+	get_tree().quit()
+
+
+## Testing aid: the Grey Sea and its isles are there, the sea holds a swimmer up and tires them,
+## and nothing rises out of open water.
+func debug_sea() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var dry := 0
+	for il in terrain.isles:
+		var hp: Vector2 = terrain.isle_heart(il)
+		if terrain.height_at(hp.x, hp.y) > WIsles.SEA_Y + 1.0:
+			dry += 1
+	var isle_nodes := nodes.filter(func(nd): return maxf(absf(nd.node.position.x), absf(nd.node.position.z)) > WPlaces.HALF).size()
+	var isle_ruins := ruins.filter(func(r): return r.has("isle")).size()
+	# Out between the coast and the first isle
+	var il0: Dictionary = terrain.isles[0]
+	var c0: Vector2 = il0.c
+	var mid := c0 / maxf(absf(c0.x), absf(c0.y)) * (WPlaces.HALF + 60.0)
+	var open := terrain.is_water(mid.x, mid.y, 5.0)
+	print("SEA isles=%d dry=%d nodes=%d ruins=%d open=%s name=%s isle_name=%s" % [terrain.isles.size(), dry, isle_nodes, isle_ruins, open, terrain.region_name(mid.x, mid.y), terrain.region_name(terrain.isle_heart(il0).x, terrain.isle_heart(il0).y)])
+	player.place(Vector3(mid.x, WIsles.SEA_Y + 0.5, mid.y), 0.0)
+	await get_tree().create_timer(4.0).timeout
+	var y: float = player.global_position.y
+	var st0: float = player.stamina
+	print("SEA swimming=%s afloat=%s y=%.1f" % [player.swimming, absf(y - (WIsles.SEA_Y - 1.3)) < 1.2, y])
+	await get_tree().create_timer(3.0).timeout
+	print("SEA tires=%s" % [player.stamina < st0])
+	var e := _spawn_one("rusher", player.global_position, 4.0, 20.0)
+	print("SEA spawn_in_water=%s" % [e != null])
+	get_tree().quit()
+
+
+## Testing aid: a raft is launched from the shore, boarded, paddled out and stepped off; a sloop
+## with the book runs under sail; a wrecked boat throws its crew in the water.
+func debug_boat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var il0: Dictionary = terrain.isles[0]
+	var c0: Vector2 = il0.c
+	var dir2 := c0 / maxf(absf(c0.x), absf(c0.y))
+	var shore := dir2 * 1700.0
+	for k in 600:
+		shore = dir2 * (1700.0 + k * 1.0)
+		if terrain.height_at(shore.x, shore.y) < WIsles.SEA_Y + 0.6:
+			break
+	player.place(gpos(shore - dir2 * 3.0) + Vector3(0, 0.3, 0), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	inv.add("raft", 1)
+	var launched := launch_boat("raft")
+	await get_tree().create_timer(0.5).timeout
+	var b: WBoat = boats.values()[0] if not boats.is_empty() else null
+	print("BOAT launched=%s boats=%d left_pack=%d" % [launched, boats.size(), inv.count("raft")])
+	if b == null:
+		get_tree().quit()
+		return
+	boat_used(b)
+	await get_tree().create_timer(0.5).timeout
+	print("BOAT aboard=%s helm=%s" % [player.vessel == b, b.pilot() == Net.me()])
+	# Face out to sea and paddle
+	b.yaw = atan2(dir2.x, dir2.y)
+	var p0 := b.global_position
+	Input.action_press("move_forward")
+	await get_tree().create_timer(4.0).timeout
+	Input.action_release("move_forward")
+	var moved := b.global_position.distance_to(p0)
+	print("BOAT moved=%.1f carried=%s" % [moved, player.global_position.distance_to(b.global_position) < 3.0])
+	boat_used(b)
+	await get_tree().create_timer(0.5).timeout
+	print("BOAT off=%s riders=%d" % [player.vessel == null, b.riders.size()])
+	# A sloop wants its book; under full sail before the wind it runs fast
+	var known_before := flags.has("book_ship")
+	flags["book_ship"] = true
+	_w_boat(99, "sloop", b.global_position + Vector3(dir2.x, 0, dir2.y) * 12.0, atan2(dir2.x, dir2.y), 420.0)
+	var s: WBoat = boats[99]
+	boat_used(s)
+	await get_tree().create_timer(0.3).timeout
+	sea.wind = 1.0
+	sea.wind_ang = atan2(dir2.y, dir2.x)
+	Input.action_press("move_forward")
+	await get_tree().physics_frame
+	Input.action_release("move_forward")
+	await get_tree().physics_frame
+	Input.action_press("move_forward")
+	await get_tree().physics_frame
+	Input.action_release("move_forward")
+	await get_tree().create_timer(6.0).timeout
+	print("BOAT sail=%d sloop_speed=%.1f book_gated=%s" % [s.sail, s.speed, not known_before])
+	hurt_boat(s, 9999.0)
+	await get_tree().create_timer(0.5).timeout
+	print("BOAT wrecked=%s thrown=%s" % [not boats.has(99), player.vessel == null])
 	get_tree().quit()
