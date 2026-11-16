@@ -69,6 +69,8 @@ const KINDS := {
 		"weak": {"blast": 1.6, "fire": 1.3}, "tough": {"bullet": 0.7, "blade": 0.8}, "text": "Many Hollowed, grown into one. Slow, and each blow lands like a falling wall. Keep away."},
 	"wisp": {"name": "Ember Wisp", "hp": 45.0, "size": 0.9, "speed": 4.6, "bite": 8.0, "radius": 0.45, "body": "model", "role": "float", "head_y": 0.45,
 		"burn": 3.0, "weak": {"shot": 1.6, "blade": 1.4}, "tough": {"fire": 0.0, "bullet": 0.7}, "text": "A live coal with a will. It drifts close and sets you burning."},
+	"serpent": {"name": "Grey Wyrm", "hp": 420.0, "size": 2.2, "speed": 7.0, "bite": 26.0, "radius": 1.0,
+		"weak": {"blast": 1.5, "bullet": 1.2}, "tough": {"fire": 0.3}, "text": "It lives under the Grey Sea and follows boats that stray far from land. Shoot it as it rises."},
 	"knight": {"name": "Ashen Knight", "hp": 240.0, "size": 1.4, "speed": 3.2, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1, "plate": 160.0,
 		"weak": {"blast": 1.3}, "tough": {"shot": 0.7}, "text": "Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it."},
 	"saltrifle": {"name": "Salt Rifleman", "hp": 45.0, "size": 0.9, "speed": 4.4, "bite": 11.0, "radius": 0.4, "body": "model", "role": "gun", "head_y": 0.62,
@@ -236,6 +238,8 @@ func _ready() -> void:
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
+	if kind == "serpent":
+		_build_serpent()
 	if spec.get("body", "") == "model":
 		_fb = FoeBody.make(kind)
 		_fb.position.y = -float(spec.radius)
@@ -377,6 +381,11 @@ func _physics_process(delta: float) -> void:
 			"elite":
 				want = dir * speed if dist > 4.0 else dir.cross(Vector3.UP) * _strafe * 3.0
 				want.y += (target.y + 0.8 - global_position.y) * 1.0
+			"serpent":
+				# It swims at the surface, then rears up out of the water to strike
+				want = dir * speed * (1.0 if dist > 5.0 else 0.4)
+				var sy := WIsles.SEA_Y + 0.4 if dist > 7.0 else target.y - 0.8
+				want.y = (sy - global_position.y) * 2.5
 			"unseen":
 				# Still as a post while it is watched; when the eye leaves it, it comes on fast
 				var w := dist < 30.0 and _is_watched(p)
@@ -397,6 +406,8 @@ func _physics_process(delta: float) -> void:
 			velocity = Vector3.ZERO
 	else:
 		want.y += sin(_t * 2.6) * 0.4
+	if kind == "serpent":
+		_coil_tick()
 	_shot_slow = maxf(0.0, _shot_slow - delta)
 	velocity = (velocity - _knock_on).lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
 	_knock_on = _knock
@@ -461,6 +472,37 @@ func _physics_process(delta: float) -> void:
 				_spit(global_position + (target - global_position).rotated(Vector3.UP, k))
 		else:
 			_spit(target)
+
+
+var _coils: Array = []
+
+
+## A long dark body trailing behind the face, in coils that rise and fall as it swims.
+func _build_serpent() -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.14, 0.17, 0.17)
+	m.roughness = 0.4
+	m.metallic = 0.2
+	for i in 9:
+		var seg := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		var r := 0.9 * (1.0 - i * 0.08)
+		sm.radius = r
+		sm.height = r * 2.0
+		seg.mesh = sm
+		seg.material_override = m
+		add_child(seg)
+		seg.position = Vector3(0, -0.3, -1.3 * (i + 1))
+		_coils.append(seg)
+	head.set_flash(0.0)
+
+
+func _coil_tick() -> void:
+	var back := -Vector3(velocity.x, 0, velocity.z).normalized() if Vector2(velocity.x, velocity.z).length() > 0.3 else Vector3(0, 0, -1)
+	for i in _coils.size():
+		var seg: MeshInstance3D = _coils[i]
+		var along := back * 1.3 * (i + 1)
+		seg.position = Vector3(along.x, -0.3 + sin(_t * 3.0 - i * 0.8) * 0.6 - i * 0.05, along.z)
 
 
 ## Eight legs about a dark abdomen, the head carried low in front.

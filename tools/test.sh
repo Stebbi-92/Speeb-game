@@ -49,6 +49,7 @@ check sea       debug_sea      "SEA isles=4 dry=4 nodes=[1-9][0-9]+ ruins=4 open
 check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT aboard=true helm=true" "BOAT moved=[1-9][0-9.]* carried=true" "BOAT off=true riders=0" "BOAT sail=2 sloop_speed=([5-9]|1[0-9])\." "BOAT wrecked=true thrown=true"
 check weather   debug_weather  "WEATHER long_night=true thaw=true cold=true warm=true choke=true covered=true hurt=true" "WEATHER gale_swell=true"
 check books     debug_books    "BOOKS isle=true first=book_ship hidden=true read=true shown=true again=false"
+check serpent   debug_serpent  "SERPENT open_water_found=true" "SERPENT rose=true" "SERPENT boat_hurt=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

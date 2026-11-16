@@ -3230,6 +3230,33 @@ var _drown_t := 0.0
 var _foe_sea_t := 1.0
 
 
+
+var _serpent_t := 10.0
+
+
+## Far out on open water, something may come up after a boat (or a swimmer).
+func _serpent_watch() -> void:
+	if enemies.any(func(e): return is_instance_valid(e) and e.is_alive() and e.kind == "serpent"):
+		return
+	for t in targets():
+		var p: Vector3 = t.global_position
+		if not terrain.is_water(p.x, p.z, 4.0) or sea.open_water(p, 240.0) < 160.0:
+			continue
+		if randf() > 0.15:
+			continue
+		var a := randf() * TAU
+		var at := p + Vector3(cos(a), 0, sin(a)) * randf_range(28.0, 40.0)
+		at.y = WIsles.SEA_Y + 0.3
+		if not terrain.is_water(at.x, at.z, 3.0):
+			continue
+		var e := spawn_at("serpent", at)
+		if e:
+			e.set_meta("raid", true)
+			shared("_w_note", ["Something moves under the water."])
+			sfx("horror_deep", -4, at, 0.7)
+		return
+
+
 ## The sea: where its surface lies under you, a swimmer who has spent their breath, and foes
 ## that follow too far into deep water.
 func _sea_tick(delta: float) -> void:
@@ -3251,8 +3278,16 @@ func _sea_tick(delta: float) -> void:
 		if _foe_sea_t <= 0.0:
 			_foe_sea_t = 1.0
 			for e in enemies:
-				if is_instance_valid(e) and e.is_alive() and e.walks() and e.global_position.y < WIsles.SEA_Y - 2.0 and terrain.is_water(e.global_position.x, e.global_position.z, 2.0):
+				if not is_instance_valid(e) or not e.is_alive():
+					continue
+				if e.walks() and e.global_position.y < WIsles.SEA_Y - 2.0 and terrain.is_water(e.global_position.x, e.global_position.z, 2.0):
 					e.die(false)
+				elif e.kind == "serpent" and not terrain.is_water(e.global_position.x, e.global_position.z, 1.5):
+					e.die(false)   # it will not follow onto land; it sinks back
+			_serpent_t -= 1.0
+			if _serpent_t <= 0.0:
+				_serpent_t = 10.0
+				_serpent_watch()
 
 
 func _world_tick(delta: float) -> void:
@@ -3856,8 +3891,7 @@ func _w_boat_hp(bid: int, hp: float) -> void:
 
 ## Harm to a boat (only the host's count of it matters).
 func hurt_boat(b: WBoat, amount: float) -> void:
-	if Net.authority():
-		shared("_w_boat_hp", [b.id, b.hp - amount])
+	shared("_rq_boat_hp", [b.id, b.hp - amount])
 	if b.riders.has(Net.me()):
 		player.shake(0.3)
 		hud.notify("The %s shudders." % str(b.spec.name).to_lower())
@@ -4038,6 +4072,9 @@ func damage_player(amount: float, from: Vector3) -> void:
 				hud.hitmarker(false, true)
 				if amount < 1.0:
 					return
+	# Aboard, a heavy blow lands on the boat as well
+	if player.vessel != null and is_instance_valid(player.vessel) and amount >= 10.0:
+		hurt_boat(player.vessel, amount * 0.6)
 	# Riding, the cat takes half of the blow; hurt out, it throws its rider and runs off a while
 	if player.mount and cat:
 		if cat.take(amount * 0.5):
@@ -7659,3 +7696,44 @@ func _recipe_shown(id: String) -> bool:
 		if r.id == id and (not r.has("needs") or flags.has(r.needs)):
 			return true
 	return false
+
+
+## Testing aid: far out on open water a Grey Wyrm comes up after a boat, and its bites hurt the boat.
+func debug_serpent() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var spot := Vector3.INF
+	for k in 72:
+		var a := TAU * k / 72.0
+		var d := Vector2(cos(a), sin(a))
+		d /= maxf(absf(d.x), absf(d.y))
+		var q := d * 2700.0
+		var p := Vector3(q.x, WIsles.SEA_Y, q.y)
+		if terrain.is_water(p.x, p.z, 6.0) and sea.open_water(p, 240.0) >= 160.0:
+			spot = p
+			break
+	print("SERPENT open_water_found=%s" % [spot != Vector3.INF])
+	if spot == Vector3.INF:
+		get_tree().quit()
+		return
+	_w_boat(77, "sloop", spot, 0.0, 420.0)
+	var b: WBoat = boats[77]
+	player.place(spot + Vector3(0, 1, 0), 0.0)
+	boat_used(b)
+	await get_tree().create_timer(0.5).timeout
+	var e = null
+	for i in 80:
+		_serpent_watch()
+		var found := enemies.filter(func(x): return is_instance_valid(x) and x.is_alive() and x.kind == "serpent")
+		if not found.is_empty():
+			e = found[0]
+			break
+	print("SERPENT rose=%s" % [e != null])
+	var t0 := Time.get_ticks_msec()
+	while b.hp >= 420.0 and Time.get_ticks_msec() - t0 < 25000 and is_instance_valid(b):
+		await get_tree().create_timer(0.5).timeout
+	print("SERPENT boat_hurt=%s" % [not is_instance_valid(b) or b.hp < 420.0])
+	get_tree().quit()
