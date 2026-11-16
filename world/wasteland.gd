@@ -370,6 +370,7 @@ func _process(delta: float) -> void:
 		if _bed_t <= 0.0:
 			_bed_t = 0.5
 			_place_sounds()
+			_landmarks_tick()
 		_cat_tick(delta)
 		_power_tick(delta)
 		if hall:
@@ -1265,7 +1266,11 @@ func _build_beacon(i: int) -> void:
 	a.position = Vector3(0, 2.4, 0)
 	n.add_child(a)
 	personal_interactable(a, "", func(): _beacon_touched(i))
-	beacon_nodes.append({"node": n, "flame": flame, "light": light, "beam": beam, "area": a, "pos": c})
+	# A dead beacon is a goal on the horizon: a thin column of red smoke that stands over the waste
+	var dark := landmark_column(Color(0.75, 0.22, 0.12, 0.16), 220.0, 0.9)
+	dark.position = Vector3(0, 122, 0)
+	n.add_child(dark)
+	beacon_nodes.append({"node": n, "flame": flame, "light": light, "beam": beam, "area": a, "pos": c, "dark": dark})
 	_beacon_prompt(i)
 
 
@@ -1388,6 +1393,46 @@ func next_dark_beacon(from: Vector3) -> int:
 			bd = d
 			best = k
 	return best
+
+
+## A tall, faint column seen from far across the waste, through the haze: a goal on the horizon.
+static func landmark_column(c: Color, height: float, radius: float) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = radius * 2.5
+	cm.bottom_radius = radius
+	cm.height = height
+	cm.radial_segments = 10
+	cm.rings = 1
+	cm.cap_top = false
+	cm.cap_bottom = false
+	mi.mesh = cm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = c
+	m.disable_fog = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.proximity_fade_enabled = true
+	m.proximity_fade_distance = 6.0
+	m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	m.distance_fade_min_distance = 25.0
+	m.distance_fade_max_distance = 90.0
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## The goals on the horizon follow the world: a dead beacon's smoke until it burns, a lair's while
+## its great one waits there.
+func _landmarks_tick() -> void:
+	for i in beacon_nodes.size():
+		var b: Dictionary = beacon_nodes[i]
+		if b.has("dark"):
+			(b.dark as Node3D).visible = not (i in lit) and not vigils.has(i) and (i != 8 or lit.size() >= 8)
+	for l in lairs:
+		if l.has("smoke") and is_instance_valid(l.smoke):
+			(l.smoke as Node3D).visible = lair_ready(l)
 
 
 func _light_beacon(i: int, on: bool) -> void:
@@ -6129,6 +6174,11 @@ func _build_lair(l: Dictionary) -> void:
 			return
 		hud.notify("You strike the stone. Something stirs. Get back.")
 		shared("_rq_lair_call", [lid]), 1.0, false)
+	# Its smoke rises over the land while the great one waits: dark, with a bruise of purple
+	var smoke := landmark_column(Color(0.25, 0.12, 0.3, 0.2), 180.0, 1.6)
+	smoke.position = Vector3(0, 90, 0)
+	n.add_child(smoke)
+	l["smoke"] = smoke
 
 
 ## A great one sleeps until someone calls it out at the heart of its ring: walking near does not wake it.
@@ -10026,4 +10076,111 @@ func debug_boons() -> void:
 	back.from_data(skills.to_data())
 	ui.close_all()
 	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == 2, next_shown])
+	get_tree().quit()
+
+
+## Testing aid: from Cinderwick, looking toward the first dark beacon; saves what is seen.
+func debug_horizonshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var c := gpos(WPlaces.spos("cinderwick"))
+	var at := c + Vector3(0, 0, 0)
+	at.y = terrain.height_at(at.x, at.z) + 0.3
+	player.place(at, 0.0)
+	var b: Vector3 = beacon_nodes[0].pos
+	player.face(b + Vector3(0, 30, 0))
+	clock = 15.0
+	for k in 40:
+		await get_tree().process_frame
+	await get_tree().create_timer(3.0).timeout
+	get_viewport().get_texture().get_image().save_png("/tmp/claude-0/horizon.png")
+	print("HORIZON dist=%d" % int(at.distance_to(b)))
+	get_tree().quit()
+
+
+# ================================================================== what now
+
+## Three goals, always: the next step on the beacon road, the nearest thing worth doing, and
+## something to grow toward. Each is {kind, title, text, at (Vector3 or null)}.
+func what_now() -> Array:
+	var out: Array = []
+	var me := player.global_position
+	# 1. The beacon road
+	var main_q: Dictionary = {}
+	for q in quests.active():
+		if q.get("main", false):
+			main_q = q
+	if not main_q.is_empty():
+		var s: Dictionary = quests.step_of(main_q)
+		var t = quests.target_of(main_q)
+		var txt: String = quests.step_text(main_q)
+		if str(s.get("t", "")) in ["count", "kindle"]:
+			var oil := inv.count("beacon_oil")
+			txt += " You carry %d beacon oil." % oil
+			if oil == 0:
+				txt += " Render more at a workbench: 2 lamp oil, 10 salt, 4 ash-bloom." if flags.has("oilcraft") else ""
+		out.append({"kind": "road", "title": "The beacon road", "text": txt, "at": t})
+	elif lit.size() < 9:
+		var nb := next_dark_beacon(me)
+		if nb >= 0:
+			out.append({"kind": "road", "title": "The beacon road", "text": "Kindle %s." % WPlaces.BEACONS[nb].name, "at": beacon_nodes[nb].pos})
+	# 2. The nearest thing worth doing: a task taken up, a great one waiting, a town not yet seen
+	var near: Dictionary = {}
+	var nd := INF
+	for q in quests.active():
+		if q.get("main", false):
+			continue
+		var t = quests.target_of(q)
+		if t is Vector3 and t.distance_to(me) < nd:
+			nd = t.distance_to(me)
+			near = {"kind": "near", "title": str(q.get("title", "A task")), "text": quests.step_text(q), "at": t}
+	if near.is_empty():
+		for k in WPlaces.SETTLEMENTS:
+			if visited.has(k):
+				continue
+			var p := gpos(WPlaces.spos(k))
+			if p.distance_to(me) < nd:
+				nd = p.distance_to(me)
+				near = {"kind": "near", "title": WPlaces.SETTLEMENTS[k].name, "text": "A settlement you have not seen. Its people will have work, and things to trade.", "at": p}
+	for l in lairs:
+		if lair_ready(l) and l.pos.distance_to(me) < minf(nd, 700.0):
+			nd = l.pos.distance_to(me)
+			near = {"kind": "near", "title": l.name, "text": "%s waits here, under the dark smoke. Bring friends." % LesserSpeeb.BOSSES[l.boss].name, "at": l.pos}
+	if near.is_empty():
+		near = {"kind": "near", "title": "Work", "text": "Ask in the settlements: there is always work.", "at": null}
+	out.append(near)
+	# 3. Something to grow toward
+	var grow: Dictionary
+	if not skills.boon_offer.is_empty():
+		grow = {"kind": "grow", "title": "A beacon boon waits", "text": "Touch any lit beacon to choose it.", "at": null}
+	elif skills.points > 0:
+		grow = {"kind": "grow", "title": "%d skill point%s to spend" % [skills.points, "" if skills.points == 1 else "s"], "text": "Press %s to learn something." % Game.key_text("skills"), "at": null}
+	else:
+		var best := ""
+		var lv := 999
+		for g in ArmsDB.GUNS:
+			var u := int(ArmsDB.GUNS[g].get("unlock", 1))
+			if u > skills.level and u < lv:
+				lv = u
+				best = g
+		if best != "":
+			grow = {"kind": "grow", "title": "Level %d: the %s" % [lv, ArmsDB.GUNS[best].name], "text": "%d experience to the next level. Kindle beacons, finish tasks and undo forms." % maxi(0, WSkills.need(skills.level) - skills.xp), "at": null}
+		else:
+			grow = {"kind": "grow", "title": "Grow strong", "text": "Rework your arms with better fittings at a workbench.", "at": null}
+	out.append(grow)
+	return out
+
+
+## Testing aid: What now always has three goals, the road first with a place to go, and shows in the journal.
+func debug_whatnow() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var g := what_now()
+	var kinds: Array = g.map(func(x): return x.kind)
+	ui.open_journal() if ui.has_method("open_journal") else ui._open("journal")
+	await get_tree().process_frame
+	var shown: bool = ui._panel_name == "journal"
+	skills.boon_offer = ["fleet", "packrat", "salvager"]
+	var boon_first: bool = what_now()[2].title == "A beacon boon waits"
+	print("WHATNOW n=%d kinds=%s road_at=%s shown=%s boon=%s first=%s" % [g.size(), ",".join(kinds), g[0].at is Vector3, shown, boon_first, g[0].text.left(40)])
 	get_tree().quit()

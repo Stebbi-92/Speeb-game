@@ -74,5 +74,6 @@ check crowd     debug_crowd    "CROWD one=10 four=2[0-9] eight=2[5-9] hp1=1.00 h
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 check ammo      debug_ammo     "AMMO piles=[0-9]+ shown=[0-9]+ gathered=true cases=5 theirs=3"
 check boons     debug_boons    "BOONS gift=true offered=3 opened=true took=true faster=true bigger=true kept=true next=true"
+check whatnow   debug_whatnow  "WHATNOW n=3 kinds=road,near,grow road_at=true shown=true boon=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

@@ -24,6 +24,7 @@ const STEPS := [
 	["town", "Follow the gold diamond on the compass to Cinderwick."],
 	["talk", "Speak with the elder of Cinderwick ({interact})."],
 	["map", "Open the map with {map}. Right click marks a spot."],
+	["journal", "Open the journal with {journal}. Its top row always shows what to do next."],
 	["night", "Live through the night. Rest by a fire or a bedroll to sleep through it."],
 ]
 
@@ -120,6 +121,8 @@ func _done() -> bool:
 			return w.quests.main_stage() > 0 or _seen.has("step_main")
 		"map":
 			return w.ui._panel_name == "map"
+		"journal":
+			return w.ui._panel_name == "journal"
 		"night":
 			return _seen.has("dawn")
 	return true
@@ -152,7 +155,7 @@ func _process(delta: float) -> void:
 		if step >= STEPS.size():
 			step = -1
 			visible = false
-			w.hud.notify("That is the way of it. The waste is yours to walk.")
+			w.hud.notify("That is the way of it. Open your journal (%s) whenever you wonder what to do next: it always shows three goals." % Game.key_text("journal"))
 		else:
 			_enter()
 		w.autosave_soon(5.0)

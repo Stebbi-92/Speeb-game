@@ -2733,6 +2733,34 @@ func open_journal() -> void:
 var _jsel := ""
 
 
+## What now: three goals side by side across the top of the journal.
+func _what_now_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var me: Vector3 = w.player.global_position
+	for g in w.what_now():
+		var box := PanelContainer.new()
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.custom_minimum_size = Vector2(0, 120)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0.28)
+		sb.border_color = GOLD if g.kind == "road" else Color(0.5, 0.48, 0.42)
+		sb.set_border_width_all(1)
+		sb.set_content_margin_all(10)
+		box.add_theme_stylebox_override("panel", sb)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 2)
+		box.add_child(v)
+		v.add_child(_label({"road": "NEXT", "near": "NEARBY", "grow": "GROW"}.get(g.kind, ""), 13, GOLD))
+		v.add_child(_label(str(g.title), 18, PALE))
+		v.add_child(_wrap(str(g.text), 15, DIM, 330))
+		if g.at is Vector3:
+			var t: Vector3 = g.at
+			v.add_child(_label("%d m %s" % [int(Vector2(t.x - me.x, t.z - me.z).length()), WPlaces.dir_word(Vector2(me.x, me.z), Vector2(t.x, t.z))], 15, GOLD))
+		row.add_child(box)
+	return row
+
+
 func _draw_journal() -> void:
 	_clear()
 	var top := HBoxContainer.new()
@@ -2744,12 +2772,13 @@ func _draw_journal() -> void:
 	top.add_child(st)
 	_body.add_child(top)
 	_close_and_rule(top)
+	_body.add_child(_what_now_row())
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 22)
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(split)
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(560, 540)
+	sc.custom_minimum_size = Vector2(560, 400)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2759,7 +2788,7 @@ func _draw_journal() -> void:
 	var side := _side_panel(split)
 	var qs: Array = w.quests.active()
 	if qs.is_empty():
-		list.add_child(_wrap("Nothing is asked of you. Ask in the settlements; there is always work.", 19, DIM, 540))
+		list.add_child(_wrap("No tasks taken up. Ask in the settlements; there is always work.", 19, DIM, 540))
 		side.add_child(_label("No tasks", 22, DIM))
 		return
 	if _jsel == "" or not w.quests.quests.has(_jsel) or w.quests.quests[_jsel].state != "active":
