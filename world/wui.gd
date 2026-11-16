@@ -1169,8 +1169,9 @@ var _asel := ""
 
 
 ## A card in a grid: picture, name, a line beneath, what it costs (if anything), and one button.
-func _card(pic: String, title: String, sub: String, sub_c: Color, cost: Dictionary, btn: String, cb: Callable, enabled: bool, on: bool, pick: Callable) -> PanelContainer:
+func _card(pic: String, title: String, sub: String, sub_c: Color, cost: Dictionary, btn: String, cb: Callable, enabled: bool, on: bool, pick: Callable, info := "") -> PanelContainer:
 	var card := PanelContainer.new()
+	card.tooltip_text = title + ("\n" + info if info != "" else "")
 	card.custom_minimum_size = Vector2(272, 0)
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var sb := StyleBoxFlat.new()
@@ -1202,18 +1203,28 @@ func _card(pic: String, title: String, sub: String, sub_c: Color, cost: Dictiona
 	hv.add_child(_label(sub, 13, sub_c))
 	head.add_child(hv)
 	v.add_child(head)
+	if info != "":
+		v.add_child(_wrap(info, 13, DIM, 250))
+	# What it takes, by name, so it can be read without knowing every picture
+	if not cost.is_empty():
+		var need := HFlowContainer.new()
+		need.add_theme_constant_override("h_separation", 10)
+		need.add_theme_constant_override("v_separation", 2)
+		need.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for k in cost:
+			var have: int = w.stock_count(k)
+			var c := HBoxContainer.new()
+			c.add_theme_constant_override("separation", 3)
+			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			c.add_child(WGlyph.make(k, 18, false))
+			c.add_child(_label("%d %s" % [int(cost[k]), Items.iname(k)], 13, OK_C if have >= int(cost[k]) else NO_C))
+			c.tooltip_text = "%s: you have %d" % [Items.iname(k), have]
+			need.add_child(c)
+		v.add_child(need)
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 10)
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	foot.custom_minimum_size.y = 30
-	for k in cost:
-		var have: int = w.stock_count(k)
-		var c := HBoxContainer.new()
-		c.add_theme_constant_override("separation", 3)
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		c.add_child(WGlyph.make(k, 20, false))
-		c.add_child(_label(str(cost[k]), 15, OK_C if have >= int(cost[k]) else NO_C))
-		foot.add_child(c)
 	var fill := Control.new()
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1767,12 +1778,12 @@ func _draw_wear() -> void:
 			continue   # taught by a lost book not yet found
 		var sub := _wear_sub(it)
 		if str(a.wear.get(_wslot, "")) == id:
-			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass))
+			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass, str(it.get("text", ""))))
 		elif w.inv.count(id) > 0:
-			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass))
+			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass, str(it.get("text", ""))))
 		else:
 			var c: Dictionary = _acost(it.cost)
-			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass))
+			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass, str(it.get("text", ""))))
 
 
 ## A worn thing's gifts in a few words.

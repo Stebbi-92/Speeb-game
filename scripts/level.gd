@@ -2274,6 +2274,8 @@ func _go_down() -> void:
 		return
 	life_kills = 0
 	downed = true
+	if "_fell_tonight" in self and get("night"):
+		set("_fell_tonight", true)
 	player.health = 0.0
 	player.input_locked = true
 	player.velocity = Vector3.ZERO

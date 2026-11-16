@@ -77,5 +77,6 @@ check boons     debug_boons    "BOONS gift=true offered=3 opened=true took=true 
 check whatnow   debug_whatnow  "WHATNOW n=3 kinds=road,near,grow road_at=true shown=true boon=true"
 check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=4"
 check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
+check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

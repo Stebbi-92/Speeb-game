@@ -4032,9 +4032,39 @@ func _w_clock(c: float, d: int, n: int) -> void:
 	nights = n
 
 
+## Some nights have a name and a nature of their own. Hold until dawn without falling, and the
+## morning gives something for it. Every pilgrim works out the same night from the world and its count.
+const NIGHT_THEMES := {
+	"screaming": {"name": "The Screaming Night", "text": "Box cats run in packs tonight. Hold until dawn.", "many": 1.0, "gives": [["fittings_fine", 2], ["meat", 3]]},
+	"long": {"name": "The Long Dark", "text": "More forms walk tonight than any night before. Hold until dawn.", "many": 1.4, "gives": [["fittings_rare", 1], ["salt", 40]]},
+	"hunt": {"name": "The Hunter's Moon", "text": "Greater forms walk among the rest tonight. Hold until dawn.", "many": 1.0, "gives": [["tempered", 2], ["clockwork", 1]]},
+	"quiet": {"name": "A Quiet Night", "text": "Few walk tonight. Rest, or build.", "many": 0.5, "gives": []},
+}
+var night_theme := ""
+var _fell_tonight := false
+
+func night_theme_for(n: int) -> String:
+	if n < 3 or great_night(n):
+		return ""   # the first nights are plain, and the great raid is its own
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash([world_seed, n, "night"])
+	if rr.randf() < 0.45:
+		return ""
+	var ks := NIGHT_THEMES.keys()
+	return ks[rr.randi_range(0, ks.size() - 1)]
+
+
 func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
+	night_theme = night_theme_for(nights + 1)
+	_fell_tonight = false
+	if night_theme != "":
+		var nt: Dictionary = NIGHT_THEMES[night_theme]
+		get_tree().create_timer(3.0, false).timeout.connect(func():
+			if is_instance_valid(self) and night:
+				hud.title_card("", nt.name)
+				hud.notify(nt.text))
 	if Net.authority():
 		if great_night(nights + 1) and not flags.get("ending", "") in ["writer", "unlit"]:
 			get_tree().create_timer(20.0, false).timeout.connect(func():
@@ -4060,6 +4090,14 @@ func _w_dawn(d: int) -> void:
 	_my_vote = false
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
+	if night_theme != "" and not Net.dedicated:
+		var nt: Dictionary = NIGHT_THEMES[night_theme]
+		if not _fell_tonight and not nt.gives.is_empty():
+			give(nt.gives)
+			hud.notify("You held through %s." % nt.name)
+		elif _fell_tonight and not nt.gives.is_empty():
+			hud.notify("%s is over. You fell in it, so it gives you nothing." % nt.name)
+	night_theme = ""
 	if d > 1 and WWeather.season_of(d) != WWeather.season_of(d - 1):
 		var se: Dictionary = WWeather.SEASONS[WWeather.season_of(d)]
 		hud.title_card("", se.name)
@@ -4235,7 +4273,7 @@ func _night_wave() -> void:
 	var tg := targets()
 	if tg.is_empty():
 		return
-	var cap := mini(WCrowd.scale(self, 10 + mini(nights, 10)), WCrowd.ALIVE_CAP)
+	var cap := mini(int(WCrowd.scale(self, 10 + mini(nights, 10)) * (1.25 if night_theme == "long" else 1.0)), WCrowd.ALIVE_CAP)
 	if flags.get("ending", "") == "writer":
 		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
 	if flags.get("ending", "") == "unlit":
@@ -4247,10 +4285,10 @@ func _night_wave() -> void:
 			return
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position))))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)))))
 		var roster: Array = forms_at(t.global_position)
 		# Near where the cast-out wake, the box cats run in packs some nights
-		if tier == 1 and randf() < 0.35:
+		if (tier == 1 and randf() < (0.8 if night_theme == "screaming" else 0.35)) or (night_theme == "screaming" and randf() < 0.3):
 			var pack := mini(WCrowd.scale(self, randi_range(8, 14) + mini(nights, 6)), WCrowd.ALIVE_CAP - alive_count())
 			var from: Vector3 = t.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 40.0
 			for k in pack:
@@ -4267,7 +4305,7 @@ func _night_wave() -> void:
 				e.seek(t.global_position, 40.0)
 		if nights >= 2 and tier >= 2 and randf() < 0.12 + nights * 0.02:
 			_spawn_near("saucer", t.global_position, 30.0, 40.0)
-		if nights >= 4 and tier >= 3 and randf() < 0.06 + nights * 0.01:
+		if (nights >= 4 and tier >= 3 and randf() < 0.06 + nights * 0.01) or (night_theme == "hunt" and randf() < 0.35):
 			_spawn_near("elite", t.global_position, 35.0, 45.0)
 			hud.notify("Something greater walks tonight.")
 		# Some nights, in the dark country, something follows that is hardly there at all
@@ -10330,4 +10368,28 @@ func debug_tomb() -> void:
 	var roof := PhysicsRayQueryParameters3D.create(mid + Vector3(0, 12, 0), mid, 1)
 	roof.exclude = [player.get_rid()]
 	print("TOMB door_open=%s wall=%s roof=%s" % [space.intersect_ray(door).is_empty(), not space.intersect_ray(side).is_empty(), not space.intersect_ray(roof).is_empty()])
+	get_tree().quit()
+
+
+## Testing aid: named nights come after the first few, are the same for everyone, and pay at dawn if held.
+func debug_nights() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var seen := {}
+	for n in range(1, 40):
+		seen[night_theme_for(n)] = true
+	var early := night_theme_for(1) == "" and night_theme_for(2) == ""
+	var same := night_theme_for(9) == night_theme_for(9)
+	var n0 := -1
+	for n in range(3, 40):
+		if night_theme_for(n) == "long":
+			n0 = n
+			break
+	nights = n0 - 1
+	_w_nightfall(day)
+	var themed := night_theme == "long"
+	var r0 := inv.count("fittings_rare")
+	_w_dawn(day + 1)
+	var paid := inv.count("fittings_rare") > r0
+	print("NIGHTS kinds=%d early_plain=%s same=%s themed=%s paid=%s" % [seen.size(), early, same, themed, paid])
 	get_tree().quit()
