@@ -32,6 +32,7 @@ var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and ki
 var dev: WDev            ## the hidden playtest menu's tools
 var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts working now
 var dread: WDread        ## fear of the open dark, and what it draws
+var settlers: WSettlers  ## wanderers who have settled at a base
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -120,6 +121,7 @@ func build() -> void:
 	dev = WDev.new(self)
 	alchemy = WAlchemy.new(self)
 	dread = WDread.new(self)
+	settlers = WSettlers.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -3696,6 +3698,19 @@ func _dawn_world() -> void:
 		if nd.charges <= 0 and day >= int(nd.back):
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
 	quests.refresh_offers()
+	settlers.host_dawn()
+
+
+func _w_settler(s: Dictionary) -> void:
+	settlers.add(s)
+	if not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
+		hud.notify("A wanderer, %s, has come to stay at your fire. A %s." % [s.name, WSettlers.JOBS[s.job].name])
+
+
+func _w_settler_gone(id: int, why: String) -> void:
+	settlers.remove(id)
+	if not Net.dedicated:
+		hud.notify(why)
 
 
 # ================================================================== growing
@@ -4739,7 +4754,7 @@ func world_data() -> Dictionary:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
-		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
+		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
 		"weather": [weather.kind, weather.left, sea.wind_ang if sea else 0.0],
@@ -4783,6 +4798,7 @@ func apply_world(d: Dictionary) -> void:
 			_w_fuel(int(pid), f if f >= 0.0 else world_hours() + FUEL_START)
 	piece_next = int(d.get("piece_next", 1))
 	containers = d.get("containers", {})
+	settlers.from_data(d.get("settlers", []))
 	for id in d.get("crates", {}):
 		_w_crate_day(id, int(d.crates[id]))
 	for sid in d.get("satchels", {}):
@@ -8652,6 +8668,48 @@ func debug_dread() -> void:
 	night = false
 	dread.local_tick(30.0)
 	print("DREAD dark=%.0f lamp=%.0f drawn=%s by_fire=%.0f day=%.0f" % [dark, lamp, drawn, fire, dread.level])
+	get_tree().quit()
+
+
+## Testing aid: a snug base with spare beds draws settlers, who bring goods and keep fires.
+func debug_settlers() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var c: Vector3 = player.global_position + Vector3(12, 0, 0)
+	var put := func(kind: String, off: Vector3):
+		builder._rq_build(1, kind, gpos(Vector2(c.x + off.x, c.z + off.z)), 0.0)
+	put.call("campfire", Vector3.ZERO)
+	put.call("bedroll", Vector3(2.5, 0, 0))
+	put.call("bedroll", Vector3(-2.5, 0, 0))
+	put.call("bedroll", Vector3(0, 0, 2.5))
+	put.call("torch", Vector3(0, 0, -3))
+	put.call("chest", Vector3(3, 0, 3))
+	await get_tree().create_timer(0.5).timeout
+	var fire := -1
+	for pid in pieces:
+		if pieces[pid].kind == "campfire":
+			fire = pid
+	inv.add("wood", 10)
+	add_wood(fire)
+	var snug := comfort(pieces[fire].pos)
+	var room := settlers.room_at(fire)
+	settlers.host_dawn(1.0)
+	settlers.host_dawn(1.0)
+	settlers.host_dawn(1.0)
+	var n := settlers.at_fire(fire).size()
+	var shown := settlers._nodes.size()
+	# Make sure one brings goods, then a dawn of work
+	settlers.list[0].job = "salter"
+	var cid: String = settlers.chests_at(fire)[0]
+	var before := _cont_count(cid, "salt")
+	settlers.host_dawn(0.0)
+	var brought := _cont_count(cid, "salt") - before
+	var kept: Array = world_data().settlers
+	settlers.from_data(JSON.parse_string(JSON.stringify(kept)))
+	var reloaded := settlers.list.size() == n and settlers._nodes.size() == n
+	pieces[fire].fuel = world_hours() - 1.0
+	settlers.host_dawn(0.0)
+	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty()])
 	get_tree().quit()
 
 

@@ -62,6 +62,7 @@ check newarms   debug_newarms  "NEWARMS knife=\[[1-2], 26\] sword=\[[2-3], 66\] 
 check dev       debug_dev      "DEV opened=true buttons=[3-9][0-9] lands=6/6 unharmed=true spawned=[1-9] killed=[1-9] all_arms=true fast=true"
 check brew      debug_brew     "BREW first=mend again=breath third= sour=true got=keen have=1 learned=true keener=true ward=true fireproof=true kept=true panel=true"
 check dread     debug_dread    "DREAD dark=([5-9]|1[0-9]) lamp=[2-7] drawn=true by_fire=[5-7][0-9] day=[2-4][0-9]"
+check settlers  debug_settlers "SETTLERS snug=[4-8] room=true came=2 shown=2 brought=12 reloaded=true gone=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

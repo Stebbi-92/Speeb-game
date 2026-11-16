@@ -16,6 +16,7 @@ var home := Vector3.ZERO
 var radius := 20.0
 var fig: Figure
 var who := ""
+var lines: Array = []   ## their own words, if they have any; else the town's talk
 var _to := Vector3.ZERO
 var _wait := 0.0
 var _speed := 1.3
@@ -57,7 +58,8 @@ func _ready() -> void:
 
 
 func _chat() -> void:
-	var line: String = LINES[_rng.randi() % LINES.size()]
+	var pool: Array = lines if not lines.is_empty() else LINES
+	var line: String = pool[_rng.randi() % pool.size()]
 	w.hud.notify(line)
 	_voice.stream = WBabble.make(who, line, clampf(line.length() / 55.0, 0.5, 2.0))
 	_voice.play()
