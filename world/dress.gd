@@ -27,29 +27,30 @@ static func ground(w, n: Node3D, off: Vector3) -> Vector3:
 # ------------------------------------------------------------------ the lands
 
 ## What each land leaves lying about its ruins and camps: [kit, model, smallest, largest, solid].
+## The "scan" kit is the photographed trees and stones (Poly Haven, CC0); the rest are Kenney's kits.
 const LAND_PROPS := {
-	"ash": [["grave", "trunk", 2.2, 3.2, true], ["grave", "debris-wood", 2.5, 3.5, false], ["grave", "debris", 2.5, 3.5, false],
-		["castle", "rocks-small", 1.2, 2.0, true], ["grave", "fire-basket", 2.2, 2.6, false], ["grave", "pine-fall", 2.0, 2.6, false]],
-	"dunes": [["pirate", "rocks-sand-a", 0.4, 0.7, true], ["town", "cart", 2.0, 2.4, true], ["food", "bag", 1.6, 2.2, false],
+	"ash": [["scan", "dead_tree_trunk_02", 0.6, 0.9, true], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["grave", "debris", 2.5, 3.5, false],
+		["scan", "rock_07", 5.0, 8.0, true], ["grave", "fire-basket", 2.2, 2.6, false], ["scan", "dead_quiver_trunk", 1.2, 1.8, true]],
+	"dunes": [["scan", "moon_rock_02", 3.0, 5.0, true], ["town", "cart", 2.0, 2.4, true], ["food", "bag", 1.6, 2.2, false],
 		["pirate", "bottle-large", 0.7, 0.9, false], ["town", "wheel", 2.0, 2.4, false], ["castle", "siege-ram-demolished", 1.6, 2.0, true]],
-	"salt": [["grave", "rocks-tall", 1.6, 2.6, true], ["pirate", "crate-bottles", 0.8, 0.9, true], ["food", "bag-flat", 1.8, 2.4, false],
+	"salt": [["scan", "rock_07", 6.0, 10.0, true], ["pirate", "crate-bottles", 0.8, 0.9, true], ["food", "bag-flat", 1.8, 2.4, false],
 		["pirate", "barrel", 0.6, 0.7, true], ["pirate", "cannon-ball", 0.5, 0.7, false]],
-	"forest": [["castle", "tree-log", 2.6, 3.4, true], ["grave", "trunk-long", 2.0, 2.6, true], ["grave", "hay-bale", 1.6, 2.0, true],
-		["food", "mushroom", 6.0, 10.0, false], ["grave", "pumpkin", 1.6, 2.2, false], ["grave", "pine-crooked", 2.6, 3.4, true]],
-	"basalt": [["castle", "rocks-large", 1.6, 2.6, true], ["castle", "wall-half", 2.4, 3.0, true], ["grave", "column-large", 2.4, 3.0, true],
+	"forest": [["scan", "dead_tree_trunk_02", 0.7, 1.0, true], ["scan", "dead_quiver_trunk", 2.0, 3.2, true], ["grave", "hay-bale", 1.6, 2.0, true],
+		["food", "mushroom", 6.0, 10.0, false], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["scan", "dead_quiver_trunk", 1.6, 2.6, true]],
+	"basalt": [["scan", "namaqualand_boulder_03", 0.5, 0.9, true], ["castle", "wall-half", 2.4, 3.0, true], ["grave", "column-large", 2.4, 3.0, true],
 		["castle", "siege-catapult-demolished", 2.0, 2.4, true], ["castle", "siege-ballista-demolished", 1.8, 2.2, true]],
 	"marsh": [["grave", "gravestone-broken", 2.2, 2.8, false], ["grave", "coffin-old", 2.0, 2.4, false], ["grave", "cross-wood", 2.0, 2.6, false],
-		["grave", "iron-fence-damaged", 2.2, 2.6, false], ["grave", "lantern-candle", 1.8, 2.2, false], ["grave", "pine-fall", 2.2, 2.8, false]],
+		["grave", "iron-fence-damaged", 2.2, 2.6, false], ["grave", "lantern-candle", 1.8, 2.2, false], ["scan", "dead_tree_trunk_02", 0.6, 0.9, false]],
 }
 
 ## What grows or lies across each land, far and wide, drawn in batches: [kit, model, count, smallest, largest].
 const LAND_COVER := {
-	"ash": [["grave", "trunk", 260, 2.0, 3.4], ["grave", "pine-fall", 160, 2.2, 3.4], ["grave", "debris-wood", 220, 2.5, 4.0]],
-	"dunes": [["pirate", "rocks-sand-b", 120, 0.4, 0.9], ["pirate", "rocks-sand-a", 120, 0.3, 0.8], ["pirate", "patch-sand", 0, 1.0, 1.0]],
-	"salt": [["grave", "rocks-tall", 260, 1.4, 3.2], ["grave", "rocks", 200, 1.6, 3.0]],
-	"forest": [["grave", "pine", 380, 2.6, 4.2], ["grave", "pine-crooked", 260, 2.4, 3.8], ["castle", "tree-large", 160, 2.6, 3.6], ["castle", "tree-log", 140, 2.4, 3.2]],
-	"basalt": [["castle", "rocks-large", 280, 1.6, 3.6], ["castle", "rocks-small", 240, 1.4, 2.8]],
-	"marsh": [["grave", "pine-fall-crooked", 0, 1.0, 1.0], ["grave", "pine-crooked", 220, 2.2, 3.4], ["grave", "trunk-long", 160, 1.6, 2.4], ["grave", "gravestone-broken", 60, 2.0, 2.6]],
+	"ash": [["scan", "dead_quiver_trunk", 220, 1.8, 3.2], ["scan", "dead_quiver_branch_01", 200, 2.2, 3.6], ["scan", "rock_07", 160, 3.0, 7.0]],
+	"dunes": [["scan", "moon_rock_02", 140, 3.0, 8.0], ["scan", "rock_07", 100, 2.5, 6.0], ["pirate", "patch-sand", 0, 1.0, 1.0]],
+	"salt": [["scan", "rock_07", 240, 4.0, 12.0], ["scan", "moon_rock_02", 200, 5.0, 11.0]],
+	"forest": [["scan", "dead_quiver_trunk", 600, 2.2, 3.8], ["scan", "dead_quiver_branch_01", 220, 2.5, 4.0], ["scan", "dead_tree_trunk_02", 120, 0.7, 1.1]],
+	"basalt": [["scan", "moon_rock_02", 280, 8.0, 16.0], ["scan", "rock_07", 240, 6.0, 12.0]],
+	"marsh": [["grave", "pine-fall-crooked", 0, 1.0, 1.0], ["scan", "dead_quiver_trunk", 220, 1.4, 2.6], ["scan", "dead_tree_trunk_02", 120, 0.6, 1.0], ["grave", "gravestone-broken", 60, 2.0, 2.6]],
 }
 
 
@@ -85,7 +86,7 @@ static func _mesh_of(kit: String, model: String) -> Array:
 static func cover(w) -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = w.world_seed + 9191
-	var tile := 256.0
+	var tile := 128.0   # small tiles, so the far ones are drawn plainer (each tile picks its own detail)
 	var half := 950.0
 	for land in LAND_COVER:
 		for spec in LAND_COVER[land]:

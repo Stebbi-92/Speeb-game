@@ -103,7 +103,7 @@ static func _smoke(size: float) -> CPUParticles3D:
 		_smoke_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_smoke_m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		_smoke_m.vertex_color_use_as_albedo = true
-		_smoke_m.albedo_texture = Relics._soft_dot()
+		_smoke_m.albedo_texture = LesserSpeeb.smoke_tex()
 	p.material_override = _smoke_m
 	p.position.y = size * 0.9
 	p.direction = Vector3.UP
@@ -119,6 +119,8 @@ static func _smoke(size: float) -> CPUParticles3D:
 	c.add_point(Vector2(0, 0.5))
 	c.add_point(Vector2(1, 1.6))
 	p.scale_amount_curve = c
+	p.angle_min = 0.0
+	p.angle_max = 360.0
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.visibility_range_end = 120.0
 	return p

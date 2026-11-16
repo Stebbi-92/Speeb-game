@@ -701,7 +701,7 @@ static func bus_of(sound: String) -> String:
 	for c in ["growl", "shriek", "roar", "great_roar", "troll", "bite", "spit", "hiss", "screech", "chitter", "skitter", "critter", "spider", "unseen", "saucer", "fall", "heavy_step", "dissolve", "whispers"]:
 		if sound.begins_with(c):
 			return "Creatures"
-	for u in ["deny", "carve", "bell", "choir", "relic", "beam"]:
+	for u in ["deny", "carve", "bell", "choir", "relic", "beam", "ui_", "page", "cloth", "jingle"]:
 		if sound.begins_with(u):
 			return "Interface"
 	return "World"

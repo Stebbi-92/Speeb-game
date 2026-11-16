@@ -297,9 +297,17 @@ func gpos(p: Vector2) -> Vector3:
 	return Vector3(p.x, terrain.height_at(p.x, p.y), p.y)
 
 
+## The ground's own shader: the land's colour with photographed grain and relief (assets/textures/ground).
+static func ground_mat() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/ground.gdshader")
+	for k in ["ground_a", "ground_b", "ground_n1", "ground_n2", "ground_n3", "ground_n4"]:
+		m.set_shader_parameter(k, load("res://assets/textures/ground/%s.png" % k))
+	return m
+
+
 func _materials() -> void:
-	_m.ground = mat(Color(1, 1, 1), 1.0, 0.3, 0.12)
-	_m.ground.vertex_color_use_as_albedo = true
+	_m.ground = ground_mat()
 	_m.wood = mat(Color(0.33, 0.26, 0.2), 1.0, 0.35, 0.6)
 	_m.darkwood = mat(Color(0.2, 0.16, 0.13), 1.0, 0.3, 0.6)
 	_m.stone = mat(Color(0.42, 0.4, 0.38), 0.95, 0.4, 0.3)
@@ -2629,6 +2637,24 @@ func _build_ruin(r: Dictionary) -> void:
 		_crate("%s_%d" % [r.id, k], p, kind.loot, rr.randf() * TAU, r.kind == "vault" and k == 1)
 
 
+## The scanned shapes of the land (CC0, Poly Haven), under assets/models/nature/<name>/.
+var _scans := {}
+
+
+func _add_scan(parent: Node3D, key: String, size: float, at := Vector3.ZERO, turn := 0.0, reach := 420.0) -> Node3D:
+	if not _scans.has(key):
+		_scans[key] = load("res://assets/models/nature/%s/%s.gltf" % [key, key])
+	var inst: Node3D = (_scans[key] as PackedScene).instantiate()
+	inst.scale = Vector3.ONE * size
+	inst.rotation.y = turn
+	parent.add_child(inst)
+	inst.position = at
+	for g in inst.find_children("*", "GeometryInstance3D", true, false):
+		g.visibility_range_end = reach
+		g.visibility_range_end_margin = 20.0
+	return inst
+
+
 func _add(parent: Node3D, mi: Node3D, local: Vector3) -> Node3D:
 	if mi.get_parent():
 		mi.reparent(parent, false)
@@ -3366,23 +3392,27 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 	body.add_child(cs)
 	match kind:
 		"tree":
+			# A dead quiver trunk, scanned (CC0, Poly Haven), stood up as a dead tree of the waste
 			var h := r.randf_range(4.0, 7.5)
-			_add(n, cyl(Vector3.ZERO, 0.25, h, _m.wood, false, 0.1, 6), Vector3(0, h * 0.5, 0))
-			for b in 4:
-				var br := box(Vector3.ZERO, Vector3(0.12, r.randf_range(1.2, 2.4), 0.12), _m.wood, false)
-				_add(n, br, Vector3(0, h * r.randf_range(0.45, 0.9), 0))
-				br.rotation = Vector3(r.randf_range(-1.0, 1.0), r.randf() * TAU, r.randf_range(-1.0, 1.0))
+			var tr := _add_scan(n, "dead_quiver_trunk", h / 2.0, Vector3(0, -0.15, 0), r.randf() * TAU)
+			tr.rotation.x = r.randf_range(-0.08, 0.08)
+			if r.randf() < 0.5:
+				_add_scan(n, "dead_quiver_branch_01", r.randf_range(2.0, 3.0), Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)), r.randf() * TAU)
 			var cap := CapsuleShape3D.new()
 			cap.radius = 0.35
 			cap.height = h
 			cs.shape = cap
 			cs.position.y = h * 0.5
 		"rock":
+			# A scanned stone (CC0, Poly Haven): a boulder, or a smaller rock grown to size
 			var s := r.randf_range(1.0, 1.8)
-			var rk := sphere(Vector3.ZERO, s, _m.stone, false, 0.65)
-			_add(n, rk, Vector3(0, s * 0.35, 0))
-			rk.scale = Vector3(1.0, 0.65, r.randf_range(0.8, 1.3))
-			_add(n, sphere(Vector3.ZERO, s * 0.5, _m.darkstone, false, 0.8), Vector3(s * 0.7, s * 0.2, 0))
+			match r.randi_range(0, 2):
+				0:
+					_add_scan(n, "namaqualand_boulder_03", s * 0.62, Vector3(0, -0.12, 0), r.randf() * TAU)
+				1:
+					_add_scan(n, "rock_07", s * 7.5, Vector3(0, -0.1, 0), r.randf() * TAU)
+				_:
+					_add_scan(n, "moon_rock_02", s * 8.0, Vector3(0, -0.15, 0), r.randf() * TAU)
 			var sp := SphereShape3D.new()
 			sp.radius = s * 0.85
 			cs.shape = sp
@@ -3939,7 +3969,8 @@ func award(kind: String, mult := 1.0) -> void:
 	if ui:
 		ui.xp_gained(amount)
 	if ups > 0:
-		sfx("choir", -4)
+		sfx("choir", -8)
+		sfx("jingle_up", -6)
 		hud.title_card("Level %d" % skills.level, "You have learned something of the waste")
 		hud.notify("A point to spend. Press K to see what you might learn.")
 		autosave_soon(2.0)
@@ -4882,7 +4913,8 @@ func _visit_check() -> void:
 			elif not il.is_empty() and region == il.name:
 				if not visited.has("isle_" + str(il.key)):
 					visited["isle_" + str(il.key)] = true
-					hud.title_card("", il.name)
+					sfx("jingle_find", -8)
+		hud.title_card("", il.name)
 					award("settlement")
 				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn)])
 			else:
@@ -4899,6 +4931,7 @@ func _visit_check() -> void:
 	var k := settlement_at(player.global_position, 10.0)
 	if k != "" and not visited.has(k):
 		visited[k] = true
+		sfx("jingle_find", -8)
 		hud.title_card("", WPlaces.SETTLEMENTS[k].name)
 		hud.notify(WPlaces.SETTLEMENTS[k].blurb)
 		award("settlement")

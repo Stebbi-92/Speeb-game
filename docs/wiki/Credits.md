@@ -9,7 +9,10 @@ Everything else the game uses is free to use, and is listed here with thanks.
 |---|---|---|---|
 | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far (`tools/cut_gunshots.py`) |
 | [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices, footsteps, town, night and cave sounds (`tools/cut_sounds.py`) |
-| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley |
+| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust |
+| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks |
+| [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
 
 Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). Those are not CC0, and the game does not use them.
 
@@ -29,6 +32,14 @@ Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). T
 | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 |
 
 Kenney's packs are at [kenney.nl](https://kenney.nl). CC0 asks for nothing, but credit is given gladly.
+
+## Textures and scanned models
+
+| Asset | By | Licence | Used for |
+|---|---|---|---|
+| [Burned Ground 01](https://polyhaven.com/a/burned_ground_01), [Aerial Sand](https://polyhaven.com/a/aerial_sand), [Mud Cracked Dry 03](https://polyhaven.com/a/mud_cracked_dry_03), [Forest Floor](https://polyhaven.com/a/forest_floor), [Dark Rock](https://polyhaven.com/a/dark_rock), [Brown Mud Leaves 01](https://polyhaven.com/a/brown_mud_leaves_01), [Aerial Rocks 02](https://polyhaven.com/a/aerial_rocks_02), [Rocky Terrain 02](https://polyhaven.com/a/rocky_terrain_02) | Poly Haven | CC0 | The ground of each land (`assets/textures/ground`) |
+| [Dead Quiver Trunk](https://polyhaven.com/a/dead_quiver_trunk), [Dead Quiver Branch 01](https://polyhaven.com/a/dead_quiver_branch_01), [Dead Tree Trunk 02](https://polyhaven.com/a/dead_tree_trunk_02), [Namaqualand Boulder 03](https://polyhaven.com/a/namaqualand_boulder_03), [Rock 07](https://polyhaven.com/a/rock_07), [Moon Rock 02](https://polyhaven.com/a/moon_rock_02) | Poly Haven | CC0 | Dead trees, logs and stones (`assets/models/nature`) |
+| [Particle Pack](https://kenney.nl/assets/particle-pack) | Kenney | CC0 | Smoke (`assets/textures/particles`) |
 
 ## Fonts
 

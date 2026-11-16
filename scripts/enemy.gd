@@ -169,7 +169,10 @@ const BLOOD := {
 }
 
 
+## A puff of smoke (Kenney Particle Pack, CC0); a soft round dot if the picture is missing.
 static func smoke_tex() -> Texture2D:
+	if _smoke == null and ResourceLoader.exists("res://assets/textures/particles/smoke_a.png"):
+		_smoke = load("res://assets/textures/particles/smoke_a.png")
 	if _smoke == null:
 		var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
 		for y in 32:

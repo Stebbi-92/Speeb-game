@@ -99,7 +99,10 @@ static func make(kit: String, model: String) -> Node3D:
 	var key := kit + "/" + model
 	if not _scenes.has(key):
 		var path := KITS + key + ".glb"
-		if not ResourceLoader.exists(path):
+		if kit == "scan":
+			# The scanned shapes of the land (CC0, Poly Haven), each in its own folder
+			path = "res://assets/models/nature/%s/%s.gltf" % [model, model]
+		elif not ResourceLoader.exists(path):
 			path = KITS + key + ".obj"
 		_scenes[key] = load(path)
 	var res = _scenes[key]

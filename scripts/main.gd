@@ -8,6 +8,22 @@ var level: Node = null
 var music: AudioStreamPlayer
 var _busy := false
 var _state := "title"
+var _click: AudioStreamPlayer
+
+
+## Every button in every menu gives a soft click when pressed.
+func _on_node_added(n: Node) -> void:
+	if n is BaseButton and not n.has_meta("quiet"):
+		n.pressed.connect(_play_click)
+
+
+func _play_click() -> void:
+	var takes := Level.takes_of("ui_click")
+	if takes.is_empty() or not is_instance_valid(_click):
+		return
+	_click.stream = takes[randi() % takes.size()]
+	_click.pitch_scale = randf_range(0.96, 1.04)
+	_click.play()
 
 
 func _ready() -> void:
@@ -17,6 +33,11 @@ func _ready() -> void:
 	music = AudioStreamPlayer.new()
 	music.volume_db = -8
 	add_child(music)
+	_click = AudioStreamPlayer.new()
+	_click.bus = "Interface"
+	_click.volume_db = -16
+	add_child(_click)
+	get_tree().node_added.connect(_on_node_added)
 	var args := OS.get_cmdline_user_args()
 	Net.session_ended.connect(_on_session_ended)
 	if "server" in args:

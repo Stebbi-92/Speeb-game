@@ -563,6 +563,11 @@ const SMALL := ["rest", "planter", "portal", "travel", "cat", "shrine"]
 
 
 func _open(name: String) -> void:
+	if name != _panel_name:
+		if name == "journal":
+			w.sfx("page", -10)
+		elif name == "pack":
+			w.sfx("cloth", -10)
 	_panel_name = name
 	_panel = _frame
 	# The small screens sit in a smaller frame

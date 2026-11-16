@@ -361,6 +361,31 @@ func make_isles(m: Material) -> void:
 	add_child(floor_b)
 
 
+## Which lands an isle's ground is like at a height: sand by the water, its own land above.
+func _isle_weights(il: Dictionary, y: float) -> PackedFloat32Array:
+	var w := PackedFloat32Array([0, 0, 0, 0, 0, 0])
+	var up := smoothstep(1.5, 5.0, y - WIsles.SEA_Y)
+	var base := maxi(0, BIOMES.find(str(il.get("base", "ash"))))
+	w[1] += 1.0 - up
+	w[base] += up
+	return w
+
+
+## The lands at a point, as the ground shader reads them: two sets of four, each 0..255.
+##   CUSTOM0 ash, dunes, salt, forest     CUSTOM1 basalt, marsh, (slope rock, found by the shader), road
+const LAND_FORMAT := (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT) | (Mesh.ARRAY_CUSTOM_RGBA8_UNORM << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT)
+
+
+func _land_bytes(c0: PackedByteArray, c1: PackedByteArray, w: PackedFloat32Array, rd: float) -> void:
+	var keep := 1.0 - rd * 0.85
+	for i in 4:
+		c0.append(int(clampf(w[i] * keep, 0.0, 1.0) * 255.0))
+	c1.append(int(clampf(w[4] * keep, 0.0, 1.0) * 255.0))
+	c1.append(int(clampf(w[5] * keep, 0.0, 1.0) * 255.0))
+	c1.append(0)
+	c1.append(int(clampf(rd * 0.85, 0.0, 1.0) * 255.0))
+
+
 func _isle_color(il: Dictionary, x: float, z: float, y: float, n: Vector3) -> Color:
 	var th: Dictionary = WIsles.THEMES[il.key]
 	var up := y - WIsles.SEA_Y
@@ -382,6 +407,8 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 			var verts := PackedVector3Array()
 			var norms := PackedVector3Array()
 			var cols := PackedColorArray()
+			var c0 := PackedByteArray()
+			var c1 := PackedByteArray()
 			var idx := PackedInt32Array()
 			var wi := mini(size, n - 1 - ci) + 1
 			var wj := mini(size, n - 1 - cj) + 1
@@ -400,6 +427,7 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 					verts.append(Vector3(x, y, z))
 					norms.append(nn)
 					cols.append(_isle_color(il, x, z, y, nn))
+					_land_bytes(c0, c1, _isle_weights(il, y), 0.0)
 			for j in wj - 1:
 				for i in wi - 1:
 					var a := j * wi + i
@@ -410,8 +438,10 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 			arr[Mesh.ARRAY_NORMAL] = norms
 			arr[Mesh.ARRAY_COLOR] = cols
 			arr[Mesh.ARRAY_INDEX] = idx
+			arr[Mesh.ARRAY_CUSTOM0] = c0
+			arr[Mesh.ARRAY_CUSTOM1] = c1
 			var am := ArrayMesh.new()
-			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, LAND_FORMAT)
 			var mi := MeshInstance3D.new()
 			mi.mesh = am
 			mi.material_override = m
@@ -443,8 +473,9 @@ func normal_at(x: float, z: float) -> Vector3:
 	return Vector3(height_at(x - e, z) - height_at(x + e, z), 2.0 * e, height_at(x, z - e) - height_at(x, z + e)).normalized()
 
 
-func _vcolor(x: float, z: float, y: float, n: Vector3) -> Color:
-	var w := weights(x, z)
+func _vcolor(x: float, z: float, y: float, n: Vector3, w := PackedFloat32Array()) -> Color:
+	if w.is_empty():
+		w = weights(x, z)
 	var c := Color(0, 0, 0)
 	for i in 6:
 		c += _bcols[i] * w[i]
@@ -469,6 +500,8 @@ func build(m: Material) -> void:
 			var verts := PackedVector3Array()
 			var norms := PackedVector3Array()
 			var cols := PackedColorArray()
+			var c0 := PackedByteArray()
+			var c1 := PackedByteArray()
 			var idx := PackedInt32Array()
 			var cw := CHUNK + 1
 			for j in cw:
@@ -485,7 +518,9 @@ func build(m: Material) -> void:
 					var n := Vector3(l - r, 2.0 * CELL, u - d).normalized()
 					verts.append(Vector3(x, y, z))
 					norms.append(n)
-					cols.append(_vcolor(x, z, y, n))
+					var wt := weights(x, z)
+					cols.append(_vcolor(x, z, y, n, wt))
+					_land_bytes(c0, c1, wt, road_at(x, z))
 			for j in CHUNK:
 				for i in CHUNK:
 					var a := j * cw + i
@@ -496,8 +531,10 @@ func build(m: Material) -> void:
 			arr[Mesh.ARRAY_NORMAL] = norms
 			arr[Mesh.ARRAY_COLOR] = cols
 			arr[Mesh.ARRAY_INDEX] = idx
+			arr[Mesh.ARRAY_CUSTOM0] = c0
+			arr[Mesh.ARRAY_CUSTOM1] = c1
 			var am := ArrayMesh.new()
-			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, LAND_FORMAT)
 			var mi := MeshInstance3D.new()
 			mi.mesh = am
 			mi.material_override = m

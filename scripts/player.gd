@@ -192,7 +192,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				cb.call()
 
 
-## A footstep that sounds like the ground under it: boards, stone, gravel or sand.
+## A footstep that sounds like the ground under it: boards, stone, gravel, sand, grass or salt crust.
 func _footfall(hard: bool) -> void:
 	var takes := Level.takes_of("step_" + _ground())
 	if takes.is_empty():
@@ -224,7 +224,11 @@ func _ground() -> String:
 	var tr = lvl.get("terrain") if lvl else null
 	if tr and tr.has_method("biome_name"):
 		var b: String = tr.biome_name(global_position.x, global_position.z)
-		if b in ["salt", "basalt", "forest"]:
+		if b == "salt":
+			return "snow"   # the crust of the flats crunches like snow
+		if b in ["forest", "marsh"]:
+			return "grass"
+		if b == "basalt":
 			return "gravel"
 	return "sand"
 
