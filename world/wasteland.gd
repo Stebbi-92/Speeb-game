@@ -30,6 +30,7 @@ var _stray: WCat = null   ## a stray near a town that could be won over
 var _stray_t := 5.0
 var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and kit
 var dev: WDev            ## the hidden playtest menu's tools
+var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts working now
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -116,6 +117,7 @@ func build() -> void:
 	add_child(weather)
 	air = WAir.new().setup(self)
 	dev = WDev.new(self)
+	alchemy = WAlchemy.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -1448,14 +1450,15 @@ func _needs_tick(delta: float) -> void:
 	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger) * nm)
 	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary) * nm)
 	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
-	player.walk_speed = 3.4 * skills.speed_mult() * slow * dev_fast
-	player.run_speed = 5.8 * skills.speed_mult() * slow * dev_fast
+	player.walk_speed = 3.4 * skills.speed_mult() * slow * dev_fast * alchemy.speed_mult()
+	player.run_speed = 5.8 * skills.speed_mult() * slow * dev_fast * alchemy.speed_mult()
 	if dev:
 		dev.tick()
 	# Breath comes back slower when weary or starving, and slower still under heavy plate
 	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
 	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
 	_meals_tick(delta)
+	alchemy.tick(delta)
 	_land_tick(delta)
 	_afflict_tick(delta)
 	if food <= 0.0:
@@ -1636,6 +1639,8 @@ var _slow := 0.0
 func afflict(what: String, secs: float) -> void:
 	match what:
 		"burn":
+			if alchemy.on("fireskin"):
+				return
 			if _burn <= 0.0:
 				hud.notify("You are burning.")
 			_burn = maxf(_burn, secs)
@@ -3714,7 +3719,7 @@ func _apply_skills() -> void:
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
 	player.weapon.reserve_max = skills.reserve_max()
-	player.weapon.damage_mult = skills.damage_mult() * (1.2 if power_is("eye") else 1.0)
+	player.weapon.damage_mult = skills.damage_mult() * (1.2 if power_is("eye") else 1.0) * (alchemy.damage_mult() if alchemy else 1.0)
 	player.weapon.reload_mult = skills.reload_mult()
 	inv.grow(skills.pack_size())
 	if not Net.dedicated:
@@ -4367,7 +4372,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 		# Stepped aside in time
 		hud.hitmarker(false, true)
 		return
-	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
+	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
 	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power())
 	if power_is("gilt"):
 		amount *= 0.8
@@ -4808,7 +4813,7 @@ func char_data() -> Dictionary:
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested, "power": power, "power_left": power_left,
+		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(),
 	}
 
 
@@ -4834,6 +4839,7 @@ func apply_char(d: Dictionary) -> void:
 			if Items.info(k).has("meal") and m is Array and m.size() == 2:
 				meals[k] = [float(m[0]), float(m[1])]
 	rested = float(d.get("rested", 0.0))
+	alchemy.from_data(d.get("brews", {}))
 	power = str(d.get("power", ""))
 	power_left = float(d.get("power_left", 0.0))
 	_meal_stats()
@@ -8553,6 +8559,48 @@ func debug_dev() -> void:
 	dev.toggle_fast()
 	dev.set_hour(0.5)
 	print("DEV opened=%s buttons=%d lands=%d/6 unharmed=%s spawned=%d killed=%d all_arms=%s fast=%s where=%s" % [opened, buttons, reached, unharmed, spawned, killed, all_arms, fast, dev.where()])
+	get_tree().quit()
+
+
+## Testing aid: tasting, brewing and drinking, and the draughts' effects.
+func debug_brew() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for id in WAlchemy.INGREDIENTS:
+		inv.add(id, 4)
+	inv.add("salt", 20)
+	var first := alchemy.taste("herb")
+	var again := alchemy.taste("herb")
+	var third := alchemy.taste("herb")
+	var sour := alchemy.brew("herb", "bone")
+	var got := alchemy.brew("bone", "tar")
+	var have: int = inv.count("brew_keen")
+	var learned: bool = alchemy.knows("tar", "keen") and alchemy.knows("bone", "keen")
+	var dm0: float = player.weapon.damage_mult
+	alchemy.drink("brew_keen")
+	var dm1: float = player.weapon.damage_mult
+	alchemy.brew("salt_crystal", "bone")
+	alchemy.drink("brew_ward")
+	player.health = player.max_health
+	var h0: float = player.health
+	damage_player(40.0, player.global_position + Vector3(3, 0, 0))
+	var warded: float = h0 - player.health
+	alchemy.active.erase("ward")
+	player.health = player.max_health
+	damage_player(40.0, player.global_position + Vector3(3, 0, 0))
+	var bare: float = player.max_health - player.health
+	alchemy.brew("tar", "heartwood")
+	alchemy.drink("brew_fireskin")
+	_burn = 0.0
+	afflict("burn", 5.0)
+	var fireproof: bool = _burn <= 0.0
+	var kept: Dictionary = char_data().brews
+	alchemy.from_data(JSON.parse_string(JSON.stringify(kept)))
+	ui.open_brew()
+	await get_tree().process_frame
+	var panel_ok: bool = ui._panel_name == "brew"
+	ui.close_all()
+	print("BREW first=%s again=%s third=%s sour=%s got=%s have=%d learned=%s keener=%s ward=%s fireproof=%s kept=%s panel=%s" % [first, again, third, sour == "", got, have, learned, dm1 > dm0 * 1.1, warded < bare * 0.85, fireproof, alchemy.knows("tar", "keen") and alchemy.on("keen"), panel_ok])
 	get_tree().quit()
 
 

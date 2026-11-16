@@ -299,7 +299,12 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 		"red_dot", "scope", "foregrip", "suppressor", "ext_mag":
 			_part(item)
 		_:
-			if item.begins_with("pc_"):
+			if item.begins_with("brew_"):
+				# A stoppered flask of the draught's colour
+				_box(0.44, 0.12, 0.12, 0.2, wood)
+				_poly([[0.42, 0.3], [0.58, 0.3], [0.8, 0.62], [0.74, 0.88], [0.26, 0.88], [0.2, 0.62]], Color(0.75, 0.8, 0.78, 0.5))
+				_poly([[0.26, 0.58], [0.74, 0.58], [0.78, 0.66], [0.72, 0.86], [0.28, 0.86], [0.22, 0.66]], c)
+			elif item.begins_with("pc_"):
 				_piece(item.substr(3))
 			elif item.begins_with("t_"):
 				# A trophy of a great one: a shard of its land's colour

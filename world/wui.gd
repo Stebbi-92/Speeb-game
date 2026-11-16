@@ -652,6 +652,8 @@ func _redraw_now() -> void:
 			_draw_rest()
 		"dev":
 			_draw_dev()
+		"brew":
+			_draw_brew()
 		"planter":
 			_draw_planter()
 		"portal":
@@ -910,8 +912,8 @@ func _draw_pack() -> void:
 	if not facts.is_empty():
 		side.add_child(_label(",  ".join(facts), 16, GOLD))
 	side.add_child(_gap(6))
-	if info.kind in ["food", "medicine", "boat", "book"]:
-		side.add_child(_action({"food": "Eat", "boat": "Launch", "book": "Read"}.get(info.kind, "Use"), func(): _use_item(_sel), "Right click"))
+	if info.kind in ["food", "medicine", "boat", "book", "brew"]:
+		side.add_child(_action({"food": "Eat", "boat": "Launch", "book": "Read", "brew": "Drink"}.get(info.kind, "Use"), func(): _use_item(_sel), "Right click"))
 	if info.kind == "wear":
 		var sid: String = s.id
 		side.add_child(_action("Wear", func(): _wear(sid); _sel = -1; _redraw(), "Right click"))
@@ -926,14 +928,14 @@ func _draw_pack() -> void:
 
 const FILTERS := [["all", "All"], ["food", "Food and aid"], ["material", "Materials"], ["gear", "Gear and ammo"], ["keep", "Keepsakes"]]
 const KIND_NAMES := {"material": "Material", "food": "Food", "medicine": "Medicine", "aid": "Aid", "seed": "Seed", "tool": "Tool",
-	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand", "boat": "Boat", "book": "Lost book"}
+	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand", "boat": "Boat", "book": "Lost book", "brew": "Draught"}
 var _filter := "all"
 
 
 func _kinds_of(f: String) -> Array:
 	match f:
 		"food":
-			return ["food", "medicine", "aid", "seed"]
+			return ["food", "medicine", "aid", "seed", "brew"]
 		"material":
 			return ["material"]
 		"gear":
@@ -949,7 +951,7 @@ func _tidy(bag: Inventory) -> void:
 	for s in bag.slots:
 		if s != null:
 			totals[s.id] = int(totals.get(s.id, 0)) + int(s.n)
-	var order := ["medicine", "aid", "food", "seed", "ammo", "tool", "wear", "material", "trinket", "trophy", "quest"]
+	var order := ["medicine", "brew", "aid", "food", "seed", "ammo", "tool", "wear", "material", "trinket", "trophy", "quest"]
 	var ids := totals.keys()
 	ids.sort_custom(func(a, b):
 		var ka := order.find(Items.info(a).kind)
@@ -1076,6 +1078,8 @@ func _use_item(i: int) -> void:
 			return
 	elif kind == "book":
 		done = w.read_book(s.id)
+	elif kind == "brew":
+		done = w.alchemy.drink(s.id)
 	else:
 		done = w.eat(s.id)
 	if done:
@@ -1908,7 +1912,7 @@ func _pack_click(i: int, right: bool) -> void:
 	if right:
 		# The quick use: eat it, use it, or put it on. Nothing is dropped by accident.
 		var kind: String = Items.info(s.id).kind
-		if kind in ["food", "medicine", "boat", "book"]:
+		if kind in ["food", "medicine", "boat", "book", "brew"]:
 			_use_item(i)
 			return
 		if kind == "wear":
@@ -2940,6 +2944,69 @@ func _update_fog() -> void:
 
 # ------------------------------------------------------------------ the beacon road, and rest
 
+# ------------------------------------------------------------------ brewing by the fire
+
+var _brew_pick: Array = []
+
+
+func open_brew() -> void:
+	_brew_pick = []
+	_open("brew")
+
+
+func _draw_brew() -> void:
+	_clear()
+	var al: WAlchemy = w.alchemy
+	var top := HBoxContainer.new()
+	top.add_child(_title("Brewing"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	_body.add_child(_wrap("Each of these holds two virtues. Taste one to learn the first. Brew two that share a virtue, with %d salt, and the draught carries it." % int(WAlchemy.BASE.salt), 18, DIM, 900))
+	var g := GridContainer.new()
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 18)
+	g.add_theme_constant_override("v_separation", 6)
+	for ing in WAlchemy.INGREDIENTS:
+		var have: int = w.inv.count(ing)
+		var picked: bool = ing in _brew_pick
+		g.add_child(_label(Items.iname(ing), 19, GOLD if picked else PALE))
+		g.add_child(_label("x%d" % have, 17, DIM))
+		g.add_child(_label(al.known_text(ing), 17, PALE))
+		var id: String = ing
+		var t := _action("Taste", func(): al.taste(id); _redraw())
+		t.disabled = have < 1 or (al.knows(ing, WAlchemy.INGREDIENTS[ing][0]) and al.knows(ing, WAlchemy.INGREDIENTS[ing][1]))
+		g.add_child(t)
+		var p := _action("Put back" if picked else "Choose", func():
+			if id in _brew_pick:
+				_brew_pick.erase(id)
+			elif _brew_pick.size() < 2:
+				_brew_pick.append(id)
+			_redraw())
+		p.disabled = have < 1 and not picked
+		g.add_child(p)
+	_body.add_child(g)
+	_body.add_child(_gap(8))
+	if _brew_pick.size() == 2:
+		var a: String = _brew_pick[0]
+		var b: String = _brew_pick[1]
+		var bt := _action("Brew %s with %s" % [Items.iname(a), Items.iname(b).to_lower()], func():
+			al.brew(a, b)
+			for x in _brew_pick.duplicate():
+				if w.inv.count(x) < 1:
+					_brew_pick.erase(x)
+			_redraw(), "", GOLD)
+		bt.disabled = not al.can_brew(a, b)
+		_body.add_child(bt)
+	else:
+		_body.add_child(_label("Choose two to brew.", 17, DIM))
+	var now := []
+	for e in al.active:
+		now.append("%s, %d min" % [WAlchemy.EFFECTS[e].name, int(ceil(float(al.active[e]) / 60.0))])
+	if not now.is_empty():
+		_body.add_child(_label("Working now: " + ",  ".join(now), 17, GOLD))
+	_body.add_child(_action("Done", close_all, "Esc", DIM))
+
+
 # ------------------------------------------------------------------ the hidden playtest menu
 
 func open_dev() -> void:
@@ -3095,6 +3162,7 @@ func _draw_rest() -> void:
 			_body.add_child(_wrap("Add wood before you rest.", 20, PALE))
 			_body.add_child(_action("Not now", close_all, "Esc", DIM))
 			return
+		_body.add_child(_action("Brew draughts", func(): open_brew()))
 	var near := 0
 	for e in w.enemies:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
