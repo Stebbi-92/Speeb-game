@@ -3133,6 +3133,7 @@ func _draw_dev() -> void:
 	_dev_grid("Yourself", [
 		["No harm: %s" % ("on" if d.god else "off"), func(): _dev_do(func(): d.god = not d.god), GOLD if d.god else PALE],
 		["Fast stride: %s" % ("on" if d.fast else "off"), func(): _dev_do(func(): d.toggle_fast()), GOLD if d.fast else PALE],
+		["Frame meter: %s" % ("on" if d.meter else "off"), func(): _dev_do(func(): d.toggle_meter()), GOLD if d.meter else PALE],
 		["Heal, feed and rest", func(): _dev_do(func(): d.heal())],
 		["A full kit of stuff", func(): _dev_do(func(): d.give_kit())],
 		["Every weapon and kit", func(): _dev_do(func(): d.give_arms())],

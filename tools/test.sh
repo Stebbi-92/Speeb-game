@@ -68,6 +68,7 @@ check kraken    debug_kraken   "KRAKEN found=true pulled=true rose=true hp=[0-9]
 check spirit    debug_spirit   "SPIRIT came=true again_refused=true bitten=true left=[0-9]+ faded=true cold=true warm=true town_refused=true"
 check trades    debug_trades   "TRADES untrained=0 first=true smithed=1 sword=15/18 away_refused=true changed=true paid=25 tinker_rounds=15 alch_brews=2 kept=alchemist"
 check endings   debug_endings  "ENDINGS ruth=true forest=true early_refused=true met=true out=[0-7] pact=true first=jpage_1 pilgrim_open=true vow=true harder=1.30 unlit_quiet=true"
+check meter     debug_meter    "METER shown=true text=[0-9]+ fps"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

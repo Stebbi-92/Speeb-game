@@ -13,6 +13,10 @@ const AMMO := {"shells": 200, "rounds": 300, "rifle": 400, "rockets": 20, "fuel"
 var w
 var god := false
 var fast := false
+var meter := false
+var _meter: Label = null
+var _times: Array = []     ## the last two seconds or so of frame times, in ms
+var _meter_t := 0.0
 
 
 func _init(world) -> void:
@@ -25,6 +29,8 @@ func host() -> bool:
 
 ## Every frame while no harm is on: whole, fed and rested.
 func tick() -> void:
+	if meter:
+		_tick_meter()
 	if not god or w.player == null:
 		return
 	w.player.health = w.player.max_health
@@ -127,6 +133,51 @@ func seventh() -> void:
 func set_weather(k: String) -> void:
 	if host():
 		w.shared("_w_weather", [k, 600.0, randf() * TAU])
+
+
+## The frame meter, top right: frame rate, the slowest frames, and what the GPU is asked to draw.
+func toggle_meter() -> void:
+	meter = not meter
+	if meter and _meter == null:
+		var cl := CanvasLayer.new()
+		cl.layer = 90
+		w.add_child(cl)
+		_meter = Label.new()
+		_meter.add_theme_font_size_override("font_size", 15)
+		_meter.add_theme_color_override("font_outline_color", Color.BLACK)
+		_meter.add_theme_constant_override("outline_size", 5)
+		_meter.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		_meter.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_meter.position = Vector2(-420, 8)
+		_meter.size = Vector2(410, 80)
+		cl.add_child(_meter)
+	if _meter:
+		_meter.visible = meter
+	_times.clear()
+
+
+func _tick_meter() -> void:
+	var dt: float = w.get_process_delta_time() * 1000.0
+	_times.append(dt)
+	if _times.size() > 240:
+		_times.pop_front()
+	_meter_t -= dt / 1000.0
+	if _meter_t > 0.0 or _meter == null:
+		return
+	_meter_t = 0.25
+	var s := _times.duplicate()
+	s.sort()
+	var worst: float = s[s.size() - 1]
+	var low1: float = s[int(s.size() * 0.99) - 1] if s.size() >= 100 else worst
+	var foes := 0
+	for e in w.enemies:
+		if is_instance_valid(e) and e.is_alive():
+			foes += 1
+	_meter.text = "%d fps   1%% low %d fps   worst %.1f ms\n%d draw calls   %dk triangles   %d foes   %s" % [
+		Engine.get_frames_per_second(), int(1000.0 / maxf(low1, 0.001)), worst,
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
+		foes, _land_name(w.land_at(w.player.global_position)) if w.player else ""]
 
 
 func toggle_fast() -> void:

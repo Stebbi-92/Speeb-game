@@ -8766,6 +8766,16 @@ func debug_dread() -> void:
 
 
 ## Testing aid: a snug base with spare beds draws settlers, who bring goods and keep fires.
+## Testing aid: the frame meter shows numbers.
+func debug_meter() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.toggle_meter()
+	await get_tree().create_timer(2.0).timeout
+	print("METER shown=%s text=%s" % [dev._meter.visible, dev._meter.text.replace("\n", " | ")])
+	get_tree().quit()
+
+
 ## Testing aid: the last two endings. Ruth found and talked to, a beacon put out for her; the journal's
 ## leaves; the Second Vow's harder forms; and no night wave after the Unlit ending.
 func debug_endings() -> void:
