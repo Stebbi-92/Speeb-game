@@ -6633,6 +6633,32 @@ func debug_questfoes() -> void:
 	print("QUESTFOES cleared=%s killed=%d" % [int(q.stage) > 0, killed])
 	get_tree().quit()
 
+## Testing aid: a quest's find shows over its crate, two quests can share one, and a reload takes the marks away.
+func debug_questmarks() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cid: String = crates.keys()[0]
+	var mk := func(qid: String) -> Dictionary:
+		var q := {"id": qid, "title": "T", "state": "active", "stage": 0, "have": 0,
+			"steps": [{"t": "recover", "crate": cid, "item": "keepsake", "text": "x"}, {"t": "reach", "text": "y"}]}
+		quests.quests[qid] = q
+		quests._place_things(qid)
+		return q
+	var a: Dictionary = mk.call("qa")
+	var b: Dictionary = mk.call("qb")
+	var shown: bool = crates[cid].has("mark")
+	a.stage = 1
+	quests._place_things("qa")
+	var kept: bool = crates[cid].has("mark")
+	b.stage = 1
+	quests._place_things("qb")
+	var gone: bool = not crates[cid].has("mark")
+	mk.call("qc")
+	quests.from_data(quests.to_data().duplicate(true).merged({"quests": {}}, true))
+	var reload: bool = not crates[cid].has("mark") and quests.marks.is_empty()
+	print("QUESTMARKS shown=%s kept=%s gone=%s reload=%s" % [shown, kept, gone, reload])
+	get_tree().quit()
+
 ## Testing aid: a far shot takes time to land, and still lands, and a moving foe would have walked on.
 func debug_slug() -> void:
 	while not ready_world:

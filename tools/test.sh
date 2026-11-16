@@ -39,6 +39,7 @@ check tabsfit    debug_tabsfit  "TABSFIT { \"craft\": 700, \"arms\": 700, \"wear
 check fixes     debug_fixes    "FIXES map_ready=true map_open_fast=true slept=true woke=true"
 check newfoes   debug_newfoes  "NEWFOES made=8 hit=8 burning=true slowed=true hurts=true slow_speed=true"
 check questfoes debug_questfoes "QUESTFOES cleared=true"
+check questmarks debug_questmarks "QUESTMARKS shown=true kept=true gone=true reload=true"
 check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
 check packfit   debug_packfit  "PACKFIT fits=true"
 check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"

@@ -198,6 +198,9 @@ func to_data() -> Dictionary:
 
 
 func from_data(d: Dictionary) -> void:
+	# What the old quests set out in the world goes first
+	for qid in marks.keys() + nests.keys() + finds.keys():
+		_clear_things(qid)
 	quests = d.get("quests", {})
 	offers = d.get("offers", {})
 	next_id = int(d.get("next", 1))
@@ -655,12 +658,15 @@ func _place_things(qid: String) -> void:
 		var c = target_of(q)
 		if c != null:
 			finds[qid] = w.make_lost(qid, c + Vector3(-2, 0, 3), s.name)
+	if marks.has(qid) and (s.t != "recover" or marks[qid] != s.get("crate", "")):
+		# Unless another quest still shows its find on the same crate
+		var c: String = marks[qid]
+		marks.erase(qid)
+		if not marks.values().has(c):
+			w.crate_unmark(c)
 	if s.t == "recover" and not marks.has(qid) and w.crates.has(s.crate):
 		marks[qid] = s.crate
 		w.crate_mark(s.crate, s.item)
-	if s.t != "recover" and marks.has(qid):
-		w.crate_unmark(marks[qid])
-		marks.erase(qid)
 	if s.t != "nest" and nests.has(qid):
 		if is_instance_valid(nests[qid]):
 			nests[qid].queue_free()
@@ -673,8 +679,10 @@ func _place_things(qid: String) -> void:
 
 func _clear_things(qid: String) -> void:
 	if marks.has(qid):
-		w.crate_unmark(marks[qid])
+		var c: String = marks[qid]
 		marks.erase(qid)
+		if not marks.values().has(c):
+			w.crate_unmark(c)
 	for d in [nests, finds]:
 		if d.has(qid):
 			if is_instance_valid(d[qid]):
