@@ -2,7 +2,7 @@
 // Hosts announce themselves about once a minute; players fetch the list. Nothing is written to disk:
 // the list lives in one Durable Object's memory, and a host that stops announcing drops off after two minutes.
 //
-//   POST /announce  {name, port, players, max, level, proto, version, code, private, locked, ip4, lan}   (the host's address is taken from the request)
+//   POST /announce  {name, port, players, max, level, proto, version, code, private, locked, detail, ip4, lan}   (the host's address is taken from the request)
 //   POST /remove    {port}
 //   GET  /list      -> {servers: [{name, ip, ip4, port, players, max, level, proto, version, locked, same, lan?}]}   (private ones are left out)
 //   (ip4 is the host's public IPv4 as its router told it; same/lan say whether the asker shares the host's network)
@@ -127,6 +127,7 @@ export class Lobby {
         code: clean(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
         private: !!body.private,
         locked: !!body.locked,
+        detail: clean(body.detail, 60),
         ip4: ipv4(body.ip4),
         lan: lanList(body.lan),
         expires: now + TTL_MS,

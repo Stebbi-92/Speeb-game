@@ -1155,7 +1155,7 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		lvl.sfx("chop", -1 if heavy else -4, null, randf_range(0.85, 1.1) * (0.8 if heavy else 1.0))
 		player.shake(0.3 if heavy else 0.15)
 		LesserSpeeb.harm_pierce = float(m.get("pierce", 1.0))
-		Arms.deal(hits, fwd, "blade")
+		Arms.deal(hits, fwd, str(m.get("harm", "blade")))
 		LesserSpeeb.harm_pierce = 1.0
 		_practise("blade", hits)
 	elif not r.is_empty():

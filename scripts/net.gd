@@ -1,5 +1,5 @@
 extends Node
-## The fellowship: up to four pilgrims walking the trials together.
+## The fellowship: up to eight pilgrims in the Ashen Waste, or four in the trials.
 ## One of them hosts (or a dedicated server does, with no pilgrim of its own), and the host is the authority:
 ## it runs the lesser forms, orders every shared step of a trial, and decides when a land begins.
 ## Others join by address or from the list of fellowships (found on the local network, or on the internet list).
@@ -11,14 +11,16 @@ signal session_ended(reason: String)
 
 const DEFAULT_PORT := 24600
 const DISCOVERY_PORT := 24601
-const MAX_PLAYERS := 4
-const PROTOCOL := "brelm-fellowship-2"
+const MAX_PLAYERS := 8        ## the Ashen Waste
+const MAX_TRIALS := 4         ## the trials were made for four
+const PROTOCOL := "brelm-fellowship-3"
 const ANNOUNCE_EVERY := 50.0
 ## The internet list of fellowships: a small Cloudflare Worker (see tools/lobby-worker.js).
 ## Leave empty to use only the local network and joining by address; it can also be set in Options.
 const DEFAULT_LOBBY := "https://game.speeb.org"
-const SLOT_COLORS := [Color(0.82, 0.78, 0.7), Color(0.85, 0.62, 0.3), Color(0.45, 0.6, 0.85), Color(0.5, 0.75, 0.5)]
-const SLOT_NAMES := ["Ash", "Ochre", "Slate", "Moss"]
+const SLOT_COLORS := [Color(0.82, 0.78, 0.7), Color(0.85, 0.62, 0.3), Color(0.45, 0.6, 0.85), Color(0.5, 0.75, 0.5),
+	Color(0.8, 0.42, 0.4), Color(0.7, 0.55, 0.85), Color(0.4, 0.78, 0.78), Color(0.9, 0.8, 0.4)]
+const SLOT_NAMES := ["Ash", "Ochre", "Slate", "Moss", "Rust", "Heather", "Tide", "Straw"]
 
 var peer: ENetMultiplayerPeer
 var online := false
@@ -104,6 +106,11 @@ func my_name() -> String:
 
 func name_of(id: int) -> String:
 	return players[id].name if players.has(id) else "A pilgrim"
+
+
+## How many may walk now: eight in the waste and the gathering, four in a trial.
+func cap() -> int:
+	return MAX_TRIALS if in_level >= 0 and in_level != Game.WASTELAND else MAX_PLAYERS
 
 
 func slot_of(id: int) -> int:
@@ -296,8 +303,8 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	var slot := 0
 	while slot in used:
 		slot += 1
-	if slot >= MAX_PLAYERS:
-		_refused.rpc_id(id, "The fellowship is full.")
+	if slot >= cap():
+		_refused.rpc_id(id, "The fellowship is full." if slot >= MAX_PLAYERS else "This fellowship walks a trial, and the trials take four at most. Join when they are back in the waste or the gathering.")
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
 	pname = pname.strip_edges().left(20)
@@ -395,6 +402,9 @@ func may_choose() -> bool:
 
 ## The host begins a land for the whole fellowship.
 func begin(i: int) -> void:
+	if online and i != Game.WASTELAND and players.size() > MAX_TRIALS:
+		_log("The trials take four at most. With more, walk the Ashen Waste.")
+		return
 	if not online:
 		Game.main.start_level(i, true)
 		return
@@ -725,10 +735,18 @@ func _open_discovery() -> void:
 
 
 func _info() -> Dictionary:
-	return {"name": server_name, "port": port, "players": players.size(), "max": MAX_PLAYERS,
+	return {"name": server_name, "port": port, "players": players.size(), "max": cap(),
 		"level": in_level, "proto": PROTOCOL, "version": str(ProjectSettings.get_setting("application/config/version", "")),
-		"code": join_code, "private": not listed_public, "locked": password != "",
+		"code": join_code, "private": not listed_public, "locked": password != "", "detail": _detail(),
 		"ip4": external_ip, "lan": local_addresses()}
+
+
+## A line on how far the fellowship has come, for the list (the waste: its day and its fires).
+func _detail() -> String:
+	var lvl = _level()
+	if lvl and lvl.has_method("lobby_detail"):
+		return str(lvl.lobby_detail()).left(60)
+	return ""
 
 
 ## Is this text a join code rather than an address?

@@ -1,3 +1,25 @@
+Brelm alpha 0.10.0: The Fellowship
+
+Walk together
+- Up to eight can now walk the Ashen Waste together. The trials still take four.
+- The waste grows to meet a bigger fellowship: more forms at night, at ruins, on the roads and in the vaults, each a little harder, and the great ones much harder. The first four count in full; past four, each counts for half.
+- At nightfall a fellowship of two or more is told how much harder the night will be.
+- With more than four, three in four lying down is enough to sleep through the night.
+- The Longboat: eight seats, oars and a mast. Made at a bench once you have the shipwright's book.
+- Beds can be owned. Lie down in one and make it yours, give it to a friend, or free it. Only the owner wakes there after a fall. The owner's name shows over it.
+
+A new list of fellowships
+- Walk Together has a new look: hosting and joining side by side, and a framed list beneath.
+- Each fellowship shows where it walks, how full it is (a dot for each place, in each pilgrim's colour), its day and fires lit, whether it is closed, and how near.
+- Search, hide full or closed ones, and sort by pilgrims, name or nearness.
+
+New forms (in the dev menu for now)
+- Thirteen forms of the far lands are ready, each with a way of its own: the Flicker (there, then behind you), the Archivist's Hand (steals your rounds; slay it to get them back), the Tunnel Unlit (burrows), the Geyser Wight (bursts out of hot ground), the Raven Mask (blinds you), the Glass Husk (splits in two), the Grass Stalker (unseen in the grass), the Mound Guard (in pairs), the Dust Choir (heals the others), the Herd Ghost (stampedes), and more. They will walk in the world when their lands arrive. Try them from the dev menu (Ctrl+F8).
+- The Sledge now deals blunt harm, which breaks glass and plate better than a blade.
+
+For testers
+- Dev menu: "Pretend fellowship" makes the waste act as if 2, 4, 6 or 8 walk with you.
+
 Brelm alpha 0.9.0: The End of the Road
 
 The end of the story

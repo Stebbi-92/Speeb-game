@@ -340,7 +340,7 @@ func host_tick(delta: float) -> void:
 		if is_instance_valid(e) and e.is_alive() and inside(e.global_position):
 			here += 1
 	var left := int(w.quests.step_of(q).n) - int(q.get("have", 0))
-	for k in mini(2, mini(4, left) - here):
+	for k in mini(WCrowd.scale_near(w, mid, 2), mini(WCrowd.scale_near(w, mid, 4), left) - here):
 		var kind: String = ["hollow", "vigil", "deacon", "saltbone", "hollow", "warden"][randi() % 6]
 		var e = w.spawn_at(kind, at(randf_range(-9, 9), 1.6, randf_range(40, 50)))
 		if e and e.has_method("seek"):

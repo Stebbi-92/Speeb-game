@@ -60,6 +60,7 @@ func _lamp_watch() -> void:
 		at.y = WIsles.SEA_Y - 2.0
 		var e = w.spawn_at("lampeater", at)
 		if e:
+			w.crowd_great(e)
 			e.set_meta("raid", true)
 			w.shared("_w_note", ["The water under the lamp goes pale."])
 			w.sfx("horror_deep", -2, at, 0.55)
@@ -170,8 +171,8 @@ func _crew_watch() -> void:
 	for t in w.targets():
 		if t.global_position.distance_to(fleet_deck) < 9.0:
 			_crewed = true
-			for k in 5:
-				var e = w.spawn_at(["vigil", "vigil", "saltbone", "vigil", "warden"][k], fleet_deck + Vector3(randf_range(-4, 4), 1.0, randf_range(-4, 4)))
+			for k in WCrowd.scale_near(w, fleet_deck, 5):
+				var e = w.spawn_at(["vigil", "vigil", "saltbone", "vigil", "warden"][k % 5], fleet_deck + Vector3(randf_range(-4, 4), 1.0, randf_range(-4, 4)))
 				if e:
 					e.set_meta("raid", true)
 			w.shared("_w_note", ["The watch turns to look at you. They have been waiting a long time."])

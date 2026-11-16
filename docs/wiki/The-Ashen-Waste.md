@@ -1,6 +1,6 @@
 # The Ashen Waste
 
-An open world, about four kilometres across, made fresh from a seed. Each world keeps its own save, and up to four can walk it together.
+An open world, about four kilometres across, made fresh from a seed. Each world keeps its own save, and up to eight can walk it together.
 
 ## World settings
 

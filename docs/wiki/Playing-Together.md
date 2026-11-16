@@ -1,6 +1,6 @@
 # Playing Together
 
-Up to four players, in the Ashen Waste or the trials. One hosts; the others join. Choose **Walk Together** on the title screen.
+Up to eight players in the Ashen Waste, or four in the trials. One hosts; the others join. Choose **Walk Together** on the title screen.
 
 ## Hosting
 
@@ -14,7 +14,7 @@ You can also set a word that joiners must give. Once hosting, the gathering plac
 
 ## Joining
 
-Type the join code (or an address and port) and press **Join**, or pick a game from **Fellowships found**.
+Type the join code (or an address and port) and press **Join**, or pick a game from the **Fellowships** list. Each one shows where it walks, how full it is, its day and how many fires are lit, and whether it is closed. Search it, hide full or closed games, and sort by players, name or nearness. A closed game wants its word in the field above before you join.
 
 ## In the game
 
@@ -23,5 +23,12 @@ Type the join code (or an address and port) and press **Join**, or pick a game f
 - Marks you put on the map are shared, and show on everyone's compass.
 - Hold the interact key on a fallen friend to raise them.
 - Hand things to a friend nearby from your pack.
+- Beds can belong to one player. Lie down in a bed to make it yours, give it to a friend or free it. Only its owner wakes there after a fall.
+- With more than four, three in four lying down is enough to sleep through the night.
+- The Longboat seats eight.
+
+## A bigger fellowship, a harder waste
+
+The more who walk together, the more the waste sends: more forms at night, at ruins, on the roads and in the vaults, each a little harder to bring down, and the great ones much harder. The first four count in full; past four, each counts for half. At nightfall the game says how much harder the night will be.
 
 The world belongs to the host and is saved on the host's computer. Each player's own character (pack, skills, map) is kept on their own computer, for that world.

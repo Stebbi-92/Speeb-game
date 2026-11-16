@@ -494,33 +494,49 @@ func _heading(text: String) -> Label:
 
 
 func _build_together() -> void:
-	_together.add_child(_heading("Walk Together"))
-	_together.add_child(_small("Up to four can play together, in the Ashen Waste or the trials. One hosts; the others join."))
+	var th := HBoxContainer.new()
+	th.add_theme_constant_override("separation", 16)
+	th.add_child(_heading("Walk Together"))
+	var intro := _plain("Up to eight in the Ashen Waste, four in the trials. One hosts; the others join.", hud.DIM, 16)
+	intro.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	th.add_child(intro)
+	_together.add_child(th)
 	var nh := HBoxContainer.new()
-	nh.add_child(_small("Your name", hud.PALE, 19))
-	nh.get_child(0).custom_minimum_size.x = 150
+	nh.add_theme_constant_override("separation", 10)
+	var nl := _plain("Your name", hud.PALE, 18)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nh.add_child(nl)
 	var name_e := _field(Game.player_name, "Pilgrim", 260)
 	name_e.text_changed.connect(func(t): Game.player_name = t.strip_edges().left(20); Game.save())
 	nh.add_child(name_e)
 	_together.add_child(nh)
+	var cards := HBoxContainer.new()
+	cards.add_theme_constant_override("separation", 14)
+	cards.custom_minimum_size.x = BROWSER_W
+	_together.add_child(cards)
 	# Hosting
+	var hc := _side_card("Host a fellowship", 470)
+	cards.add_child(hc[0])
+	var hv: VBoxContainer = hc[1]
 	var hh := HBoxContainer.new()
 	hh.add_theme_constant_override("separation", 8)
-	var sname := _field("", "Name of the fellowship", 250)
+	var sname := _field("", "Name of the fellowship", 330)
 	var port := _field(str(Net.DEFAULT_PORT), "Port", 90)
+	for f in [sname, port]:
+		f.custom_minimum_size.y = 32
+		f.add_theme_font_size_override("font_size", 16)
 	hh.add_child(sname)
 	hh.add_child(port)
-	_together.add_child(hh)
+	hv.add_child(hh)
 	# Who may find it: one plain choice, and a line that says what it means
 	var vis := ["public" if Net.lobby_url() != "" else "network"]
 	var vrow := HBoxContainer.new()
 	vrow.add_theme_constant_override("separation", 6)
-	vrow.add_child(_small("Who can find it", hud.PALE, 17))
-	vrow.get_child(0).custom_minimum_size.x = 150
-	var vnote := _small("", hud.DIM, 16)
+	var vnote := _small("", hud.DIM, 14)
+	vnote.custom_minimum_size.x = 430
 	var group := ButtonGroup.new()
-	var notes := {"public": "Shown in the server list on the internet. Anyone can join, or use the code.",
-		"network": "Shown to players on your own network. Friends elsewhere join with the code.",
+	var notes := {"public": "Shown in the list on the internet. Anyone can join, or use the code.",
+		"network": "Shown on your own network. Friends elsewhere join with the code.",
 		"private": "Not shown anywhere. Friends join with the code or your address."}
 	for opt in [["public", "Everyone"], ["network", "My network"], ["private", "Only with the code"]]:
 		var b := Button.new()
@@ -529,23 +545,14 @@ func _build_together() -> void:
 		b.button_group = group
 		b.focus_mode = Control.FOCUS_NONE
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		b.add_theme_font_size_override("font_size", 16)
+		b.add_theme_font_size_override("font_size", 15)
 		b.add_theme_color_override("font_color", hud.DIM)
 		b.add_theme_color_override("font_pressed_color", hud.GOLD)
 		b.add_theme_color_override("font_hover_pressed_color", hud.GOLD)
 		b.add_theme_color_override("font_hover_color", hud.PALE)
 		for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
-			var sb := StyleBoxFlat.new()
 			var on: bool = st in ["pressed", "hover_pressed"]
-			sb.bg_color = Color(hud.GOLD, 0.16) if on else Color(1, 1, 1, 0.08 if st == "hover" else 0.03)
-			sb.border_color = Color(hud.GOLD, 0.7) if on else Color(1, 1, 1, 0.12)
-			sb.set_border_width_all(1)
-			sb.set_corner_radius_all(12)
-			sb.content_margin_left = 12
-			sb.content_margin_right = 12
-			sb.content_margin_top = 3
-			sb.content_margin_bottom = 3
-			b.add_theme_stylebox_override(st, sb)
+			b.add_theme_stylebox_override(st, _box(Color(hud.GOLD, 0.16) if on else Color(1, 1, 1, 0.08 if st == "hover" else 0.03), Color(hud.GOLD, 0.7) if on else Color(1, 1, 1, 0.12), 12, 12, 3))
 		var key: String = opt[0]
 		if key == "public" and Net.lobby_url() == "":
 			b.disabled = true
@@ -554,15 +561,16 @@ func _build_together() -> void:
 		b.toggled.connect(func(on): if on: vis[0] = key; vnote.text = notes[key])
 		vrow.add_child(b)
 	vnote.text = notes[vis[0]]
-	_together.add_child(vrow)
-	_together.add_child(vnote)
+	hv.add_child(vrow)
+	hv.add_child(vnote)
 	var ph := HBoxContainer.new()
-	ph.add_theme_constant_override("separation", 8)
+	ph.add_theme_constant_override("separation", 10)
 	var word := _field("", "A word to join (optional)", 250)
 	word.secret = true
+	word.custom_minimum_size.y = 32
+	word.add_theme_font_size_override("font_size", 16)
 	ph.add_child(word)
-	_together.add_child(ph)
-	_together.add_child(_btn("Host a fellowship", func():
+	ph.add_child(_pill("Host", func():
 		var n: String = sname.text.strip_edges()
 		if n == "":
 			n = "%s's fellowship" % Net.my_name()
@@ -570,16 +578,25 @@ func _build_together() -> void:
 		if Net.host(p, n, vis[0] == "public", false, vis[0] == "private", word.text) == OK:
 			_show_lobby()
 		else:
-			_status.text = Net.last_error, 24))
-	# Joining by address
-	var jh := HBoxContainer.new()
-	jh.add_theme_constant_override("separation", 8)
+			_status.text = Net.last_error, hud.GOLD, 17))
+	hv.add_child(ph)
+	# Joining by code or address
+	var jc := _side_card("Join by code", 336)
+	jc[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards.add_child(jc[0])
+	var jv: VBoxContainer = jc[1]
 	var addr := _field("", "Join code, or address:port", 300)
-	var jword := _field("", "Its word, if closed", 200)
+	var jword := _field("", "Its word, if closed", 300)
 	jword.secret = true
-	jh.add_child(addr)
-	jh.add_child(jword)
-	jh.add_child(_btn("Join", func():
+	_jword = jword
+	for f in [addr, jword]:
+		f.custom_minimum_size.y = 32
+		f.add_theme_font_size_override("font_size", 16)
+		jv.add_child(f)
+	var jl := _small("The host finds the six-letter code in their gathering place.", hud.DIM, 14)
+	jl.custom_minimum_size.x = 300
+	jv.add_child(jl)
+	jv.add_child(_pill("Join", func():
 		Net.join_word = jword.text.strip_edges()
 		var t: String = addr.text.strip_edges()
 		if t == "":
@@ -589,34 +606,10 @@ func _build_together() -> void:
 			Net.join_code_lookup(t)
 			return
 		var hp := Net.split_address(t)
-		Net.join(hp[0], hp[1]), 24))
-	_together.add_child(jh)
-	# The list of fellowships
-	var lh := HBoxContainer.new()
-	lh.add_theme_constant_override("separation", 10)
-	lh.add_child(_heading("Fellowships found"))
-	lh.add_child(_btn("Look again", func(): Net.refresh_servers(), 20))
-	_together.add_child(lh)
-	var fh := HBoxContainer.new()
-	fh.add_theme_constant_override("separation", 10)
-	_filter = _field("", "Search by name", 220)
-	_filter.text_changed.connect(func(_t): _list_servers())
-	fh.add_child(_filter)
-	_hide_full = CheckBox.new()
-	_hide_full.text = "Hide full"
-	_hide_full.add_theme_font_size_override("font_size", 16)
-	_hide_full.toggled.connect(func(_on): _list_servers())
-	fh.add_child(_hide_full)
-	_hide_other = CheckBox.new()
-	_hide_other.text = "Only my version"
-	_hide_other.button_pressed = true
-	_hide_other.add_theme_font_size_override("font_size", 16)
-	_hide_other.toggled.connect(func(_on): _list_servers())
-	fh.add_child(_hide_other)
-	_together.add_child(fh)
-	_found = VBoxContainer.new()
-	_found.add_theme_constant_override("separation", 0)
-	_together.add_child(_found)
+		Net.join(hp[0], hp[1]), hud.GOLD, 17))
+	jv.get_child(jv.get_child_count() - 1).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# The list of fellowships: a framed browser, one card to each, with how full it is at a glance
+	_together.add_child(_browser())
 	_status = _small("")
 	_status.add_theme_color_override("font_color", hud.GOLD)
 	_together.add_child(_status)
@@ -640,8 +633,183 @@ func _show_together() -> void:
 	_together.visible = true
 	if Net.last_error != "" and not Net._joining:
 		_status.text = Net.last_error
+	_looked_t = Time.get_ticks_msec()
 	Net.refresh_servers()
 	_list_servers()
+
+
+## The browser's frame: a heading with the count, the filters and the sort, the column names, and
+## a scrolling list beneath. Filled by _list_servers each time the list changes.
+func _browser() -> Control:
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", _box(Color(0.03, 0.025, 0.02, 0.82), Color(hud.GOLD, 0.28), 6, 16, 12))
+	frame.custom_minimum_size.x = BROWSER_W
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	frame.add_child(v)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	var h := _heading("Fellowships")
+	top.add_child(h)
+	_count = _plain("", hud.DIM, 15)
+	_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(_count)
+	_looked = _plain("", hud.DIM, 13)
+	_looked.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(_looked)
+	top.add_child(_pill("Look again", func(): _looked_t = Time.get_ticks_msec(); Net.refresh_servers(), hud.GOLD))
+	v.add_child(top)
+	var fh := HBoxContainer.new()
+	fh.add_theme_constant_override("separation", 8)
+	_filter = _field("", "Search by name", 220)
+	_filter.custom_minimum_size.y = 32
+	_filter.add_theme_font_size_override("font_size", 16)
+	_filter.text_changed.connect(func(_t): _list_servers())
+	fh.add_child(_filter)
+	_hide_full = _toggle("Hide full", false)
+	fh.add_child(_hide_full)
+	_hide_other = _toggle("Only my version", true)
+	fh.add_child(_hide_other)
+	_hide_closed = _toggle("Hide closed", false)
+	fh.add_child(_hide_closed)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fh.add_child(sp)
+	_sort = OptionButton.new()
+	for t in ["Most pilgrims", "Name", "Nearest"]:
+		_sort.add_item(t)
+	_sort.add_theme_font_size_override("font_size", 15)
+	_sort.item_selected.connect(func(_i): _list_servers())
+	fh.add_child(_sort)
+	v.add_child(fh)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 12)
+	for c in [["FELLOWSHIP", 320], ["WHERE", 170], ["PILGRIMS", 150]]:
+		var l := _plain(c[0], Color(hud.GOLD, 0.6), 12)
+		l.custom_minimum_size.x = c[1]
+		cols.add_child(l)
+	v.add_child(cols)
+	var rule := ColorRect.new()
+	rule.color = Color(hud.GOLD, 0.18)
+	rule.custom_minimum_size.y = 1
+	v.add_child(rule)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size.y = 228
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
+	var tick := Timer.new()
+	tick.wait_time = 1.0
+	tick.autostart = true
+	tick.timeout.connect(func():
+		if _looked and _together.visible:
+			var ago := (Time.get_ticks_msec() - _looked_t) / 1000
+			_looked.text = "looked just now" if ago < 5 else ("looked %ds ago" % ago if ago < 120 else "looked a while ago"))
+	frame.add_child(tick)
+	_found = VBoxContainer.new()
+	_found.add_theme_constant_override("separation", 6)
+	_found.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_found)
+	return frame
+
+
+const BROWSER_W := 980.0
+var _count: Label
+var _looked: Label
+var _looked_t := 0
+var _hide_closed: CheckBox
+var _sort: OptionButton
+var _jword: LineEdit
+
+
+func _box(bg: Color, border: Color, radius := 6, mx := 12, my := 8) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = mx
+	sb.content_margin_right = mx
+	sb.content_margin_top = my
+	sb.content_margin_bottom = my
+	return sb
+
+
+## A label that keeps to one line.
+func _plain(text: String, col: Color, size := 16) -> Label:
+	return hud._label(text, size, col, HORIZONTAL_ALIGNMENT_LEFT)
+
+
+## One of the two cards above the list: a framed box with a small heading. Returns [card, its column].
+func _side_card(title: String, width: float) -> Array:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _box(Color(0.03, 0.025, 0.02, 0.7), Color(hud.GOLD, 0.2), 6, 14, 10))
+	card.custom_minimum_size.x = width
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 7)
+	card.add_child(v)
+	var h: Label = hud._label(title, 19, hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	h.add_theme_font_override("font", hud.title_font)
+	v.add_child(h)
+	return [card, v]
+
+
+func _toggle(text: String, on: bool) -> CheckBox:
+	var c := CheckBox.new()
+	c.text = text
+	c.button_pressed = on
+	c.focus_mode = Control.FOCUS_NONE
+	c.add_theme_font_size_override("font_size", 15)
+	c.add_theme_color_override("font_color", hud.DIM)
+	c.add_theme_color_override("font_pressed_color", hud.PALE)
+	c.toggled.connect(func(_on): _list_servers())
+	return c
+
+
+func _pill(text: String, cb: Callable, col: Color, size := 15) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", col)
+	b.add_theme_color_override("font_hover_color", col.lightened(0.3))
+	b.add_theme_color_override("font_disabled_color", Color(hud.DIM, 0.6))
+	b.add_theme_stylebox_override("normal", _box(Color(col, 0.08), Color(col, 0.55), 12, 12, 4))
+	b.add_theme_stylebox_override("hover", _box(Color(col, 0.18), Color(col, 0.85), 12, 12, 4))
+	b.add_theme_stylebox_override("pressed", _box(Color(col, 0.26), Color(col, 0.95), 12, 12, 4))
+	b.add_theme_stylebox_override("disabled", _box(Color(1, 1, 1, 0.02), Color(1, 1, 1, 0.08), 12, 12, 4))
+	b.pressed.connect(cb)
+	return b
+
+
+## A small rounded mark beside a fellowship's name: closed, its network, its version.
+func _tag(text: String, col: Color) -> Control:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", _box(Color(col, 0.1), Color(col, 0.45), 8, 7, 1))
+	var l: Label = hud._label(text, 12, col, HORIZONTAL_ALIGNMENT_LEFT)
+	p.add_child(l)
+	return p
+
+
+## How full it is: one dot for each place, lit in the fellowship's colours.
+func _pips(have: int, most: int) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 3)
+	for i in most:
+		var d := Panel.new()
+		d.custom_minimum_size = Vector2(11, 11)
+		var on: bool = i < have
+		var col: Color = Net.SLOT_COLORS[i % Net.SLOT_COLORS.size()] if on else Color(1, 1, 1, 0.12)
+		var pip := _box(col, Color(col.lightened(0.2), 0.9), 6, 0, 0)
+		if not on:
+			pip.set_border_width_all(0)
+		d.add_theme_stylebox_override("panel", pip)
+		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(d)
+	var l := _plain("  %d/%d" % [have, most], hud.PALE if have < most else Color(0.9, 0.55, 0.4), 14)
+	h.add_child(l)
+	return h
 
 
 func _list_servers() -> void:
@@ -649,46 +817,147 @@ func _list_servers() -> void:
 		return
 	for c in _found.get_children():
 		c.queue_free()
-	if Net.servers.is_empty():
-		_found.add_child(_small("None yet. Fellowships on this network appear here, and public ones from the internet list. A private fellowship is joined by its code."))
-		return
+	if _looked:
+		var ago := (Time.get_ticks_msec() - _looked_t) / 1000
+		_looked.text = "looked just now" if ago < 5 else ("looked %ds ago" % ago if ago < 120 else "looked a while ago")
 	var keys: Array = Net.servers.keys()
-	# The fullest open fellowships first, then the nearest
+	var by := _sort.selected if _sort else 0
 	keys.sort_custom(func(a, b):
 		var da: Dictionary = Net.servers[a]
 		var db: Dictionary = Net.servers[b]
+		match by:
+			1:
+				return str(da.get("name", "")).to_lower() < str(db.get("name", "")).to_lower()
+			2:
+				return int(da.get("ping", 9999)) < int(db.get("ping", 9999))
 		if int(da.get("players", 0)) != int(db.get("players", 0)):
 			return int(da.get("players", 0)) > int(db.get("players", 0))
 		return int(da.get("ping", 9999)) < int(db.get("ping", 9999)))
 	var shown := 0
+	var walking := 0
 	for key in keys:
 		var d: Dictionary = Net.servers[key]
+		walking += int(d.get("players", 0))
 		var q: String = _filter.text.strip_edges().to_lower() if _filter else ""
 		if q != "" and not str(d.get("name", "")).to_lower().contains(q):
 			continue
-		if _hide_full and _hide_full.button_pressed and int(d.get("players", 0)) >= int(d.get("max", 4)):
+		var most := int(d.get("max", 4))
+		var full := int(d.get("players", 0)) >= most
+		if _hide_full and _hide_full.button_pressed and full:
 			continue
-		if _hide_other and _hide_other.button_pressed and d.get("proto", Net.PROTOCOL) != Net.PROTOCOL:
+		var other: bool = d.get("proto", Net.PROTOCOL) != Net.PROTOCOL
+		if _hide_other and _hide_other.button_pressed and other:
+			continue
+		if _hide_closed and _hide_closed.button_pressed and d.get("locked", false):
 			continue
 		shown += 1
-		var lvl := int(d.get("level", -1))
-		var where: String = "gathering" if lvl < 0 or lvl >= PLACES.size() else PLACES[lvl].get_slice(":", 0).get_slice(".", 0)
-		if lvl >= 0 and lvl < PLACES.size():
-			where = PLACES[lvl]
-		var full := int(d.get("players", 0)) >= int(d.get("max", 4))
-		var src: String = d.get("source", "")
-		if d.has("ping"):
-			src += " %d ms" % int(d.ping)
-		var text := "%s%s   ·   %d of %d   ·   %s   ·   %s" % [str(d.get("name", "?")).left(28), "  (closed)" if d.get("locked", false) else "", int(d.get("players", 0)), int(d.get("max", 4)), where, src]
-		if d.get("proto", Net.PROTOCOL) != Net.PROTOCOL:
-			text += "   ·   version %s" % d.get("version", "?")
-		var ip: String = d.ip
-		var p := int(d.port)
-		var b := _btn(text, func(): Net.join(ip, p), 19)
-		b.disabled = full or d.get("proto", Net.PROTOCOL) != Net.PROTOCOL
-		_found.add_child(b)
-	if shown == 0:
-		_found.add_child(_small("None match what you seek."))
+		_found.add_child(_server_card(d, full, other))
+	if _count:
+		_count.text = "" if Net.servers.is_empty() else "%d found  ·  %d pilgrims walking" % [Net.servers.size(), walking]
+	if Net.servers.is_empty():
+		_found.add_child(_empty("No fellowships yet.", "Fellowships on your network appear here, and public ones from the internet. A private one is joined by its code."))
+	elif shown == 0:
+		_found.add_child(_empty("None match.", "Clear the search, or show full and closed fellowships."))
+
+
+func _empty(head: String, text: String) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var sp := Control.new()
+	sp.custom_minimum_size.y = 30
+	v.add_child(sp)
+	var h: Label = hud._label(head, 20, hud.PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	h.add_theme_font_override("font", hud.title_font)
+	v.add_child(h)
+	var l: Label = hud._label(text, 15, hud.DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 760
+	v.add_child(l)
+	return v
+
+
+## One fellowship: its name and marks, where it walks, how full, how near, and the way in.
+func _server_card(d: Dictionary, full: bool, other: bool) -> Control:
+	var card := PanelContainer.new()
+	var idle := _box(Color(1, 1, 1, 0.025), Color(1, 1, 1, 0.07), 6, 12, 8)
+	var lit := _box(Color(hud.GOLD, 0.07), Color(hud.GOLD, 0.35), 6, 12, 8)
+	card.add_theme_stylebox_override("panel", idle)
+	card.mouse_entered.connect(func(): card.add_theme_stylebox_override("panel", lit))
+	card.mouse_exited.connect(func(): card.add_theme_stylebox_override("panel", idle))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.add_child(row)
+	# Name, and its marks beneath
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 3)
+	left.custom_minimum_size.x = 320
+	var nm: Label = hud._label(str(d.get("name", "?")).left(34), 20, hud.PALE if not other else hud.DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	nm.add_theme_font_override("font", hud.title_font)
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.custom_minimum_size.x = 320
+	left.add_child(nm)
+	var tags := HBoxContainer.new()
+	tags.add_theme_constant_override("separation", 5)
+	var lan: bool = str(d.get("source", "")) == "LAN" or d.get("same", false)
+	tags.add_child(_tag("Your network" if lan else "Internet", Color(0.5, 0.75, 0.55) if lan else Color(0.55, 0.7, 0.9)))
+	if d.get("locked", false):
+		tags.add_child(_tag("Closed", Color(0.9, 0.65, 0.4)))
+	if other:
+		tags.add_child(_tag("Version %s" % d.get("version", "?"), Color(0.9, 0.45, 0.4)))
+	var det := str(d.get("detail", ""))
+	if det != "":
+		var dl := _plain("  " + det, hud.DIM, 13)
+		tags.add_child(dl)
+	left.add_child(tags)
+	row.add_child(left)
+	# Where it walks
+	var lvl := int(d.get("level", -1))
+	var where := "The gathering"
+	if lvl == Game.WASTELAND:
+		where = "The Ashen Waste"
+	elif lvl >= 0 and lvl < PLACES.size():
+		where = PLACES[lvl]
+	var wl := _plain(where, Color(0.85, 0.7, 0.45) if lvl == Game.WASTELAND else hud.PALE, 16)
+	wl.custom_minimum_size.x = 170
+	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(wl)
+	# How full
+	var pv := _pips(int(d.get("players", 0)), int(d.get("max", 4)))
+	pv.custom_minimum_size.x = 150
+	pv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(pv)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(gap)
+	# How near, and the way in
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 2)
+	right.custom_minimum_size.x = 110
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var ip: String = d.ip
+	var p := int(d.port)
+	var locked: bool = d.get("locked", false)
+	var label := "Full" if full else ("Other version" if other else "Join")
+	var b := _pill(label, func():
+		if locked and (_jword == null or _jword.text.strip_edges() == ""):
+			_status.text = "This fellowship is closed. Give its word in the field above, then Join again."
+			if _jword:
+				_jword.grab_focus()
+			return
+		Net.join_word = _jword.text.strip_edges() if _jword else ""
+		Net.join(ip, p), hud.GOLD, 16)
+	b.disabled = full or other
+	b.custom_minimum_size.x = 104
+	right.add_child(b)
+	if d.has("ping"):
+		var ms := int(d.ping)
+		var pc := Color(0.55, 0.8, 0.5) if ms < 60 else (Color(0.9, 0.75, 0.4) if ms < 150 else Color(0.9, 0.45, 0.4))
+		var pl: Label = hud._label("%d ms" % ms, 13, pc, HORIZONTAL_ALIGNMENT_CENTER)
+		right.add_child(pl)
+	row.add_child(right)
+	return card
 
 
 func _show_lobby() -> void:
@@ -735,7 +1004,7 @@ func _on_roster() -> void:
 		var cb := _btn("Copy the code", func(): DisplayServer.clipboard_set(Net.join_code), 17)
 		_lobby.add_child(cb)
 	_lobby.add_child(_small(info))
-	_lobby.add_child(_heading("The fellowship  (%d of %d)" % [Net.players.size(), Net.MAX_PLAYERS]))
+	_lobby.add_child(_heading("The fellowship  (%d of %d)" % [Net.players.size(), Net.cap()]))
 	for id in Net.players:
 		var mark := ""
 		if id == 1:
@@ -769,11 +1038,18 @@ func _on_roster() -> void:
 		var grid := GridContainer.new()
 		grid.columns = 2
 		_lobby.add_child(grid)
+		var many := Net.players.size() > Net.MAX_TRIALS
+		if many:
+			_lobby.add_child(_small("The trials take four at most. With %d, walk the Ashen Waste." % Net.players.size(), hud.DIM, 16))
 		for i in range(mini(Game.reached, 10) + 1):
 			var idx := i
-			grid.add_child(_btn(PLACES[i], func(): Net.begin(idx), 17))
+			var tb := _btn(PLACES[i], func(): Net.begin(idx), 17)
+			tb.disabled = many
+			grid.add_child(tb)
 		if Game.tenth_unlocked():
-			grid.add_child(_btn("The Tenth Trial", func(): Net.begin(11), 18))
+			var tt := _btn("The Tenth Trial", func(): Net.begin(11), 18)
+			tt.disabled = many
+			grid.add_child(tt)
 		if Net.is_host():
 			_lobby.add_child(_heading("Or walk the open waste"))
 			var wh := HBoxContainer.new()

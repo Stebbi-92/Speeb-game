@@ -213,6 +213,7 @@ func host_tick() -> void:
 			at.y = WIsles.SEA_Y + 0.3
 			beast = w.spawn_at("bellwound", at)
 			if beast:
+				w.crowd_great(beast)
 				beast.set_meta("raid", true)
 				w.shared("_w_note", ["The bell rings once, under you. Something lets go of the tower."])
 				w.sfx("horror_deep", 0, at, 0.6)

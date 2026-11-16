@@ -69,6 +69,8 @@ check spirit    debug_spirit   "SPIRIT came=true again_refused=true bitten=true 
 check trades    debug_trades   "TRADES untrained=0 first=true smithed=1 sword=15/18 away_refused=true changed=true paid=25 tinker_rounds=15 alch_brews=2 kept=alchemist"
 check endings   debug_endings  "ENDINGS ruth=true forest=true early_refused=true met=true out=[0-7] pact=true first=jpage_1 pilgrim_open=true vow=true harder=1.30 unlit_quiet=true"
 check meter     debug_meter    "METER shown=true text=[0-9]+ fps"
+check newforms  debug_newforms "NEWFORMS made=13/13 named=13 choir_band=3" "NEWFORMS flicker went=true struck_hidden=false back=true vent_hid=true vent_up=true" "NEWFORMS husk blunt>blade=true shards=2 before=1 robbed=[1-9][0-9]* returned=true blinded=true frozen=true faded=true"
+check crowd     debug_crowd    "CROWD one=10 four=2[0-9] eight=2[5-9] hp1=1.00 hp_up=true boss8=3.50 capped=true" "CROWD bed mine=true saved=true given=true freed=true label=''" "CROWD longboat seats=true recipe=true max=8 trials=4"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

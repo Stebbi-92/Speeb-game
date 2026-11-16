@@ -36,7 +36,7 @@ Press **B** to build. Scroll to choose a piece, left click to place it, **R** to
 
 | Piece | Cost | Strength | Notes |
 |---|---|---|---|
-| **Bed** | 6 Deadwood, 4 Cloth | 160 | Sleep here. You wake here if you fall. Snugger than a bedroll. |
+| **Bed** | 6 Deadwood, 4 Cloth | 160 | Sleep here. You wake here if you fall. Snugger than a bedroll. A bed can belong to one player: lie down in it to claim it, give it away or free it. |
 | **Table** | 5 Deadwood | 140 | A home is more than walls. Makes a place snug. |
 | **Chair** | 3 Deadwood | 100 | To sit and be still. Makes a place snug. |
 | **Shelf** | 8 Deadwood, 1 Scrap Iron | 200 | Sixteen places to keep things, like a chest. |

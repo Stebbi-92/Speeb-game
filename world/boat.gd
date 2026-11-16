@@ -8,11 +8,15 @@ const KINDS := {
 		"text": "Logs lashed together. Paddle it with the walking keys. Slow, and the waves come over it."},
 	"sloop": {"name": "Sloop", "seats": 4, "hp": 420.0, "row": 1.8, "sail": 12.0, "turn": 0.55,
 		"text": "A small boat with a mast. Raise the sail and run before the wind; steer with the walking keys."},
+	"longboat": {"name": "Longboat", "seats": 8, "hp": 640.0, "row": 2.4, "sail": 10.5, "turn": 0.42,
+		"text": "A long boat with oars and a mast, for a whole fellowship. Slower to turn than a sloop."},
 }
 ## Where each seat is, on the deck: the helm first
 const SEATS := {
 	"raft": [Vector3(0, 0.45, -0.9), Vector3(0, 0.45, 0.9)],
 	"sloop": [Vector3(0, 0.9, -2.4), Vector3(-0.7, 0.9, 0.2), Vector3(0.7, 0.9, 0.2), Vector3(0, 0.9, 2.0)],
+	"longboat": [Vector3(0, 0.9, -3.9), Vector3(-0.7, 0.9, -2.2), Vector3(0.7, 0.9, -2.2), Vector3(-0.7, 0.9, -0.6),
+		Vector3(0.7, 0.9, -0.6), Vector3(-0.7, 0.9, 1.6), Vector3(0.7, 0.9, 1.6), Vector3(0, 0.9, 3.3)],
 }
 
 var id := 0
@@ -66,7 +70,8 @@ func _ready() -> void:
 		oar.position = Vector3(1.5, 0.5, -0.6)
 		oar.rotation.y = 0.2
 	else:
-		var hull = w.box(Vector3.ZERO, Vector3(2.4, 1.0, 5.4), w._m.darkwood, false)
+		var k := 1.6 if kind == "longboat" else 1.0   # the longboat is the sloop drawn out
+		var hull = w.box(Vector3.ZERO, Vector3(2.4, 1.0, 5.4 * k), w._m.darkwood, false)
 		hull.reparent(_deck, false)
 		hull.position = Vector3(0, 0.1, 0)
 		var bow := MeshInstance3D.new()
@@ -75,15 +80,21 @@ func _ready() -> void:
 		bow.mesh = pm
 		bow.material_override = w._m.darkwood
 		_deck.add_child(bow)
-		bow.position = Vector3(0, 0.1, 3.2)
+		bow.position = Vector3(0, 0.1, 2.7 * k + 0.5)
 		bow.rotation = Vector3(PI * 0.5, 0, 0)
-		var deck = w.box(Vector3.ZERO, Vector3(2.2, 0.1, 5.2), w._m.wood, false)
+		var deck = w.box(Vector3.ZERO, Vector3(2.2, 0.1, 5.2 * k), w._m.wood, false)
 		deck.reparent(_deck, false)
 		deck.position = Vector3(0, 0.62, 0)
 		for side in [-1.0, 1.0]:
-			var rail = w.box(Vector3.ZERO, Vector3(0.12, 0.35, 5.2), w._m.wood, false)
+			var rail = w.box(Vector3.ZERO, Vector3(0.12, 0.35, 5.2 * k), w._m.wood, false)
 			rail.reparent(_deck, false)
 			rail.position = Vector3(side * 1.15, 0.85, 0)
+			if kind == "longboat":
+				for i in 4:
+					var oar = w.box(Vector3.ZERO, Vector3(2.2, 0.08, 0.1), w._m.darkwood, false)
+					oar.reparent(_deck, false)
+					oar.position = Vector3(side * 2.0, 0.55, -2.6 + i * 1.6)
+					oar.rotation.z = side * 0.35
 		var mast = w.cyl(Vector3.ZERO, 0.12, 6.5, w._m.darkwood, false, 0.09, 8)
 		mast.reparent(_deck, false)
 		mast.position = Vector3(0, 3.8, 0.6)
@@ -101,7 +112,7 @@ func _ready() -> void:
 		_lamp.light_color = Color(1.0, 0.75, 0.45)
 		_lamp.light_energy = 1.2
 		_lamp.omni_range = 8.0
-		_lamp.position = Vector3(0, 2.0, -2.6)
+		_lamp.position = Vector3(0, 2.0, -2.6 * k)
 		_deck.add_child(_lamp)
 		_lamp.visible = lamp_lit
 	# Something to look at and step aboard by
@@ -110,7 +121,7 @@ func _ready() -> void:
 	_body.collision_mask = 0
 	var cs := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
-	bs.size = Vector3(3.0, 1.4, 3.8) if kind == "raft" else Vector3(2.6, 1.8, 6.4)
+	bs.size = Vector3(3.0, 1.4, 3.8) if kind == "raft" else Vector3(2.6, 1.8, 10.0 if kind == "longboat" else 6.4)
 	cs.shape = bs
 	cs.position.y = 0.4
 	_body.add_child(cs)
@@ -244,7 +255,7 @@ func _steer(delta: float) -> void:
 	var f := Vector3(sin(yaw), 0, cos(yaw))
 	var next := global_position + f * speed * delta
 	# Run aground in the shallows: it stops, and must be backed off or pushed round
-	var probe := next + f * signf(speed) * (2.0 if kind == "raft" else 3.2)
+	var probe := next + f * signf(speed) * (2.0 if kind == "raft" else (5.0 if kind == "longboat" else 3.2))
 	if w.terrain.height_at(probe.x, probe.z) > WIsles.SEA_Y - (0.4 if kind == "raft" else 0.9):
 		if not _beached and absf(speed) > 1.5:
 			w.hud.notify("You run aground.")

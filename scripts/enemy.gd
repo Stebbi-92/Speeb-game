@@ -22,6 +22,9 @@ const FORM_TIER := {
 	"colossus": 4, "knight": 4, "unlit_brute": 3,
 	"cinder_hound": 1, "rust_stalker": 2, "bog_crawler": 2, "rime_bones": 3, "bile_elder": 2, "mourner": 2,
 	"dirge_howler": 3, "iron_idol": 3, "pyre_sack": 3, "sand_maw": 3, "tar_giant": 3, "glass_crawler": 4, "cinder_hauler": 4,
+	# 0.10: the forms of the far lands. Each has a way of its own (see FoeTraits).
+	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "geyser_wight": 3, "canyon_strider": 3,
+	"dust_choir": 3, "grass_stalker": 3, "raven_mask": 4, "rime_walker": 4, "glass_husk": 4, "mound_guard": 4, "herd_ghost": 4,
 }
 
 ## Kin of the common forms, bred hard by their own lands: each moves and fights as its "base" does,
@@ -53,6 +56,33 @@ const VARIANTS := {
 		"text": "A lurker grown huge. The ground opens under you."},
 	"bellwound": {"base": "serpent", "name": "The Bell-Wound", "hp": 2400.0, "size": 5.0, "bite": 46.0, "radius": 2.2, "speed": 5.6,
 		"text": "Wound about the drowned tower of the Kraken-Bell. It pulls boats down."},
+	# 0.10: the forms of the far lands, each with one way to learn ("trait", see FoeTraits)
+	"flicker": {"base": "wisp", "name": "Flicker", "hp": 55.0, "bite": 14.0, "trait": "phase", "tint": Color(0.75, 0.85, 1.0),
+		"weak": {"blade": 1.6, "shot": 1.4}, "tough": {"bullet": 0.5, "fire": 0.0}, "text": "Here, then gone, then behind you. Keep turning. A blade finds it best."},
+	"archivist_hand": {"base": "hollow", "name": "Archivist's Hand", "hp": 65.0, "speed": 4.4, "bite": 10.0, "trait": "thief", "tint": Color(0.55, 0.5, 0.35),
+		"text": "It grabs at your rounds and runs. Slay it and you get them back."},
+	"tunnel_unlit": {"base": "unlit_gun", "name": "Tunnel Unlit", "hp": 75.0, "trait": "burrow", "tint": Color(0.4, 0.33, 0.25),
+		"text": "Goes into the ground and comes up at your back. Listen for the earth breaking."},
+	"kelp_drowner": {"base": "drowned", "name": "Kelp Drowner", "hp": 95.0, "bite": 16.0, "slow": 5.0, "tint": Color(0.2, 0.35, 0.25),
+		"text": "Wrapped in weed from the deep. Its grip holds you a long while. Burn it."},
+	"rime_walker": {"base": "colossus", "name": "Rime Walker", "hp": 300.0, "bite": 34.0, "freeze": 1.5, "tint": Color(0.75, 0.88, 1.0),
+		"weak": {"fire": 1.8, "blast": 1.4}, "tough": {"bullet": 0.7, "blade": 0.8}, "text": "A giant of the frost. Its blow freezes you where you stand. Fire undoes it."},
+	"geyser_wight": {"base": "hollow", "name": "Geyser Wight", "hp": 80.0, "bite": 14.0, "trait": "vent", "tint": Color(0.85, 0.8, 0.7),
+		"weak": {"shot": 1.3}, "tough": {"fire": 0.3}, "text": "Sleeps in hot ground and bursts up in scalding steam. Do not stand near the vents."},
+	"raven_mask": {"base": "unlit_blade", "name": "Raven Mask", "hp": 160.0, "bite": 24.0, "trait": "ravens", "tint": Color(0.1, 0.1, 0.12),
+		"text": "It calls ravens to your face, and strikes while you cannot see. Close in fast."},
+	"canyon_strider": {"base": "rusher", "name": "Canyon Strider", "hp": 120.0, "speed": 8.5, "bite": 22.0, "trait": "leap", "size": 1.2, "tint": Color(0.7, 0.45, 0.3),
+		"text": "Springs at you from far off. Step aside as it leaps."},
+	"dust_choir": {"base": "spitter", "name": "Dust Choir", "hp": 90.0, "trait": "choir", "pack": 3, "tint": Color(0.8, 0.7, 0.5),
+		"text": "Comes in threes. While it sings, the forms about it heal. Kill the singers first."},
+	"glass_husk": {"base": "idol", "name": "Glass Husk", "hp": 260.0, "bite": 30.0, "trait": "split", "size": 1.4, "tint": Color(0.7, 0.9, 0.95),
+		"weak": {"blunt": 1.8, "blast": 1.5}, "tough": {"shot": 0.6}, "text": "Cracks into two when it falls. A heavy blow breaks it best."},
+	"grass_stalker": {"base": "rusher", "name": "Grass Stalker", "hp": 70.0, "bite": 18.0, "trait": "stealth", "tint": Color(0.55, 0.6, 0.3),
+		"text": "You cannot see it in the grass until it is close. Watch the grass move."},
+	"mound_guard": {"base": "knight", "name": "Mound Guard", "hp": 280.0, "trait": "pair", "pack": 2, "tint": Color(0.35, 0.3, 0.25),
+		"weak": {"blunt": 1.5, "blast": 1.3}, "tough": {"blade": 0.6, "shot": 0.7}, "text": "They guard the old mounds in pairs, and strike harder side by side. Part them."},
+	"herd_ghost": {"base": "brute", "name": "Herd Ghost", "hp": 400.0, "speed": 7.0, "bite": 34.0, "trait": "stampede", "pack": 4, "tint": Color(0.85, 0.85, 0.9),
+		"tough": {"bullet": 0.7, "shot": 0.7, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
 	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
 		"text": "Something drowned long ago and grown in the tar. It clings."},
 }
@@ -231,6 +261,7 @@ const WINDUP := {"rusher": 0.38, "idol": 0.6, "swarm": 0.2, "mite": 0.18, "elite
 	"brute": 0.65, "howler": 0.4, "lurker": 0.3, "unlit_blade": 0.45, "unlit_brute": 0.85, "hollow": 0.6, "saltbone": 0.35, "vigil": 0.4, "warden": 0.8,
 	"unlit_flame": 0.45, "deacon": 0.4, "drowned": 0.6, "colossus": 1.1, "wisp": 0.35, "knight": 0.8}
 var puppet := false
+var hidden := false   ## under the ground, or between places (FoeTraits): not seen, not struck
 var credit := false
 var last_hitter := 1
 var heard_at := 0
@@ -257,7 +288,7 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 			spec[key] = VARIANTS[variant][key]
 	hp = spec.hp * Game.difficulty_scale("hp")
 	if boss != "":
-		hp *= 1.0 + 0.6 * maxi(0, lvl.targets().size() - 1)
+		hp *= WCrowd.boss(lvl) if Game.wasteland else 1.0 + 0.6 * maxi(0, lvl.targets().size() - 1)
 	max_hp = hp
 	return self
 
@@ -359,6 +390,24 @@ func _ready() -> void:
 		_cry_cd = randf_range(12.0, 20.0)
 	elif kind != "mite":
 		_cry("growl_%d" % (randi() % 3), -4)
+	if not puppet and spec.has("trait"):
+		_trait_start.call_deferred()
+
+
+func _trait_start() -> void:
+	if _alive:
+		FoeTraits.start(self)
+
+
+## Out of sight and out of reach (a Flicker between places, a Tunneller under the ground), or back.
+func set_hidden(on: bool) -> void:
+	hidden = on
+	visible = not on
+	if _alive:
+		collision_layer = 0 if on else 2
+	if on:
+		_wind = 0.0
+		_show_wind(-1.0)
 
 
 ## A cry from the lesser form, pitched by its size: the small shriek high, the great ones low.
@@ -377,6 +426,7 @@ func _cry(sound: String, vol := 0.0) -> void:
 func _physics_process(delta: float) -> void:
 	if not _alive or level.player == null:
 		return
+	FoeTraits.look(self, delta)
 	if puppet:
 		_puppet_tick(delta)
 		return
@@ -398,6 +448,9 @@ func _physics_process(delta: float) -> void:
 	var to := target - global_position
 	var dist := to.length()
 	var dir := to / maxf(dist, 0.01)
+	if not idle and not level.combat_frozen and FoeTraits.tick(self, delta, p, dist):
+		velocity = Vector3.ZERO
+		return
 	var turn := 1.5 if kind == "idol" else 12.0
 	head.rotation.y = lerp_angle(head.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * turn))
 	head.rotation.x = -asin(clampf(dir.y, -0.6, 0.6)) * 0.6
@@ -692,7 +745,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 				_charge = 1.1
 				level.sfx("roar", 0, global_position, 0.75)
 		elif kind in ["rusher", "spider", "lurker", "elite"]:
-			if on_floor and fd < 7.5 and fd > 2.0 and _leap_cd <= 0.0 and _buried < 0.5 and _wind <= 0.0:
+			if on_floor and fd < (15.0 if spec.get("trait", "") == "leap" else 7.5) and fd > 2.0 and _leap_cd <= 0.0 and _buried < 0.5 and _wind <= 0.0:
 				_leap_cd = randf_range(2.0, 3.5) * (1.6 if kind == "elite" else 1.0)
 				velocity = dir * 11.0 + Vector3(0, 6.5, 0)
 				_cry("spider_hiss" if kind == "spider" else "shriek_%d" % (randi() % 4), 0)
@@ -1079,10 +1132,16 @@ func _on_plate(amount: float) -> float:
 
 
 func hurt(amount: float, from_dir: Vector3) -> bool:
-	if not _alive:
+	if not _alive or hidden:
 		return false
 	if harm_kind != "" and boss == "":
-		amount *= float(spec.get("weak", {}).get(harm_kind, 1.0)) * float(spec.get("tough", {}).get(harm_kind, 1.0))
+		# A blunt blow is a blade's to a form that has no word on blunt harm
+		var hk := harm_kind
+		if hk == "blunt" and not spec.get("weak", {}).has("blunt") and not spec.get("tough", {}).has("blunt"):
+			hk = "blade"
+		amount *= float(spec.get("weak", {}).get(hk, 1.0)) * float(spec.get("tough", {}).get(hk, 1.0))
+	if spec.has("trait"):
+		set_meta("struck_t", 3.0)
 	if kind == "lurker" and _buried > 0.5:
 		amount *= 0.2
 	var full := true
@@ -1094,7 +1153,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 			full = false
 	_bar_t = 8.0
 	var plated := false
-	if plate > 0.0 and harm_kind in ["bullet", "shot", "blade"] and not harm_head:
+	if plate > 0.0 and harm_kind in ["bullet", "shot", "blade", "blunt"] and not harm_head:
 		amount = _on_plate(amount)
 		plated = plate > 0.0
 	if full and not plated and amount > 0.5:
@@ -1132,7 +1191,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	# Enough harm at once, or a blade to something not too great, and it reels: its bite is broken off
 	_dmg_win += amount
 	if boss == "" and full and _stagger <= 0.0 and not kind in ["saucer", "unseen"] and \
-			(_dmg_win > max_hp * (WRules.stagger_at() if Game.wasteland else 0.3) or (harm_kind == "blade" and spec.hp < 150.0)):
+			(_dmg_win > max_hp * (WRules.stagger_at() if Game.wasteland else 0.3) or (harm_kind in ["blade", "blunt"] and spec.hp < 150.0)):
 		_stagger = 0.9 if kind != "elite" else 0.6
 		_dmg_win = 0.0
 		if _wind > 0.0:
@@ -1235,6 +1294,8 @@ func die(slain: bool) -> void:
 	_alive = false
 	if kind == "bloater" and slain and not puppet:
 		_burst_fire()
+	if spec.has("trait"):
+		FoeTraits.on_die(self, slain)
 	collision_layer = 0
 	level.sfx("dissolve", -4, global_position)
 	if slain:
@@ -1327,7 +1388,9 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 				level.sfx("bite", -2, global_position)
 				if randf() < 0.5:
 					_cry("growl_%d" % (randi() % 3), 0)
-				level.hurt_target(p, dmg, global_position)
+				level.hurt_target(p, dmg * FoeTraits.bite_mult(self), global_position)
+				_afflict(p)
+				FoeTraits.on_bite(self, p)
 				_knock = -dir * 5.0
 			else:
 				level.sfx("swing", -8, global_position, 1.4)
@@ -1379,7 +1442,7 @@ func weak_point() -> Array:
 
 
 func net_state() -> Array:
-	return [net_id, boss if boss != "" else (variant if variant != "" else kind), code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0]
+	return [net_id, boss if boss != "" else (variant if variant != "" else kind), code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0, hidden]
 
 
 func net_apply(st: Array) -> void:
@@ -1394,6 +1457,11 @@ func net_apply(st: Array) -> void:
 	if st.size() > 10:
 		_wind = 0.3 if st[9] else 0.0
 		_stagger = 0.3 if st[10] else 0.0
+	if st.size() > 11 and bool(st[11]) != hidden:
+		set_hidden(bool(st[11]))
+		if not hidden:
+			global_position = to
+			return
 	if global_position.distance_to(to) > 6.0:
 		global_position = to
 
@@ -2031,8 +2099,9 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 					_knock = -dir * 3.0
 				else:
 					level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
-					level.hurt_target(p, spec.bite, global_position)
+					level.hurt_target(p, spec.bite * FoeTraits.bite_mult(self), global_position)
 					_afflict(p)
+					FoeTraits.on_bite(self, p)
 			else:
 				level.sfx("swing", -6, global_position, 0.9)
 		return
@@ -2048,11 +2117,11 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 func _afflict(p: Node3D) -> void:
 	if spec.has("drain"):
 		hp = minf(max_hp, hp + float(spec.bite) * float(spec.drain))
-	if p == level.player and level.has_method("afflict"):
-		if spec.has("burn"):
-			level.afflict("burn", float(spec.burn))
-		if spec.has("slow"):
-			level.afflict("slow", float(spec.slow))
+	if not level.has_method("afflict"):
+		return
+	for what in ["burn", "slow", "freeze"]:
+		if spec.has(what):
+			FoeTraits._afflict_target(self, p, what, float(spec[what]))
 
 
 ## A gunman: it draws a bead with a glint at the muzzle (the warning), then fires a short burst.

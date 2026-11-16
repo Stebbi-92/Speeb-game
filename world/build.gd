@@ -447,9 +447,11 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 		"chest":
 			w.personal_interactable(body, "Open the shelf" if k == "shelf" else "Open the chest", func(): w.shared("_rq_open", [Net.me(), "p%d" % pid]))
 		"bedroll":
-			w.personal_interactable(body, ("Lie down in the bed" if k == "bed" else "Lie down") + " (you wake here if you fall)", func():
-				w.bedroll = p
-				w.ui.ask_rest("bed"))
+			w.personal_interactable(body, "Lie down in the bed" if k == "bed" else "Lie down", func():
+				# One owned by another may be rested in, but it is not yours to wake in
+				if w.bed_mine_or_free(pid):
+					w.bedroll = p
+				w.ui.ask_rest("bed", pid))
 		"bench":
 			w.personal_interactable(body, "Work at the bench", func(): w.ui.open_inventory("arms"))
 		"campfire":

@@ -83,9 +83,10 @@ const DB := {
 	"t_basalt": {"name": "Idol's Gilt", "kind": "trophy", "stack": 5, "value": 280, "color": Color(0.95, 0.78, 0.3), "text": "Gold leaf from the Basalt Idol's face. The face beneath was not stone."},
 	"t_marsh": {"name": "Tar Pearl", "kind": "trophy", "stack": 5, "value": 220, "color": Color(0.15, 0.12, 0.1), "text": "Black, smooth, warm. Found where the Tar Mother's heart was."},
 	"raft": {"name": "Raft", "kind": "boat", "stack": 1, "value": 30, "color": Color(0.45, 0.35, 0.24), "text": "Logs and rope, ready to lash together. Launch it from the shore. Two can ride; paddle it with the walking keys."},
+	"longboat": {"name": "Longboat", "kind": "boat", "stack": 1, "value": 220, "color": Color(0.3, 0.22, 0.16), "text": "A long boat in pieces, with oars and a mast. Launch it from the shore. Eight can ride."},
 	"sloop": {"name": "Sloop", "kind": "boat", "stack": 1, "value": 120, "color": Color(0.32, 0.24, 0.18), "text": "A small boat with a mast, in pieces. Launch it from the shore. Four can ride, and it runs before the wind."},
 	# Lost books (0.8): found in ruins, read once to teach the whole fellowship something
-	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop."},
+	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat."},
 	"book_rigging": {"name": "Storm Rigging", "kind": "book", "stack": 1, "value": 40, "color": Color(0.35, 0.45, 0.55), "text": "Knots and sail plans for heavy weather. Your boats run a fifth faster."},
 	"book_furrier": {"name": "The Furrier's Pattern", "kind": "book", "stack": 1, "value": 40, "color": Color(0.5, 0.38, 0.26), "text": "How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood."},
 	"book_herbal": {"name": "The Herbwife's Notes", "kind": "book", "stack": 1, "value": 40, "color": Color(0.4, 0.5, 0.32), "text": "Pressed flowers and careful measures. Teaches a cheaper salve."},
@@ -157,6 +158,7 @@ const RECIPES := [
 	{"id": "fittings_fine", "n": 2, "cost": {"scrap": 8, "salt_crystal": 2}, "bench": true, "needs": "book_engine"},
 	{"id": "raft", "n": 1, "cost": {"wood": 16, "cloth": 4}, "bench": true},
 	{"id": "sloop", "n": 1, "cost": {"wood": 30, "heartwood": 6, "cloth": 10, "scrap": 6}, "bench": true, "needs": "book_ship"},
+	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_ship"},
 	{"id": "beacon_oil", "n": 1, "cost": {"oil": 2, "salt": 10, "herb": 4}, "bench": true, "needs": "oilcraft"},
 ]
 

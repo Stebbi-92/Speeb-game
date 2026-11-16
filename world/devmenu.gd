@@ -233,13 +233,32 @@ func kill_near() -> int:
 	return n
 
 
+## Pretend a bigger fellowship, to try how the waste meets one: off, 2, 4, 6, 8.
+func cycle_crowd() -> void:
+	var steps := [0, 2, 4, 6, 8]
+	WCrowd.fake = steps[(steps.find(WCrowd.fake) + 1) % steps.size()]
+	w.hud.notify("The waste reckons %s." % ("the fellowship as it is" if WCrowd.fake == 0 else "%d pilgrims" % WCrowd.fake))
+
+
+## The forms of the far lands (0.10), not yet sent by any land: called up here only, to try them.
+const NEW_FORMS := ["flicker", "archivist_hand", "tunnel_unlit", "kelp_drowner", "rime_walker", "geyser_wight", "raven_mask",
+	"canyon_strider", "dust_choir", "glass_husk", "grass_stalker", "mound_guard", "herd_ghost"]
+
+
+## One of the new forms (and its band, if it comes in one), a little way off.
+func spawn_form(k: String) -> bool:
+	if not host() or not LesserSpeeb.VARIANTS.has(k):
+		return false
+	return w._spawn_near(k, w.player.global_position, 10.0, 16.0, true) != null
+
+
 ## A foe of each kind first met at this danger, a little way off.
 func spawn_tier(t: int) -> int:
 	if not host():
 		return 0
 	var n := 0
 	for k in LesserSpeeb.FORM_TIER:
-		if int(LesserSpeeb.FORM_TIER[k]) != t or not (LesserSpeeb.KINDS.has(k) or LesserSpeeb.VARIANTS.has(k)) or k in ["saucer", "unseen", "bellwound"]:
+		if int(LesserSpeeb.FORM_TIER[k]) != t or not (LesserSpeeb.KINDS.has(k) or LesserSpeeb.VARIANTS.has(k)) or k in ["saucer", "unseen", "bellwound"] or k in NEW_FORMS:
 			continue
 		if w._spawn_near(k, w.player.global_position, 10.0, 16.0, true):
 			n += 1

@@ -1567,6 +1567,16 @@ func land_tier(bn: String) -> int:
 const GENTLE := 500.0   ## near where the cast-out wake, every land is gentle: no hardship, the weakest forms
 
 
+## A great one of the waste (a vault's keeper, the Bell-Wound, the Lamp-Eater) is met by a whole
+## fellowship, so it grows as a lord of a land does, not only as a common form.
+func crowd_great(e) -> void:
+	if e == null or not is_instance_valid(e):
+		return
+	var m := WCrowd.boss(self) / WCrowd.hp(self)
+	e.hp *= m
+	e.max_hp *= m
+
+
 ## How dangerous the waste is here: it grows with the distance from where you woke, a ring each
 ## 600 m, and the hard lands (salt, marsh, basalt) are a step worse once you are past the first ring.
 func tier_at(p: Vector3) -> int:
@@ -1619,7 +1629,7 @@ func foe_power() -> float:
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var m: float = TIER_HP[tier_at(p) - 1] * foe_power() * (1.3 if flags.has("second_vow") else 1.0)
+		var m: float = TIER_HP[tier_at(p) - 1] * foe_power() * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
 		e.hp *= m
 		e.max_hp *= m
 	return e
@@ -1670,9 +1680,62 @@ func afflict(what: String, secs: float) -> void:
 			if _slow <= 0.0:
 				hud.notify("Tar clings to your legs.")
 			_slow = maxf(_slow, secs)
+		"freeze":
+			if _freeze <= 0.0:
+				hud.notify("The cold locks your legs.")
+			_freeze = maxf(_freeze, secs)
+		"blind":
+			if _blind <= 0.0:
+				hud.notify("Ravens in your face!")
+			_blind = maxf(_blind, secs)
+		"rob":
+			# A thief's grip: a quarter of the rounds for the gun in hand, gone with it
+			var w = player.weapon
+			if w == null or not Items.AMMO.has(w.gun()):
+				return
+			var id: String = Items.AMMO[w.gun()]
+			var n := int(inv.count(id) * 0.25)
+			if n <= 0:
+				return
+			inv.take(id, n)
+			_robbed[id] = int(_robbed.get(id, 0)) + n
+			hud.notify("It tore %d rounds from you. Slay it to get them back." % n)
+		"unrob":
+			if _robbed.is_empty():
+				return
+			for id in _robbed:
+				inv.add(id, int(_robbed[id]))
+			_robbed = {}
+			hud.notify("You take back what the thief stole.")
+
+
+## A form's blow lands on this pilgrim, from the host or from a foe on another machine.
+func _w_afflict(what: String, secs: float) -> void:
+	afflict(what, secs)
+
+
+var _freeze := 0.0
+var _blind := 0.0
+var _robbed := {}   ## ammunition a thief has taken: id -> rounds
+var _blind_rect: ColorRect
 
 
 func _afflict_tick(delta: float) -> void:
+	if _freeze > 0.0:
+		_freeze -= delta
+		player.walk_speed *= 0.25
+		player.run_speed *= 0.25
+	if _blind > 0.0 or (_blind_rect and _blind_rect.visible):
+		if _blind_rect == null:
+			_blind_rect = ColorRect.new()
+			_blind_rect.color = Color(0.03, 0.02, 0.04, 0.0)
+			_blind_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_blind_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+			hud.add_child(_blind_rect)
+		_blind = maxf(0.0, _blind - delta)
+		var a := clampf(_blind / 0.6, 0.0, 0.88)
+		_blind_rect.color.a = a
+		_blind_rect.visible = a > 0.01
 	if _burn > 0.0:
 		_burn -= delta
 		player.health = maxf(1.0, player.health - 3.0 * delta)
@@ -2091,6 +2154,96 @@ func _crop_look(pid: int) -> void:
 			crop.add_child(bloom)
 
 
+## For the list of fellowships: how far this world has come.
+func lobby_detail() -> String:
+	return "Day %d  ·  %d of 9 fires lit" % [day, lit.size()]
+
+
+# ------------------------------------------------------------------ beds and their owners
+
+## The name a bed is kept for: the pilgrim's own name, the same from one night to the next.
+func bed_name(peer := 0) -> String:
+	if not Net.online:
+		return Net.my_name()
+	return Net.name_of(peer if peer != 0 else Net.me())
+
+
+## The bed or bedroll at a place, or -1.
+func bed_at(p) -> int:
+	if not (p is Vector3):
+		return -1
+	for pid in pieces:
+		if WBuilder.acts(pieces[pid].kind) == "bedroll" and (pieces[pid].pos as Vector3).distance_to(p) < 1.0:
+			return pid
+	return -1
+
+
+func bed_owner(pid: int) -> String:
+	return str(pieces.get(pid, {}).get("owner", ""))
+
+
+## A bed this pilgrim may wake in: no one's, or their own.
+func bed_mine_or_free(pid: int) -> bool:
+	var o := bed_owner(pid)
+	return o == "" or o == bed_name()
+
+
+## Asked by a pilgrim: a bed is given to someone (by name), or freed (""). Only one whose bed it is,
+## anyone while it is no one's, or the host, may give it.
+func _rq_bed_owner(pid: int, to: String, by: int) -> void:
+	if not Net.authority() or not pieces.has(pid) or WBuilder.acts(pieces[pid].kind) != "bedroll":
+		return
+	var o := bed_owner(pid)
+	if o != "" and o != bed_name(by) and by != 1 and Net.online:
+		return
+	shared("_w_bed_owner", [pid, to.strip_edges().left(20), false])
+
+
+func _w_bed_owner(pid: int, to: String, quiet := false) -> void:
+	if not pieces.has(pid):
+		return
+	var was := bed_owner(pid)
+	pieces[pid].owner = to
+	_bed_label(pid)
+	if quiet:
+		return
+	var p: Vector3 = pieces[pid].pos
+	if to != "" and to == bed_name():
+		bedroll = p
+		hud.notify("This bed is yours now. You will wake here.")
+	elif was == bed_name() and to != was:
+		if bedroll is Vector3 and (bedroll as Vector3).distance_to(p) < 1.0:
+			bedroll = null
+		hud.notify("Your bed is %s now." % ("no one's" if to == "" else to + "'s"))
+	if is_instance_valid(ui):
+		ui.bed_changed(pid)
+	autosave_soon(5.0)
+
+
+## Whose bed it is, in the colour of the one who keeps it, over it.
+func _bed_label(pid: int) -> void:
+	var pc: Dictionary = pieces[pid]
+	if not is_instance_valid(pc.get("node")):
+		return
+	var lab: Label3D = pc.node.get_meta("bed_label") if pc.node.has_meta("bed_label") else null
+	if lab == null:
+		lab = Label3D.new()
+		lab.font_size = 30
+		lab.pixel_size = 0.005
+		lab.position = Vector3(0, 1.1, 0)
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lab.outline_size = 6
+		lab.visibility_range_end = 10.0
+		pc.node.add_child(lab)
+		pc.node.set_meta("bed_label", lab)
+	var o := str(pc.get("owner", ""))
+	lab.text = "" if o == "" else "%s's bed" % o
+	lab.modulate = Color(0.95, 0.88, 0.7)
+	for id in Net.players:
+		if Net.name_of(id) == o:
+			lab.modulate = Net.color_of(id).lightened(0.3)
+
+
 # ------------------------------------------------------------------ waystones
 
 func _rq_portal_name(pid: int, name: String) -> void:
@@ -2196,8 +2349,10 @@ func _rq_sleep(by: int, on: bool) -> void:
 	for id in need:
 		if sleep_votes.has(id):
 			have += 1
-	shared("_w_sleep_count", [have, need.size()])
-	if have >= need.size() and need.size() > 0 and night:
+	# In a great fellowship one or two may be far off on their own: three in four lying down is enough
+	var enough := need.size() if need.size() <= 4 else int(ceil(need.size() * 0.75))
+	shared("_w_sleep_count", [have, enough])
+	if have >= enough and need.size() > 0 and night:
 		sleep_votes.clear()
 		shared("_w_sleep_through", [])
 
@@ -2267,7 +2422,7 @@ func _maybe_raid() -> void:
 	raiding[pid] = 90.0
 	shared("_w_raid", [pieces[pid].pos])
 	var c: Vector3 = pieces[pid].pos
-	var n := 5 + mini(nights, 8) + targets().size() * 2
+	var n := WCrowd.scale(self, 7 + mini(nights, 8))
 	var roster: Array = forms_at(c)
 	for k in n:
 		get_tree().create_timer(randf_range(2.0, 20.0), false).timeout.connect(func():
@@ -2365,7 +2520,7 @@ func _great_raid() -> void:
 	great = {"spawned": 0, "spots": spots}
 	for c in spots:
 		shared("_w_great", [c])
-	var per := 6 + mini(nights / 2, 8) + targets().size() * 2
+	var per := WCrowd.scale(self, 8 + mini(nights / 2, 8))
 	for wave in 3:
 		get_tree().create_timer(wave * 100.0 + 1.0, false).timeout.connect(func():
 			if not is_instance_valid(self) or not night:
@@ -2438,10 +2593,10 @@ func _vigil_tick(delta: float) -> void:
 			vigils[i] -= delta * 4.0
 		b.flame.scale = Vector3.ONE * clampf(1.0 - vigils[i] / 150.0, 0.3, 1.0)
 		_vigil_t -= delta
-		if _vigil_t <= 0.0 and alive_count() < 6 + targets().size() * 3:
+		if _vigil_t <= 0.0 and alive_count() < WCrowd.scale(self, 9):
 			_vigil_t = 7.0 if i < 8 else 5.0
 			var roster := ["rusher", "rusher", "spitter", "swarm", "swarm", "spider"]
-			for k in 2 + int(nights * 0.3) + targets().size():
+			for k in WCrowd.scale(self, 3 + int(nights * 0.3)):
 				_spawn_near(roster[randi() % roster.size()], b.pos, 26.0, 40.0)
 			if i == 8 and randf() < 0.35:
 				_spawn_near("elite", b.pos, 30.0, 40.0)
@@ -3669,6 +3824,8 @@ func _w_nightfall(_d: int) -> void:
 					_maybe_raid())
 	sfx("drone", -6)
 	hud.say("The sun goes down behind the ridges. Night comes to the waste, and the forms come with it.", 6.0)
+	if WCrowd.describe(self) != "":
+		hud.notify(WCrowd.describe(self))
 	quests.on_event("nightfall", {})
 
 
@@ -3855,7 +4012,7 @@ func _night_wave() -> void:
 	var tg := targets()
 	if tg.is_empty():
 		return
-	var cap := 7 + tg.size() * 3 + mini(nights, 10)
+	var cap := mini(WCrowd.scale(self, 10 + mini(nights, 10)), WCrowd.ALIVE_CAP)
 	if flags.get("ending", "") == "writer":
 		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
 	if flags.get("ending", "") == "unlit":
@@ -3867,7 +4024,7 @@ func _night_wave() -> void:
 			return
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1]))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position))))
 		var roster: Array = forms_at(t.global_position)
 		for k in n:
 			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
@@ -3924,7 +4081,7 @@ func _quest_foes() -> void:
 			if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(c) < 45.0:
 				here += 1
 		var roster: Array = forms_at(c)
-		for k in mini(2, mini(3, left) - here):
+		for k in mini(WCrowd.scale_near(self, c, 2), mini(WCrowd.scale_near(self, c, 3), left) - here):
 			_spawn_one(roster[randi() % roster.size()], c, 6.0, 16.0, true)
 
 
@@ -3939,7 +4096,7 @@ func _day_watch() -> void:
 		for r in ruins:
 			if int(r.guard_day) != day and p.distance_to(r.pos) < 55.0:
 				r.guard_day = day
-				var n := 2 + randi() % 3
+				var n := WCrowd.scale_near(self, r.pos, 2 + randi() % 3)
 				if r.has("isle"):
 					# An isle's heart is kept more fiercely, by its own kind
 					var roster: Array = forms_at(r.pos)
@@ -3957,6 +4114,9 @@ func _day_watch() -> void:
 
 
 func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
+	# However many walk, the waste never wakes more than the machine can carry
+	if alive_count() >= WCrowd.ALIVE_CAP and not kind in ["elite", "saucer"]:
+		return null
 	# The world's rule on numbers: fewer skips some, more brings a second now and then
 	var m := WRules.spawn_mult()
 	if randf() >= m:
@@ -4085,7 +4245,7 @@ func _w_slain(p: Vector3, kind: String, by := 0) -> void:
 
 ## Puts a boat from the pack into the water at the shore before you.
 func launch_boat(item: String) -> bool:
-	var k := {"raft": "raft", "sloop": "sloop"}.get(item, "") as String
+	var k := {"raft": "raft", "sloop": "sloop", "longboat": "longboat"}.get(item, "") as String
 	if k == "":
 		return false
 	if player.vessel != null or player.mount != null:
@@ -4561,6 +4721,8 @@ func _perish(message: String) -> void:
 	dismount()
 	_burn = 0.0
 	_slow = 0.0
+	_freeze = 0.0
+	_blind = 0.0
 	meals.clear()
 	_meal_stats()
 	life_kills = 0
@@ -4582,7 +4744,7 @@ func _perish(message: String) -> void:
 	hud.clear_say()
 	hud.raise_text(true)
 	hud.say(message + ("" if keep else "\nWhat you carried lies where you fell."), 5.0)
-	var where := "your bedroll" if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0) else "the nearest town"
+	var where := "your bedroll" if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0) and bed_mine_or_free(bed_at(bedroll)) else "the nearest town"
 	for left in range(5, 0, -1):
 		hud.set_banner("", "You will wake at %s in %d" % [where, left])
 		await get_tree().create_timer(1.1, false).timeout
@@ -4658,7 +4820,7 @@ func raise_strength(spend: bool) -> float:
 
 
 func respawn_point() -> Vector3:
-	if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0):
+	if bedroll != null and builder.near_kind(bedroll, "bedroll", 1.0) and bed_mine_or_free(bed_at(bedroll)):
 		return bedroll + Vector3(0, 0.6, 1.2)
 	var best := gpos(WPlaces.spos("cinderwick"))
 	var bd := INF
@@ -4804,7 +4966,7 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0)}]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0), "owner": pc.get("owner", "")}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
@@ -4852,6 +5014,8 @@ func apply_world(d: Dictionary) -> void:
 				builder._w_tier(int(pid), int(p[5].tier), float(p[3]))
 			_w_portal_name(int(pid), str(p[5].get("name", "")))
 			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
+			if str(p[5].get("owner", "")) != "":
+				_w_bed_owner(int(pid), str(p[5].owner), true)
 		# Fires laid before they burned wood start with a full three days
 		if str(p[0]) in FIRE_KINDS:
 			var f := float(p[5].get("fuel", -1.0)) if p.size() > 5 and p[5] is Dictionary else -1.0
@@ -6176,11 +6340,11 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 		"fallen":
 			shared("_rq_satchel", [0, at, Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr), false])
 		"pack":
-			for k in 3 + rr.randi() % 3:
+			for k in WCrowd.scale_near(self, seen_from, 3 + rr.randi() % 3):
 				_spawn_near(["rusher", "spider", "howler", "lurker"][rr.randi() % 4], at, 2.0, 8.0, true)
 		"attack":
 			shared("_rq_satchel", [0, at, Items.roll("caravan", 3, rr), false])
-			for k in 2 + rr.randi() % 3:
+			for k in WCrowd.scale_near(self, seen_from, 2 + rr.randi() % 3):
 				_spawn_near(["rusher", "spitter", "brute", "bloater"][rr.randi() % 4], at, 4.0, 10.0, true)
 		"cairn":
 			shared("_rq_satchel", [0, at, Items.roll("vault", 3, rr), false])
@@ -8773,6 +8937,158 @@ func debug_meter() -> void:
 	dev.toggle_meter()
 	await get_tree().create_timer(2.0).timeout
 	print("METER shown=%s text=%s" % [dev._meter.visible, dev._meter.text.replace("\n", " | ")])
+	get_tree().quit()
+
+
+## Testing aid: the thirteen forms of the far lands. Each stands up with its name and way; then the ways
+## themselves: a band comes with its singer, a Flicker goes and comes back, a vent wakes when near, a husk
+## splits, a thief robs and gives back, ravens blind, rime freezes, a heavy blow breaks glass, the hidden
+## cannot be struck, and a stampede fades.
+func debug_newforms() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.god = true
+	dev.go(dev.spot_in("ash"))
+	await get_tree().create_timer(0.5).timeout
+	var pp: Vector3 = player.global_position
+	var made := 0
+	var named := 0
+	for i in WDev.NEW_FORMS.size():
+		var k: String = WDev.NEW_FORMS[i]
+		var a := TAU * i / WDev.NEW_FORMS.size()
+		var e = spawn_at(k, gpos(Vector2(pp.x + cos(a) * 60.0, pp.z + sin(a) * 60.0)) + Vector3(0, 1, 0))
+		if e and is_instance_valid(e) and e.is_alive():
+			made += 1
+			if e._name_l == null or e._name_l.text.contains(str(LesserSpeeb.VARIANTS[k].name)):
+				named += 1
+	await get_tree().create_timer(0.6).timeout
+	var choirs := 0
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.variant == "dust_choir":
+			choirs += 1
+	dev.kill_near()
+	await get_tree().create_timer(0.3).timeout
+	# The Flicker: hunting, it goes out of the world and comes back
+	var f = spawn_at("flicker", pp + Vector3(6, 1, 0))
+	await get_tree().create_timer(0.2).timeout
+	f.mind = "hunt"
+	f.set_meta("trait_t", 0.05)
+	await get_tree().create_timer(0.3).timeout
+	var went: bool = f.hidden
+	var struck_hidden: bool = f.hurt(10.0, Vector3.FORWARD)
+	await get_tree().create_timer(2.6).timeout
+	var back: bool = not f.hidden and f.is_alive()
+	f.die(false)
+	# The Geyser Wight: in the ground until you are near, then steam
+	var g = spawn_at("geyser_wight", pp + Vector3(20, 1, 0))
+	await get_tree().create_timer(0.3).timeout
+	var vent_hid: bool = g.hidden
+	g.global_position = pp + Vector3(5, 1, 0)
+	await get_tree().create_timer(0.3).timeout
+	var vent_up: bool = not g.hidden
+	g.die(false)
+	# The Glass Husk: slain, two more; a blunt blow bites harder than a blade
+	var h = spawn_at("glass_husk", pp + Vector3(0, 1, 12))
+	await get_tree().create_timer(0.2).timeout
+	h.max_hp = 100000.0
+	h.hp = h.max_hp
+	LesserSpeeb.harm_kind = "blade"
+	h.hurt(100.0, Vector3.FORWARD)
+	var by_blade: float = h.max_hp - h.hp
+	h.hp = h.max_hp
+	LesserSpeeb.harm_kind = "blunt"
+	h.hurt(100.0, Vector3.FORWARD)
+	var by_blunt: float = h.max_hp - h.hp
+	LesserSpeeb.harm_kind = ""
+	var before := enemies.filter(func(o): return is_instance_valid(o) and o.is_alive() and o.variant == "glass_husk").size()
+	h.die(true)
+	await get_tree().create_timer(0.5).timeout
+	var shards := enemies.filter(func(o): return is_instance_valid(o) and o.is_alive() and o.variant == "glass_husk" and o.has_meta("shard")).size()
+	dev.kill_near()
+	# The Archivist's Hand: a quarter of the rounds, back when it falls
+	var gun: String = player.weapon.gun()
+	var ammo_id: String = Items.AMMO.get(gun, "")
+	var robbed := 0
+	var returned := false
+	if ammo_id != "":
+		inv.add(ammo_id, 40)
+		var had := inv.count(ammo_id)
+		var t = spawn_at("archivist_hand", pp + Vector3(3, 1, 0))
+		await get_tree().create_timer(0.2).timeout
+		FoeTraits.on_bite(t, player)
+		robbed = had - inv.count(ammo_id)
+		var fled: bool = t.mind == "flee"
+		t.die(true)
+		returned = fled and inv.count(ammo_id) == had
+	# Ravens and rime
+	_w_afflict("blind", 1.0)
+	_w_afflict("freeze", 1.0)
+	var blinded := _blind > 0.0
+	var frozen := _freeze > 0.0
+	# The Herd Ghost: it fades when its time is out
+	var hg = spawn_at("herd_ghost", pp + Vector3(30, 1, 0))
+	await get_tree().create_timer(0.3).timeout
+	hg.mind = "hunt"
+	hg.set_meta("life", 0.1)
+	await get_tree().create_timer(0.5).timeout
+	var faded: bool = not is_instance_valid(hg) or not hg.is_alive()
+	dev.kill_near()
+	print("NEWFORMS made=%d/13 named=%d choir_band=%d" % [made, named, choirs])
+	print("NEWFORMS flicker went=%s struck_hidden=%s back=%s vent_hid=%s vent_up=%s" % [went, struck_hidden, back, vent_hid, vent_up])
+	print("NEWFORMS husk blunt>blade=%s shards=%d before=%d robbed=%d returned=%s blinded=%s frozen=%s faded=%s" % [by_blunt > by_blade * 1.5, shards, before, robbed, returned, blinded, frozen, faded])
+	get_tree().quit()
+
+
+## Testing aid: a fellowship of one to eight. The waste sends more and harder forms for more pilgrims,
+## and never more than it can carry; a bed is given, kept and freed; the longboat seats eight.
+func debug_crowd() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.god = true
+	WCrowd.fake = 1
+	var one := WCrowd.scale(self, 10)
+	var hp1 := WCrowd.hp(self)
+	dev.go(dev.spot_in("ash"))
+	await get_tree().create_timer(0.5).timeout
+	var a = spawn_at("rusher", player.global_position + Vector3(25, 1, 0))
+	var a_hp: float = a.max_hp
+	a.die(false)
+	WCrowd.fake = 4
+	var four := WCrowd.scale(self, 10)
+	WCrowd.fake = 8
+	var eight := WCrowd.scale(self, 10)
+	var b = spawn_at("rusher", player.global_position + Vector3(25, 1, 0))
+	var b_hp: float = b.max_hp
+	b.die(false)
+	var boss8 := WCrowd.boss(self)
+	# The cap: past it, nothing more is woken
+	for k in WCrowd.ALIVE_CAP + 5:
+		var e = spawn_at("mite", player.global_position + Vector3(randf_range(30, 50), 1, randf_range(30, 50)))
+		e.process_mode = Node.PROCESS_MODE_DISABLED
+	var capped := _spawn_near("rusher", player.global_position, 30.0, 40.0, true) == null
+	dev.kill_near()
+	WCrowd.fake = 0
+	await get_tree().create_timer(0.3).timeout
+	# A bed: given to me, then to another, then freed
+	var bp := player.global_position + Vector3(4, 0, 0)
+	builder._w_piece(900, "bed", bp, 0.0, 160.0)
+	var me := bed_name()
+	_rq_bed_owner(900, me, Net.me())
+	var mine := bed_owner(900) == me and bedroll is Vector3 and respawn_point().distance_to(bp) < 3.0
+	var saved: bool = str(world_data().pieces[900][5].get("owner", "")) == me
+	_rq_bed_owner(900, "Wren", Net.me())
+	var given := bed_owner(900) == "Wren" and not bed_mine_or_free(900) and respawn_point().distance_to(bp) > 5.0
+	pieces[900].owner = "Wren"
+	_rq_bed_owner(900, "", 99)   # not Wren's, and not the host's own call: refused when online, so try as host
+	_rq_bed_owner(900, "", Net.me())
+	var freed := bed_owner(900) == ""
+	var label: String = (pieces[900].node.get_meta("bed_label") as Label3D).text if pieces[900].node.has_meta("bed_label") else "?"
+	# The longboat
+	var lb_seats := int(WBoat.KINDS.longboat.seats) == 8 and WBoat.SEATS.longboat.size() == 8
+	var recipe := Items.RECIPES.any(func(r): return r.id == "longboat")
+	print("CROWD one=%d four=%d eight=%d hp1=%.2f hp_up=%s boss8=%.2f capped=%s" % [one, four, eight, hp1, b_hp > a_hp * 1.3, boss8, capped])
+	print("CROWD bed mine=%s saved=%s given=%s freed=%s label='%s'" % [mine, saved, given, freed, label])
+	print("CROWD longboat seats=%s recipe=%s max=%d trials=%d" % [lb_seats, recipe, Net.MAX_PLAYERS, Net.MAX_TRIALS])
 	get_tree().quit()
 
 

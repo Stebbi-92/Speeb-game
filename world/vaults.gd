@@ -255,7 +255,7 @@ func _wake(id: String, st: Dictionary, last: bool) -> void:
 	st.woke = true
 	var rm: Array = built[id].rooms[int(st.room)]
 	var roster: Array = w.forms_at(_ruin(id).pos)
-	var n: int = 3 + int(st.room) + w.targets().size()
+	var n: int = WCrowd.scale_near(w, _ruin(id).pos, 3 + int(st.room), 120.0)
 	var foes: Array = []
 	for k in (2 if last else n):
 		var p := at(id, randf_range(-rm[1] + 2.0, rm[1] - 2.0), 1.4, rm[0] + randf_range(0.0, rm[2] - 2.0))
@@ -268,6 +268,7 @@ func _wake(id: String, st: Dictionary, last: bool) -> void:
 		if e:
 			e.hp *= 6.0
 			e.max_hp *= 6.0
+			w.crowd_great(e)
 			foes.append(e)
 		w.shared("_w_note", ["The vault's keeper stands up from the altar."])
 	st.foes = foes

@@ -2,6 +2,13 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.10.0 (the fellowship)
+
+- Up to eight in the Ashen Waste (four in the trials), with the waste growing harder for a bigger fellowship.
+- The Longboat (eight seats) and beds that belong to one pilgrim.
+- A new list of fellowships: cards, fill dots, filters, sort and each world's day and fires.
+- Thirteen new forms of the far lands, ready in the dev menu until their lands arrive.
+
 ## 0.9.0 (the end of the road)
 
 - The story's end: the Lake Stair, Lena's crossing, the Tenth Hall and four endings at the page (Keeper, Writer, Unlit, Pilgrim).

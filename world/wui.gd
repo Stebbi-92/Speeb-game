@@ -3146,7 +3146,12 @@ func _draw_dev() -> void:
 			["Danger 2 foes", func(): _dev_do(func(): d.spawn_tier(2), true)],
 			["Danger 3 foes", func(): _dev_do(func(): d.spawn_tier(3), true)],
 			["Danger 4 foes", func(): _dev_do(func(): d.spawn_tier(4), true)],
+			["Pretend fellowship: %s" % ("off" if WCrowd.fake == 0 else str(WCrowd.fake)), func(): _dev_do(func(): d.cycle_crowd()), GOLD if WCrowd.fake > 0 else PALE],
 		])
+		var forms := []
+		for k in WDev.NEW_FORMS:
+			forms.append([str(LesserSpeeb.VARIANTS[k].name), func(): _dev_do(func(): d.spawn_form(k), true)])
+		_dev_grid("New forms (0.10)", forms)
 	else:
 		_body.add_child(_label("The hour, the weather and foes are for the host.", 15, dim))
 	_body = keep
@@ -3217,7 +3222,7 @@ func _draw_rest() -> void:
 	_close_and_rule(top)
 	_body.add_child(_label("Food %d     Rest %d" % [int(w.food), int(w.rest)], 18, DIM))
 	if _rest_kind == "bed":
-		_body.add_child(_wrap("You will wake here if you fall.", 18, DIM))
+		_bed_rows()
 	if _rest_kind == "fire" and _rest_pid >= 0:
 		_body.add_child(_fuel_row(_rest_pid))
 		if not w.burning(_rest_pid):
@@ -3233,7 +3238,7 @@ func _draw_rest() -> void:
 	if near > 0:
 		_body.add_child(_wrap("You cannot rest with forms so close.", 20, PALE))
 	elif w.night:
-		var t := "Sleep until dawn?" if not Net.online else "Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes."
+		var t := "Sleep until dawn?" if not Net.online else ("Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes." if Net.pilgrims().size() <= 4 else "Sleep until dawn? Three in four of the fellowship must lie down by a fire or a bedroll.")
 		_body.add_child(_wrap(t, 20, PALE))
 		if w._my_vote:
 			_body.add_child(_action("Get up", func(): w.vote_sleep(false); _draw_rest()))
@@ -3245,6 +3250,66 @@ func _draw_rest() -> void:
 		_body.add_child(_wrap("It is day. A short sleep will leave you rested.", 20, PALE))
 		_body.add_child(_action("Sleep a while", func(): close_all(); w.nap(), "", GOLD))
 	_body.add_child(_action("Not now", close_all, "Esc", DIM))
+
+
+## Whose bed this is, and giving it: to yourself, to another of the fellowship, or to no one.
+func _bed_rows() -> void:
+	var pid := _rest_pid
+	if pid < 0 or not w.pieces.has(pid):
+		_body.add_child(_wrap("You will wake here if you fall.", 18, DIM))
+		return
+	var owner: String = w.bed_owner(pid)
+	var me: String = w.bed_name()
+	var may: bool = owner == "" or owner == me or (Net.online and Net.is_host())
+	if owner == "":
+		_body.add_child(_wrap("No one's bed. You will wake here if you fall. Make it yours, or give it to one of the fellowship.", 18, DIM))
+	elif owner == me:
+		_body.add_child(_wrap("Your bed. You will wake here if you fall.", 18, GOLD))
+	else:
+		_body.add_child(_wrap("%s's bed. You may rest in it, but you will not wake here." % owner, 18, PALE))
+	if not may:
+		return
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 6)
+	if owner != me:
+		row.add_child(_bed_chip("Make it mine", func(): w.shared("_rq_bed_owner", [pid, me, Net.me()]), GOLD))
+	if Net.online:
+		for id in Net.players:
+			var nm: String = Net.name_of(id)
+			if nm != owner and nm != me:
+				row.add_child(_bed_chip("Give to %s" % nm, func(): w.shared("_rq_bed_owner", [pid, nm, Net.me()]), Net.color_of(id).lightened(0.3)))
+	if owner != "":
+		row.add_child(_bed_chip("Free it", func(): w.shared("_rq_bed_owner", [pid, "", Net.me()]), DIM))
+	_body.add_child(row)
+
+
+func _bed_chip(text: String, cb: Callable, col: Color) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", 17)
+	b.add_theme_color_override("font_color", col)
+	b.add_theme_color_override("font_hover_color", col.lightened(0.3))
+	for st in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1, 1, 1, 0.1 if st == "hover" else 0.04)
+		sb.border_color = Color(col, 0.6)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(10)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(cb)
+	return b
+
+
+func bed_changed(pid: int) -> void:
+	if _panel_name == "rest" and _rest_kind == "bed" and _rest_pid == pid:
+		_draw_rest()
 
 
 func sleep_count(have: int, of: int) -> void:

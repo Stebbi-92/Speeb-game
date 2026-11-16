@@ -134,7 +134,7 @@ func place(pos: Vector3, facing_yaw: float) -> void:
 	# In a fellowship each pilgrim stands a little apart, by their place in it
 	if Net.online and not Net.dedicated:
 		var k := Net.slot_of(Net.me())
-		pos += Vector3([0.0, 0.9, -0.9, 0.0][k % 4], 0, [0.0, 0.0, 0.0, 0.9][k % 4]).rotated(Vector3.UP, facing_yaw)
+		pos += Vector3([0.0, 0.9, -0.9, 0.0, 1.8, -1.8, 0.9, -0.9][k % 8], 0, [0.0, 0.0, 0.0, 0.9, 0.0, 0.0, 0.9, 0.9][k % 8]).rotated(Vector3.UP, facing_yaw)
 	global_position = pos
 	velocity = Vector3.ZERO
 	yaw = facing_yaw

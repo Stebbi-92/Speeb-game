@@ -23,6 +23,7 @@ Swimming costs breath, and running in the water costs much more. Out of breath i
 |---|---|---|---|
 | Raft | 2 | 160 | Logs lashed together. Paddle it with the walking keys. Slow, and the waves come over it. |
 | Sloop | 4 | 420 | A small boat with a mast. Raise the sail and run before the wind; steer with the walking keys. |
+| Longboat | 8 | 640 | A long boat with oars and a mast, for a whole fellowship. Slower to turn than a sloop. |
 
 Make a boat at a workbench, then use it from your pack at the shore to launch it. The first aboard takes the helm. Boats run aground in the shallows. Hold the use key on a hurt boat to mend it with 4 wood.
 
@@ -30,7 +31,7 @@ Make a boat at a workbench, then use it from your pack at the shore to launch it
 
 Read a lost book and the whole fellowship learns what it teaches.
 
-- **The Shipwright's Folio**: Drawings of hulls and masts, salt-stained. Teaches the Sloop.
+- **The Shipwright's Folio**: Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat.
 - **The Furrier's Pattern**: How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood.
 - **The Herbwife's Notes**: Pressed flowers and careful measures. Teaches a cheaper salve.
 - **Storm Rigging**: Knots and sail plans for heavy weather. Your boats run a fifth faster.
