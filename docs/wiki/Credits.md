@@ -50,6 +50,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 |---|---|---|
 | ["HK 416 Assault Rifle - Low Poly"](https://skfb.ly/oDNsQ) | Derek Flanagan | The machine gun |
 | ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun |
+| ["9mm Pistol"](https://skfb.ly/owxRE) | TORI106 | The auto pistol |
 | ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Free Ammo Set Ver.2 ULTRA"](https://skfb.ly/pIyTC) | Rotten Design | Rounds, spent cases and shotgun shells |
 | ["Box Cat"](https://skfb.ly/o9JHT) | mellting | The Box Cat |

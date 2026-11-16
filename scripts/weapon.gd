@@ -378,13 +378,34 @@ func _start_reload() -> void:
 
 
 ## Throws one spent case out of the side of the gun in hand; it bounces, rolls, and lies a while.
-var _cases: Array = []
+static var _cases: Array = []
 const CASES_MAX := 40
 
 func _eject() -> void:
 	if not is_instance_valid(_model) or not _model.is_inside_tree():
 		return
-	var g := gun()
+	var gt := _model.global_transform
+	Arms.throw_case(player.get_parent(), gun(), gt * SIDE.get(gun(), Vector3(0.03, 0.01, 0.0)), gt.basis, player.velocity)
+
+
+## When a gun throws its spent case after a shot: a pump or a bolt when worked; a revolver keeps them (-1).
+static func case_delay(g: String) -> float:
+	var s: Dictionary = ArmsDB.GUNS.get(g, {})
+	if g == "revolver" or AmmoLook.spent_of(g) == "":
+		return -1.0
+	match str(s.get("mode", "")):
+		"pump":
+			return 0.32
+		"bolt":
+			return 0.5
+	return 0.0
+
+
+## Throws a spent case of gun g out of the side, from `at`, turned as `b` (the gun's own basis).
+## Used for one's own shots and for those of the rest of the fellowship.
+static func throw_case(lvl: Node, g: String, at: Vector3, b: Basis, carried := Vector3.ZERO) -> void:
+	if lvl == null or not is_instance_valid(lvl) or not lvl.is_inside_tree():
+		return
 	var piece := AmmoLook.spent_of(g)
 	if piece == "":
 		return
@@ -407,15 +428,13 @@ func _eject() -> void:
 	cs.shape = sh
 	rb.add_child(cs)
 	rb.add_child(look)
-	var lvl = player.get_parent()
 	lvl.add_child(rb)
-	var gt := _model.global_transform
-	rb.global_position = gt * SIDE.get(g, Vector3(0.03, 0.01, 0.0))
-	rb.global_basis = gt.basis.orthonormalized() * Basis(Vector3.RIGHT, PI * 0.5)
-	var right := gt.basis.x.normalized()
-	var up := gt.basis.y.normalized()
-	var back := gt.basis.z.normalized()
-	rb.linear_velocity = player.velocity + right * randf_range(2.2, 3.2) + up * randf_range(1.2, 2.0) + back * randf_range(0.0, 0.6)
+	rb.global_position = at
+	rb.global_basis = b.orthonormalized() * Basis(Vector3.RIGHT, PI * 0.5)
+	var right := b.x.normalized()
+	var up := b.y.normalized()
+	var back := b.z.normalized()
+	rb.linear_velocity = carried + right * randf_range(2.2, 3.2) + up * randf_range(1.2, 2.0) + back * randf_range(0.0, 0.6)
 	rb.angular_velocity = Vector3(randf_range(-25, 25), randf_range(-25, 25), randf_range(-25, 25))
 	_cases.append(rb)
 	while _cases.size() > CASES_MAX:
@@ -423,15 +442,16 @@ func _eject() -> void:
 		if is_instance_valid(old):
 			old.queue_free()
 	# Settled, it stops costing anything; long after, it is gone
-	get_tree().create_timer(3.0, false).timeout.connect(func():
+	var tree := lvl.get_tree()
+	tree.create_timer(3.0, false).timeout.connect(func():
 		if is_instance_valid(rb):
 			rb.freeze = true)
-	get_tree().create_timer(45.0, false).timeout.connect(func():
+	tree.create_timer(45.0, false).timeout.connect(func():
 		if is_instance_valid(rb):
 			_cases.erase(rb)
 			rb.queue_free())
 	if randf() < 0.5:
-		get_tree().create_timer(0.45, false).timeout.connect(func():
+		tree.create_timer(0.45, false).timeout.connect(func():
 			if is_instance_valid(rb) and is_instance_valid(lvl) and lvl.has_method("sfx"):
 				lvl.sfx("shell" if g == "shotgun" else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
 
@@ -938,11 +958,10 @@ func _try_fire() -> void:
 	Net.fx("gun:%s%s" % [gun(), ":s" if quiet else ""], origin, fwd)
 	lvl.shots += 1
 	# The spent case flies out of the side (a pump or a bolt throws it when worked; a revolver keeps them)
-	if s.mode == "pump":
-		get_tree().create_timer(0.32, false).timeout.connect(_eject)
-	elif s.mode == "bolt":
-		get_tree().create_timer(0.5, false).timeout.connect(_eject)
-	elif gun() != "revolver":
+	var cd := case_delay(gun())
+	if cd > 0.0:
+		get_tree().create_timer(cd, false).timeout.connect(_eject)
+	elif cd == 0.0:
 		_eject()
 	if s.mode == "rocket":
 		var r := Rocket.new()
@@ -1020,7 +1039,7 @@ static var _told_deflect := -100000
 const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
-const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
+const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 
 
 ## Whether a ray passes within r of a point (the head's middle).
@@ -1562,7 +1581,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			top = 0.11
 			rear_z = 0.2
 			front = Vector3(0, 0.11, 0.03)
-		"pistol":
+		"pistol", "pistol9":
 			_box(Vector3(0.028, 0.026, 0.17), Vector3(0, 0.01, -0.065), metal, n)
 			_box(Vector3(0.03, 0.105, 0.046), Vector3(0, -0.05, 0.005), dark, n, Vector3(-0.2, 0, 0))
 			_box(Vector3(0.033, 0.07, 0.03), Vector3(0, -0.05, 0.007), wood2, n, Vector3(-0.2, 0, 0))
@@ -1695,11 +1714,11 @@ static func gild(n: Node) -> void:
 const ACC_PATH := "res://assets/models/arms/accessories/accessories.glb"
 const ACC := {
 	"red_dot": "Sight 1", "reflex": "Sight 2", "holo": "Sight 3", "scope": "Scope 3_001", "combat_scope": "Scope 1",
-	"suppressor": {"pistol": "Silencer Mini", "shotgun": "Silencer Shotgun", "sniper": "Silencer 2", "lmg": "Silencer 3", "": "Silencer 1"},
+	"suppressor": {"pistol": "Silencer Mini", "pistol9": "Silencer Mini", "shotgun": "Silencer Shotgun", "sniper": "Silencer 2", "lmg": "Silencer 3", "": "Silencer 1"},
 	"heavy_suppressor": "Silencer 4",
-	"compensator": {"pistol": "Compensator 1", "revolver": "Compensator 1", "shotgun": "Compensator 1", "sniper": "Compensator 3", "lmg": "Compensator 3", "": "Compensator 4"},
+	"compensator": {"pistol": "Compensator 1", "pistol9": "Compensator 1", "revolver": "Compensator 1", "shotgun": "Compensator 1", "sniper": "Compensator 3", "lmg": "Compensator 3", "": "Compensator 4"},
 	"muzzle_brake": "Compensator 2",
-	"flash_hider": {"pistol": "Flashhider", "revolver": "Flashhider", "": "Flashhider 2"},
+	"flash_hider": {"pistol": "Flashhider", "pistol9": "Flashhider", "revolver": "Flashhider", "": "Flashhider 2"},
 	"foregrip": "Cube_001", "angled_grip": "Cube", "slim_grip": "Plane",
 }
 const ACC_RAIL := {"red_dot": "Rail 2", "reflex": "Rail 2", "holo": "Rail 1", "scope": "Rail 1", "combat_scope": "Rail 3"}
@@ -1832,6 +1851,7 @@ const SCANNED_GUNS := {
 		"service_pistol_slide_a": "pump", "service_pistol_magazine_loaded": "off",
 		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
 		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
+	"pistol9": ["pistol9", Vector3(0, -90, 0), -0.19, 0.04, -0.01, {}],
 	"machine_gun": ["hk416", Vector3(0, 90, 0), -0.695, 0.432, -0.05, {}],
 	"lmg": ["m60", Vector3(0, 90, 0), -0.82, 0.45, -0.03, {
 		"Object_4": "off", "Object_5": "off", "Object_7": "off", "Object_9": "off", "Object_11": "off", "Object_12": "off",
@@ -1946,7 +1966,7 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
 const BUTT := {"shotgun": Vector3(0, -0.07, 0.5), "machine_gun": Vector3(0, -0.014, 0.432), "lmg": Vector3(0, -0.014, 0.45), "sniper": Vector3(0, -0.068, 0.495)}
 const SIDE := {"shotgun": Vector3(0.027, 0.0, 0.03), "machine_gun": Vector3(0.026, 0.012, 0.0), "lmg": Vector3(0.03, 0.012, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
-	"rocket": Vector3(0.06, -0.06, 0.2), "minigun": Vector3(0.066, -0.02, 0.12), "pistol": Vector3(0.016, -0.01, -0.0), "revolver": Vector3(0.016, 0.014, -0.01)}
+	"rocket": Vector3(0.06, -0.06, 0.2), "minigun": Vector3(0.066, -0.02, 0.12), "pistol": Vector3(0.016, -0.01, -0.0), "pistol9": Vector3(0.016, -0.01, -0.0), "revolver": Vector3(0.016, 0.014, -0.01)}
 
 
 ## Barrels, stocks and receivers, each shown on the gun; a graded part carries a band of its grade's colour.

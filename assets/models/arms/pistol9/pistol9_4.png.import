@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bmprca2on1rr6"
+path="res://.godot/imported/pistol9_4.png-4d35437680db0d69ae5a278e95fda4b1.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "f957a31ef5b718af2dc6762d820d082b"
+}
+
+[deps]
+
+source_file="res://assets/models/arms/pistol9/pistol9_4.png"
+dest_files=["res://.godot/imported/pistol9_4.png-4d35437680db0d69ae5a278e95fda4b1.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

@@ -9881,7 +9881,12 @@ func debug_ammo() -> void:
 		await get_tree().create_timer(0.1).timeout
 	await get_tree().create_timer(0.6).timeout
 	var cases: int = wpn._cases.filter(func(c): return is_instance_valid(c)).size()
-	print("AMMO piles=%d shown=%d gathered=%s cases=%d gun=%s" % [piles.size(), shown, inv.count(item) > before, cases, wpn.gun()])
+	# A friend's shots throw their cases too
+	for i in 3:
+		net_fx(2, "gun:pistol9", player.global_position + Vector3(2, 1.5, 0), Vector3(0, 0, -1))
+	await get_tree().create_timer(0.2).timeout
+	var theirs: int = wpn._cases.filter(func(c): return is_instance_valid(c)).size() - cases
+	print("AMMO piles=%d shown=%d gathered=%s cases=%d theirs=%d gun=%s" % [piles.size(), shown, inv.count(item) > before, cases, theirs, wpn.gun()])
 	get_tree().quit()
 
 

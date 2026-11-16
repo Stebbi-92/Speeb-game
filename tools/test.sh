@@ -72,5 +72,6 @@ check meter     debug_meter    "METER shown=true text=[0-9]+ fps"
 check newforms  debug_newforms "NEWFORMS made=13/13 named=13 choir_band=3" "NEWFORMS flicker went=true struck_hidden=false back=true vent_hid=true vent_up=true" "NEWFORMS husk blunt>blade=true shards=2 before=1 robbed=[1-9][0-9]* returned=true blinded=true frozen=true faded=true"
 check crowd     debug_crowd    "CROWD one=10 four=2[0-9] eight=2[5-9] hp1=1.00 hp_up=true boss8=3.50 capped=true" "CROWD bed mine=true saved=true given=true freed=true label=''" "CROWD longboat seats=true recipe=true max=8 trials=4"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
+check ammo      debug_ammo     "AMMO piles=[0-9]+ shown=[0-9]+ gathered=true cases=5 theirs=3"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

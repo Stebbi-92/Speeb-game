@@ -2190,6 +2190,20 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 			add_child(r)
 			r.global_position = a + b * 0.9
 			return
+		# Their spent case flies out of the side of the gun, for everyone to see
+		var cd := Arms.case_delay(parts[1])
+		if cd >= 0.0 and player and a.distance_to(player.global_position) < 60.0:
+			var fwd := b.normalized()
+			var right := fwd.cross(Vector3.UP).normalized()
+			if right.length() < 0.5:
+				right = Vector3.RIGHT
+			var gb := Basis(right, (-fwd).cross(right).normalized(), -fwd)
+			var at := a + fwd * 0.45 + right * 0.18 - Vector3(0, 0.22, 0)
+			var gid := parts[1]
+			if cd > 0.0:
+				get_tree().create_timer(cd, false).timeout.connect(func(): Arms.throw_case(self, gid, at, gb))
+			else:
+				Arms.throw_case(self, gid, at, gb)
 		var space := get_world_3d().direct_space_state
 		var q := PhysicsRayQueryParameters3D.create(a, a + b * minf(float(g.range), 120.0), 1)
 		var r2 := space.intersect_ray(q)

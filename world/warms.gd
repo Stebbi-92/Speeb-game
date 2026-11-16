@@ -108,6 +108,7 @@ static func mend_cost(a: Dictionary, slot: String) -> Dictionary:
 ## What each thing costs to make.
 const MAKE := {
 	"revolver": {"scrap": 24, "wood": 6},
+	"pistol9": {"scrap": 30, "oil": 2, "red_iron": 2, "clockwork": 1},
 	"machine_gun": {"scrap": 60, "wood": 10, "oil": 4, "red_iron": 4, "tempered": 1, "clockwork": 1},
 	"lmg": {"scrap": 75, "wood": 6, "oil": 8, "red_iron": 6, "tempered": 2, "clockwork": 2},
 	"sniper": {"scrap": 50, "wood": 16, "cloth": 6, "heartwood": 4, "clockwork": 2},
@@ -163,6 +164,7 @@ const FRAME := {
 	"rocket": ["smooth_receiver"],
 	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
 	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator", "flash_hider"],
+	"pistol9": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator", "flash_hider"],
 	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator"],
 	"flamer": ["long_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
 }
