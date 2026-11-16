@@ -48,7 +48,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 | Model | By | Used for |
 |---|---|---|
-| ["AK-47 Kalashnikov"](https://skfb.ly/oDvYO) | Jeyhun1985 | The machine gun |
+| ["HK 416 Assault Rifle - Low Poly"](https://skfb.ly/oDNsQ) | Derek Flanagan | The machine gun |
 | ["Mossberg500 Shotgun low-poly"](https://skfb.ly/6Wvtt) | AK | The pump shotgun |
 | ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver |
 

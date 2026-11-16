@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://st2depgdw2p1"
-path="res://.godot/imported/ak47_0.png-6fe8cd855e25c6731d9152409e803196.ctex"
+uid="uid://dfxmfik5bo2vi"
+path="res://.godot/imported/hk416_0.jpg-9103c9fff86a689b8041104f993db4c1.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "814d009511004ed86179d90485890c29"
+"md5": "224cccbe1ecbc5d1258dc5e0448e7025"
 }
 
 [deps]
 
-source_file="res://assets/models/arms/ak47/ak47_0.png"
-dest_files=["res://.godot/imported/ak47_0.png-6fe8cd855e25c6731d9152409e803196.ctex"]
+source_file="res://assets/models/arms/hk416/hk416_0.jpg"
+dest_files=["res://.godot/imported/hk416_0.jpg-9103c9fff86a689b8041104f993db4c1.ctex"]
 
 [params]
 

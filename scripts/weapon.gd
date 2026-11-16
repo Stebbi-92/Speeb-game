@@ -1591,7 +1591,7 @@ const SCANNED_GUNS := {
 		"service_pistol_slide_a": "pump", "service_pistol_magazine_loaded": "off",
 		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
 		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
-	"machine_gun": ["ak47", Vector3(0, 0, 0), -0.695, 0.432, -0.05, {}],
+	"machine_gun": ["hk416", Vector3(0, 90, 0), -0.695, 0.432, -0.05, {}],
 	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
 	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
 }

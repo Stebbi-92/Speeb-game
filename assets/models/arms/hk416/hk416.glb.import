@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b6tx0wry4nchi"
-path="res://.godot/imported/ak47.glb-dbc0ecd81e4198b4ad16109c8d51934c.scn"
+uid="uid://chs6mkpgcxswm"
+path="res://.godot/imported/hk416.glb-c003551a655f9c1384a2ed798c2dbbdb.scn"
 
 [deps]
 
-source_file="res://assets/models/arms/ak47/ak47.glb"
-dest_files=["res://.godot/imported/ak47.glb-dbc0ecd81e4198b4ad16109c8d51934c.scn"]
+source_file="res://assets/models/arms/hk416/hk416.glb"
+dest_files=["res://.godot/imported/hk416.glb-c003551a655f9c1384a2ed798c2dbbdb.scn"]
 
 [params]
 
