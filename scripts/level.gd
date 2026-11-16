@@ -2180,6 +2180,9 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 		sfx("supp" if quiet else str(g.sound), -14 if quiet else -6, a)
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
+		if g.mode == "flame":
+			Arms.flame_jet(self, a + b * 0.9 - Vector3(0, 0.25, 0), b)
+			return
 		if g.mode == "rocket":
 			var r := Arms.Rocket.new()
 			r.shown_only = true

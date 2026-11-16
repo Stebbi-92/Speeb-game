@@ -30,8 +30,8 @@ const WEAR := {
 	"padded_coat": {"name": "Padded Coat", "slot": "body", "warm": 1.0, "guard": 0.08, "cost": {"cloth": 6}, "look": {"coat": 2}, "text": "Quilted cloth. Turns a claw, now and then."},
 	"duster": {"name": "Oilcloth Duster", "slot": "body", "warm": 1.0, "guard": 0.06, "hunger": 0.85, "cost": {"cloth": 8, "oil": 1}, "look": {"coat": 3}, "text": "Long and waxed. Keeps the body's warmth in."},
 	"bone_mail": {"name": "Bone Mail", "slot": "body", "guard": 0.15, "speed": 0.97, "plate": 70, "cost": {"bone": 12, "cloth": 4}, "look": {"coat": 4}, "text": "Plates of bone sewn on leather. Clatters as you walk."},
-	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "plate": 120, "cost": {"scrap": 18, "cloth": 4}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
-	"salt_plate": {"name": "Salt-crust Plate", "slot": "body", "guard": 0.3, "speed": 0.94, "weary": 1.1, "plate": 200, "cost": {"scrap": 24, "stone": 8, "hide": 4}, "look": {"coat": 1}, "text": "Iron plates cured in salt until they turn a blade. The best the waste can make."},
+	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "plate": 120, "cost": {"scrap": 18, "cloth": 4, "red_iron": 3}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
+	"salt_plate": {"name": "Salt-crust Plate", "slot": "body", "guard": 0.3, "speed": 0.94, "weary": 1.1, "plate": 200, "cost": {"scrap": 24, "stone": 8, "hide": 4, "salt_crystal": 6}, "look": {"coat": 1}, "text": "Iron plates cured in salt until they turn a blade. The best the waste can make."},
 	"ember_cloak": {"name": "Ember Cloak", "slot": "cloak", "warm": 1.0, "guard": 0.03, "ward": "basalt", "cost": {"salt_crystal": 5, "tar": 4, "hide": 4}, "look": {"cloak": 1}, "text": "Wear it on the Basalt Heights. The heat of the stone no longer burns."},
 	"travel_cloak": {"name": "Travelling Cloak", "slot": "cloak", "warm": 1.0, "guard": 0.03, "hunger": 0.92, "cost": {"cloth": 6, "hide": 2}, "look": {"cloak": 2}, "text": "Heavy wool against wind and ash. You hunger a little more slowly."},
 	"fur_coat": {"name": "Fur Coat", "slot": "body", "warm": 2.0, "guard": 0.07, "cost": {"hide": 8, "cloth": 3, "bone": 2}, "look": {"coat": 2}, "needs": "book_furrier", "text": "Hides sewn fur-side in. Warm enough for the salt frost on its own."},
@@ -111,8 +111,12 @@ const MAKE := {
 	"sniper": {"scrap": 50, "wood": 16, "cloth": 6, "heartwood": 4},
 	"rocket": {"scrap": 80, "oil": 10, "coin": 20, "salt_crystal": 6},
 	"minigun": {"scrap": 90, "oil": 14, "coin": 30, "obsidian": 6},
+	"flamer": {"scrap": 55, "oil": 12, "tar": 8, "salt_crystal": 3},
+	"knife": {"scrap": 6, "cloth": 1},
 	"machete": {"scrap": 10, "wood": 4},
-	"sledge": {"scrap": 20, "stone": 14, "wood": 6},
+	"sword": {"scrap": 18, "red_iron": 4, "hide": 2},
+	"sledge": {"scrap": 20, "stone": 14, "wood": 6, "red_iron": 2},
+	"battle_axe": {"scrap": 28, "heartwood": 4, "salt_crystal": 4, "hide": 2},
 	"incendiary": {"oil": 2, "cloth": 2, "scrap": 3},
 	"flare": {"oil": 1, "cloth": 2, "scrap": 2},
 	"mine": {"scrap": 8, "salt": 12},
@@ -147,6 +151,7 @@ const FRAME := {
 	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
 	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
 	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"flamer": ["long_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
 }
 
 ## Grades of a part. A part made plainly at the bench is Plain; fittings found in the waste rework it

@@ -75,6 +75,7 @@ var _aim := 0.0
 var _climb := 0.0
 var _bloom := 0.0     ## how far shots wander from firing in a string (mostly from the hip)
 var _string := 0      ## shots in the current string, for the gun's kick pattern
+static var _jet_m: StandardMaterial3D
 var _pull := 0.0      ## how far the kick has lifted the view; most comes back when you stop
 var spread_now := 0.0 ## the spread a shot would have right now, for the crosshair
 var _heal_left := 0.0
@@ -731,6 +732,87 @@ func sway(rel: Vector2) -> void:
 
 # ------------------------------------------------------------------ firing
 
+## One breath of the flamethrower: a cone of fire that burns all it reaches, and now and then
+## leaves the ground alight where it falls.
+func _flame(s: Dictionary, lvl) -> void:
+	var cam := player.cam
+	var origin := cam.global_position
+	var fwd := -cam.global_transform.basis.z
+	var tip: Vector3 = _model.to_global(_model.get_meta("tip")) if _model else origin + fwd
+	Arms.flame_jet(lvl, tip, fwd)
+	if _string % 3 == 0:
+		Net.fx("gun:flamer", origin, fwd)
+	var reach := float(s.range)
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(origin, origin + fwd * reach, 1)
+	q.exclude = [player.get_rid()]
+	var wall := space.intersect_ray(q)
+	if not wall.is_empty():
+		reach = origin.distance_to(wall.position) + 0.8
+	var hits := {}
+	var dmg := float(s.dmg) * damage_mult * tier_mult()
+	for e in lvl.get("enemies") if lvl.get("enemies") != null else []:
+		if not is_instance_valid(e) or not e.is_alive():
+			continue
+		var to: Vector3 = e.global_position + Vector3(0, 0.6, 0) - origin
+		if to.length() < reach + 0.5 and fwd.dot(to.normalized()) > float(s.get("cone", 0.88)):
+			hits[e] = dmg
+	if not hits.is_empty():
+		Arms.deal(hits, fwd, "fire")
+		_practise("flamer", hits)
+	if _string % 7 == 0:
+		var land: Vector3 = wall.position if not wall.is_empty() else origin + fwd * reach
+		var dq := PhysicsRayQueryParameters3D.create(land + Vector3.UP, land + Vector3.DOWN * 6.0, 1)
+		var g := space.intersect_ray(dq)
+		if not g.is_empty():
+			Thrown.burn(lvl, g.position, 1.6, dmg * 1.2, 3.0, true, true)
+
+
+## A tongue of fire, seen by everyone: thrown from `at` along `dir`.
+static func flame_jet(lvl: Node, at: Vector3, dir: Vector3) -> void:
+	if Net.dedicated or lvl == null:
+		return
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.85
+	p.amount = 9
+	p.lifetime = 0.5
+	var q := QuadMesh.new()
+	q.size = Vector2(0.5, 0.5)
+	p.mesh = q
+	if _jet_m == null:
+		_jet_m = StandardMaterial3D.new()
+		_jet_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_jet_m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_jet_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_jet_m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_jet_m.vertex_color_use_as_albedo = true
+		_jet_m.albedo_texture = Relics._soft_dot()
+	p.material_override = _jet_m
+	p.local_coords = false
+	p.direction = dir
+	p.spread = 7.0
+	p.initial_velocity_min = 16.0
+	p.initial_velocity_max = 21.0
+	p.damping_min = 14.0
+	p.damping_max = 20.0
+	p.gravity = Vector3(0, 2.5, 0)
+	var c := Curve.new()
+	c.add_point(Vector2(0, 0.25))
+	c.add_point(Vector2(1, 2.6))
+	p.scale_amount_curve = c
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.92, 0.6, 1.0))
+	g.add_point(0.35, Color(1.0, 0.5, 0.12, 0.9))
+	g.set_color(g.get_point_count() - 1, Color(0.35, 0.08, 0.02, 0.0))
+	p.color_ramp = g
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lvl.add_child(p)
+	p.global_position = at
+	p.emitting = true
+	lvl.get_tree().create_timer(0.9, false).timeout.connect(p.queue_free)
+
+
 func _try_fire() -> void:
 	var s := spec()
 	if _cool > 0.0:
@@ -770,7 +852,8 @@ func _try_fire() -> void:
 	_bloom = minf(1.6, _bloom + float(s.kick) * (0.12 if s.mode in ["auto", "spin"] else 0.45))
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor")
-	lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2)
+	if s.mode != "flame" or _string % 5 == 0:
+		lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2, null, 0.7 if s.mode == "flame" else 1.0)
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
 	if lvl.has_method("noise"):
 		lvl.noise(player.global_position, 20.0 if quiet else (140.0 if gun() in ["sniper", "revolver"] else 110.0))
@@ -778,6 +861,9 @@ func _try_fire() -> void:
 		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump", -8))
 	elif s.mode == "bolt":
 		get_tree().create_timer(0.45, false).timeout.connect(func(): lvl.sfx("pump", -8, null, 1.25))
+	if s.mode == "flame":
+		_flame(s, lvl)
+		return
 	if not quiet:
 		_flash.light_energy = 4.0 if s.mode != "spin" else 2.5
 		_flash_mesh.visible = true
@@ -1056,21 +1142,36 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 	q.exclude = [player.get_rid()]
 	var r := get_world_3d().direct_space_state.intersect_ray(q)
 	if not r.is_empty() and r.collider is Node and r.collider.has_method("hurt"):
-		hits[r.collider] = float(m.dmg) * damage_mult
+		hits[r.collider] = float(m.dmg) * damage_mult * _back_bonus(m, r.collider)
+	# A wide swing sweeps more of what stands before you
+	var arc := float(m.get("arc", 0.6)) - (0.1 if heavy else 0.0)
 	for e in lvl.get("enemies") if lvl.get("enemies") != null else []:
 		if not is_instance_valid(e) or hits.has(e) or not e.is_alive():
 			continue
 		var to: Vector3 = e.global_position + Vector3(0, 0.6, 0) - origin
-		if to.length() < float(m.reach) + 0.6 and fwd.dot(to.normalized()) > 0.6:
-			hits[e] = float(m.dmg) * damage_mult
+		if to.length() < float(m.reach) + 0.6 and fwd.dot(to.normalized()) > arc:
+			hits[e] = float(m.dmg) * damage_mult * _back_bonus(m, e)
 	if not hits.is_empty():
 		lvl.sfx("chop", -1 if heavy else -4, null, randf_range(0.85, 1.1) * (0.8 if heavy else 1.0))
 		player.shake(0.3 if heavy else 0.15)
+		LesserSpeeb.harm_pierce = float(m.get("pierce", 1.0))
 		Arms.deal(hits, fwd, "blade")
+		LesserSpeeb.harm_pierce = 1.0
 		_practise("blade", hits)
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)
 		lvl.sfx("thud", -10)
+
+
+## A knife in the back: the blow is worth more against a foe looking elsewhere.
+func _back_bonus(m: Dictionary, e) -> float:
+	if not m.has("back") or not is_instance_valid(e) or not e is Node3D or e.get("head") == null:
+		return 1.0
+	var h: Node3D = e.head
+	var facing := Vector3(sin(h.global_rotation.y), 0, cos(h.global_rotation.y))
+	var to_me: Vector3 = player.global_position - e.global_position
+	to_me.y = 0
+	return float(m.back) if facing.dot(to_me.normalized()) < 0.2 else 1.0
 
 
 func throw_grenade() -> void:
@@ -1358,6 +1459,26 @@ func _build(g: String, mnts = null) -> Node3D:
 			_tube(0.052, 0.03, Vector3(0, 0, -0.62), dark, pump)
 			pump.position = Vector3(0, -0.02, 0)
 			tip = Vector3(0, -0.02, -0.68)
+		"flamer":
+			# A fuel tank slung under, a long nozzle, and a pilot light at the mouth
+			_tube(0.03, 0.62, Vector3(0, 0.0, -0.18), metal, n)
+			_tube(0.04, 0.08, Vector3(0, 0.0, -0.5), dark, n)
+			_tube(0.036, 0.04, Vector3(0, 0.0, 0.08), dark, n)
+			_box(Vector3(0.05, 0.06, 0.24), Vector3(0, -0.02, 0.2), dark, n)
+			_tube(0.06, 0.26, Vector3(0, -0.1, -0.02), _mat(Color(0.45, 0.2, 0.12), 0.4, 0.6), _mag_node(n))
+			_box(Vector3(0.036, 0.1, 0.045), Vector3(0, -0.08, 0.18), dark, n, Vector3(-0.3, 0, 0))
+			_box(Vector3(0.036, 0.1, 0.045), Vector3(0, -0.07, -0.3), dark, n)
+			_tube(0.008, 0.06, Vector3(0, -0.045, -0.53), brass, n)
+			var pilot := OmniLight3D.new()
+			pilot.light_color = Color(0.5, 0.7, 1.0)
+			pilot.light_energy = 0.4
+			pilot.omni_range = 0.6
+			pilot.position = Vector3(0, -0.04, -0.57)
+			n.add_child(pilot)
+			tip = Vector3(0, 0.0, -0.56)
+			top = 0.04
+			front = Vector3(0, 0.035, -0.45)
+			fore = Vector3(0, -0.07, -0.3)
 			top = 0.11
 			rear_z = 0.2
 			front = Vector3(0, 0.11, 0.03)
@@ -1529,6 +1650,19 @@ func _build_melee(id: String) -> Node3D:
 		"sledge":
 			_box(Vector3(0.035, 0.6, 0.035), Vector3(0, 0.2, 0), wood, n)
 			_box(Vector3(0.09, 0.09, 0.2), Vector3(0, 0.5, 0), steel, n)
+		"knife":
+			_box(Vector3(0.026, 0.1, 0.03), Vector3(0, 0.0, 0), wood, n)
+			_box(Vector3(0.04, 0.012, 0.05), Vector3(0, 0.055, 0), steel, n)
+			_box(Vector3(0.005, 0.18, 0.03), Vector3(0, 0.15, -0.004), steel, n)
+		"sword":
+			_box(Vector3(0.028, 0.14, 0.032), Vector3(0, 0.0, 0), _mat(Color(0.22, 0.15, 0.1)), n)
+			_box(Vector3(0.034, 0.03, 0.034), Vector3(0, -0.08, 0), steel, n)
+			_box(Vector3(0.03, 0.02, 0.17), Vector3(0, 0.08, 0), steel, n)
+			_box(Vector3(0.007, 0.72, 0.042), Vector3(0, 0.45, 0), steel, n)
+		"battle_axe":
+			_box(Vector3(0.035, 0.78, 0.035), Vector3(0, 0.25, 0), wood, n)
+			_box(Vector3(0.014, 0.2, 0.2), Vector3(0, 0.55, -0.1), steel, n)
+			_box(Vector3(0.014, 0.12, 0.06), Vector3(0, 0.55, 0.05), steel, n)
 	return n
 
 
@@ -1786,11 +1920,12 @@ class Thrown extends RigidBody3D:
 			queue_free()
 
 	## Ground that burns for a while: harms the forms that stand in it.
-	static func burn(lvl: Node, at: Vector3, radius: float, dps: float, secs: float, real: bool) -> void:
+	static func burn(lvl: Node, at: Vector3, radius: float, dps: float, secs: float, real: bool, quiet := false) -> void:
 		var root := Node3D.new()
 		lvl.add_child(root)
 		root.global_position = at
-		lvl.sfx("boom", -8, at, 1.4)
+		if not quiet:
+			lvl.sfx("boom", -8, at, 1.4)
 		var fire := CPUParticles3D.new()
 		fire.amount = 90
 		fire.lifetime = 0.9

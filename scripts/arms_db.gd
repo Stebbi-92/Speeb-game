@@ -6,6 +6,7 @@ extends RefCounted
 ##   pump   a spread of pellets, then a pump      semi   one shot per click
 ##   auto   fires while held                      spin   fires while held, after spinning up
 ##   bolt   one heavy shot, then the bolt         rocket a projectile that bursts on contact
+##   flame  a short cone of fire while held: burns all it reaches, and leaves the ground alight
 ## "reload" is "shell" (one at a time, can be cut short) or "mag" (all at once).
 
 const GUNS := {
@@ -24,7 +25,10 @@ const GUNS := {
 	"minigun": {"name": "Minigun", "slot": "primary", "mode": "spin", "dmg": 10.0, "pellets": 1, "spread": 0.04, "range": 110.0,
 		"mag": 200, "rate": 0.042, "reload": "mag", "reload_t": 4.2, "sound": "minigun", "kick": 0.12, "falloff": 60.0, "unlock": 12,
 		"spin": 0.7, "slow": 0.6, "mounts": [], "text": "It must spin before it speaks, and it slows the one who carries it. Then nothing stands."},
-	"pistol": {"name": "Pistol", "slot": "secondary", "mode": "semi", "dmg": 24.0, "pellets": 1, "spread": 0.012, "range": 90.0,
+	"flamer": {"name": "Flamethrower", "slot": "primary", "mode": "flame", "dmg": 7.0, "pellets": 1, "spread": 0.0, "range": 10.0,
+		"mag": 100, "rate": 0.07, "reload": "mag", "reload_t": 3.2, "sound": "jet", "kick": 0.0, "falloff": 0.0, "unlock": 14, "cone": 0.88,
+		"mounts": [], "text": "A tank of lamp fuel and a lit tongue. Short reach, and everything in front of it burns."},
+	"pistol": {"name": "Pistol", "slot": "secondary", "mode": "semi", "dmg": 21.0, "pellets": 1, "spread": 0.012, "range": 90.0,
 		"mag": 12, "rate": 0.16, "reload": "mag", "reload_t": 1.3, "sound": "pistol", "kick": 0.35, "falloff": 45.0, "unlock": 1,
 		"mounts": ["red_dot", "suppressor", "ext_mag"], "text": "Quick to draw and quick to load. Something to reach for when the long gun runs dry."},
 	"revolver": {"name": "Revolver", "slot": "secondary", "mode": "semi", "dmg": 52.0, "pellets": 1, "spread": 0.008, "range": 110.0,
@@ -32,10 +36,15 @@ const GUNS := {
 		"mounts": ["red_dot"], "text": "Six heavy rounds. Slow, and sure."},
 }
 
+## "arc" is how wide a swing sweeps (the least facing a foe needs: lower is wider); "back" multiplies a blow
+## to a foe that is not facing you.
 const MELEE := {
+	"knife": {"name": "Knife", "dmg": 26.0, "rate": 0.24, "reach": 2.2, "arc": 0.75, "back": 2.5, "unlock": 2, "text": "Short and quick. Cruel from behind."},
 	"hatchet": {"name": "Hatchet", "dmg": 55.0, "rate": 0.6, "reach": 2.6, "unlock": 1, "text": "A short haft and a broad head."},
-	"machete": {"name": "Machete", "dmg": 40.0, "rate": 0.38, "reach": 2.8, "unlock": 4, "text": "Lighter and quicker, for the swarm."},
-	"sledge": {"name": "Sledge", "dmg": 100.0, "rate": 1.1, "reach": 2.9, "unlock": 9, "text": "Slow, and it breaks whatever it meets."},
+	"machete": {"name": "Machete", "dmg": 40.0, "rate": 0.38, "reach": 2.8, "arc": 0.5, "unlock": 4, "text": "Lighter and quicker, for the swarm."},
+	"sword": {"name": "Sword", "dmg": 66.0, "rate": 0.48, "reach": 3.0, "arc": 0.55, "unlock": 6, "text": "Old iron with a true edge. Quick enough, and long."},
+	"sledge": {"name": "Sledge", "dmg": 100.0, "rate": 1.1, "reach": 2.9, "pierce": 2.0, "unlock": 9, "text": "Slow, and it breaks whatever it meets. Plate does not stop it."},
+	"battle_axe": {"name": "Battle Axe", "dmg": 125.0, "rate": 0.95, "reach": 3.2, "arc": 0.3, "unlock": 11, "text": "A long haft and a bearded head. It sweeps all before it."},
 }
 
 const GRENADES := {

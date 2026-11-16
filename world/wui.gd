@@ -480,6 +480,14 @@ func _input(e: InputEvent) -> void:
 			w.player.set_armed(true)
 			accept_event()
 			return
+		# The hidden playtest menu
+		if k == KEY_F8 and e.ctrl_pressed:
+			if _panel_name == "dev":
+				close_all()
+			elif _panel == null:
+				open_dev()
+			accept_event()
+			return
 		if w.player.input_locked and _panel == null:
 			return
 	if w.player.input_locked and _panel == null:
@@ -642,6 +650,8 @@ func _redraw_now() -> void:
 			_draw_skills()
 		"rest":
 			_draw_rest()
+		"dev":
+			_draw_dev()
 		"planter":
 			_draw_planter()
 		"portal":
@@ -2929,6 +2939,91 @@ func _update_fog() -> void:
 
 
 # ------------------------------------------------------------------ the beacon road, and rest
+
+# ------------------------------------------------------------------ the hidden playtest menu
+
+func open_dev() -> void:
+	_open("dev")
+
+
+func _dev_grid(title: String, items: Array, cols := 3) -> void:
+	_body.add_child(_label(title, 17, GOLD))
+	var g := GridContainer.new()
+	g.columns = cols
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 6)
+	for it in items:
+		var b := _action(it[0], it[1], "", it[2] if it.size() > 2 else PALE)
+		b.custom_minimum_size.x = 340
+		b.add_theme_font_size_override("font_size", 16)
+		g.add_child(b)
+	_body.add_child(g)
+
+
+func _dev_do(f: Callable, close := false) -> void:
+	f.call()
+	if close:
+		close_all()
+	else:
+		_redraw()
+
+
+func _draw_dev() -> void:
+	_clear()
+	var d: WDev = w.dev
+	var top := HBoxContainer.new()
+	top.add_child(_title("Playtest"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	_body.add_child(_label(d.where(), 15, DIM))
+	var list := _scroll(560)
+	var keep := _body
+	_body = list
+	var lands: Array = []
+	for l in WDev.LANDS:
+		var key: String = l[0]
+		lands.append([l[1], func(): _dev_do(func(): d.go(d.spot_in(key)), true)])
+	_dev_grid("Go to a land (the nearest of it)", lands)
+	var spots: Array = []
+	for pl in d.places():
+		var at: Vector3 = pl[1]
+		spots.append([pl[0], func(): _dev_do(func(): d.go(at), true)])
+	_dev_grid("Go to a place", spots)
+	var host := d.host()
+	var dim := PALE if host else Color(DIM, 0.4)
+	if host:
+		_dev_grid("The hour and the sky", [
+			["Dawn", func(): _dev_do(func(): d.set_hour(w.weather.dawn() + 0.2))],
+			["Noon", func(): _dev_do(func(): d.set_hour(12.0))],
+			["Dusk", func(): _dev_do(func(): d.set_hour(w.weather.dusk() - 0.1))],
+			["Midnight", func(): _dev_do(func(): d.set_hour(0.0))],
+			["Eve of a seventh night", func(): _dev_do(func(): d.seventh())],
+			["Clear", func(): _dev_do(func(): d.set_weather("clear"))],
+			["Rain", func(): _dev_do(func(): d.set_weather("rain"))],
+			["Ash storm", func(): _dev_do(func(): d.set_weather("ashstorm"))],
+			["Salt frost", func(): _dev_do(func(): d.set_weather("frost"))],
+			["Gale", func(): _dev_do(func(): d.set_weather("gale"))],
+		])
+	_dev_grid("Yourself", [
+		["No harm: %s" % ("on" if d.god else "off"), func(): _dev_do(func(): d.god = not d.god), GOLD if d.god else PALE],
+		["Fast stride: %s" % ("on" if d.fast else "off"), func(): _dev_do(func(): d.toggle_fast()), GOLD if d.fast else PALE],
+		["Heal, feed and rest", func(): _dev_do(func(): d.heal())],
+		["A full kit of stuff", func(): _dev_do(func(): d.give_kit())],
+		["Every weapon and kit", func(): _dev_do(func(): d.give_arms())],
+		["Ammunition", func(): _dev_do(func(): d.give_ammo())],
+	])
+	if host:
+		_dev_grid("Foes", [
+			["Kill all near", func(): _dev_do(func(): w.hud.notify("%d fell." % d.kill_near()))],
+			["Danger 1 foes", func(): _dev_do(func(): d.spawn_tier(1), true)],
+			["Danger 2 foes", func(): _dev_do(func(): d.spawn_tier(2), true)],
+			["Danger 3 foes", func(): _dev_do(func(): d.spawn_tier(3), true)],
+			["Danger 4 foes", func(): _dev_do(func(): d.spawn_tier(4), true)],
+		])
+	else:
+		_body.add_child(_label("The hour, the weather and foes are for the host.", 15, dim))
+	_body = keep
+
 
 func open_travel() -> void:
 	_open("travel")

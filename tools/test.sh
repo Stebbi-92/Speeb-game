@@ -7,7 +7,7 @@ pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
-	{ [ "$name" = minds ] || [ "$name" = ending ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
 	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
@@ -43,7 +43,7 @@ check questmarks debug_questmarks "QUESTMARKS shown=true kept=true gone=true rel
 check ending    debug_ending   "ENDING sealed=[1-9][0-9]* offered=true barred=true stair=true down=true crossed=true dark=true held=true killed=1[2-9] leaf7=true nowriter=true ending=keeper done=true"
 check deep      debug_deep     "DEEP dark_safe=true rose=true sailed=true crate=true aboard=true crew=[3-9] stood=true gone=true eater_gone=true"
 check vault     debug_vault    "VAULT count=[1-9][0-9]* down=true rooms=[4-5] gates=[2-4] cleared=true share=true up=true sleeps=true"
-check home      debug_home     "HOME gen=2 ash=25[0-9]/256 gentle_forms=true tiers=\[1, [2-4], [3-4], [3-4]\] lands=6"
+check home      debug_home     "HOME gen=2 ash=25[0-9]/256 gentle_forms=true tiers=\[1, [2-4], [3-4], [3-4]\] lands=6 tiered=true knight_from=4"
 check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
 check packfit   debug_packfit  "PACKFIT fits=true"
 check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"
@@ -58,6 +58,8 @@ check serpent   debug_serpent  "SERPENT open_water_found=true" "SERPENT rose=tru
 check greatraid debug_great "GREAT seventh=true warn=1 tonight=0" "GREAT spawned=[1-9][0-9]* alive=[0-9]+" "GREAT spoils=true"
 check powers  debug_powers   "POWERS built=true refused=true laid=true lighter=true ended=true"
 check tales   debug_tales    "TALES bad=\[\] told=([0-9]+)/\1"
+check newarms   debug_newarms  "NEWARMS knife=\[[1-2], 26\] sword=\[[2-3], 66\] axe=\[3, 125\] flamer_burnt=[3-4]/4 jets=true fuel=true"
+check dev       debug_dev      "DEV opened=true buttons=[3-9][0-9] lands=6/6 unharmed=true spawned=[1-9] killed=[1-9] all_arms=true fast=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

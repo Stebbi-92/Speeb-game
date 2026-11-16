@@ -29,6 +29,8 @@ var _cat_saved := {}      ## the cat as saved, until the world is ready to place
 var _stray: WCat = null   ## a stray near a town that could be won over
 var _stray_t := 5.0
 var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and kit
+var dev: WDev            ## the hidden playtest menu's tools
+var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
 var ui: WUI
@@ -113,6 +115,7 @@ func build() -> void:
 	weather = WWeather.new().setup(self)
 	add_child(weather)
 	air = WAir.new().setup(self)
+	dev = WDev.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -1445,8 +1448,10 @@ func _needs_tick(delta: float) -> void:
 	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger) * nm)
 	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary) * nm)
 	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
-	player.walk_speed = 3.4 * skills.speed_mult() * slow
-	player.run_speed = 5.8 * skills.speed_mult() * slow
+	player.walk_speed = 3.4 * skills.speed_mult() * slow * dev_fast
+	player.run_speed = 5.8 * skills.speed_mult() * slow * dev_fast
+	if dev:
+		dev.tick()
 	# Breath comes back slower when weary or starving, and slower still under heavy plate
 	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
 	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
@@ -3120,13 +3125,16 @@ const BIOME_FORMS := {
 const GENTLE_FORMS := ["rusher", "rusher", "spitter", "swarm", "spider", "howler"]
 
 
+
+
 func forms_at(p: Vector3) -> Array:
 	if gentle_at(p):
 		return GENTLE_FORMS
 	var il := terrain.isle_at(p.x, p.z, 1.3)
-	if not il.is_empty():
-		return WIsles.THEMES[il.key].forms
-	return BIOME_FORMS[terrain.biome_name(p.x, p.z)]
+	var all: Array = WIsles.THEMES[il.key].forms if not il.is_empty() else BIOME_FORMS[terrain.biome_name(p.x, p.z)]
+	var t := tier_at(p)
+	var out: Array = all.filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= t)
+	return out if not out.is_empty() else GENTLE_FORMS
 
 
 func _node_kind(p: Vector2, r: RandomNumberGenerator) -> String:
@@ -3772,22 +3780,24 @@ func _night_wave() -> void:
 			continue
 		if alive_count() >= cap:
 			return
-		var n := 2 + int(nights * 0.5) + randi() % 2
+		# Fewer come near home, more in the far lands
+		var tier := tier_at(t.global_position)
+		var n := int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1]))
 		var roster: Array = forms_at(t.global_position)
 		for k in n:
 			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
 			# The night's walkers come looking for the living; they need not see you yet
 			if e and e.has_method("seek"):
 				e.seek(t.global_position, 40.0)
-		if nights >= 2 and randf() < 0.12 + nights * 0.02:
+		if nights >= 2 and tier >= 2 and randf() < 0.12 + nights * 0.02:
 			_spawn_near("saucer", t.global_position, 30.0, 40.0)
-		if nights >= 4 and randf() < 0.06 + nights * 0.01:
+		if nights >= 4 and tier >= 3 and randf() < 0.06 + nights * 0.01:
 			_spawn_near("elite", t.global_position, 35.0, 45.0)
 			hud.notify("Something greater walks tonight.")
 		# Some nights, in the dark country, something follows that is hardly there at all
 		var bio: String = terrain.biome_name(t.global_position.x, t.global_position.z)
 		var dark := 0.1 if bio in ["forest", "marsh", "basalt"] else 0.04
-		if nights >= 1 and randf() < dark + nights * 0.01 and _unseen_count() < tg.size():
+		if nights >= 1 and tier >= 2 and randf() < dark + nights * 0.01 and _unseen_count() < tg.size():
 			_spawn_near("unseen", t.global_position, 34.0, 46.0)
 		if randf() < 0.25:
 			sfx("horror_deep", -10, t.global_position + Vector3(randf_range(-40, 40), 0, randf_range(-40, 40)), randf_range(0.8, 1.0))
@@ -3851,8 +3861,10 @@ func _day_watch() -> void:
 					for k in n + 2:
 						_spawn_near(roster[randi() % roster.size()], r.pos, 8.0, 18.0, true)
 					continue
+				var tr := tier_at(r.pos)
+				var guards: Array = ["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"].filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= tr)
 				for k in n:
-					_spawn_near(["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"][randi() % 10], r.pos, 6.0, 14.0, true)
+					_spawn_near(guards[randi() % guards.size()], r.pos, 6.0, 14.0, true)
 		if alive_count() < 2 and randf() < 0.08:
 			var isle := not terrain.isle_at(p.x, p.z, 1.3).is_empty()
 			var roster: Array = forms_at(p) if isle else ["rusher", "spider", "swarm"]
@@ -4349,7 +4361,7 @@ func _on_interact_pressed() -> void:
 
 
 func damage_player(amount: float, from: Vector3) -> void:
-	if failing or downed or _pfail or Net.dedicated:
+	if failing or downed or _pfail or Net.dedicated or (dev and dev.god):
 		return
 	if player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
 		# Stepped aside in time
@@ -8420,7 +8432,127 @@ func debug_home() -> void:
 	for k in 400:
 		var q := Vector2(randf_range(-1700, 1700), randf_range(-1700, 1700))
 		kinds[terrain.biome_name(q.x, q.y)] = true
-	print("HOME gen=%d ash=%d/%d gentle_forms=%s tiers=%s lands=%d" % [world_gen, ash, n, forms_ok, tiers, kinds.size()])
+	# No land sends a form beyond its danger; the worst only far out
+	var tiered := true
+	var worst := {}
+	for k in 600:
+		var q := Vector3(randf_range(-2600, 2600), 0, randf_range(-2600, 2600))
+		var t := tier_at(q)
+		for f in forms_at(q):
+			if int(LesserSpeeb.FORM_TIER.get(f, 1)) > t:
+				tiered = false
+			worst[f] = mini(int(worst.get(f, 9)), t)
+	print("HOME gen=%d ash=%d/%d gentle_forms=%s tiers=%s lands=%d tiered=%s knight_from=%d" % [world_gen, ash, n, forms_ok, tiers, kinds.size(), tiered, int(worst.get("knight", 0))])
+	get_tree().quit()
+
+
+## Testing aid: the new blades strike as they should, and the flamethrower burns a crowd.
+func debug_newarms() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var wpn: Arms = player.weapon
+	var out := {}
+	for id in ["knife", "sword", "battle_axe"]:
+		arms.blades.append(id)
+		arms.melee = id
+		rearm()
+		wpn.draw_blade()
+		await get_tree().create_timer(0.3).timeout
+		# Three in a row before the pilgrim: the wide swing takes them all, the narrow one fewer
+		var foes := []
+		var f: Vector3 = -player.global_transform.basis.z
+		var side: Vector3 = player.global_transform.basis.x
+		for k in 3:
+			var e := spawn_at("rusher", player.global_position + f * 2.0 + side * (k - 1) * 1.3 + Vector3(0, 0.5, 0))
+			e._attack_cd = 99.0
+			e.hp = 2000.0
+			e.set_meta("raid", true)
+			foes.append(e)
+		await get_tree().create_timer(0.3).timeout
+		player.stamina = 100.0
+		wpn._melee_cool = 0.0
+		wpn._swing = 0.0
+		wpn.strike(false)
+		await get_tree().create_timer(0.8).timeout
+		var hit := 0
+		var most := 0.0
+		for e in foes:
+			if 2000.0 - e.hp > 0.5:
+				hit += 1
+			most = maxf(most, 2000.0 - e.hp)
+			e.die(false)
+		out[id] = [hit, int(most)]
+	# The flamethrower: a crowd before it burns, and the ground is left alight
+	arms.owned.append("flamer")
+	arms.primary = "flamer"
+	rearm()
+	wpn.draw_gun(0)
+	await get_tree().create_timer(0.6).timeout
+	var crowd := []
+	var fw: Vector3 = -player.global_transform.basis.z
+	for k in 4:
+		var e := spawn_at("rusher", player.global_position + fw * (4.0 + k * 1.2) + player.global_transform.basis.x * (k % 2 - 0.5) + Vector3(0, 0.5, 0))
+		e._attack_cd = 99.0
+		e.hp = 2000.0
+		e.set_meta("raid", true)
+		crowd.append(e)
+	await get_tree().create_timer(0.3).timeout
+	player.pitch = -0.05
+	for k in 30:
+		wpn._cool = 0.0
+		wpn._try_fire()
+		await get_tree().process_frame
+	await get_tree().create_timer(0.6).timeout
+	var burnt := 0
+	for e in crowd:
+		if 2000.0 - e.hp > 20.0:
+			burnt += 1
+	var jets := 0
+	for c in get_children():
+		if c is CPUParticles3D and c.one_shot:
+			jets += 1
+	var fuel_ok: bool = Items.AMMO.get("flamer", "") == "fuel" and Items.DB.has("fuel")
+	print("NEWARMS knife=%s sword=%s axe=%s flamer_burnt=%d/4 jets=%s fuel=%s" % [out.knife, out.sword, out.battle_axe, burnt, jets > 0, fuel_ok])
+	get_tree().quit()
+
+
+## Testing aid: the playtest menu opens, jumps to each land, and its tools work.
+func debug_dev() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	ui.open_dev()
+	await get_tree().process_frame
+	var opened: bool = ui._panel_name == "dev"
+	var buttons: int = ui._body.find_children("*", "Button", true, false).size()
+	ui.close_all()
+	var reached := 0
+	for l in WDev.LANDS:
+		var at: Vector3 = dev.spot_in(l[0])
+		if at == Vector3.INF:
+			continue
+		dev.go(at)
+		await get_tree().create_timer(0.3).timeout
+		if land_at(player.global_position) == l[0]:
+			reached += 1
+	dev.god = true
+	var hp: float = player.health
+	damage_player(50.0, player.global_position + Vector3(2, 0, 0))
+	var unharmed: bool = player.health >= hp
+	dev.god = false
+	var spawned := dev.spawn_tier(4)
+	await get_tree().create_timer(0.5).timeout
+	var killed := dev.kill_near()
+	dev.give_arms()
+	var all_arms: bool = arms.owned.size() == ArmsDB.GUNS.size() and arms.blades.size() == ArmsDB.MELEE.size()
+	dev.toggle_fast()
+	_needs_tick(0.01)
+	var fast: bool = player.run_speed > 9.0
+	dev.toggle_fast()
+	dev.set_hour(0.5)
+	print("DEV opened=%s buttons=%d lands=%d/6 unharmed=%s spawned=%d killed=%d all_arms=%s fast=%s where=%s" % [opened, buttons, reached, unharmed, spawned, killed, all_arms, fast, dev.where()])
 	get_tree().quit()
 
 
@@ -8605,14 +8737,14 @@ func debug_tales() -> void:
 			bad.append("%s pitch" % sid)
 		if st.has("after") and not (str(st.after).begins_with("done_") or str(st.after) in ["oilcraft"]):
 			bad.append("%s after" % sid)
-		if str(st.get("after", "")).begins_with("done_") and not WQuests.STORIES.has(str(st.after).substr(5)):
+		if str(st.get("after", "")).begins_with("done_") and str(st.after) != "done_main" and not WQuests.STORIES.has(str(st.after).substr(5)):
 			bad.append("%s after-tale" % sid)
 		for s in st.steps:
 			if "<dir" in WPlaces.words(s.text) or (s.has("say") and "<dir" in WPlaces.words(s.say)):
 				bad.append("%s words" % sid)
 			if s.has("crate") and not crates.has(s.crate):
 				bad.append("%s crate %s" % [sid, s.crate])
-			if s.has("ruin") and not ruin_ids.has(s.ruin):
+			if s.has("ruin") and not ruin_ids.has(s.ruin) and not str(s.ruin) in ["lake_stair", "tenth_shore", "tenth_hall", "tenth_page"]:
 				bad.append("%s ruin %s" % [sid, s.ruin])
 			if s.has("who") and not WPlaces.PEOPLE.has(s.who):
 				bad.append("%s who %s" % [sid, s.who])

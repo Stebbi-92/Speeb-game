@@ -45,9 +45,13 @@ func _ready() -> void:
 	_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	_mat.vertex_color_use_as_albedo = true
 	_mat.albedo_texture = Relics._soft_dot()
+	# Motes right at the eye fade out, so none hangs as a blur before the face
+	_mat.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	_mat.distance_fade_min_distance = 1.5
+	_mat.distance_fade_max_distance = 5.0
 	_drift.material_override = _mat
 	_drift.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_drift.emission_box_extents = Vector3(22, 7, 22)
+	_drift.emission_box_extents = Vector3(24, 7, 24)
 	_drift.local_coords = false
 	_drift.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_drift)

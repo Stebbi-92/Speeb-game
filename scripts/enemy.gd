@@ -13,8 +13,17 @@ signal died
 ## Each kind: its name, its numbers, how it fights, and what it fears ("weak") or shrugs off ("tough"),
 ## by the kind of harm: shot (pellets), bullet, blast, fire, blade. "body" is "cat" for those that walk
 ## on four legs; the rest are heads that drift through the air.
+## The danger a form first walks at: the weak are met near home, the worst only far out.
+## A land sends only the forms its danger allows, so new kinds come in one step at a time.
+const FORM_TIER := {
+	"rusher": 1, "spitter": 1, "swarm": 1, "spider": 1, "howler": 1, "mite": 1, "saltbone": 1, "hollow": 1, "bloater": 1,
+	"idol": 2, "lurker": 2, "vigil": 2, "drowned": 2, "wisp": 2, "saltrifle": 2, "unlit_gun": 2, "unlit_blade": 2, "unlit_flame": 2,
+	"deacon": 3, "brute": 3, "warden": 3, "unlit_mark": 3, "unseen": 2, "elite": 3, "saucer": 2,
+	"colossus": 4, "knight": 4, "unlit_brute": 3,
+}
+
 const KINDS := {
-	"rusher": {"name": "Ash Stalker", "hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 18.0, "radius": 0.45, "body": "cat",
+	"rusher": {"name": "Ash Stalker", "hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 15.0, "radius": 0.45, "body": "cat",
 		"weak": {"shot": 1.3}, "tough": {}, "text": "Runs you down and springs at the last."},
 	"spitter": {"name": "Bile Choir", "hp": 38.0, "size": 0.85, "speed": 3.2, "bite": 0.0, "radius": 0.4,
 		"weak": {"bullet": 1.4}, "tough": {"shot": 0.7}, "text": "Keeps its distance and spits. Pick it off."},
@@ -28,7 +37,7 @@ const KINDS := {
 		"weak": {"bullet": 1.3, "blast": 1.3}, "tough": {"fire": 0.5}, "text": "Hangs above and lets down its brood."},
 	"mite": {"name": "Mite", "hp": 9.0, "size": 0.42, "speed": 7.6, "bite": 5.0, "radius": 0.22,
 		"weak": {"shot": 1.5}, "tough": {}, "text": "Let down by the discs."},
-	"spider": {"name": "Tar Crawler", "hp": 44.0, "size": 0.8, "speed": 7.2, "bite": 15.0, "radius": 0.55,
+	"spider": {"name": "Tar Crawler", "hp": 44.0, "size": 0.8, "speed": 6.4, "bite": 12.0, "radius": 0.55,
 		"weak": {"fire": 2.0}, "tough": {"bullet": 0.8}, "text": "Climbs what you build. Fire undoes it."},
 	"unseen": {"name": "The Unseen", "hp": 140.0, "size": 1.3, "speed": 5.0, "bite": 34.0, "radius": 0.6,
 		"weak": {"fire": 1.5}, "tough": {}, "text": "Moves only when not watched. Keep your eyes on it."},
@@ -997,7 +1006,7 @@ func _spit(target: Vector3) -> void:
 ## A blow that lands on the plate: most of it is soaked and the plate is worn. Piercing rounds go
 ## through nearly untouched, soft ones are stopped. The head is never covered.
 func _on_plate(amount: float) -> float:
-	var through := clampf(0.35 * harm_pierce * harm_pierce, 0.1, 1.0) if harm_kind != "blade" else 0.5
+	var through := clampf(0.35 * harm_pierce * harm_pierce, 0.1, 1.0) if harm_kind != "blade" else clampf(0.5 * harm_pierce, 0.1, 1.0)
 	var soak := minf(plate, amount * (1.0 - through))
 	plate -= soak
 	level.sfx("hit_metal", -6, global_position + Vector3(0, 0.4, 0))

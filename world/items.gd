@@ -35,6 +35,7 @@ const DB := {
 	"shells": {"name": "Shotgun Shells", "kind": "ammo", "stack": 120, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Paper and brass, packed with shot. For the pump shotgun."},
 	"rounds": {"name": "Pistol Rounds", "kind": "ammo", "stack": 150, "value": 1, "color": Color(0.8, 0.65, 0.3), "text": "Short brass rounds. For the pistol and the revolver."},
 	"rifle": {"name": "Rifle Rounds", "kind": "ammo", "stack": 300, "value": 1, "color": Color(0.6, 0.55, 0.35), "text": "For the machine gun, sniper rifle and minigun."},
+	"fuel": {"name": "Lamp Fuel", "kind": "ammo", "stack": 400, "value": 1, "color": Color(0.55, 0.4, 0.15), "text": "Thinned oil and tar. For the flamethrower."},
 	"rockets": {"name": "Rocket", "kind": "ammo", "stack": 10, "value": 12, "color": Color(0.35, 0.4, 0.28), "text": "A finned warhead. For the rocket launcher."},
 	"pick": {"name": "Pick", "kind": "tool", "stack": 1, "value": 25, "color": Color(0.4, 0.4, 0.42), "text": "Stone and salt come away twice as fast."},
 	"red_iron": {"name": "Red Iron", "kind": "material", "stack": 40, "value": 6, "color": Color(0.62, 0.3, 0.2), "text": "Caravan iron, rusted red through. Found in the scrap of the Rust Dunes."},
@@ -104,6 +105,7 @@ const RECIPES := [
 	{"id": "rounds", "n": 40, "cost": {"scrap": 3, "salt": 8}, "bench": true},
 	{"id": "rifle", "n": 60, "cost": {"scrap": 4, "salt": 10}, "bench": true},
 	{"id": "rockets", "n": 2, "cost": {"scrap": 6, "oil": 2, "salt": 10}, "bench": true},
+	{"id": "fuel", "n": 60, "cost": {"oil": 1, "tar": 1}, "bench": true},
 	{"id": "pick", "n": 1, "cost": {"wood": 4, "scrap": 4}, "bench": true},
 	{"id": "hatchet", "n": 1, "cost": {"wood": 3, "scrap": 3}, "bench": true},
 	{"id": "prybar", "n": 1, "cost": {"scrap": 8}, "bench": true},
@@ -220,7 +222,7 @@ const STOCK := {
 
 
 ## Which ammunition each gun takes.
-const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "machine_gun": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets"}
+const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "machine_gun": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel"}
 
 
 static func info(id: String) -> Dictionary:
