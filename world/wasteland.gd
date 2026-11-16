@@ -31,6 +31,7 @@ var _stray_t := 5.0
 var arms: Dictionary = WArms.clean(null)   ## this survivor's guns, parts and kit
 var dev: WDev            ## the hidden playtest menu's tools
 var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts working now
+var dread: WDread        ## fear of the open dark, and what it draws
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -118,6 +119,7 @@ func build() -> void:
 	air = WAir.new().setup(self)
 	dev = WDev.new(self)
 	alchemy = WAlchemy.new(self)
+	dread = WDread.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -349,6 +351,8 @@ func _process(delta: float) -> void:
 			hall.local_tick(delta)
 		if deep:
 			deep.local_tick()
+		if dread and ready_world:
+			dread.local_tick(delta)
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -2620,6 +2624,10 @@ func _w_book(id: String, by: int) -> void:
 
 
 ## The page at the head of the table: the host settles what is done with it, once for the world.
+func _rq_dread(at: Vector3, tier: int) -> void:
+	dread.host_spawn(at, tier)
+
+
 func _rq_ending(by: int, kind: String) -> void:
 	if not Net.authority() or flags.has("ending") or hall == null:
 		return
@@ -6870,7 +6878,9 @@ func debug_slug() -> void:
 	var f := -player.global_transform.basis.z
 	f.y = 0.0
 	f = f.normalized()
-	var e := spawn_at("hollow", player.global_position + f * 120.0 + Vector3(0, 1.5, 0))
+	var at: Vector3 = player.global_position + f * 120.0
+	at.y = terrain.height_at(at.x, at.z) + 1.5
+	var e := spawn_at("hollow", at)
 	e.set_meta("raid", true)
 	e.hp = 5000.0
 	e.set_physics_process(false)
@@ -8486,6 +8496,8 @@ func debug_newarms() -> void:
 		var hit := 0
 		var most := 0.0
 		for e in foes:
+			if not is_instance_valid(e):
+				continue
 			if 2000.0 - e.hp > 0.5:
 				hit += 1
 			most = maxf(most, 2000.0 - e.hp)
@@ -8514,7 +8526,7 @@ func debug_newarms() -> void:
 	await get_tree().create_timer(0.6).timeout
 	var burnt := 0
 	for e in crowd:
-		if 2000.0 - e.hp > 20.0:
+		if is_instance_valid(e) and 2000.0 - e.hp > 20.0:
 			burnt += 1
 	var jets := 0
 	for c in get_children():
@@ -8601,6 +8613,45 @@ func debug_brew() -> void:
 	var panel_ok: bool = ui._panel_name == "brew"
 	ui.close_all()
 	print("BREW first=%s again=%s third=%s sour=%s got=%s have=%d learned=%s keener=%s ward=%s fireproof=%s kept=%s panel=%s" % [first, again, third, sour == "", got, have, learned, dm1 > dm0 * 1.1, warded < bare * 0.85, fireproof, alchemy.knows("tar", "keen") and alchemy.on("keen"), panel_ok])
+	get_tree().quit()
+
+
+## Testing aid: dread rises in the open dark, slower by lantern, falls by a fire, and draws things.
+func debug_dread() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var spot: Vector3 = dev.spot_in("salt")
+	dev.go(spot)
+	await get_tree().create_timer(0.5).timeout
+	dev.set_hour(0.5)
+	await get_tree().create_timer(2.0).timeout
+	dread.level = 0.0
+	dread.local_tick(30.0)
+	var dark: float = dread.level
+	player.relics.lantern_lit = true
+	dread.level = 0.0
+	dread.local_tick(30.0)
+	var lamp: float = dread.level
+	player.relics.lantern_lit = false
+	var before := enemies.size()
+	dread.level = 90.0
+	dread._t = 0.0
+	dread.local_tick(0.1)
+	await get_tree().create_timer(0.5).timeout
+	var drawn: bool = enemies.size() > before
+	builder._rq_build(1, "campfire", gpos(Vector2(player.global_position.x + 2.0, player.global_position.z)), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	for pid in pieces:
+		if pieces[pid].kind == "campfire":
+			add_wood(pid)
+	dread.level = 80.0
+	dread.local_tick(10.0)
+	var fire: float = dread.level
+	night = false
+	dread.local_tick(30.0)
+	print("DREAD dark=%.0f lamp=%.0f drawn=%s by_fire=%.0f day=%.0f" % [dark, lamp, drawn, fire, dread.level])
 	get_tree().quit()
 
 
