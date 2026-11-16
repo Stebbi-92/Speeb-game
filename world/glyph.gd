@@ -322,6 +322,8 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_dot(0.42 + i * 0.08, 0.8 + (i % 2) * 0.06, 0.05, Color(0.85, 0.85, 0.85, 0.5))
 		"red_dot", "scope", "foregrip", "suppressor", "ext_mag":
 			_part(item)
+		"reflex", "holo", "combat_scope", "heavy_suppressor", "compensator", "muzzle_brake", "flash_hider", "angled_grip", "slim_grip":
+			_part(Arms.ACC_FAMILY[item])
 		_:
 			if item.begins_with("brew_"):
 				# A stoppered flask of the draught's colour

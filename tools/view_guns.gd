@@ -15,10 +15,16 @@ func _ready() -> void:
 	add_child(sun)
 	var a := Arms.new()
 	var i := 0
-	for g in ["revolver", "pistol", "machine_gun", "lmg", "shotgun"]:
+	var sets := [["revolver", []], ["pistol", ["reflex", "compensator"]], ["machine_gun", ["holo", "suppressor", "angled_grip"]],
+		["lmg", ["combat_scope", "flash_hider", "foregrip"]], ["shotgun", ["red_dot", "muzzle_brake", "slim_grip"]]]
+	if "parts" in OS.get_cmdline_user_args():
+		sets = [["machine_gun", ["red_dot", "heavy_suppressor", "foregrip"]], ["sniper", ["scope", "suppressor"]], ["pistol", ["red_dot", "suppressor"]],
+			["machine_gun", ["scope", "compensator", "slim_grip"]], ["shotgun", ["holo", "suppressor"]]]
+	for st in sets:
+		var g: String = st[0]
 		for gild in [true, false]:
 			Game.gilded = gild
-			var n: Node3D = a._build(g, ["scope"] if g == "sniper" else [])
+			var n: Node3D = a._build(g, st[1])
 			n.position = Vector3(0, 0.3 if gild else 0.0, -i * 1.8)
 			add_child(n)
 			var tip := MeshInstance3D.new()

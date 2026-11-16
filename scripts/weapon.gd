@@ -384,7 +384,7 @@ func shot_spread() -> float:
 	# From the hip a gun wanders; down the sights it holds true
 	var hip := 1.3 if s.mode == "pump" else (2.6 if s.mode == "bolt" else 1.9)
 	spread = maxf(spread, 0.006) * lerpf(hip, float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).spread), _aim)
-	if mount() == "red_dot":
+	if mount() in ["red_dot", "reflex", "holo"]:
 		spread *= 0.85
 	if fitted("foregrip"):
 		spread *= 0.85
@@ -853,7 +853,7 @@ func _try_fire() -> void:
 	_string += 1
 	_bloom = minf(1.6, _bloom + float(s.kick) * (0.12 if s.mode in ["auto", "spin"] else 0.45))
 	var lvl = player.get_parent()
-	var quiet := fitted("suppressor")
+	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame" or _string % 5 == 0:
 		lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2, null, 0.7 if s.mode == "flame" else 1.0)
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
@@ -866,7 +866,7 @@ func _try_fire() -> void:
 	if s.mode == "flame":
 		_flame(s, lvl)
 		return
-	if not quiet:
+	if not quiet and not fitted("flash_hider"):
 		_flash.light_energy = 4.0 if s.mode != "spin" else 2.5
 		_flash_mesh.visible = true
 		_flash_mesh.rotation.z = randf() * TAU
@@ -1538,7 +1538,16 @@ func _build(g: String, mnts = null) -> Node3D:
 	for m in fit:
 		if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "sight":
 			sight = m
-	match sight:
+	# The pack's own sight, on a rail, where it has one
+	var scan_eye := -1.0
+	if sight != "" and not (sight == "scope" and built_glass(g, fit)):
+		scan_eye = _put_sight(n, g, sight, top, rear_z)
+	if scan_eye > -1.0:
+		eye = scan_eye
+		sight = "-"
+	match ACC_FAMILY.get(sight, sight):
+		"-":
+			pass
 		"red_dot":
 			_box(Vector3(0.026, 0.008, 0.06), Vector3(0, top + 0.004, rear_z - 0.08), dark, n)
 			for sx in [-1, 1]:
@@ -1572,7 +1581,13 @@ func _build(g: String, mnts = null) -> Node3D:
 					_box(Vector3(0.004, h, 0.006), Vector3(0, front.y + h * 0.5, front.z), dark, n)
 					_box(Vector3(0.012, 0.003, 0.01), Vector3(0, front.y + 0.001, front.z), dark, n)
 	for m in fit:
-		match m:
+		if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot in ["muzzle", "grip"]:
+			var put: Variant = _put_acc(n, g, m, tip, fore)
+			if put != null:
+				if ArmsDB.ATTACHMENTS[m].slot == "muzzle":
+					tip = put
+				continue
+		match ACC_FAMILY.get(m, m):
 			"suppressor":
 				_tube(0.022, 0.19, tip + Vector3(0, 0, -0.085), dark, n)
 				_tube(0.0235, 0.012, tip + Vector3(0, 0, -0.02), metal, n)
@@ -1583,6 +1598,120 @@ func _build(g: String, mnts = null) -> Node3D:
 	n.set_meta("tip", tip)
 	n.set_meta("eye", eye)
 	return n
+
+
+## Sights, muzzles and grips from "Free weapon accessories" (Rotten Design, CC-BY 4.0): each part's piece of the
+## pack, or {gun: piece} where it differs by gun ("" for the rest). A sight sits on the rail named in ACC_RAIL.
+const ACC_PATH := "res://assets/models/arms/accessories/accessories.glb"
+const ACC := {
+	"red_dot": "Sight 1", "reflex": "Sight 2", "holo": "Sight 3", "scope": "Scope 3_001", "combat_scope": "Scope 1",
+	"suppressor": {"pistol": "Silencer Mini", "shotgun": "Silencer Shotgun", "sniper": "Silencer 2", "lmg": "Silencer 3", "": "Silencer 1"},
+	"heavy_suppressor": "Silencer 4",
+	"compensator": {"pistol": "Compensator 1", "revolver": "Compensator 1", "shotgun": "Compensator 1", "sniper": "Compensator 3", "lmg": "Compensator 3", "": "Compensator 4"},
+	"muzzle_brake": "Compensator 2",
+	"flash_hider": {"pistol": "Flashhider", "revolver": "Flashhider", "": "Flashhider 2"},
+	"foregrip": "Cube_001", "angled_grip": "Cube", "slim_grip": "Plane",
+}
+const ACC_RAIL := {"red_dot": "Rail 2", "reflex": "Rail 2", "holo": "Rail 1", "scope": "Rail 1", "combat_scope": "Rail 3"}
+## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
+const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
+## What a new part looks like when it is drawn in plain shapes (the gilded arms)
+const ACC_FAMILY := {"reflex": "red_dot", "holo": "red_dot", "combat_scope": "scope", "heavy_suppressor": "suppressor",
+	"compensator": "suppressor", "muzzle_brake": "suppressor", "flash_hider": "suppressor", "angled_grip": "foregrip", "slim_grip": "foregrip"}
+static var _acc_inst: Node3D = null
+
+
+## One piece of the accessories pack, copied into a holder of its own; the holder carries "bb" (its extent)
+## and "aim_y" (the height of its reticle or lens, if it has one). Null if the pack is missing.
+func _acc_piece(piece: String) -> Node3D:
+	if _acc_inst == null:
+		if not ResourceLoader.exists(ACC_PATH):
+			return null
+		_acc_inst = (load(ACC_PATH) as PackedScene).instantiate()
+	var src := _acc_inst.find_child(piece, true, false)
+	if src == null:
+		return null
+	var sc: float = ACC_SCALE.get(piece, 0.1)
+	var h := Node3D.new()
+	var bb := AABB()
+	var aim := AABB()
+	var first := true
+	var has_aim := false
+	var plain: StandardMaterial3D = null
+	for mi in src.find_children("*", "MeshInstance3D", true, false):
+		var tr: Transform3D = _chain(mi, _acc_inst)
+		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc)
+		var copy := MeshInstance3D.new()
+		copy.mesh = (mi as MeshInstance3D).mesh
+		copy.transform = tr
+		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# The grips and rails come with no paint; they are given the dark of the gun
+		var m0 = copy.mesh.surface_get_material(0)
+		if m0 is BaseMaterial3D and (m0 as BaseMaterial3D).albedo_texture == null:
+			if plain == null:
+				plain = _mat(Color(0.09, 0.09, 0.095), 0.4, 0.55)
+			copy.material_override = plain
+		h.add_child(copy)
+		var a: AABB = tr * copy.mesh.get_aabb()
+		if String(mi.name).contains("_Aim_") or String(mi.name).contains("_Material_"):
+			aim = a if not has_aim else aim.merge(a)
+			has_aim = true
+		bb = a if first else bb.merge(a)
+		first = false
+	if first:
+		h.free()
+		return null
+	# Its middle at the holder's origin
+	for c in h.get_children():
+		(c as Node3D).position -= bb.get_center()
+	h.set_meta("bb", AABB(bb.position - bb.get_center(), bb.size))
+	h.set_meta("aim_y", aim.get_center().y - bb.get_center().y if has_aim else 0.0)
+	return h
+
+
+func _acc_name(g: String, m: String) -> String:
+	var v = ACC.get(m, "")
+	if v is Dictionary:
+		return str(v.get(g, v.get("", "")))
+	return str(v)
+
+
+## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
+func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> float:
+	if Game.gilded or not ACC.has(m):
+		return -1.0
+	var p := _acc_piece(_acc_name(g, m))
+	if p == null:
+		return -1.0
+	var z := rear_z - (0.12 if m in ["scope", "combat_scope"] else 0.08)
+	var base := top
+	var rail := _acc_piece(ACC_RAIL.get(m, ""))
+	if rail != null:
+		rail.rotation.y = PI * 0.5
+		var rb: AABB = rail.get_meta("bb")
+		n.add_child(rail)
+		rail.position = Vector3(0, top + rb.size.y * 0.5, z)
+		base = top + rb.size.y
+	var bb: AABB = p.get_meta("bb")
+	n.add_child(p)
+	p.position = Vector3(0, base + bb.size.y * 0.5, z)
+	return p.position.y + float(p.get_meta("aim_y"))
+
+
+## Fits a muzzle or a grip from the pack; for a muzzle gives back the new mouth of the gun. Null if not.
+func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
+	if Game.gilded or not ACC.has(m):
+		return null
+	var p := _acc_piece(_acc_name(g, m))
+	if p == null:
+		return null
+	var bb: AABB = p.get_meta("bb")
+	n.add_child(p)
+	if ArmsDB.ATTACHMENTS[m].slot == "muzzle":
+		p.position = Vector3(0, tip.y, tip.z - bb.size.z * 0.5 + 0.02)
+		return tip + Vector3(0, 0, -bb.size.z + 0.02)
+	p.position = Vector3(0, fore.y - bb.size.y * 0.5 + 0.004, fore.z)
+	return fore
 
 
 ## The guns that have a photo-scanned body (Poly Haven, CC0), in assets/models/arms/<name>/:

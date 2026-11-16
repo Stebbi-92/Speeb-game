@@ -70,6 +70,16 @@ const ATTACHMENTS := {
 	"suppressor": {"name": "Suppressor", "slot": "muzzle", "unlock": 5, "text": "Quiets the shot and hides the flash. A little less force."},
 	"ext_mag": {"name": "Long Magazine", "slot": "mag", "unlock": 6, "text": "Holds half as many rounds again."},
 	"scope": {"name": "Scope", "slot": "sight", "unlock": 7, "text": "Looks further when you aim."},
+	"reflex": {"name": "Reflex Sight", "slot": "sight", "unlock": 99, "mods": {"aim": 1.12}, "text": "An open glass on a low rail. Quickest to the eye."},
+	"holo": {"name": "Holo Sight", "slot": "sight", "unlock": 99, "mods": {"spread": 0.94}, "text": "A boxed window with a ring to aim by. Steady at middle reach."},
+	"combat_scope": {"name": "Short Scope", "slot": "sight", "unlock": 99, "mods": {"aim": 0.92}, "text": "A short, stout glass. Brings the middle distance near."},
+	"heavy_suppressor": {"name": "Heavy Suppressor", "slot": "muzzle", "unlock": 99, "quiet": true, "mods": {"kick": 0.85, "aim": 0.9, "dmg": 0.95},
+		"text": "A thick can. Quiet, and it takes the kick out; heavy at the end of the gun."},
+	"compensator": {"name": "Compensator", "slot": "muzzle", "unlock": 99, "mods": {"kick": 0.8}, "text": "Ports cut in the muzzle. The gun climbs less."},
+	"muzzle_brake": {"name": "Muzzle Brake", "slot": "muzzle", "unlock": 99, "mods": {"kick": 0.65, "spread": 1.06}, "text": "A broad brake. Kills the kick, and throws the shots a little wide."},
+	"flash_hider": {"name": "Flash Hider", "slot": "muzzle", "unlock": 99, "noflash": true, "mods": {"spread": 0.95}, "text": "Hides the flash, so foes see less of where you are."},
+	"angled_grip": {"name": "Angled Grip", "slot": "grip", "unlock": 99, "mods": {"aim": 1.12, "kick": 0.92}, "text": "A slanted grip under the barrel. Quicker to raise."},
+	"slim_grip": {"name": "Slim Grip", "slot": "grip", "unlock": 99, "mods": {"kick": 0.85, "spread": 0.95}, "text": "A thin upright grip. Holds the gun down."},
 	# The waste's own parts, made at a workbench. "mods" multiply the gun: dmg, rate (time between
 	# shots), spread, range, reload (time), kick, aim (how fast it is raised), crit, mag.
 	"long_barrel": {"name": "Long Barrel", "slot": "barrel", "unlock": 99, "mods": {"range": 1.35, "dmg": 1.08, "spread": 0.85, "aim": 0.85}, "text": "Reaches further and hits a little harder. Slower to raise."},
@@ -88,7 +98,8 @@ const ATTACHMENTS := {
 const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine", "barrel": "Barrel", "stock": "Stock", "receiver": "Receiver", "ammo": "Load"}
 
 ## What the right mouse does to the view and the spread, per sight.
-const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15}}
+const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15},
+	"reflex": {"zoom": 1.35, "spread": 0.38}, "holo": {"zoom": 1.45, "spread": 0.32}, "combat_scope": {"zoom": 2.2, "spread": 0.2}}
 
 const DEFAULT := {"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages", "mounts": {}}
 

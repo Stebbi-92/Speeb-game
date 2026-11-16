@@ -50,6 +50,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 |---|---|---|
 | ["HK 416 Assault Rifle - Low Poly"](https://skfb.ly/oDNsQ) | Derek Flanagan | The machine gun |
 | ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun |
+| ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Mossberg500 Shotgun low-poly"](https://skfb.ly/6Wvtt) | AK | The pump shotgun |
 | ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver |
 

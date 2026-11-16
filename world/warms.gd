@@ -132,6 +132,15 @@ const PARTS := {
 	"suppressor": {"scrap": 18, "cloth": 4, "oil": 1},
 	"ext_mag": {"scrap": 20, "bone": 4},
 	"scope": {"scrap": 22, "oil": 3, "red_iron": 2},
+	"reflex": {"scrap": 16, "oil": 2, "salt_crystal": 1},
+	"holo": {"scrap": 20, "oil": 3, "salt_crystal": 2},
+	"combat_scope": {"scrap": 26, "oil": 3, "red_iron": 2, "salt_crystal": 1},
+	"heavy_suppressor": {"scrap": 30, "cloth": 6, "oil": 2, "red_iron": 2},
+	"compensator": {"scrap": 16, "red_iron": 1},
+	"muzzle_brake": {"scrap": 22, "red_iron": 3},
+	"flash_hider": {"scrap": 14, "oil": 1},
+	"angled_grip": {"scrap": 10, "wood": 4, "hide": 1},
+	"slim_grip": {"scrap": 8, "wood": 6},
 	"long_barrel": {"scrap": 24, "oil": 2, "red_iron": 2},
 	"sawn_barrel": {"scrap": 12},
 	"heavy_barrel": {"scrap": 30, "stone": 10, "red_iron": 4},
@@ -147,14 +156,14 @@ const PARTS := {
 
 ## Which of the waste's own parts each gun can take.
 const FRAME := {
-	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
-	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
-	"lmg": ["heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
-	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "compensator", "muzzle_brake", "heavy_suppressor", "angled_grip", "slim_grip"],
+	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "heavy_suppressor", "angled_grip", "slim_grip"],
+	"lmg": ["heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "angled_grip", "slim_grip"],
+	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "heavy_suppressor"],
 	"rocket": ["smooth_receiver"],
 	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
-	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
-	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"pistol": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator", "flash_hider"],
+	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator"],
 	"flamer": ["long_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
 }
 
