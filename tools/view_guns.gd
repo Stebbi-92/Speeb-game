@@ -15,11 +15,14 @@ func _ready() -> void:
 	add_child(sun)
 	var a := Arms.new()
 	var i := 0
-	var sets := [["revolver", []], ["pistol", ["reflex", "compensator"]], ["machine_gun", ["holo", "suppressor", "angled_grip"]],
+	var sets := [["minigun", []], ["rocket", []], ["flamer", []], ["pistol", ["reflex", "compensator"]], ["machine_gun", ["holo", "suppressor", "angled_grip"]],
 		["lmg", ["combat_scope", "flash_hider", "foregrip"]], ["shotgun", ["red_dot", "muzzle_brake", "slim_grip"]]]
 	if "parts" in OS.get_cmdline_user_args():
 		sets = [["machine_gun", ["red_dot", "heavy_suppressor", "foregrip"]], ["sniper", ["scope", "suppressor"]], ["pistol", ["red_dot", "suppressor"]],
 			["machine_gun", ["scope", "compensator", "slim_grip"]], ["shotgun", ["holo", "suppressor"]]]
+	for a2 in OS.get_cmdline_user_args():
+		if a2.begins_with("only="):
+			sets = [[a2.substr(5), []]]
 	for st in sets:
 		var g: String = st[0]
 		for gild in [true, false]:
@@ -47,6 +50,9 @@ func _ready() -> void:
 	cam.position = Vector3(3, 0.15, -3.6)
 	add_child(cam)
 	cam.current = true
+	if sets.size() == 1:
+		cam.size = 1.4
+		cam.position = Vector3(3, 0.15, 0.0)
 	for f in 12:
 		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png("/tmp/claude-0/guns_view.png")

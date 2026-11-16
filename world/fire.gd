@@ -104,6 +104,7 @@ static func _smoke(size: float) -> CPUParticles3D:
 		_smoke_m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		_smoke_m.vertex_color_use_as_albedo = true
 		_smoke_m.albedo_texture = LesserSpeeb.smoke_tex()
+		LesserSpeeb.soften(_smoke_m)
 	p.material_override = _smoke_m
 	p.position.y = size * 0.9
 	p.direction = Vector3.UP

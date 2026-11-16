@@ -275,6 +275,7 @@ func _steam(amount: float) -> GPUParticles3D:
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.albedo_texture = LesserSpeeb.smoke_tex()
 	m.vertex_color_use_as_albedo = true
+	LesserSpeeb.soften(m, 1.0, 6.0)
 	q.material = m
 	ps.draw_pass_1 = q
 	ps.visibility_range_end = 400.0

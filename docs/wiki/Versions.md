@@ -2,6 +2,16 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.11.0 (the armoury)
+
+- Real models for every gun: HK 416 machine gun, a new Belt Gun (M60), minigun with spinning barrels, RPG, flamethrower, shotgun, revolver, pistol and rifle.
+- Gun parts from a real accessories set: sights, scopes, suppressors, compensators, a muzzle brake, a flash hider and grips. Nine new parts to make at the bench.
+- Guns throw spent cases of their own calibre. Piles of spilled rounds lie by ruins and near Cinderwick.
+- Box Cats: screaming packs near Cinderwick at night.
+- New models for the glaive, fire grenade (molotov), flare and Salt Mine.
+- Textured ground, scanned trees and stones, new sounds and smoke.
+- Fixes: mist no longer fills the screen at night; Escape closes the world settings; town pieces drawn in fewer batches.
+
 ## 0.10.0 (the fellowship)
 
 - Up to eight in the Ashen Waste (four in the trials), with the waste growing harder for a bigger fellowship.

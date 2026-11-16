@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://ccj6w6pn6udf2"
+path="res://.godot/imported/ammo_0.png-f5b18534a205d0c185ce4bc5be81ca8b.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "168763d598c798936afb878556e47358"
+}
+
+[deps]
+
+source_file="res://assets/models/arms/ammo/ammo_0.png"
+dest_files=["res://.godot/imported/ammo_0.png-f5b18534a205d0c185ce4bc5be81ca8b.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

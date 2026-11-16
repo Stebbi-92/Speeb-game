@@ -69,6 +69,9 @@ func _ready() -> void:
 	mm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mm.vertex_color_use_as_albedo = true
 	mm.albedo_texture = Relics._soft_dot()
+	# A bank right at the eye fades away, and the mist takes the hour's light: it was unlit and pale, so
+	# standing in it at night filled the whole view with a glowing white sheet
+	LesserSpeeb.soften(mm, 3.0, 14.0)
 	_mist.material_override = mm
 	_mist.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	_mist.emission_box_extents = Vector3(30, 0.6, 30)

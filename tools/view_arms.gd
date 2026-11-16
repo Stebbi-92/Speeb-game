@@ -36,11 +36,23 @@ func _initialize() -> void:
 		edge.position = n.position + Vector3(0, 0, -0.2)
 		root3.add_child(edge)
 		i += 1
+	var thrown_only := "thrown" in OS.get_cmdline_user_args()
+	if thrown_only:
+		for c in root3.get_children():
+			if c is Node3D and not c is Camera3D and not c is DirectionalLight3D:
+				c.free()
+		i = 0
+	for t in [["stick_grenade", -0.13, 0.26], ["molotov", -0.13, 0.26], ["flare", -0.1, 0.2], ["landmine", -0.035, 0.07]]:
+		var n2 := Arms.scanned(t[0], Arms.THROWN_TURN.get(t[0], Vector3.ZERO), t[1], t[2])
+		if n2:
+			n2.position = Vector3(0, -0.6 if not thrown_only else 0.0, i * (0.7 if not thrown_only else 0.35))
+			root3.add_child(n2)
+		i += 1
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = 2.6
+	cam.size = 4.2 if not thrown_only else 1.6
 	root3.add_child(cam)
-	cam.position = Vector3(5, 0.35, (i - 1) * 0.35)
+	cam.position = Vector3(5, 0.2, (i - 1) * 0.35)
 	cam.rotation_degrees = Vector3(0, 90, 0)
 	cam.current = true
 	for f in 12:

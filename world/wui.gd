@@ -640,7 +640,10 @@ func _restore_scrolls(keep: Array) -> void:
 		(all[i] as ScrollContainer).scroll_vertical = int(keep[i])
 
 
+var redraws := 0   ## how many times a screen was drawn (a testing aid)
+
 func _redraw_now() -> void:
+	redraws += 1
 	match _panel_name:
 		"pack":
 			_draw_pack()
@@ -1564,9 +1567,12 @@ func _rework(g: String, m: String, r: int) -> void:
 ## The gun as it is fitted, turning slowly in a small room of its own.
 func _gun_preview(g: String, sz: Vector2) -> SubViewportContainer:
 	var box := SubViewportContainer.new()
+	# Only a picture: it takes no clicks or wheel, so the lists and tabs around it always get them
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.stretch = true
 	box.custom_minimum_size = sz
 	var vp := SubViewport.new()
+	vp.gui_disable_input = true
 	vp.size = Vector2i(sz)
 	vp.own_world_3d = true
 	vp.transparent_bg = true
@@ -1785,9 +1791,12 @@ func _wear_sub(it: Dictionary) -> String:
 ## You as you stand now, turning slowly, in what you wear.
 func _figure_preview(sz: Vector2) -> SubViewportContainer:
 	var box := SubViewportContainer.new()
+	# Only a picture: it takes no clicks or wheel, so the lists and tabs around it always get them
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.stretch = true
 	box.custom_minimum_size = sz
 	var vp := SubViewport.new()
+	vp.gui_disable_input = true
 	vp.size = Vector2i(sz)
 	vp.own_world_3d = true
 	vp.transparent_bg = true

@@ -61,6 +61,7 @@ func _build_lesser(tex: Texture2D) -> void:
 	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	sm.vertex_color_use_as_albedo = true
 	sm.albedo_texture = preload("res://scripts/enemy.gd").smoke_tex()
+	preload("res://scripts/enemy.gd").soften(sm)
 	sq.material = sm
 	smoke.mesh = sq
 	var g := Gradient.new()

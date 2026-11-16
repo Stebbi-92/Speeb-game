@@ -16,7 +16,7 @@ signal died
 ## The danger a form first walks at: the weak are met near home, the worst only far out.
 ## A land sends only the forms its danger allows, so new kinds come in one step at a time.
 const FORM_TIER := {
-	"rusher": 1, "spitter": 1, "swarm": 1, "spider": 1, "howler": 1, "mite": 1, "saltbone": 1, "hollow": 1, "bloater": 1,
+	"box_cat": 1, "rusher": 1, "spitter": 1, "swarm": 1, "spider": 1, "howler": 1, "mite": 1, "saltbone": 1, "hollow": 1, "bloater": 1,
 	"idol": 2, "lurker": 2, "vigil": 2, "drowned": 2, "wisp": 2, "saltrifle": 2, "unlit_gun": 2, "unlit_blade": 2, "unlit_flame": 2,
 	"deacon": 3, "brute": 3, "warden": 3, "unlit_mark": 3, "unseen": 2, "elite": 3, "saucer": 2,
 	"colossus": 4, "knight": 4, "unlit_brute": 3,
@@ -30,6 +30,8 @@ const FORM_TIER := {
 ## Kin of the common forms, bred hard by their own lands: each moves and fights as its "base" does,
 ## with its own name, numbers and colour. Met further out than the form they come from.
 const VARIANTS := {
+	"box_cat": {"base": "rusher", "name": "Box Cat", "hp": 16.0, "size": 0.55, "speed": 7.4, "bite": 6.0, "radius": 0.3,
+		"weak": {"shot": 1.5, "fire": 1.5}, "tough": {}, "text": "A cat in a box. They come at night in screaming packs. One is nothing."},
 	"cinder_hound": {"base": "rusher", "name": "Cinder Hound", "hp": 40.0, "speed": 6.4, "bite": 12.0, "tint": Color(0.95, 0.45, 0.15),
 		"weak": {"bullet": 1.3}, "tough": {"fire": 0.4}, "text": "Lean and quick, warm to the touch. Fire does little to it."},
 	"rust_stalker": {"base": "rusher", "name": "Rust Stalker", "hp": 78.0, "size": 1.15, "bite": 20.0, "tint": Color(0.6, 0.25, 0.15),
@@ -170,6 +172,18 @@ const BLOOD := {
 
 
 ## A puff of smoke (Kenney Particle Pack, CC0); a soft round dot if the picture is missing.
+## Smoke and dust fade away as the eye comes into them, and take the light of the hour, so standing in a
+## plume never fills the view with a lit sheet.
+static func soften(m: BaseMaterial3D, near := 0.4, clear := 2.5) -> BaseMaterial3D:
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+	m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	m.distance_fade_min_distance = near
+	m.distance_fade_max_distance = clear
+	m.proximity_fade_enabled = true
+	m.proximity_fade_distance = 0.6
+	return m
+
+
 static func smoke_tex() -> Texture2D:
 	if _smoke == null and ResourceLoader.exists("res://assets/textures/particles/smoke_a.png"):
 		_smoke = load("res://assets/textures/particles/smoke_a.png")
@@ -323,7 +337,9 @@ func _ready() -> void:
 		_build_unseen()
 	if kind == "spider":
 		_build_spider()
-	if spec.get("body", "") == "cat":
+	if variant == "box_cat":
+		_build_box_cat()
+	elif spec.get("body", "") == "cat":
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
@@ -545,8 +561,11 @@ func _physics_process(delta: float) -> void:
 	_cry_cd -= delta
 	if kind == "unseen":
 		_unseen_noise(delta, dist)
-	# The forms scream as they close on him
-	if _cry_cd <= 0.0 and dist < 16.0:
+	# The forms scream as they close on him; a Box Cat screams high and loud the whole way in
+	if variant == "box_cat" and _cry_cd <= 0.0 and dist < 45.0:
+		level.sfx("shriek_%d" % (randi() % 4), 4, global_position, randf_range(1.9, 2.4))
+		_cry_cd = randf_range(1.2, 2.6)
+	elif _cry_cd <= 0.0 and dist < 16.0:
 		match kind:
 			"rusher", "swarm", "idol":
 				_cry("shriek_%d" % (randi() % 4), 0 if kind != "swarm" else -6)
@@ -781,6 +800,10 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			var amp := minf(0.4, 0.08 + pace * 0.05)
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
+	if _box:
+		var hop := absf(sin(_t * 13.0)) * minf(1.0, pace / 5.0)
+		_box.position.y = -float(spec.radius) + hop * 0.14
+		_box.rotation.z = sin(_t * 13.0) * 0.12 * minf(1.0, pace / 5.0)
 	if _tail:
 		_tail.rotation.x = -0.6 + sin(_t * 2.2) * 0.25
 		_tail.rotation.y = sin(_t * 1.7) * 0.4
@@ -852,6 +875,29 @@ var _dust: CPUParticles3D
 
 
 ## Four legs and a long back under the head, a tail that will not keep still: a cat gone wrong.
+## The Box Cat ("Box Cat" by mellting, CC-BY 4.0): a model of its own that hops as it runs.
+var _box: Node3D
+
+func _build_box_cat() -> void:
+	head.visible = false
+	var path := "res://assets/models/foes/box_cat/box_cat.glb"
+	if not ResourceLoader.exists(path):
+		_build_cat()
+		head.visible = true
+		return
+	_box = Node3D.new()
+	var m: Node3D = (load(path) as PackedScene).instantiate()
+	# The model stands about 2.3 high and 1.8 wide; brought down to the size of a small cat
+	var k := 0.42 * float(spec.size) / 0.55
+	m.scale = Vector3.ONE * k
+	m.rotation.y = PI
+	_box.add_child(m)
+	_box.position.y = -float(spec.radius)
+	add_child(_box)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
 func _build_cat() -> void:
 	var s: float = spec.size
 	var coat: Color = head.coat if head.coat != Color() else head.fur.darkened(0.8)
@@ -941,6 +987,7 @@ func _build_cat() -> void:
 		dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		dm.albedo_texture = smoke_tex()
 		dm.albedo_color = Color(0.7, 0.6, 0.45, 0.6)
+		soften(dm)
 		dq.material = dm
 		_dust.mesh = dq
 		_dust.position.y = -0.6 * s

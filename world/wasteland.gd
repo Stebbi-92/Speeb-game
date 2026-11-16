@@ -204,18 +204,23 @@ func _make_world(sd: int, gen := GEN) -> void:
 	sea = WSea.new().setup(self)
 	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
+		var s0 := get_child_count()
 		_build_settlement(k)
+		_batch_since(s0)
 	for i in WPlaces.BEACONS.size():
 		_build_beacon(i)
 	var before := get_child_count()
 	for r in ruins:
+		var r0 := get_child_count()
 		_build_ruin(r)
+		_batch_since(r0)
 	for i in range(before, get_child_count()):
 		_fade_far(get_child(i), 700.0)
 	for l in lairs:
 		_build_lair(l)
 	_scatter_nodes()
 	_scatter_isle_nodes()
+	_scatter_ammo()
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
 	add_child(life)
@@ -509,6 +514,18 @@ func _build_signposts() -> void:
 
 
 ## Small things are not drawn from far off: the waste is wide, and the eye cannot hold it all.
+## Gathers the still pieces of what was just built (children from i0 on) into a few meshes (see WBatch).
+func _batch_since(i0: int) -> void:
+	var roots: Array = []
+	for i in range(i0, get_child_count()):
+		roots.append(get_child(i))
+	var keep := {}
+	for id in crates:
+		if crates[id].get("lid") != null:
+			keep[crates[id].lid] = true
+	WBatch.merge(self, roots, keep)
+
+
 func _fade_far(n: Node, dist: float) -> void:
 	if n is GeometryInstance3D and n.visibility_range_end <= 0.0:
 		n.visibility_range_end = dist
@@ -3227,7 +3244,9 @@ const NODE_KINDS := {
 	"salt": {"prompt": "Chip salt", "tool": "pick", "charges": 4},
 	"herb": {"prompt": "Gather ash-bloom", "tool": "", "charges": 2},
 	"bone": {"prompt": "Gather bones", "tool": "", "charges": 2},
+	"ammo": {"prompt": "Gather spilled rounds", "tool": "", "charges": 1},
 }
+const AMMO_PILE_KINDS := ["shells", "rounds", "rifle"]
 
 
 func _scatter_nodes() -> void:
@@ -3277,6 +3296,28 @@ func _scatter_nodes() -> void:
 			continue
 		_make_node(nodes.size(), kinds, p, fr)
 		far += 1
+
+
+## Spilled rounds, after everything else (so nothing before them moves): one by most ruins, a few near the first camp.
+func _scatter_ammo() -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = world_seed + 9393
+	var spots: Array = []
+	for ru in ruins:
+		if ru.has("isle") or r.randf() < 0.3:
+			continue
+		var rp: Vector3 = ru.pos
+		var a := r.randf() * TAU
+		spots.append(Vector2(rp.x, rp.z) + Vector2(cos(a), sin(a)) * r.randf_range(7.0, 15.0))
+	var start := WPlaces.spos("cinderwick")
+	for i in 6:
+		var a := r.randf() * TAU
+		spots.append(start + Vector2(cos(a), sin(a)) * r.randf_range(35.0, 80.0))
+	for p2 in spots:
+		var p := gpos(p2)
+		if terrain.normal_at(p.x, p.z).y < 0.8 or p.y < -0.5:
+			continue
+		_make_node(nodes.size(), "ammo", p, r)
 
 
 ## What grows and lies on the isles, by their own dice, after everything on the mainland.
@@ -3450,6 +3491,20 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 			cs.shape = bs
 			cs.position.y = 0.3
 			body.collision_layer = 16
+		"ammo":
+			# Rounds spilled from a split box (the ammo set, CC-BY, Rotten Design)
+			var item: String = AMMO_PILE_KINDS[id % AMMO_PILE_KINDS.size()]
+			var heap := AmmoLook.pile(item, r, r.randi_range(16, 28))
+			heap.set_meta("keep_apart", true)
+			n.add_child(heap)
+			var lid := box(Vector3.ZERO, Vector3(0.42, 0.04, 0.26), _m.darkwood, false)
+			_add(n, lid, Vector3(0.35, 0.03, -0.2))
+			lid.rotation = Vector3(0.12, r.randf() * TAU, 0.05)
+			var bs := BoxShape3D.new()
+			bs.size = Vector3(0.9, 0.3, 0.9)
+			cs.shape = bs
+			cs.position.y = 0.15
+			body.collision_layer = 16
 		"bone":
 			_bones(n, Vector3.ZERO, r)
 			_add(n, cyl(Vector3.ZERO, 0.12, 1.6, _m.bone, false, 0.05, 6), Vector3(0.4, 0.2, 0)).rotation.z = 1.2
@@ -3507,6 +3562,9 @@ func _rq_gather(by: int, id: int) -> void:
 			out.append(["salt", rr.randi_range(6, 12)])
 		"herb":
 			out.append(["herb", rr.randi_range(1, 3)])
+		"ammo":
+			var item: String = AMMO_PILE_KINDS[id % AMMO_PILE_KINDS.size()]
+			out.append([item, rr.randi_range(8, 16) * (2 if item == "rifle" else 1)])
 		"bone":
 			out.append(["bone", rr.randi_range(2, 4)])
 			if rr.randf() < 0.2:
@@ -3541,7 +3599,7 @@ func _w_node(id: int, charges: int, back: int) -> void:
 	nd.charges = charges
 	nd.back = back
 	nd.node.visible = charges > 0
-	nd.body.collision_layer = (1 | 16) if charges > 0 and not nd.kind in ["herb", "bone"] else (16 if charges > 0 else 0)
+	nd.body.collision_layer = (1 | 16) if charges > 0 and not nd.kind in ["herb", "bone", "ammo"] else (16 if charges > 0 else 0)
 	if charges > 0 and charges < int(NODE_KINDS[nd.kind].charges):
 		nd.node.scale = Vector3.ONE * (0.6 + 0.4 * charges / float(NODE_KINDS[nd.kind].charges))
 	elif charges > 0:
@@ -4057,6 +4115,17 @@ func _night_wave() -> void:
 		var tier := tier_at(t.global_position)
 		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position))))
 		var roster: Array = forms_at(t.global_position)
+		# Near where the cast-out wake, the box cats run in packs some nights
+		if tier == 1 and randf() < 0.35:
+			var pack := mini(WCrowd.scale(self, randi_range(8, 14) + mini(nights, 6)), WCrowd.ALIVE_CAP - alive_count())
+			var from: Vector3 = t.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 40.0
+			for k in pack:
+				var bc = _spawn_near("box_cat", from, 2.0, 8.0)
+				if bc and bc.has_method("seek"):
+					bc.seek(t.global_position, 60.0)
+			if pack > 0:
+				sfx("shriek_%d" % (randi() % 4), 0, from, 2.1)
+			continue
 		for k in n:
 			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
 			# The night's walkers come looking for the living; they need not see you yet
@@ -6420,6 +6489,7 @@ func _w_road_sign(at: Vector3, kind: String, from: Vector2) -> void:
 	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	sm.albedo_texture = LesserSpeeb.smoke_tex()
 	sm.albedo_color = Color(0.25, 0.23, 0.22, 0.55) if kind != "cairn" else Color(0.75, 0.7, 0.6, 0.4)
+	LesserSpeeb.soften(sm, 1.0, 6.0)
 	q.material = sm
 	smoke.mesh = q
 	smoke.position.y = 1.0
@@ -9718,4 +9788,140 @@ func debug_soak_join() -> void:
 		ui.close_all()
 		await get_tree().create_timer(4.0).timeout
 	print("SOAKJOIN done day=%d boats=%d quests=%d weather=%s" % [day, boats.size(), quests.active().size(), weather.kind])
+	get_tree().quit()
+
+
+## Testing aid: how many things are drawn about a town, and of what kind (for draw calls).
+func debug_drawcount() -> void:
+	await get_tree().create_timer(2.0).timeout
+	for k in ["cinderwick", WPlaces.SETTLEMENTS.keys()[3]]:
+		var c := gpos(WPlaces.spos(k))
+		var by := {}
+		var total := 0
+		var surf := 0
+		for g in find_children("*", "GeometryInstance3D", true, false):
+			var gi := g as GeometryInstance3D
+			if not gi.is_visible_in_tree() or gi.global_position.distance_to(c) > 150.0:
+				continue
+			if gi.visibility_range_end > 0.0 and gi.global_position.distance_to(c) > gi.visibility_range_end:
+				continue
+			var top: Node = gi
+			while top.get_parent() != self and top.get_parent() != null:
+				top = top.get_parent()
+			var key := "%s/%s" % [top.get_class(), str(top.name).left(14)]
+			if gi is MultiMeshInstance3D:
+				key = "MULTI " + key
+			by[key] = by.get(key, 0) + 1
+			total += 1
+			if gi is MeshInstance3D and (gi as MeshInstance3D).mesh:
+				surf += (gi as MeshInstance3D).mesh.get_surface_count()
+			else:
+				surf += 1
+		var keys := by.keys()
+		keys.sort_custom(func(a, b): return by[a] > by[b])
+		print("DRAW %s instances=%d surfaces=%d" % [k, total, surf])
+		for kk in keys.slice(0, 14):
+			print("DRAW   %s %d" % [kk, by[kk]])
+		for t in get_children():
+			if t is Node3D and t.get_class() == "Node3D" and t.global_position.distance_to(c) < 150.0 and t.get_child_count() > 20:
+				var kinds := {}
+				for ch in t.get_children():
+					var kk2 := "%s %s %s" % [ch.get_class(), ch.get_script().resource_path.get_file() if ch.get_script() else "", ch.get_meta_list()]
+					kinds[kk2] = kinds.get(kk2, 0) + 1
+				print("DRAW  sample %s script=%s meta=%s kids=%s" % [t.name, t.get_script(), t.get_meta_list(), kinds])
+				for mi in t.find_children("*", "MeshInstance3D", true, false).slice(0, 4):
+					var chain := []
+					var q: Node = mi
+					while q != t:
+						chain.append("%s%s%s" % [q.get_class(), q.get_meta_list(), "S" if q.get_script() else ""])
+						q = q.get_parent()
+					print("DRAW   mesh vr=%s tr=%s vis=%s chain=%s" % [mi.visibility_range_end, mi.transparency, mi.visible, chain])
+				break
+	get_tree().quit()
+
+
+## Testing aid: spilled rounds lie about the waste and can be gathered; a fired gun throws its cases.
+func debug_ammo() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var piles: Array = nodes.filter(func(nd): return nd.kind == "ammo")
+	var shown := 0
+	for nd in piles:
+		if (nd.node as Node3D).find_children("*", "MeshInstance3D", true, false).size() > 10:
+			shown += 1
+	var id: int = piles[0].id
+	var item: String = AMMO_PILE_KINDS[id % AMMO_PILE_KINDS.size()]
+	var before: int = inv.count(item)
+	_rq_gather(Net.me(), id)
+	await get_tree().create_timer(0.5).timeout
+	var wpn = player.weapon
+	wpn.shells = 99
+	for i in 5:
+		wpn._cool = 0.0
+		wpn._try_fire()
+		await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.6).timeout
+	var cases: int = wpn._cases.filter(func(c): return is_instance_valid(c)).size()
+	print("AMMO piles=%d shown=%d gathered=%s cases=%d gun=%s" % [piles.size(), shown, inv.count(item) > before, cases, wpn.gun()])
+	get_tree().quit()
+
+
+## Testing aid: a pack of box cats comes at the pilgrim, screaming, and dies to a few pellets.
+func debug_boxcat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cats: Array = []
+	for i in 6:
+		var c = _spawn_near("box_cat", player.global_position + Vector3(0, 0, -20), 1.0, 4.0, true)
+		if c:
+			cats.append(c)
+	var d0: float = cats[0].global_position.distance_to(player.global_position)
+	await get_tree().create_timer(2.0).timeout
+	var d1: float = cats[0].global_position.distance_to(player.global_position) if is_instance_valid(cats[0]) else 0.0
+	print("BOXCAT made=%d name=%s boxed=%s closed=%s hp=%.0f" % [cats.size(), cats[0].spec.name, cats[0]._box != null, d1 < d0, cats[0].hp])
+	get_tree().quit()
+
+
+## Testing aid: at a workbench, the Arms tab opens and the Make tab can be entered from it.
+func debug_benchtabs() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	ui.debug_bench = true
+	var start_tab := "arms"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("tab="):
+			start_tab = a.substr(4)
+	ui.open_inventory(start_tab)
+	for f in 5:
+		await get_tree().process_frame
+	var arms_n: int = ui._body.get_child_count() if ui._body else -1
+	var r0: int = ui.redraws
+	await get_tree().create_timer(3.0).timeout
+	if DisplayServer.get_name() != "headless":
+		get_viewport().get_texture().get_image().save_png("/tmp/claude-0/bench_shot.png")
+	print("BENCHREDRAW in3s=%d" % (ui.redraws - r0))
+	# Click the Make tab as a mouse would
+	var btn: Button = null
+	for b in ui.find_children("*", "Button", true, false):
+		if (b as Button).text == "Make" and b.is_visible_in_tree():
+			btn = b
+			break
+	var at := btn.get_global_rect().get_center() if btn else Vector2.ZERO
+	var over: Array = []
+	for c in get_tree().root.find_children("*", "Control", true, false):
+		var cc := c as Control
+		if cc.is_visible_in_tree() and cc.mouse_filter != Control.MOUSE_FILTER_IGNORE and cc.get_global_rect().has_point(at) and cc != btn:
+			over.append("%s(%s)" % [cc.get_class(), cc.name])
+	print("BENCHCLICK button=%s at=%s over=%s" % [btn != null, at, over])
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = pressed
+		ev.position = at
+		ev.global_position = at
+		get_viewport().push_input(ev, true)
+		await get_tree().process_frame
+	await get_tree().process_frame
+	var craft_n: int = ui._body.get_child_count() if ui._body else -1
+	print("BENCHTABS arms=%d craft=%d tab=%s open=%s" % [arms_n, craft_n, ui._tab, ui._panel_name])
 	get_tree().quit()

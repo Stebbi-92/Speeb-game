@@ -377,6 +377,65 @@ func _start_reload() -> void:
 
 
 
+## Throws one spent case out of the side of the gun in hand; it bounces, rolls, and lies a while.
+var _cases: Array = []
+const CASES_MAX := 40
+
+func _eject() -> void:
+	if not is_instance_valid(_model) or not _model.is_inside_tree():
+		return
+	var g := gun()
+	var piece := AmmoLook.spent_of(g)
+	if piece == "":
+		return
+	var look := AmmoLook.make(piece)
+	if look == null:
+		return
+	var rb := RigidBody3D.new()
+	rb.collision_layer = 0
+	rb.collision_mask = 1
+	rb.mass = 0.02
+	rb.continuous_cd = true
+	var pm := PhysicsMaterial.new()
+	pm.bounce = 0.35
+	pm.friction = 0.8
+	rb.physics_material_override = pm
+	var cs := CollisionShape3D.new()
+	var sh := CylinderShape3D.new()
+	sh.radius = 0.012 if g != "shotgun" else 0.022
+	sh.height = 0.04 if g != "shotgun" else 0.07
+	cs.shape = sh
+	rb.add_child(cs)
+	rb.add_child(look)
+	var lvl = player.get_parent()
+	lvl.add_child(rb)
+	var gt := _model.global_transform
+	rb.global_position = gt * SIDE.get(g, Vector3(0.03, 0.01, 0.0))
+	rb.global_basis = gt.basis.orthonormalized() * Basis(Vector3.RIGHT, PI * 0.5)
+	var right := gt.basis.x.normalized()
+	var up := gt.basis.y.normalized()
+	var back := gt.basis.z.normalized()
+	rb.linear_velocity = player.velocity + right * randf_range(2.2, 3.2) + up * randf_range(1.2, 2.0) + back * randf_range(0.0, 0.6)
+	rb.angular_velocity = Vector3(randf_range(-25, 25), randf_range(-25, 25), randf_range(-25, 25))
+	_cases.append(rb)
+	while _cases.size() > CASES_MAX:
+		var old = _cases.pop_front()
+		if is_instance_valid(old):
+			old.queue_free()
+	# Settled, it stops costing anything; long after, it is gone
+	get_tree().create_timer(3.0, false).timeout.connect(func():
+		if is_instance_valid(rb):
+			rb.freeze = true)
+	get_tree().create_timer(45.0, false).timeout.connect(func():
+		if is_instance_valid(rb):
+			_cases.erase(rb)
+			rb.queue_free())
+	if randf() < 0.5:
+		get_tree().create_timer(0.45, false).timeout.connect(func():
+			if is_instance_valid(rb) and is_instance_valid(lvl) and lvl.has_method("sfx"):
+				lvl.sfx("shell" if g == "shotgun" else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
+
+
 ## How far a shot may wander right now: wide from the hip and wider as shots pile up, tight down the sights.
 func shot_spread() -> float:
 	var s := spec()
@@ -878,6 +937,13 @@ func _try_fire() -> void:
 	var fwd := -cam.global_transform.basis.z
 	Net.fx("gun:%s%s" % [gun(), ":s" if quiet else ""], origin, fwd)
 	lvl.shots += 1
+	# The spent case flies out of the side (a pump or a bolt throws it when worked; a revolver keeps them)
+	if s.mode == "pump":
+		get_tree().create_timer(0.32, false).timeout.connect(_eject)
+	elif s.mode == "bolt":
+		get_tree().create_timer(0.5, false).timeout.connect(_eject)
+	elif gun() != "revolver":
+		_eject()
 	if s.mode == "rocket":
 		var r := Rocket.new()
 		r.owner_player = player
@@ -1731,6 +1797,10 @@ const SCANNED_GUNS := {
 		"Object_4": "off", "Object_5": "off", "Object_7": "off", "Object_9": "off", "Object_11": "off", "Object_12": "off",
 		"Object_13": "off", "Object_15": "off", "Object_16": "off", "Object_17": "off", "Object_18": "off",
 		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump"}],
+	"flamer": ["flamer", Vector3(0, 180, 0), -0.5, 0.36, 0.03, {}],
+	"rocket": ["rpg", Vector3(0, -90, 0), -0.66, 0.52, 0.0, {}],
+	"minigun": ["minigun", Vector3(0, 180, 0), -0.68, 0.3, -0.02, {
+		"barrels_minigun_0": "spin", "mag_minigun_0": "mag", "bullet_minigun_0": "off", "Object_70": "off", "arms_arms_0": "off"}],
 	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
 	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
 }
@@ -1805,7 +1875,7 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		if (mi as MeshInstance3D).material_override:
 			copy_mat[mi] = (mi as MeshInstance3D).material_override
 		var holder: Node3D = n
-		if role == "pump":
+		if role == "pump" or role == "spin":
 			holder = pump
 		elif role == "mag" and mag != null:
 			holder = mag
@@ -1815,6 +1885,20 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		copy.transform = tr
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(copy)
+	# What spins (a minigun's barrels) turns about its own middle: the pump is moved there
+	var spun: Array = pump.get_children().filter(func(c): return c is MeshInstance3D)
+	var spin_bb := AABB()
+	var sfirst := true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		if roles.get(mi.name, "") == "spin":
+			var a: AABB = pivot.transform * _chain(mi, inst) * (mi as MeshInstance3D).get_aabb()
+			spin_bb = a if sfirst else spin_bb.merge(a)
+			sfirst = false
+	if not sfirst:
+		var axis := Vector3(spin_bb.get_center().x * sc + off.x, spin_bb.get_center().y * sc + off.y, 0.0)
+		pump.position = axis
+		for c in spun:
+			(c as Node3D).position -= axis
 	inst.free()
 	return bb.end.y * sc + off.y
 
@@ -1884,6 +1968,8 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 ## [model, turn (degrees), where the grip ends, whole length, parts to leave off, haft off the middle
 ## (an axe's head hangs to one side, so its haft is not the middle of it)]. Handle at the
 ## hand (the origin), the head up along +Y, the edge to -Z, as the plain-shape arms are built.
+## Thrown things whose model lies on its side: turned upright first
+const THROWN_TURN := {"flare": Vector3(90, 0, 0), "molotov": Vector3.ZERO}
 const SCANNED_MELEE := {
 	"hatchet": ["hatchet", Vector3(0, 180, 0), -0.09, 0.44, [], -0.04],
 	"machete": ["machete", Vector3(0, 180, 0), -0.08, 0.64, [], 0.0],
@@ -1891,12 +1977,15 @@ const SCANNED_MELEE := {
 	"knife": ["ornate_medieval_dagger", Vector3(0, 90, 0), -0.06, 0.3, ["ornate_medieval_dagger_scabbard"], 0.0],
 	"sword": ["wooden_handle_saber", Vector3(0, 180, 0), -0.1, 0.92, [], 0.0],
 	"battle_axe": ["wooden_axe", Vector3(0, 180, 0), -0.14, 0.8, [], -0.1],
+	"glaive": ["glaive", Vector3(0, 180, 0), -0.75, 2.0, ["Circle_003"], 0.0],
 }
 
 
 ## A scanned model fitted to the hand: turned, then grown or shrunk to the length, its grip end at grip_y.
 static func scanned(key: String, turn: Vector3, grip_y: float, length: float, leave := [], haft_z := 0.0) -> Node3D:
 	var path := "res://assets/models/arms/%s/%s.gltf" % [key, key]
+	if not ResourceLoader.exists(path):
+		path = path.get_basename() + ".glb"
 	if not ResourceLoader.exists(path):
 		return null
 	var inst: Node3D = (load(path) as PackedScene).instantiate()
@@ -2195,11 +2284,23 @@ class Thrown extends RigidBody3D:
 				mi.mesh = c
 				m.albedo_color = Color(0.85, 0.83, 0.78)
 		mi.material_override = m
-		if kind == "grenade":
-			# The scanned stick grenade (Poly Haven, CC0), about as long as a hand
-			var sg := Arms.scanned("stick_grenade", Vector3.ZERO, -0.13, 0.26)
+		# Scanned bodies: the stick grenade (Poly Haven, CC0); the molotov, flare and mine (CC-BY, see CREDITS.md)
+		var look: Array = {"grenade": ["stick_grenade", -0.13, 0.26], "fire": ["molotov", -0.13, 0.26],
+			"flare": ["flare", -0.1, 0.2], "mine": ["landmine", -0.035, 0.07]}.get(kind, [])
+		if not look.is_empty():
+			var sg := Arms.scanned(look[0], Arms.THROWN_TURN.get(look[0], Vector3.ZERO), look[1], look[2])
 			if sg:
 				add_child(sg)
+				if kind == "flare":
+					# Its burning end still glows
+					var tipm := MeshInstance3D.new()
+					var sp := SphereMesh.new()
+					sp.radius = 0.02
+					sp.height = 0.04
+					tipm.mesh = sp
+					tipm.material_override = m
+					tipm.position.y = -0.1
+					add_child(tipm)
 				return
 		add_child(mi)
 

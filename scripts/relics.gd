@@ -70,6 +70,7 @@ func _ready() -> void:
 	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	sm.albedo_color = Color(0.86, 0.84, 0.8, 0.3)
 	sm.albedo_texture = _soft_dot()
+	LesserSpeeb.soften(sm)
 	_smoke.mesh = qm
 	_smoke.material_override = sm
 	_smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
