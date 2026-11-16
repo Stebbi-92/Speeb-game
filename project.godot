@@ -3,7 +3,7 @@ config_version=5
 
 [application]
 
-config/version="0.8.0-alpha"
+config/version="0.9.0-alpha"
 config/name="Brelm: The Hermit of Nine Visions"
 config/description="A first-person pilgrimage through the Nine Meowifestations of Speeb."
 run/main_scene="res://main.tscn"

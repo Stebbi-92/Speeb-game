@@ -1,3 +1,56 @@
+Brelm alpha 0.9.0: The End of the Road
+
+The end of the story
+- After the ninth beacon, Lena offers The Ferryman's Way. The Lake Stair by the ninth beacon leads down to a dark lake, and across it to the hall where the High Clerics sat down to write.
+- Four endings wait at the page:
+  The Keeper: leave it blank. The fires must be kept.
+  The Writer: with the six leaves of the Tenth Page read, write on it. No great raids, fewer forms, no stars.
+  The Unlit: Mother Ruth waits by a ruin in the Dead Forest. Put out one beacon for her and you may take the stair down. Nothing comes at night after that.
+  The Pilgrim: find the nine leaves of Brelm's journal in the waste's ruins, and the six leaves of the Tenth Page. Someone waits at the end of the table. The Second Vow begins: the same world, harder.
+- The world goes on after every ending.
+
+Foes and danger
+- Foes now come by the danger of the land. Near where you wake only the weakest come; the far lands hold the worst. Night raids grow with the danger too.
+- Thirteen new kin of the common forms, each with its own land and its own weakness, such as the Cinder Hound, Glass Crawler, Rime Bones and Tar Giant.
+- Dread: out in the open dark at night, fear grows. The edges of sight go dark and the whispers start, and near the top stranger things come for you. A fire, a town, a lantern or the day takes it away.
+- The Kraken-Bell: past the Sunk Fen a bell rings under the water. A whirlpool there pulls boats in, and the Bell-Wound is wound about a drowned tower.
+- The Lamp-Eater rises under boats that carry a lit lamp far out at night. Douse your lamp to slip past.
+- The Drowned Fleet: on quiet nights far out, a grey ship of the Lamp Fleet. Climb aboard if you dare. It is gone at dawn.
+- Deep vaults: under each sealed vault a stair goes down to rooms that wake when you enter, and a keeper at the end.
+
+Arms
+- New weapons: the Flamethrower (burns lamp fuel), Knife (deadly from behind), Sword, Battle Axe and the Obsidian Glaive.
+- New armour: Obsidian Plate. The better plate now needs the stuff of the harder lands.
+- Balance changes across guns, blades and foes.
+
+Trades
+- Each pilgrim keeps one trade, chosen in the Skills screen: Smith, Cook, Alchemist or Tinker.
+- Only a smith makes tempered steel, only a tinker clockwork, only a cook the Wayfarer's Feast, only an alchemist the Restoring Elixir. The best arms, plate and fittings need steel or clockwork, so friends lean on one another.
+- Changing your trade takes a town and 25 coin.
+
+Brewing
+- Six things of the waste each hold two hidden virtues. Taste one to learn its first. Brew two that share a virtue at a fire, with salt, for a draught: Mending, Long Breath, Swiftness, Warding, Keenness or Fireskin.
+
+Spirit-cats
+- Three relics hold the ghost of a cat: the Ember-Cat (in shrines), the Ash-Cat (in sealed vaults) and the Grave-Cat (at the Kraken-Bell). Call one up and it fights beside you for a minute or so.
+- A relic goes cold once used. Rest by a fire to kindle it again.
+
+Settlers
+- A snug base (a lit fire, walls, a roof, a light) with spare beds draws wanderers at dawn, up to three a fire. Each keeps a trade and leaves what it brings in your chest each dawn. Let the fire die and they go.
+
+The land
+- Every fire is now a living flame, with sparks, smoke and a flickering light.
+- New worlds always wake on the Ash Plains, in gentle land.
+- Each land has its own haze and its own drift in the air: ash, sand, salt, spores, embers and mist.
+- Ruins, crates, towns and townsfolk are dressed far more richly, and items have new pictures.
+- A quest's next crate shows its find on top in a pale light.
+
+For testing
+- A hidden playtest menu (Ctrl+F8): jump to any land or place, set the hour and weather, no harm, a full kit, every weapon, foes of each danger, and a frame meter.
+
+Fixes
+- Many fixes from a full debugging pass of the game.
+
 Brelm alpha 0.8.0: The Grey Sea
 
 The sea and its isles

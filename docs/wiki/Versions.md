@@ -2,6 +2,15 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.9.0 (the end of the road)
+
+- The story's end: the Lake Stair, Lena's crossing, the Tenth Hall and four endings at the page (Keeper, Writer, Unlit, Pilgrim).
+- Foes by the danger of the land, thirteen new foe kin, and dread in the open dark at night.
+- The Kraken-Bell, the Lamp-Eater, the Drowned Fleet and deep vaults under the sealed vaults.
+- New weapons: flamethrower, knife, sword, battle axe and obsidian glaive. Obsidian plate.
+- Trades (smith, cook, alchemist, tinker), brewing, spirit-cats and settlers at your base.
+- Living fires, a gentle start on the Ash Plains, and each land's own air.
+
 ## 0.8.0 (the Grey Sea)
 
 - A coast, the Grey Sea and four isles to explore: Hrafnsey, the Sunk Fen, Kalaja and Cogwright.
