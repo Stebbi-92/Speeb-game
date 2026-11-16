@@ -190,7 +190,39 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 			kp(n, "food", "bag-flat", ground(w, n, Vector3(-1.4, 0, 2.4)), rr.randf() * TAU, 2.0)
 		"vault":
 			# A tomb of the Order sunk in the ground, its door to the front
-			kp(n, "grave", "crypt-large", ground(w, n, Vector3(0, -0.2, -4.0)), PI, 4.0, true)
+			# Its walls are solid but its door is open, and it has a roof of dark slate again
+			var at := ground(w, n, Vector3(0, -0.2, -4.0))
+			kp(n, "grave", "crypt-large", at, 0.0, 4.0, false)
+			var body := StaticBody3D.new()
+			body.collision_layer = 1
+			n.add_child(body)
+			var hx := 0.925 * 4.0
+			var hz := 1.2 * 4.0
+			var hy := 4.0
+			for wall in [[Vector3(0, hy * 0.5, -hz + 0.2), Vector3(hx * 2.0, hy, 0.4)],
+					[Vector3(-hx + 0.2, hy * 0.5, 0), Vector3(0.4, hy, hz * 2.0)], [Vector3(hx - 0.2, hy * 0.5, 0), Vector3(0.4, hy, hz * 2.0)],
+					[Vector3(-(hx + 1.1) * 0.5, hy * 0.5, hz - 0.2), Vector3(hx - 1.1, hy, 0.4)], [Vector3((hx + 1.1) * 0.5, hy * 0.5, hz - 0.2), Vector3(hx - 1.1, hy, 0.4)],
+					[Vector3(0, hy * 0.5 + 1.55, hz - 0.2), Vector3(2.2, hy - 3.1, 0.4)], [Vector3(0, hy + 0.15, 0), Vector3(hx * 2.0 + 0.4, 0.3, hz * 2.0 + 0.4)]]:
+				var cs := CollisionShape3D.new()
+				var bs := BoxShape3D.new()
+				bs.size = wall[1]
+				cs.shape = bs
+				cs.position = at + (wall[0] as Vector3)
+				body.add_child(cs)
+			var slab := MeshInstance3D.new()
+			var sm := BoxMesh.new()
+			sm.size = Vector3(hx * 2.0 + 0.6, 0.3, hz * 2.0 + 0.6)
+			slab.mesh = sm
+			slab.material_override = w._m.darkstone
+			n.add_child(slab)
+			slab.position = at + Vector3(0, hy + 0.15, 0)
+			var gable := MeshInstance3D.new()
+			var pm := PrismMesh.new()
+			pm.size = Vector3(hx * 2.0 + 0.6, 1.8, hz * 2.0 + 0.6)
+			gable.mesh = pm
+			gable.material_override = w._m.darkstone
+			n.add_child(gable)
+			gable.position = at + Vector3(0, hy + 1.2, 0)
 			for side in [-1.0, 1.0]:
 				kp(n, "grave", "pillar-obelisk", ground(w, n, Vector3(side * 2.6, 0, 1.6)), 0.0, 4.0, true)
 				kp(n, "grave", "lantern-candle", ground(w, n, Vector3(side * 1.4, 0, 2.4)), 0.0, 1.8)

@@ -10302,3 +10302,32 @@ func debug_treeshot() -> void:
 	get_viewport().get_texture().get_image().save_png("/tmp/claude-0/tree.png")
 	print("TREESHOT at=%s" % best.pos)
 	get_tree().quit()
+
+
+## Testing aid: a tomb's door lets you in, its walls do not, and it has a roof.
+func debug_tomb() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var r: Dictionary = {}
+	for x in ruins:
+		if x.kind == "vault":
+			r = x
+			break
+	player.place(r.pos + Vector3(0, 30, 30), 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var n: Node3D = null
+	for c in get_children():
+		if c is Node3D and c.position.distance_to(r.pos) < 0.5 and c.get_child_count() > 3:
+			n = c
+	var space := get_world_3d().direct_space_state
+	var gy: float = terrain.height_at(n.to_global(Vector3(0, 0, -4)).x, n.to_global(Vector3(0, 0, -4)).z)
+	var mid := n.to_global(Vector3(0, 0, -4))
+	mid.y = gy + 1.2
+	var door := PhysicsRayQueryParameters3D.create(n.to_global(Vector3(0, 0, 3.0)) * Vector3(1, 0, 1) + Vector3(0, gy + 1.2, 0), mid, 1)
+	door.exclude = [player.get_rid()]
+	var side := PhysicsRayQueryParameters3D.create(n.to_global(Vector3(8, 0, -4)) * Vector3(1, 0, 1) + Vector3(0, gy + 1.2, 0), mid, 1)
+	side.exclude = [player.get_rid()]
+	var roof := PhysicsRayQueryParameters3D.create(mid + Vector3(0, 12, 0), mid, 1)
+	roof.exclude = [player.get_rid()]
+	print("TOMB door_open=%s wall=%s roof=%s" % [space.intersect_ray(door).is_empty(), not space.intersect_ray(side).is_empty(), not space.intersect_ray(roof).is_empty()])
+	get_tree().quit()
