@@ -66,6 +66,7 @@ check settlers  debug_settlers "SETTLERS snug=[4-8] room=true came=2 shown=2 bro
 check kin       debug_kin      "KIN made=13/13 copies=13 in_lands=13 bad=\[\] kinds=4[0-9]"
 check kraken    debug_kraken   "KRAKEN found=true pulled=true rose=true hp=[0-9]+ chest=true trophy=1 stays_down=true"
 check spirit    debug_spirit   "SPIRIT came=true again_refused=true bitten=true left=[0-9]+ faded=true cold=true warm=true town_refused=true"
+check trades    debug_trades   "TRADES untrained=0 first=true smithed=1 sword=15/18 away_refused=true changed=true paid=25 tinker_rounds=15 alch_brews=2 kept=alchemist"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

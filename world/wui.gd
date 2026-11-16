@@ -267,6 +267,7 @@ func _draw_skills() -> void:
 	bar.add_theme_stylebox_override("fill", fg)
 	lv.add_child(bar)
 	top.add_child(lv)
+	top.add_child(_chip("Trade: %s" % (w.trades.tname(w.trades.trade) if w.trades.trade != "" else "choose one"), w.trades.trade == "", func(): open_trade()))
 	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
 	_body.add_child(top)
 	_close_and_rule(top)
@@ -654,6 +655,8 @@ func _redraw_now() -> void:
 			_draw_dev()
 		"brew":
 			_draw_brew()
+		"trade":
+			_draw_trade()
 		"planter":
 			_draw_planter()
 		"portal":
@@ -1128,8 +1131,13 @@ func _give_to(id: int, i: int, n: int) -> void:
 
 # ------------------------------------------------------------------ arms: what is carried, fitted and made
 
+## What arms, parts and plate cost this pilgrim: their skills, then their trade.
+func _acost(c: Dictionary) -> Dictionary:
+	return w.trades.arms_cost(w.skills.cost(c))
+
+
 func _arms_pay(cost: Dictionary, done: Callable) -> void:
-	if not w.stock_pay(w.skills.cost(cost)):
+	if not w.stock_pay(_acost(cost)):
 		return
 	done.call()
 	w.sfx("carve", -6)
@@ -1138,7 +1146,7 @@ func _arms_pay(cost: Dictionary, done: Callable) -> void:
 
 
 func _arms_btn(text: String, cost: Dictionary, bench: bool, done: Callable) -> Button:
-	var c: Dictionary = w.skills.cost(cost)
+	var c: Dictionary = _acost(cost)
 	var ok: bool = bench and w.stock_has_all(c)
 	var b := _btn("%s   %s" % [text, Items.cost_text(c)], func(): _arms_pay(cost, done), 17, PALE if ok else DIM)
 	b.disabled = not ok
@@ -1262,7 +1270,7 @@ func _draw_arms() -> void:
 				elif owned:
 					rows.append([g, sp.name, "%s  ·  %s" % ["Long gun" if sp.slot == "primary" else "Side arm", WArms.TIERS[t]], DIM, {}, "Carry", func(): a[sp.slot] = g; w.rearm(); _redraw(), true])
 				else:
-					var c: Dictionary = w.skills.cost(WArms.MAKE[g])
+					var c: Dictionary = _acost(WArms.MAKE[g])
 					rows.append([g, sp.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[g], func(): a.owned.append(g); a[sp.slot] = g), bench and w.stock_has_all(c)])
 		"blades", "thrown", "kits":
 			var k: Array = []
@@ -1275,7 +1283,7 @@ func _draw_arms() -> void:
 					var on: bool = a[k[1]] == id
 					rows.append([id, tb[id].name, "Carried" if on else "Owned", GOLD if on else DIM, {}, "" if on else "Carry", func(): a[k[1]] = id; w.rearm(); _redraw(), true])
 				else:
-					var c: Dictionary = w.skills.cost(WArms.MAKE[id])
+					var c: Dictionary = _acost(WArms.MAKE[id])
 					rows.append([id, tb[id].name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[id], func(): a[k[0]].append(id); a[k[1]] = id), bench and w.stock_has_all(c)])
 		"relics":
 			for id in WArms.RELICS:
@@ -1284,7 +1292,7 @@ func _draw_arms() -> void:
 				if id in a.relics:
 					rows.append([id, it.name, "Carried  ·  key %s" % key, GOLD, {}, "", Callable(), false])
 				else:
-					var c: Dictionary = w.skills.cost(it.cost)
+					var c: Dictionary = _acost(it.cost)
 					rows.append([id, it.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(it.cost, func(): a.relics.append(id); w.player.relics.refresh()), bench and w.stock_has_all(c)])
 		"wear":
 			for id in WArms.WEAR:
@@ -1296,7 +1304,7 @@ func _draw_arms() -> void:
 				elif w.inv.count(id) > 0:
 					rows.append([id, it.name, "In your pack  ·  %s" % slot_name, DIM, {}, "Wear", func(): _wear(id), true])
 				else:
-					var c: Dictionary = w.skills.cost(it.cost)
+					var c: Dictionary = _acost(it.cost)
 					rows.append([id, it.name, "%s  ·  not made" % slot_name, Color(DIM, 0.7), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c)])
 	if _asel == "" and not rows.is_empty():
 		_asel = rows[0][0]
@@ -1326,7 +1334,7 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		_stat(side, "Reach", "%d m" % int(sp.range), clampf(float(sp.range) / 400.0, 0.05, 1.0))
 		_stat(side, "Holds", str(Arms.mag_of(id)), clampf(Arms.mag_of(id) / 60.0, 0.05, 1.0))
 		side.add_child(_wrap(_waste_text(sp.text), 15, Color(PALE, 0.8), 220))
-		side.add_child(_cost_line(w.skills.cost(WArms.MAKE[id])))
+		side.add_child(_cost_line(_acost(WArms.MAKE[id])))
 		return
 	var info := {}
 	for kk in WArms.KINDS:
@@ -1393,7 +1401,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	_stat(left, "Aim speed", "%d%%" % int(round(float(sp.aim) * 100.0)), clampf(float(sp.aim) / 1.6, 0.05, 1.0))
 	_stat(left, "Holds", str(Arms.mag_of(g)), clampf(Arms.mag_of(g) / 60.0, 0.05, 1.0))
 	if t < 3:
-		var c: Dictionary = w.skills.cost(WArms.tier_cost(t + 1))
+		var c: Dictionary = _acost(WArms.tier_cost(t + 1))
 		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
 		left.add_child(wb)
 		left.add_child(_cost_line(c))
@@ -1498,7 +1506,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 			b.tooltip_text = "Uses one %s." % Items.iname(fid)
 			acts.add_child(b)
 	else:
-		var c: Dictionary = w.skills.cost(WArms.PARTS[m2])
+		var c: Dictionary = _acost(WArms.PARTS[m2])
 		acts.add_child(_primary("Make", func(): _arms_pay(WArms.PARTS[m2], func():
 			if not a.parts.has(g):
 				a.parts[g] = []
@@ -1750,7 +1758,7 @@ func _draw_wear() -> void:
 		elif w.inv.count(id) > 0:
 			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass))
 		else:
-			var c: Dictionary = w.skills.cost(it.cost)
+			var c: Dictionary = _acost(it.cost)
 			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass))
 
 
@@ -1963,6 +1971,8 @@ func _draw_craft() -> void:
 	top.add_child(_pill("Cooking station", fire))
 	if chests > 0:
 		top.add_child(_pill("%d chest%s in reach" % [chests, "" if chests == 1 else "s"], true))
+	if w.trades.trade == "":
+		top.add_child(_chip("No trade yet: choose one", true, func(): open_trade()))
 	_body.add_child(top)
 	if pot >= 0:
 		_body.add_child(_fuel_row(pot))
@@ -1981,7 +1991,7 @@ func _draw_craft() -> void:
 		var r: Dictionary = Items.RECIPES[i]
 		if r.has("needs") and not w.flags.has(r.needs):
 			continue
-		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire)
+		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire) and w.trades.can_make(r)
 		var ok: bool = here and w.stock_has_all(w.skills.cost(r.cost))
 		var grp := _make_group(r)
 		if ok:
@@ -2019,7 +2029,7 @@ func _draw_craft() -> void:
 	_rhere = chosen[1]
 	var rr: Dictionary = Items.RECIPES[chosen[0]]
 	var cost2: Dictionary = w.skills.cost(rr.cost)
-	var n: int = int(rr.n) + w.skills.make_bonus(rr.id)
+	var n: int = int(rr.n) + w.skills.make_bonus(rr.id) + w.trades.bonus(rr)
 	side.add_child(_icon(rr.id, 72))
 	side.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 23, PALE))
 	side.add_child(_label("You have %d" % w.stock_count(rr.id), 15, DIM))
@@ -2039,6 +2049,9 @@ func _draw_craft() -> void:
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(fill)
+	if not w.trades.can_make(rr):
+		side.add_child(_wrap("Only a %s can make this. Ask a friend who keeps that trade." % w.trades.tname(rr.trade).to_lower(), 17, NO_C, 220))
+		return
 	if not chosen[1]:
 		side.add_child(_wrap("Made at a %s." % ("workbench" if rr.bench else "cooking station"), 17, NO_C, 220))
 		return
@@ -2093,9 +2106,11 @@ func _recipe_card(i: int, here: bool, ok: bool) -> PanelContainer:
 	hv.add_theme_constant_override("separation", 0)
 	hv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var n: int = int(r.n) + w.skills.make_bonus(r.id)
+	var n: int = int(r.n) + w.skills.make_bonus(r.id) + w.trades.bonus(r)
 	hv.add_child(_label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 17, PALE if here else DIM))
 	var where := "Workbench" if r.bench else ("Cooking station" if r.get("fire", false) else "By hand")
+	if r.has("trade"):
+		where = "%s's work · %s" % [w.trades.tname(r.trade), where]
 	hv.add_child(_label(where, 13, Color(DIM, 0.85) if here else NO_C))
 	head.add_child(hv)
 	v.add_child(head)
@@ -2225,6 +2240,8 @@ func _secondary(t: String, cb: Callable, enabled := true, size := 16) -> Button:
 
 
 func _make(r: Dictionary, times := 1) -> void:
+	if not w.trades.can_make(r):
+		return
 	var made := 0
 	for t in times:
 		if not w.stock_pay(w.skills.cost(r.cost)):
@@ -2234,7 +2251,7 @@ func _make(r: Dictionary, times := 1) -> void:
 		w.sfx("deny", -8)
 		return
 	w.sfx("carve", -6)
-	w.give([[r.id, (int(r.n) + w.skills.make_bonus(r.id)) * made]])
+	w.give([[r.id, (int(r.n) + w.skills.make_bonus(r.id) + w.trades.bonus(r)) * made]])
 	for t in made:
 		w.award("make")
 	_redraw()
@@ -2950,6 +2967,42 @@ func _update_fog() -> void:
 
 # ------------------------------------------------------------------ the beacon road, and rest
 
+# ------------------------------------------------------------------ trades
+
+func open_trade() -> void:
+	_open("trade")
+
+
+func _draw_trade() -> void:
+	_clear()
+	var tr: WTrades = w.trades
+	var top := HBoxContainer.new()
+	top.add_child(_title("Your Trade"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	var lead := "Each pilgrim keeps one trade. Each makes something no other can, so friends lean on one another."
+	if tr.trade != "":
+		lead += " To change it, go to a town and pay %d coin." % WTrades.CHANGE_COST
+	_body.add_child(_wrap(lead, 18, DIM, 900))
+	for k in WTrades.TRADES:
+		var t: Dictionary = WTrades.TRADES[k]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 14)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_child(_label(t.name + ("   (yours)" if tr.is_(k) else ""), 21, GOLD if tr.is_(k) else PALE))
+		col.add_child(_wrap(t.text, 16, DIM, 680))
+		row.add_child(col)
+		if not tr.is_(k):
+			var id: String = k
+			var b := _action("Take up" if tr.trade == "" else "Change (%d coin)" % WTrades.CHANGE_COST, func(): tr.choose(id); _redraw())
+			b.disabled = tr.refusal(k) != ""
+			b.tooltip_text = tr.refusal(k)
+			row.add_child(b)
+		_body.add_child(row)
+	_body.add_child(_action("Done", close_all, "Esc", DIM))
+
+
 # ------------------------------------------------------------------ brewing by the fire
 
 var _brew_pick: Array = []
@@ -3387,8 +3440,8 @@ func _draw_cat() -> void:
 		if on:
 			row.add_child(_label("Worn", 16, GOLD))
 		else:
-			row.add_child(_secondary("Make and fit", func(): _arms_pay(cost, func(): c.barding = id; c._refresh()), w.stock_has_all(w.skills.cost(cost))))
-			row.add_child(_cost_line(w.skills.cost(cost)))
+			row.add_child(_secondary("Make and fit", func(): _arms_pay(cost, func(): c.barding = id; c._refresh()), w.stock_has_all(_acost(cost))))
+			row.add_child(_cost_line(_acost(cost)))
 		_body.add_child(row)
 
 

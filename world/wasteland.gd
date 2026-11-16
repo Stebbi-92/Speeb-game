@@ -35,6 +35,7 @@ var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
 var spirits: WSpirits    ## spirit-cat relics, and the one running with you
+var trades: WTrades      ## the pilgrim's trade: smith, cook, alchemist or tinker
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -126,6 +127,7 @@ func build() -> void:
 	settlers = WSettlers.new(self)
 	kraken = WKraken.new(self)
 	spirits = WSpirits.new(self)
+	trades = WTrades.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -1515,6 +1517,10 @@ func eat(id: String) -> bool:
 		return false
 	if inv.take(id, 1) < 1:
 		return false
+	if id == "elixir":
+		_burn = 0.0
+		_slow = 0.0
+		hud.notify("Warmth runs through you. The burning and the tar are gone.")
 	if as_meal:
 		_take_meal(id, meal)
 	elif not meal.is_empty():
@@ -4862,7 +4868,7 @@ func char_data() -> Dictionary:
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(),
+		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
 
 
@@ -4890,6 +4896,7 @@ func apply_char(d: Dictionary) -> void:
 	rested = float(d.get("rested", 0.0))
 	alchemy.from_data(d.get("brews", {}))
 	spirits.from_data(d.get("spirits", {}))
+	trades.from_data(d.get("trade", ""))
 	power = str(d.get("power", ""))
 	power_left = float(d.get("power_left", 0.0))
 	_meal_stats()
@@ -8730,6 +8737,51 @@ func debug_dread() -> void:
 
 
 ## Testing aid: a snug base with spare beds draws settlers, who bring goods and keep fires.
+## Testing aid: trades. Only a smith makes tempered steel; changing trade wants a town and coin;
+## the cook's extra, the tinker's ammunition, the alchemist's double draught and the smith's cheaper arms.
+func debug_trades() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for it in [["scrap", 40], ["red_iron", 6], ["coin", 40], ["salt", 30], ["herb", 4], ["heartwood", 4]]:
+		inv.add(it[0], it[1])
+	var rec := func(id: String) -> Dictionary:
+		for r in Items.RECIPES:
+			if r.id == id and r.has("trade"):
+				return r
+		return {}
+	var tm: Dictionary = rec.call("tempered")
+	var before := inv.count("tempered")
+	ui._make(tm)
+	var untrained := inv.count("tempered") - before
+	var first := trades.choose("smith")
+	ui._make(tm)
+	var smithed := inv.count("tempered") - before
+	var sword_full: int = int(WArms.MAKE.sword.scrap)
+	var sword_smith: int = int(ui._acost(WArms.MAKE.sword).scrap)
+	dev.go(dev.spot_in("ash"))
+	await get_tree().create_timer(0.5).timeout
+	var away := trades.refusal("tinker") != ""
+	var sk: String = WPlaces.SETTLEMENTS.keys()[0]
+	dev.go(Vector3(WPlaces.spos(sk).x, 0, WPlaces.spos(sk).y))
+	await get_tree().create_timer(0.5).timeout
+	var coin0 := inv.count("coin")
+	var changed := trades.choose("tinker")
+	var paid := coin0 - inv.count("coin")
+	var r0 := inv.count("rounds")
+	for r in Items.RECIPES:
+		if r.id == "rounds" and not r.bench:
+			ui._make(r)
+	var tink := inv.count("rounds") - r0
+	trades.trade = "alchemist"
+	var m0 := inv.count("brew_mend")
+	alchemy.brew("herb", "heartwood")
+	var two := inv.count("brew_mend") - m0
+	var kept = char_data().trade
+	trades.from_data(kept)
+	print("TRADES untrained=%d first=%s smithed=%d sword=%d/%d away_refused=%s changed=%s paid=%d tinker_rounds=%d alch_brews=%d kept=%s" % [untrained, first, smithed, sword_smith, sword_full, away, changed, paid, tink, two, trades.trade])
+	get_tree().quit()
+
+
 ## Testing aid: calling a spirit-cat, its bites, the relic going cold and kindling again.
 func debug_spirit() -> void:
 	while not ready_world:

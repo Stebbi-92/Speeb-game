@@ -96,7 +96,7 @@ func brew(a: String, b: String) -> String:
 	var e: String = sh[0]
 	_learn(a, e)
 	_learn(b, e)
-	w.inv.add("brew_" + e, 1)
+	w.inv.add("brew_" + e, 2 if w.trades.is_("alchemist") else 1)
 	w.hud.notify("A draught of %s." % EFFECTS[e].name)
 	w.sfx("drink", -8, null, 0.8)
 	return e
