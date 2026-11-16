@@ -571,14 +571,6 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 		"campfire":
 			_part(n, body, Vector3(1.2, 0.3, 1.2), Vector3(0, 0.15, 0), m.stone, is_ghost)
 			if not is_ghost:
-				var e := MeshInstance3D.new()
-				var sm := SphereMesh.new()
-				sm.radius = 0.35
-				sm.height = 0.5
-				e.mesh = sm
-				e.material_override = m.ember
-				e.position.y = 0.45
-				n.add_child(e)
 				var l := OmniLight3D.new()
 				l.light_color = Color(1.0, 0.6, 0.3)
 				l.light_energy = 2.2
@@ -586,6 +578,9 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				l.shadow_enabled = true
 				l.position.y = 1.3
 				n.add_child(l)
+				var e := WFire.make(1.1, true, true).with_light(l)
+				e.position.y = 0.25
+				n.add_child(e)
 				n.set_meta("fire", [e, l])
 		"cookpot":
 			_part(n, body, Vector3(1.4, 0.3, 1.4), Vector3(0, 0.15, 0), m.stone, is_ghost)
@@ -596,20 +591,15 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 			_part(n, null, Vector3(0.7, 0.5, 0.7), Vector3(0, 0.85, 0), m.iron, is_ghost)
 			_part(n, null, Vector3(0.75, 0.06, 0.75), Vector3(0, 1.12, 0), m.iron, is_ghost)
 			if not is_ghost:
-				var e := MeshInstance3D.new()
-				var sm := SphereMesh.new()
-				sm.radius = 0.3
-				sm.height = 0.3
-				e.mesh = sm
-				e.material_override = m.ember
-				e.position.y = 0.38
-				n.add_child(e)
 				var l := OmniLight3D.new()
 				l.light_color = Color(1.0, 0.6, 0.3)
 				l.light_energy = 1.6
 				l.omni_range = 9.0
 				l.position.y = 1.0
 				n.add_child(l)
+				var e := WFire.make(0.6, true, false).with_light(l)
+				e.position.y = 0.28
+				n.add_child(e)
 				n.set_meta("fire", [e, l])
 		"bedroll":
 			_part(n, body, Vector3(0.9, 0.18, 2.0), Vector3(0, 0.09, 0), m.cloth, is_ghost)
@@ -664,21 +654,15 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 			_part(n, body, Vector3(0.12, 1.7, 0.12), Vector3(0, 0.85, 0), m.darkwood, is_ghost)
 			_part(n, null, Vector3(0.2, 0.25, 0.2), Vector3(0, 1.75, 0), m.cloth, is_ghost)
 			if not is_ghost:
-				var e := MeshInstance3D.new()
-				var sm := SphereMesh.new()
-				sm.radius = 0.14
-				sm.height = 0.34
-				e.mesh = sm
-				e.material_override = m.ember
-				e.position.y = 1.98
-				n.add_child(e)
 				var l := OmniLight3D.new()
 				l.light_color = Color(1.0, 0.62, 0.32)
 				l.light_energy = 1.5
 				l.omni_range = 9.0
 				l.position.y = 2.1
 				n.add_child(l)
-				n.set_meta("flicker", l)
+				var e := WFire.make(0.55, true, false).with_light(l)
+				e.position.y = 1.82
+				n.add_child(e)
 				n.set_meta("fire", [e, l])
 		"planter":
 			_part(n, body, Vector3(2.0, 0.5, 1.2), Vector3(0, 0.25, 0), m.darkwood, is_ghost)
@@ -821,20 +805,15 @@ func _kit_home(n: Node3D, body: StaticBody3D, k: String, is_ghost: bool) -> void
 
 ## The glow of a stove: an ember and a light, lit while wood burns (see Wasteland.burning).
 func _fire(n: Node3D, at: Vector3, energy: float, reach: float) -> void:
-	var e := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.12
-	sm.height = 0.12
-	e.mesh = sm
-	e.material_override = w._m.ember
-	e.position = at
-	n.add_child(e)
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.6, 0.3)
 	l.light_energy = energy
 	l.omni_range = reach
 	l.position = at + Vector3(0, 0.3, 0)
 	n.add_child(l)
+	var e := WFire.make(0.3, false, false).with_light(l)
+	e.position = at - Vector3(0, 0.1, 0)
+	n.add_child(e)
 	n.set_meta("fire", [e, l])
 
 

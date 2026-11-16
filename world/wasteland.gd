@@ -21,6 +21,7 @@ var sea: WSea
 var boats := {}          ## boat id -> WBoat, on the Grey Sea
 var life: WIsleLife   ## landings, wrecks and what lives on the isles
 var weather: WWeather
+var air: WAir   ## each land's own haze, and what drifts in it
 var boat_next := 1
 var inv := Inventory.new()
 var cat: WCat = null      ## this survivor's own riding cat, once one is tamed
@@ -111,6 +112,8 @@ func build() -> void:
 	_materials()
 	weather = WWeather.new().setup(self)
 	add_child(weather)
+	air = WAir.new().setup(self)
+	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
 	add_child(builder)
@@ -127,7 +130,8 @@ func build() -> void:
 		var sd := int(_pending.get("seed", 0)) if not _pending.is_empty() else Game.new_world_seed
 		if sd == 0:
 			sd = randi_range(10000, 99999999)
-		_make_world(sd)
+		# Worlds made before 0.9 keep their land as it was; new ones begin on the Ash Plains
+		_make_world(sd, int(_pending.get("gen", 1)) if not _pending.is_empty() else GEN)
 	else:
 		spawn_pos = Vector3(0, 400, 0)
 	ambient("wind", -10)
@@ -138,14 +142,19 @@ func build() -> void:
 
 var world_seed := 0
 var _pending := {}
+const GEN := 2          ## how the land is raised: 2 keeps the Ash Plains about where the cast-out wake
+var world_gen := GEN
 
 
 ## Raises the whole waste from its seed: the land and its six biomes, then the places upon it.
-func _make_world(sd: int) -> void:
+func _make_world(sd: int, gen := GEN) -> void:
 	world_seed = sd
+	world_gen = gen
 	terrain = WTerrain.new()
 	terrain.setup(sd)
 	WPlaces.lay_out(sd, func(p: Vector2) -> Vector2: return Vector2(terrain.legacy_raw(p.x, p.y), terrain_probe(p)))
+	if gen >= 2:
+		terrain.home = WPlaces.start
 	WPlaces.lay_out_far(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
 	for k in WPlaces.SETTLEMENTS:
 		terrain.add_flat(WPlaces.spos(k), WPlaces.SETTLEMENTS[k].radius + 8.0)
@@ -550,8 +559,10 @@ func _build_settlement(k: String) -> void:
 		var lg := box(c + Vector3(0, 0.35, 0), Vector3(0.22, 0.22, 1.6), _m.darkwood, false)
 		lg.rotation.y = i * TAU / 5.0
 		lg.rotation.x = 0.3
-	var fire := sphere(c + Vector3(0, 0.7, 0), 0.55, _m.ember, false, 1.4)
 	var fl := omni(c + Vector3(0, 2.0, 0), Color(1.0, 0.6, 0.3), 2.6, 22.0, true)
+	var fire := WFire.make(1.9, true, false).with_light(fl)
+	fire.position = c + Vector3(0, 0.2, 0)
+	add_child(fire)
 	settle_nodes[k] = {"center": c, "fire": fire, "light": fl}
 	_smoke(c + Vector3(0, 1.0, 0))
 	var lbl := label3d(s.name, c + Vector3(0, 6.5, 0), 1.2, Color(0.95, 0.85, 0.65), 0.0, true)
@@ -1162,13 +1173,9 @@ func _build_beacon(i: int) -> void:
 	var coals := sphere(Vector3.ZERO, 1.2, _m.cold, false, 0.35)
 	coals.reparent(n, false)
 	coals.position = Vector3(0, 11.7, 0)
-	var flame := MeshInstance3D.new()
-	var fm := SphereMesh.new()
-	fm.radius = 1.3
-	fm.height = 4.2
-	flame.mesh = fm
-	flame.material_override = _m.flame
-	flame.position = Vector3(0, 13.4, 0)
+	# The beacon's fire burns white, as the old oil did
+	var flame := WFire.make(4.8, true, false, Color(1.0, 0.78, 0.42))
+	flame.position = Vector3(0, 11.4, 0)
 	flame.visible = false
 	n.add_child(flame)
 	var light := OmniLight3D.new()
@@ -3109,7 +3116,13 @@ const BIOME_FORMS := {
 
 
 ## What rises at a place: an isle's own foes, or its land's.
+## Near where the cast-out wake only the weakest come, wherever the land would send worse.
+const GENTLE_FORMS := ["rusher", "rusher", "spitter", "swarm", "spider", "howler"]
+
+
 func forms_at(p: Vector3) -> Array:
+	if gentle_at(p):
+		return GENTLE_FORMS
 	var il := terrain.isle_at(p.x, p.z, 1.3)
 	if not il.is_empty():
 		return WIsles.THEMES[il.key].forms
@@ -3729,6 +3742,8 @@ func _apply_time(force: bool) -> void:
 	env.fog_light_color = Color(0.62, 0.55, 0.46).lerp(Color(0.025, 0.03, 0.04), night_k)
 	env.fog_density = lerpf(0.0035, 0.011, night_k)
 	env.ambient_light_energy = lerpf(0.7, 0.07, night_k)
+	if air:
+		air.apply_env(env, day_k)
 	weather.apply_env(env, night_k)
 	if _stars:
 		_stars.material_override.albedo_color.a = clampf(night_k * 1.5 - 0.3, 0.0, 1.0)
@@ -4660,7 +4675,7 @@ func _rq_hello(by: int) -> void:
 
 func _w_snapshot(d: Dictionary) -> void:
 	if terrain == null:
-		_make_world(int(d.get("seed", 1771)))
+		_make_world(int(d.get("seed", 1771)), int(d.get("gen", 1)))
 		player.place(spawn_pos, spawn_yaw)
 	apply_world(d)
 	ready_world = true
@@ -4698,7 +4713,7 @@ func world_data() -> Dictionary:
 	for sid in satchels:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave]
 	return {
-		"v": 2, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
+		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days,
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
@@ -7410,6 +7425,28 @@ func debug_screen() -> void:
 		rearm()
 		ui._acat = "guns"
 		ui._asel = g
+	if which == "fires":
+		# A camp at dusk: campfire, cooking station and torches, and the hearth of the start town beyond
+		var f := -player.global_transform.basis.z
+		f.y = 0.0
+		f = f.normalized()
+		var r := f.cross(Vector3.UP)
+		var base := player.global_position + f * 30.0
+		for it in [["campfire", Vector3.ZERO], ["cookpot", r * 3.5], ["torch", -r * 3.0 + f * 1.5], ["torch", r * 2.0 + f * 3.0]]:
+			var p: Vector3 = base + it[1]
+			p.y = terrain.height_at(p.x, p.z)
+			builder._rq_build(1, it[0], p, 0.0)
+		var eye: Vector3 = base - f * 6.0 + r * 1.0
+		eye.y = terrain.height_at(eye.x, eye.z) + 1.7
+		player.place(eye, 0.0)
+		var to: Vector3 = base + Vector3(0, terrain.height_at(base.x, base.z) - base.y + 0.6, 0) - eye
+		player.yaw = atan2(-to.x, -to.z)
+		player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+		player.rotation.y = player.yaw
+		player.head.rotation.x = player.pitch
+		player.set_physics_process(false)
+		clock = 19.6
+		hud.visible = false
 	if which == "vault":
 		# The first room of a deep vault, looking on toward its gate
 		var b8: Vector2 = WPlaces.bpos(8)
@@ -8352,6 +8389,38 @@ func debug_vault() -> void:
 	await get_tree().create_timer(0.5).timeout
 	var sleeps := not hall.inside(player.global_position)
 	print("VAULT count=%d down=%s rooms=%d gates=%d cleared=%s share=%s up=%s sleeps=%s" % [count, down, rooms, gates, cleared, share, up, sleeps])
+	get_tree().quit()
+
+
+## Testing aid: where the cast-out wake is always the Ash Plains and the gentlest, and it grows harder going out.
+func debug_home() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var st: Vector2 = WPlaces.start
+	var ash := 0
+	var n := 0
+	for k in 64:
+		var a := k * TAU / 64.0
+		for rd in [0.0, 120.0, 250.0, 330.0]:
+			var q: Vector2 = st + Vector2(cos(a), sin(a)) * rd
+			n += 1
+			if terrain.biome_name(q.x, q.y) == "ash":
+				ash += 1
+	var forms_ok := true
+	for k in 20:
+		var q := st + Vector2(randf_range(-300, 300), randf_range(-300, 300))
+		for f in forms_at(Vector3(q.x, 0, q.y)):
+			if not f in GENTLE_FORMS:
+				forms_ok = false
+	var tiers := []
+	for rd in [100.0, 700.0, 1300.0, 1900.0]:
+		var q: Vector2 = st + (Vector2.ZERO - st).normalized() * rd if st.length() > 1.0 else Vector2(rd, 0)
+		tiers.append(tier_at(Vector3(q.x, 0, q.y)))
+	var kinds := {}
+	for k in 400:
+		var q := Vector2(randf_range(-1700, 1700), randf_range(-1700, 1700))
+		kinds[terrain.biome_name(q.x, q.y)] = true
+	print("HOME gen=%d ash=%d/%d gentle_forms=%s tiers=%s lands=%d" % [world_gen, ash, n, forms_ok, tiers, kinds.size()])
 	get_tree().quit()
 
 

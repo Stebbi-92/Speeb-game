@@ -27,6 +27,10 @@ var _d := FastNoiseLite.new()
 var _t := FastNoiseLite.new()
 var _m := FastNoiseLite.new()
 var _centres: Array = []
+## Where the cast-out wake: around it the land is always the Ash Plains, the gentlest, fading into
+## whatever the seed made further out (worlds made before 0.9 keep their old land: home is INF)
+var home := Vector2.INF
+const HOME_R := 640.0
 var _coast_turn := 0.0
 ## The isles out in the Grey Sea: {key, name, base, c, r, o (grid corner), n (grid points a side), h (heights)}
 var isles: Array = []
@@ -79,6 +83,11 @@ func weights(x: float, z: float) -> PackedFloat32Array:
 		total += k
 	for i in 6:
 		w[i] /= maxf(total, 0.000001)
+	if home != Vector2.INF:
+		var k := smoothstep(HOME_R, HOME_R * 0.55, Vector2(x, z).distance_to(home))
+		if k > 0.0:
+			for i in 6:
+				w[i] = lerpf(w[i], 1.0 if i == 0 else 0.0, k)
 	return w
 
 

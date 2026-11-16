@@ -8,7 +8,14 @@ const NEAR := 220.0   ## small things are not drawn past this
 
 
 static func kp(parent: Node3D, kit: String, model: String, local: Vector3, yaw := 0.0, s := 1.0, solid := false, tilt := Vector3.ZERO, far := NEAR) -> Node3D:
-	return WIsleLife.put(parent, kit, model, local, yaw, s, solid, tilt, null, far)
+	var n := WIsleLife.put(parent, kit, model, local, yaw, s, solid, tilt, null, far)
+	if model == "fire-basket" and tilt == Vector3.ZERO:
+		# A basket of coals still burning, as if someone left a moment ago
+		var bb := WIsleLife.bounds(kit + "/" + model, n)
+		var f := WFire.make(0.35, true, false)
+		f.position = Vector3(bb.get_center().x, bb.end.y * 0.85, bb.get_center().z)
+		n.add_child(f)
+	return n
 
 
 ## A local spot under n, set down on the ground (n turns only about its upright).

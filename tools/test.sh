@@ -43,6 +43,7 @@ check questmarks debug_questmarks "QUESTMARKS shown=true kept=true gone=true rel
 check ending    debug_ending   "ENDING sealed=[1-9][0-9]* offered=true barred=true stair=true down=true crossed=true dark=true held=true killed=1[2-9] leaf7=true nowriter=true ending=keeper done=true"
 check deep      debug_deep     "DEEP dark_safe=true rose=true sailed=true crate=true aboard=true crew=[3-9] stood=true gone=true eater_gone=true"
 check vault     debug_vault    "VAULT count=[1-9][0-9]* down=true rooms=[4-5] gates=[2-4] cleared=true share=true up=true sleeps=true"
+check home      debug_home     "HOME gen=2 ash=25[0-9]/256 gentle_forms=true tiers=\[1, [2-4], [3-4], [3-4]\] lands=6"
 check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
 check packfit   debug_packfit  "PACKFIT fits=true"
 check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"
