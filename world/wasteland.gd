@@ -10583,6 +10583,29 @@ func debug_events() -> void:
 	get_tree().quit()
 
 
+## Testing aid: trees and rocks of the cover are solid now; fallen branches are not.
+func debug_treebody() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var bodies := 0
+	var shapes := 0
+	var probe := Vector3.INF
+	for c in get_children():
+		if c is StaticBody3D and c.get_child_count() > 0 and c.get_child(0) is CollisionShape3D and (c.get_child(0) as CollisionShape3D).shape is CylinderShape3D:
+			bodies += 1
+			shapes += c.get_child_count()
+			if probe == Vector3.INF:
+				probe = (c.get_child(0) as CollisionShape3D).global_position
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var q := PhysicsPointQueryParameters3D.new()
+	q.position = probe
+	q.collision_mask = 1
+	var hit: bool = probe != Vector3.INF and not get_world_3d().direct_space_state.intersect_point(q, 1).is_empty()
+	print("TREEBODY bodies=%d shapes=%d solid=%s" % [bodies, shapes, hit])
+	get_tree().quit()
+
+
 ## Testing aid: Escape closes the topmost layer only: a dialog over the menu, then the menu.
 func debug_escape() -> void:
 	while not ready_world:

@@ -131,6 +131,39 @@ static func cover(w) -> void:
 				mmi.visibility_range_end_margin = 30.0
 				mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 				w.add_child(mmi)
+				if not spec[1] in SOFT_COVER:
+					_cover_body(w, mid, ts, (mt[0] as Mesh).get_aabb(), spec[1])
+
+
+## Cover you walk around, not through: fallen branches and sand patches are soft.
+const SOFT_COVER := ["dead_quiver_branch_01", "patch-sand"]
+
+## One still body per tile, with an upright cylinder for each trunk or rock: its foot, its girth.
+static func _cover_body(w, mid: Vector3, ts: Array, bb: AABB, model: String) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = mid
+	var trunk := "trunk" in model or "pine" in model
+	for t in ts:
+		var tr: Transform3D = t
+		var sx := tr.basis.get_scale()
+		var r := minf(bb.size.x * sx.x, bb.size.z * sx.z) * (0.18 if trunk else 0.36)
+		var h := bb.size.y * sx.y * (1.0 if trunk else 0.85)
+		if r < 0.08 or h < 0.3:
+			continue
+		var cs := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = r
+		cyl.height = h
+		cs.shape = cyl
+		var foot: Vector3 = tr * Vector3(bb.get_center().x, bb.position.y, bb.get_center().z)
+		cs.position = foot - mid + Vector3(0, h * 0.5, 0)
+		body.add_child(cs)
+	if body.get_child_count() > 0:
+		w.add_child(body)
+	else:
+		body.free()
 
 
 # ------------------------------------------------------------------ ruins
