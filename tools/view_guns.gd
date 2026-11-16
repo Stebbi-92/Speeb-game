@@ -15,7 +15,7 @@ func _ready() -> void:
 	add_child(sun)
 	var a := Arms.new()
 	var i := 0
-	for g in ["revolver", "pistol", "machine_gun", "shotgun"]:
+	for g in ["revolver", "pistol", "machine_gun", "lmg", "shotgun"]:
 		for gild in [true, false]:
 			Game.gilded = gild
 			var n: Node3D = a._build(g, ["scope"] if g == "sniper" else [])
@@ -36,9 +36,9 @@ func _ready() -> void:
 	Game.gilded = false
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = 3.4
+	cam.size = 4.4
 	cam.rotation_degrees = Vector3(0, 90, 0)
-	cam.position = Vector3(3, 0.15, -2.8)
+	cam.position = Vector3(3, 0.15, -3.6)
 	add_child(cam)
 	cam.current = true
 	for f in 12:

@@ -34,7 +34,7 @@ const DB := {
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
 	"shells": {"name": "Shotgun Shells", "kind": "ammo", "stack": 120, "value": 1, "color": Color(0.75, 0.2, 0.12), "text": "Paper and brass, packed with shot. For the pump shotgun."},
 	"rounds": {"name": "Pistol Rounds", "kind": "ammo", "stack": 150, "value": 1, "color": Color(0.8, 0.65, 0.3), "text": "Short brass rounds. For the pistol and the revolver."},
-	"rifle": {"name": "Rifle Rounds", "kind": "ammo", "stack": 300, "value": 1, "color": Color(0.6, 0.55, 0.35), "text": "For the machine gun, sniper rifle and minigun."},
+	"rifle": {"name": "Rifle Rounds", "kind": "ammo", "stack": 300, "value": 1, "color": Color(0.6, 0.55, 0.35), "text": "For the machine gun, belt gun, sniper rifle and minigun."},
 	"fuel": {"name": "Lamp Fuel", "kind": "ammo", "stack": 400, "value": 1, "color": Color(0.55, 0.4, 0.15), "text": "Thinned oil and tar. For the flamethrower."},
 	"tempered": {"name": "Tempered Steel", "kind": "material", "stack": 30, "value": 12, "color": Color(0.62, 0.66, 0.72), "text": "Only a smith can make it. The best blades and plate need it."},
 	"clockwork": {"name": "Clockwork", "kind": "material", "stack": 30, "value": 12, "color": Color(0.8, 0.65, 0.3), "text": "Only a tinker can make it. The great guns and the finer fittings need it."},
@@ -251,7 +251,7 @@ const STOCK := {
 
 
 ## Which ammunition each gun takes.
-const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "machine_gun": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel"}
+const AMMO := {"shotgun": "shells", "pistol": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel"}
 
 
 static func info(id: String) -> Dictionary:

@@ -235,7 +235,7 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_ln([0.38 + cos(ang) * 0.18, 0.42 + sin(ang) * 0.18], [0.38 + cos(ang) * 0.27, 0.42 + sin(ang) * 0.27], c, 0.08)
 			_ln([0.55, 0.78], [0.85, 0.48], steel, 0.06)
 			_ln([0.6, 0.85], [0.88, 0.62], steel, 0.04)
-		"shotgun", "machine_gun", "sniper", "pistol", "revolver", "rocket", "minigun", "flamer":
+		"shotgun", "machine_gun", "lmg", "sniper", "pistol", "revolver", "rocket", "minigun", "flamer":
 			_gun(item)
 		"knife":
 			_ln([0.3, 0.82], [0.44, 0.66], wood, 0.1)
@@ -409,7 +409,7 @@ func _gun(g: String) -> void:
 			_poly([[0.05, 0.42], [0.62, 0.42], [0.62, 0.5], [0.05, 0.5]], steel)
 			_box(0.24, 0.5, 0.2, 0.07, wood)
 			_poly([[0.6, 0.4], [0.72, 0.4], [0.95, 0.5], [0.92, 0.68], [0.72, 0.56], [0.6, 0.56]], wood)
-		"machine_gun":
+		"machine_gun", "lmg":
 			_box(0.05, 0.4, 0.55, 0.08, dark)
 			_box(0.25, 0.48, 0.12, 0.22, dark)
 			_box(0.55, 0.36, 0.2, 0.16, olive)

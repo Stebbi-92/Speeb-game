@@ -64,7 +64,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 |---|---|---|---|
 | **Shotgun Shells** | 120 | 1 | Paper and brass, packed with shot. For the pump shotgun. |
 | **Pistol Rounds** | 150 | 1 | Short brass rounds. For the pistol and the revolver. |
-| **Rifle Rounds** | 300 | 1 | For the machine gun, sniper rifle and minigun. |
+| **Rifle Rounds** | 300 | 1 | For the machine gun, belt gun, sniper rifle and minigun. |
 | **Rocket** | 10 | 12 | A finned warhead. For the rocket launcher. |
 
 ## Tools

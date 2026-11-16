@@ -485,7 +485,9 @@ func _process(delta: float) -> void:
 		_blade_tick(delta, holding)
 		_trickle_back(delta)
 		return
-	if s.mode == "spin":
+	if s.has("slow") and s.mode != "spin":
+		player.carry_slow = float(s.slow)
+	elif s.mode == "spin":
 		_spin = move_toward(_spin, 1.0 if holding and shells > 0 and not _reloading else 0.0, delta / float(s.spin))
 		if _pump:
 			_pump.rotation.z += delta * 40.0 * _spin
@@ -952,7 +954,7 @@ static var _told_deflect := -100000
 const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
-const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "revolver": 320.0, "machine_gun": 380.0, "minigun": 360.0, "sniper": 520.0}
+const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 
 
 ## Whether a ray passes within r of a point (the head's middle).
@@ -1361,7 +1363,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			rear_z = 0.1
 			front = Vector3(0, 0.0345, -0.7)
 			fore = Vector3(0, -0.04, -0.3)
-		"machine_gun":
+		"machine_gun", "lmg":
 			_box(Vector3(0.048, 0.06, 0.36), Vector3(0, 0.012, 0.0), metal, n)
 			_box(Vector3(0.044, 0.04, 0.2), Vector3(0, -0.036, 0.04), dark, n)
 			_box(Vector3(0.02, 0.008, 0.34), Vector3(0, 0.046, -0.01), dark, n)
@@ -1390,6 +1392,10 @@ func _build(g: String, mnts = null) -> Node3D:
 			rear_z = 0.12
 			front = Vector3(0, 0.042, -0.5)
 			fore = Vector3(0, -0.022, -0.3)
+			if g == "lmg":   # longer, with a heavy barrel
+				tip = Vector3(0, 0.012, -0.82)
+				front = Vector3(0, 0.042, -0.62)
+				fore = Vector3(0, -0.03, -0.36)
 		"sniper":
 			_box(Vector3(0.044, 0.056, 0.3), Vector3(0, 0.006, 0.02), metal, n)
 			_tube(0.0135, 0.8, Vector3(0, 0.014, -0.53), dark, n, 0.0095)
@@ -1592,6 +1598,10 @@ const SCANNED_GUNS := {
 		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
 		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
 	"machine_gun": ["hk416", Vector3(0, 90, 0), -0.695, 0.432, -0.05, {}],
+	"lmg": ["m60", Vector3(0, 90, 0), -0.82, 0.45, -0.03, {
+		"Object_4": "off", "Object_5": "off", "Object_7": "off", "Object_9": "off", "Object_11": "off", "Object_12": "off",
+		"Object_13": "off", "Object_15": "off", "Object_16": "off", "Object_17": "off", "Object_18": "off",
+		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump"}],
 	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
 	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
 }
@@ -1681,8 +1691,8 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
-const BUTT := {"shotgun": Vector3(0, -0.07, 0.5), "machine_gun": Vector3(0, -0.014, 0.432), "sniper": Vector3(0, -0.068, 0.495)}
-const SIDE := {"shotgun": Vector3(0.027, 0.0, 0.03), "machine_gun": Vector3(0.026, 0.012, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
+const BUTT := {"shotgun": Vector3(0, -0.07, 0.5), "machine_gun": Vector3(0, -0.014, 0.432), "lmg": Vector3(0, -0.014, 0.45), "sniper": Vector3(0, -0.068, 0.495)}
+const SIDE := {"shotgun": Vector3(0.027, 0.0, 0.03), "machine_gun": Vector3(0.026, 0.012, 0.0), "lmg": Vector3(0.03, 0.012, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
 	"rocket": Vector3(0.06, -0.06, 0.2), "minigun": Vector3(0.066, -0.02, 0.12), "pistol": Vector3(0.016, -0.01, -0.0), "revolver": Vector3(0.016, 0.014, -0.01)}
 
 

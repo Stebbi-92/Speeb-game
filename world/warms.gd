@@ -109,6 +109,7 @@ static func mend_cost(a: Dictionary, slot: String) -> Dictionary:
 const MAKE := {
 	"revolver": {"scrap": 24, "wood": 6},
 	"machine_gun": {"scrap": 60, "wood": 10, "oil": 4, "red_iron": 4, "tempered": 1, "clockwork": 1},
+	"lmg": {"scrap": 75, "wood": 6, "oil": 8, "red_iron": 6, "tempered": 2, "clockwork": 2},
 	"sniper": {"scrap": 50, "wood": 16, "cloth": 6, "heartwood": 4, "clockwork": 2},
 	"rocket": {"scrap": 80, "oil": 10, "coin": 20, "salt_crystal": 6, "clockwork": 3},
 	"minigun": {"scrap": 90, "oil": 14, "coin": 30, "obsidian": 6, "tempered": 3, "clockwork": 3},
@@ -148,6 +149,7 @@ const PARTS := {
 const FRAME := {
 	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
 	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
+	"lmg": ["heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
 	"sniper": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds"],
 	"rocket": ["smooth_receiver"],
 	"minigun": ["heavy_barrel", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds"],
