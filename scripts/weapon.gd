@@ -743,7 +743,7 @@ func _set_aim(target: float, delta: float) -> void:
 		player.cam.fov = f
 	var scoped := enabled and _aim > 0.85 and zoom >= 2.4
 	scoped_now = scoped
-	_scope_drift(delta, scoped)
+	_scope_drift(delta, scoped, enabled and _aim > 0.85)
 	_holder.visible = not scoped and not blade_out
 
 
@@ -784,8 +784,10 @@ var _drift_t := 0.0
 var _drift := Vector2.ZERO
 
 
-## Behind a scope the aim drifts with the breath. Hold Hasten to stop breathing and steady it.
-func _scope_drift(delta: float, scoped: bool) -> void:
+## Down the sights the aim sways with the breath; more behind a scope, more with a heavy gun, more when
+## moving or winded, and less the more this survivor has used this gun. Behind a scope, hold Hasten to
+## stop breathing and steady it. The sway moves the view itself, so it really is where the shot goes.
+func _scope_drift(delta: float, scoped: bool, aiming := false) -> void:
 	var holding := scoped and Input.is_action_pressed("run") and _gasp <= 0.0 and _breath > 0.0
 	if holding:
 		_breath = maxf(0.0, _breath - delta / 4.0)
@@ -795,9 +797,8 @@ func _scope_drift(delta: float, scoped: bool) -> void:
 		_breath = minf(1.0, _breath + delta / 3.0)
 		_gasp = maxf(0.0, _gasp - delta)
 	var amp := 0.0
-	if scoped:
-		amp = 0.0 if holding else (0.0016 if _gasp <= 0.0 else 0.005)
-		amp *= 1.0 if player.velocity.length() < 1.0 else 2.2
+	if scoped or aiming:
+		amp = 0.0 if holding else sway_amp(scoped) * (1.0 if _gasp <= 0.0 else 3.0)
 	_drift_t += delta
 	var want := Vector2(sin(_drift_t * 1.1) * 1.0, sin(_drift_t * 2.2) * 0.6) * amp
 	var step := want - _drift
@@ -805,6 +806,28 @@ func _scope_drift(delta: float, scoped: bool) -> void:
 	player.yaw += step.x
 	player.pitch += step.y
 	Game.main.hud.set_scope(scoped, _breath)
+
+
+## How far the aim sways down the sights (radians): by the gun's weight, the glass, the legs and the lungs,
+## and the hand that has used this gun: each rank of practice takes some off, nine ranks near halve it.
+func sway_amp(scoped: bool) -> float:
+	var g := gun()
+	var s := spec()
+	var amp := 0.0016 if scoped else 0.0007
+	if g in ["minigun", "rocket"] or s.mode == "bolt":
+		amp *= 1.35
+	elif s.mode == "pistol" or g in ["pistol", "pistol9", "revolver"]:
+		amp *= 0.8
+	if fitted("foregrip"):
+		amp *= 0.85
+	if player.velocity.length() > 1.0:
+		amp *= 2.2
+	if player.get("stamina") != null and float(player.stamina) < float(player.stamina_max) * 0.25:
+		amp *= 1.6
+	var sk = _skills()
+	if sk:
+		amp *= 1.0 - 0.055 * sk.use_level(g)
+	return amp
 
 
 func sway(rel: Vector2) -> void:
@@ -1636,6 +1659,14 @@ func _build(g: String, mnts = null) -> Node3D:
 			sight = m
 	# The pack's own sight, on a rail, where it has one
 	var scan_eye := -1.0
+	if sight != "" and scan_top > -1.0:
+		# A scanned body's top is its tallest part (a hammer, a rear sight): the sight sits on the
+		# metal right under it instead, so it does not float above the gun
+		var sz := rear_z - (0.12 if sight in ["scope", "combat_scope"] else 0.08)
+		var low := _top_near(n, g, sz - 0.045, sz + 0.045)
+		if low > -1.0:
+			top = minf(top, low)
+			eye = top + 0.012
 	if sight != "" and not (sight == "scope" and built_glass(g, fit)):
 		scan_eye = _put_sight(n, g, sight, top, rear_z)
 	if scan_eye > -1.0:
@@ -1737,6 +1768,34 @@ func _geo_top(n: Node3D) -> float:
 			if c is MeshInstance3D and (c as MeshInstance3D).mesh != null:
 				best = maxf(best, (t * (c as MeshInstance3D).mesh.get_aabb()).end.y)
 			stack.append([c, t])
+	return best
+
+
+static var _tops := {}
+
+## The highest metal of a built gun along its middle between two depths (cached per gun); -1 if none.
+func _top_near(n: Node3D, g: String, z0: float, z1: float) -> float:
+	var key := "%s:%.3f:%s" % [g, z0, Game.gilded]
+	if _tops.has(key):
+		return _tops[key]
+	var best := -1.0
+	var stack: Array = [[n, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var it: Array = stack.pop_back()
+		for c in (it[0] as Node).get_children():
+			if not (c is Node3D) or not (c as Node3D).visible:
+				continue
+			var t: Transform3D = it[1] * (c as Node3D).transform
+			if c is MeshInstance3D and (c as MeshInstance3D).mesh is ArrayMesh:
+				var m: ArrayMesh = (c as MeshInstance3D).mesh
+				for si in m.get_surface_count():
+					var vs: PackedVector3Array = m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]
+					for v in vs:
+						var w := t * v
+						if w.z >= z0 and w.z <= z1 and absf(w.x) < 0.012 and w.y > best:
+							best = w.y
+			stack.append([c, t])
+	_tops[key] = best
 	return best
 
 

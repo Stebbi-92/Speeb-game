@@ -7129,6 +7129,28 @@ func debug_recoil() -> void:
 	get_tree().quit()
 
 
+## Testing aid: sway down the sights shrinks with practice, and moves the aim itself.
+func debug_sway() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn = player.weapon
+	var g: String = wpn.gun()
+	skills.use[g] = 0
+	var raw: float = wpn.sway_amp(false)
+	var sc: float = wpn.sway_amp(true)
+	skills.use[g] = skills.use_need(WSkills.USE_MAX)
+	var pro: float = wpn.sway_amp(false)
+	wpn.debug_aim = true
+	player.yaw = 0.0
+	var ys: Array = []
+	for i in 6:
+		await get_tree().create_timer(0.3).timeout
+		ys.append(player.yaw)
+	var moved: bool = float(ys.max()) - float(ys.min()) > 0.00005
+	print("SWAY gun=%s raw=%.5f pro=%.5f scoped=%.5f less=%s moved=%s" % [g, raw, pro, sc, pro < raw * 0.6, moved])
+	get_tree().quit()
+
+
 ## Testing aid: the blade in hand, heavy blows, the guard and stamina.
 func debug_blade() -> void:
 	while not ready_world:
