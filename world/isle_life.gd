@@ -8,8 +8,8 @@ const KITS := "res://assets/models/isles/"
 const FAR := 650.0        ## past this the pieces are not drawn
 
 var w   ## the wasteland
-var _scenes := {}
-var _boxes := {}
+static var _scenes := {}
+static var _boxes := {}
 var gulls: Array = []     ## [node, centre, radius, height, speed, phase]
 var wisps: Array = []     ## [node, home, phase]
 var spinners: Array = []  ## [node, axis, speed]
@@ -63,20 +63,24 @@ func build() -> void:
 
 ## A kit model, set on the ground at p: scaled, turned, and solid if asked (a box about its bounds).
 func piece(kit: String, model: String, p: Vector3, yaw := 0.0, s := 1.0, solid := false, tilt := Vector3.ZERO, mat: Material = null) -> Node3D:
-	var key := kit + "/" + model
-	if not _scenes.has(key):
-		_scenes[key] = load(KITS + key + ".glb")
-	var n: Node3D = (_scenes[key] as PackedScene).instantiate()
-	add_child(n)
+	var n := put(self, kit, model, Vector3.ZERO, yaw, s, solid, tilt, mat)
 	n.global_position = p
+	return n
+
+
+## A kit model under parent at a local spot. Anything in the world may use this (ruins, camps, crates).
+static func put(parent: Node3D, kit: String, model: String, local: Vector3, yaw := 0.0, s := 1.0, solid := false, tilt := Vector3.ZERO, mat: Material = null, far := FAR) -> Node3D:
+	var n := make(kit, model)
+	parent.add_child(n)
+	n.position = local
 	n.rotation = Vector3(tilt.x, yaw, tilt.z)
 	n.scale = Vector3.ONE * s
-	for mi in n.find_children("*", "MeshInstance3D", true, false):
-		(mi as GeometryInstance3D).visibility_range_end = FAR
+	for mi in n.find_children("*", "MeshInstance3D", true, false) + ([n] if n is MeshInstance3D else []):
+		(mi as GeometryInstance3D).visibility_range_end = far
 		if mat:
 			(mi as GeometryInstance3D).material_override = mat
 	if solid:
-		var bb := _bounds(key, n)
+		var bb := bounds(kit + "/" + model, n)
 		var body := StaticBody3D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
@@ -90,15 +94,31 @@ func piece(kit: String, model: String, p: Vector3, yaw := 0.0, s := 1.0, solid :
 	return n
 
 
-func _bounds(key: String, n: Node3D) -> AABB:
+## A fresh copy of a kit model (a .glb scene, or an .obj mesh).
+static func make(kit: String, model: String) -> Node3D:
+	var key := kit + "/" + model
+	if not _scenes.has(key):
+		var path := KITS + key + ".glb"
+		if not ResourceLoader.exists(path):
+			path = KITS + key + ".obj"
+		_scenes[key] = load(path)
+	var res = _scenes[key]
+	if res is PackedScene:
+		return (res as PackedScene).instantiate()
+	var mi := MeshInstance3D.new()
+	mi.mesh = res
+	return mi
+
+
+static func bounds(key: String, n: Node3D) -> AABB:
 	if _boxes.has(key):
 		return _boxes[key]
 	var bb := AABB()
 	var first := true
-	for mi in n.find_children("*", "MeshInstance3D", true, false):
+	for mi in n.find_children("*", "MeshInstance3D", true, false) + ([n] if n is MeshInstance3D else []):
 		var a: AABB = (mi as MeshInstance3D).get_aabb()
-		var tr: Transform3D = (mi as Node3D).transform
-		var p: Node = mi.get_parent()
+		var tr: Transform3D = Transform3D.IDENTITY if mi == n else (mi as Node3D).transform
+		var p: Node = mi.get_parent() if mi != n else null
 		while p and p != n:
 			tr = (p as Node3D).transform * tr
 			p = p.get_parent()

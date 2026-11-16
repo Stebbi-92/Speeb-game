@@ -196,6 +196,7 @@ func _make_world(sd: int) -> void:
 		_fade_far(nd.node, 420.0)
 	_build_signposts()
 	_scatter_decor()
+	WDress.cover(self)
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
@@ -527,6 +528,11 @@ func _build_settlement(k: String) -> void:
 	# Houses you can walk into about the edge, an inn, and a fire at the heart
 	for b in _town_plan(k):
 		_town_house(k, c, b)
+	var folk: Array = []
+	for pid in WPlaces.PEOPLE:
+		if WPlaces.PEOPLE[pid].at == k:
+			folk.append(WPlaces.PEOPLE[pid].off)
+	WDress.town(self, k, c, r, _town_plan(k), folk)
 	cyl(c + Vector3(0, 0.15, 0), 1.3, 0.3, _m.stone, true, -1.0, 10)
 	for i in 5:
 		var lg := box(c + Vector3(0, 0.35, 0), Vector3(0.22, 0.22, 1.6), _m.darkwood, false)
@@ -822,19 +828,7 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		at2.x = clampf(at2.x, -W * 0.5 - 0.9, W * 0.5 + 0.9)
 		if absf(at2.x) < W * 0.5 + 0.4:
 			at2.x = signf(at2.x if at2.x != 0.0 else 1.0) * (W * 0.5 + 0.7)
-		if rr.randf() < 0.5:
-			var bar := MeshInstance3D.new()
-			var cm := CylinderMesh.new()
-			cm.top_radius = 0.32
-			cm.bottom_radius = 0.3
-			cm.height = 0.85
-			bar.mesh = cm
-			bar.material_override = _m.wood if rr.randf() < 0.5 else _m.rust
-			bar.position = at2 + Vector3(0, 0.42, 0)
-			n.add_child(bar)
-		else:
-			var cr := builder._part(n, fb, Vector3(0.7, 0.7, 0.7) * rr.randf_range(0.8, 1.2), at2 + Vector3(0, 0.35, 0), _m.wood, false)
-			cr.rotation.y = rr.randf() * 0.8
+		WDress.yard(n, k, at2, rr)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(1.0, 0.72, 0.42) if rr.randf() < 0.7 else Color(1.0, 0.82, 0.6)
 	lamp.light_energy = 1.4 if inn else 0.9
@@ -848,13 +842,16 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		var flip := -1.0 if rr.randf() < 0.5 else 1.0
 		_furnish(n, "bed", Vector3(flip * (W * 0.5 - 1.1), 0, -D * 0.5 + 1.3), 0.0)
 		_furnish(n, "table", Vector3(-flip * (W * 0.5 - 1.4), 0, -0.3), PI * 0.5)
+		WDress.table_top(n, Vector3(-flip * (W * 0.5 - 1.4), 0.76, -0.3), PI * 0.5, rr)
 		_furnish(n, "chair", Vector3(-flip * (W * 0.5 - 1.4), 0, 0.8), PI)
 		if rr.randf() < 0.7:
 			_furnish(n, "shelf", Vector3(-flip * (W * 0.5 - 0.6), 0, -D * 0.5 + 0.5), PI * 0.5 * flip)
 		if rr.randf() < 0.6:
 			_furnish(n, "rug", Vector3(0.3, 0.02, 0.6), rr.randf() * 0.3)
 		if rr.randf() < 0.4:
-			_furnish(n, "stove", Vector3(flip * (W * 0.5 - 0.6), 0, D * 0.5 - 1.6 if D > 6.5 else 0.6), -PI * 0.5 * flip)
+			var sv := Vector3(flip * (W * 0.5 - 0.6), 0, D * 0.5 - 1.6 if D > 6.5 else 0.6)
+			_furnish(n, "stove", sv, -PI * 0.5 * flip)
+			WDress.kp(n, "food", "pot-stew" if rr.randf() < 0.6 else "frying-pan", sv + Vector3(0, 0.99, 0), rr.randf() * TAU, 0.8, false, Vector3.ZERO, 60.0)
 		if rr.randf() < 0.35:
 			_furnish(n, "floorlamp", Vector3(flip * (W * 0.5 - 0.5), 0, -D * 0.5 + 2.6), 0.0)
 	_fade_far(n, 260.0)
@@ -923,6 +920,10 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			n.add_child(fl)
 			builder._part(n, fb, Vector3(0.35, 0.6, 0.35), Vector3(0.4, 0.3, 0.4), _m.darkwood, false)
 			builder._part(n, fb, Vector3(0.7, 0.22, 0.3), Vector3(0.4, 0.71, 0.4), _m.iron, false)
+			WDress.kp(n, "pirate", "barrel", Vector3(-1.7, 0, 1.2), rr.randf(), 0.6, true)
+			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0, 1.0), 0.2, 2.4)
+			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0.6, 1.0), -0.1, 2.4)
+			WDress.kp(n, "pirate", "cannon-ball", Vector3(-1.2, 0, -0.4), 0.0, 0.5)
 		"well":
 			var ring := MeshInstance3D.new()
 			var cm := CylinderMesh.new()
@@ -948,9 +949,8 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			var awn := builder._part(n, null, Vector3(3.0, 0.06, 2.1), Vector3(0, 2.35, 0), cm, false)
 			awn.rotation.x = -0.12
 			builder._part(n, fb, Vector3(2.6, 0.9, 0.9), Vector3(0, 0.45, 0.3), _m.wood, false)
-			for i in 3:
-				var g := builder._part(n, null, Vector3(0.35, 0.25, 0.35), Vector3(-0.8 + i * 0.8, 1.02, 0.3), [_m.salt, _m.herb, _m.bone, _m.rust][rr.randi() % 4], false)
-				g.rotation.y = rr.randf()
+			WDress.wares(n, k, Vector3(0, 0.9, 0.3), rr)
+			WDress.kp(n, "town", "stall-stool", Vector3(0.6, 0, -0.5), rr.randf(), 2.4)
 		"tower":
 			for p in [Vector2(-1.1, -1.1), Vector2(1.1, -1.1), Vector2(-1.1, 1.1), Vector2(1.1, 1.1)]:
 				builder._part(n, fb, Vector3(0.24, 6.4, 0.24), Vector3(p.x, 3.2, p.y), _m.darkwood, false)
@@ -965,6 +965,7 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			tr.material_override = _m.thatch
 			tr.position = Vector3(0, 7.0, 0)
 			n.add_child(tr)
+			WDress.kp(n, "castle", "flag-banner-long", Vector3(1.3, 6.1, 1.3), 0.8, 1.6, false, Vector3.ZERO, 400.0)
 			var lt := OmniLight3D.new()
 			lt.light_color = Color(1.0, 0.65, 0.35)
 			lt.light_energy = 1.0
@@ -997,14 +998,20 @@ func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
 	sign_l.position = Vector3(0, 3.9, D * 0.5 + 0.7)
 	sign_l.rotation = Vector3.ZERO
 	sign_l.visibility_range_end = 60.0
+	var ir := RandomNumberGenerator.new()
+	ir.seed = hash(k + "inn")
 	for x in [-2.3, 0.8]:
 		_furnish(n, "table", Vector3(x, 0, 0.9), 0.0)
+		WDress.table_top(n, Vector3(x, 0.76, 0.9), 0.0, ir)
 		_furnish(n, "chair", Vector3(x - 0.2, 0, 0.1), PI)
 		_furnish(n, "chair", Vector3(x + 0.6, 0, 1.8), 0.0)
 	_furnish(n, "stove", Vector3(W * 0.5 - 0.7, 0, 1.6), -PI * 0.5)
 	_furnish(n, "rug", Vector3(-0.8, 0.02, -0.6), 0.0)
 	# The counter: hot meals and the talk of the road
 	var counter := _furnish(n, "table", Vector3(W * 0.5 - 1.2, 0, -0.2), PI * 0.5)
+	WDress.table_top(n, Vector3(W * 0.5 - 1.2, 0.76, -0.2), PI * 0.5, ir, 1)
+	WDress.kp(n, "food", "barrel", Vector3(W * 0.5 - 0.45, 0, -1.6), 0.0, 1.2, true, Vector3.ZERO, 60.0)
+	WDress.kp(n, "food", "barrel", Vector3(W * 0.5 - 0.45, 0, -0.7), 0.4, 1.2, true, Vector3.ZERO, 60.0)
 	personal_interactable(counter, "Buy a hot meal (6 salt)", func(): inn_meal())
 	var talk := _furnish(n, "table", Vector3(-2.3, 0, 0.9), 0.0)
 	personal_interactable(talk, "Listen to the talk", func(): inn_talk(k))
@@ -1067,7 +1074,7 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 	for c in f.get_children():
 		if c is MeshInstance3D:
 			c.queue_free()
-	var dressed := Figure.new().setup(Figure.seeded(pid.hash()))
+	var dressed := Figure.new().setup(Figure.townsman(pid.hash(), str(pd.at)))
 	dressed.arms_forward = false
 	f.add_child(dressed)
 	var body: StaticBody3D = f.get_meta("body")
@@ -2395,61 +2402,14 @@ func _build_ruin(r: Dictionary) -> void:
 	n.position = c
 	n.rotation.y = rr.randf() * TAU
 	add_child(n)
-	match r.kind:
-		"wreck":
-			for k in 2:
-				var wg := Node3D.new()
-				wg.position = Vector3(k * 5.0 - 2.5, 0, rr.randf_range(-2, 2))
-				wg.rotation = Vector3(0, rr.randf() * TAU, rr.randf_range(-0.4, 0.4))
-				n.add_child(wg)
-				_add(wg, box(Vector3.ZERO, Vector3(2.2, 1.0, 4.2), _m.darkwood), Vector3(0, 0.8, 0))
-				for wx in [-1.2, 1.2]:
-					for wz in [-1.4, 1.4]:
-						var wh := cyl(Vector3.ZERO, 0.6, 0.15, _m.darkwood, false, -1.0, 10)
-						_add(wg, wh, Vector3(wx, 0.5, wz))
-						wh.rotation.z = PI * 0.5
-				if rr.randf() < 0.6:
-					_add(wg, box(Vector3.ZERO, Vector3(2.2, 0.08, 4.0), _m.cloth, false), Vector3(0, 2.2, 0))
-			_bones(n, Vector3(1, 0, 3), rr)
-		"shrine":
-			_add(n, box(Vector3.ZERO, Vector3(3, 1.0, 1.6), _m.stone), Vector3(0, 0.5, 0))
-			for k in 6:
-				var a := TAU * k / 6
-				var hgt := rr.randf_range(1.0, 4.5)
-				_add(n, cyl(Vector3.ZERO, 0.4, hgt, _m.stone, true, 0.35, 8), Vector3(cos(a) * 5, hgt * 0.5, sin(a) * 5))
-			_add(n, box(Vector3.ZERO, Vector3(0.9, 0.9, 0.1), _m.bone, false), Vector3(0, 1.45, 0))
-		"tower":
-			var hgt := rr.randf_range(8.0, 14.0)
-			_add(n, cyl(Vector3.ZERO, 3.2, hgt, _m.stone, true, 3.0, 12), Vector3(0, hgt * 0.5, 0))
-			for k in 8:
-				_add(n, box(Vector3.ZERO, Vector3(rr.randf_range(0.6, 1.4), 0.6, rr.randf_range(0.6, 1.4)), _m.stone, true, Vector3(rr.randf(), rr.randf(), rr.randf())), Vector3(rr.randf_range(-7, 7), 0.3, rr.randf_range(-7, 7)))
-			_add(n, box(Vector3.ZERO, Vector3(1.4, 2.4, 0.4), _m.darkwood, false), Vector3(0, 1.2, 3.2))
-		"camp":
-			for k in 3:
-				var a := TAU * k / 3 + 0.4
-				var tent := MeshInstance3D.new()
-				var pm := PrismMesh.new()
-				pm.size = Vector3(2.6, 1.8, 3.0)
-				tent.mesh = pm
-				tent.material_override = _m.cloth
-				_add(n, tent, Vector3(cos(a) * 4, 0.9, sin(a) * 4))
-				tent.rotation.y = -a
-			_add(n, cyl(Vector3.ZERO, 0.8, 0.2, _m.cold, false, -1.0, 10), Vector3(0, 0.1, 0))
-			_bones(n, Vector3(-2, 0, -1), rr)
-		"vault":
-			_add(n, box(Vector3.ZERO, Vector3(8, 5, 6), _m.darkstone), Vector3(0, 2.0, -2))
-			_add(n, box(Vector3.ZERO, Vector3(2.0, 3.0, 0.3), _m.iron, false), Vector3(0, 1.5, 1.05))
-			for side in [-1.0, 1.0]:
-				_add(n, cyl(Vector3.ZERO, 0.45, 5.0, _m.stone, true, -1.0, 8), Vector3(side * 2.0, 2.5, 1.2))
-		"stones":
-			for k in 9:
-				var a := TAU * k / 9
-				var hgt := rr.randf_range(2.5, 5.0)
-				_add(n, box(Vector3.ZERO, Vector3(1.1, hgt, 0.7), _m.darkstone, true, Vector3(rr.randf_range(-0.1, 0.1), -a, rr.randf_range(-0.1, 0.1))), Vector3(cos(a) * 7, hgt * 0.5 - 0.3, sin(a) * 7))
+	var rd := RandomNumberGenerator.new()
+	rd.seed = hash(r.id) + 5
+	WDress.ruin(self, r.kind, n, rd, land_at(c))
 	# What may be searched
 	var kind: Dictionary = WPlaces.RUIN_KINDS[r.kind]
 	for k in int(kind.crates):
-		var off := Vector3(rr.randf_range(-4, 4), 0, rr.randf_range(-4, 4))
+		var ca := rr.randf() * TAU
+		var off := Vector3(cos(ca), 0, sin(ca)) * rr.randf_range(4.2, 5.8)
 		if r.kind == "vault":
 			off = Vector3((k - 1) * 2.0, 0, 3.5)
 		var p := n.to_global(off)
@@ -2488,12 +2448,50 @@ func _crate(id: String, p: Vector3, table: String, yaw: float, sealed := false) 
 	cs.position.y = 0.4
 	body.add_child(cs)
 	n.add_child(body)
-	_add(n, box(Vector3.ZERO, Vector3(1.1, 0.7, 0.8), _m.iron if sealed else _m.wood, false), Vector3(0, 0.35, 0))
-	var lid := box(Vector3.ZERO, Vector3(1.15, 0.1, 0.85), _m.darkwood if not sealed else _m.rust, false)
-	_add(n, lid, Vector3(0, 0.75, 0))
+	WDress.crate(n, sealed)
+	var lid := box(Vector3.ZERO, Vector3(0.95, 0.06, 1.0) if not sealed else Vector3(0.7, 0.05, 0.7), _m.darkwood if not sealed else _m.rust, false)
+	_add(n, lid, Vector3(0, 0.63 if not sealed else 0.74, 0))
 	crates[id] = {"pos": p, "table": table, "lid": lid, "body": body, "sealed": sealed, "day": -99}
 	var prompt := "Force the iron chest (Pry Bar)" if sealed else "Search"
 	personal_interactable(body, prompt, func(): _search(id), 0.6)
+
+
+## What a quest seeks, set on its crate so it is seen from a way off: the thing's own model (or a
+## satchel), turning slowly in a pale light. Taken away when the quest moves on.
+func crate_mark(id: String, item: String) -> void:
+	if not crates.has(id) or crates[id].has("mark"):
+		return
+	var c: Dictionary = crates[id]
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.position = c.pos + Vector3(0, 1.05, 0)
+	var m: Array = Items.MODELS.get(item, ["food", "bag"])
+	var piece := WIsleLife.make(m[0], m[1])
+	holder.add_child(piece)
+	var bb := WIsleLife.bounds(m[0] + "/" + m[1], piece)
+	var s := 0.55 / maxf(0.05, maxf(bb.size.x, maxf(bb.size.y, bb.size.z)))
+	piece.scale = Vector3.ONE * s
+	piece.position = -bb.get_center() * s
+	if m.size() > 2 and m[2]:
+		var tint := StandardMaterial3D.new()
+		tint.albedo_color = Items.info(item).color
+		for mi in piece.find_children("*", "MeshInstance3D", true, false) + ([piece] if piece is MeshInstance3D else []):
+			(mi as GeometryInstance3D).material_override = tint
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.9, 0.65)
+	l.light_energy = 1.2
+	l.omni_range = 3.5
+	holder.add_child(l)
+	var tw := holder.create_tween().set_loops()
+	tw.tween_property(holder, "rotation:y", TAU, 6.0).from(0.0)
+	c["mark"] = holder
+
+
+func crate_unmark(id: String) -> void:
+	if crates.has(id) and crates[id].has("mark"):
+		if is_instance_valid(crates[id].mark):
+			crates[id].mark.queue_free()
+		crates[id].erase("mark")
 
 
 func _search(id: String) -> void:
@@ -2583,8 +2581,8 @@ func _w_book(id: String, by: int) -> void:
 func _w_crate_day(id: String, d: int) -> void:
 	if crates.has(id):
 		crates[id].day = d
-		crates[id].lid.rotation.x = -1.2
-		crates[id].lid.position = Vector3(0, 1.0, -0.35)
+		crates[id].lid.rotation = Vector3(0.0, 0.5, 1.3)
+		crates[id].lid.position = Vector3(0.75, 0.35, 0.0)
 
 
 func _w_cont(id: String, data: Array) -> void:
@@ -5032,6 +5030,9 @@ func make_nest(qid: String, p: Vector3) -> Node3D:
 	l.omni_range = 9.0
 	l.position.y = 2.0
 	n.add_child(l)
+	WDress.kp(n, "grave", "debris", Vector3(1.6, 0, 0.8), 0.3, 3.0)
+	WDress.kp(n, "grave", "character-skeleton", Vector3(-1.8, 0.05, 1.2), 2.0, 2.0)
+	WDress.kp(n, "grave", "debris-wood", Vector3(0.4, 0, -2.0), 1.1, 3.0)
 	add_child(n)
 	p.y = terrain.height_at(p.x, p.z)
 	n.global_position = p
@@ -5063,6 +5064,17 @@ func _w_nest_burst(qid: String) -> void:
 func make_lost(qid: String, p: Vector3, nm: String) -> Node3D:
 	p.y = terrain.height_at(p.x, p.z)
 	var f := figure(p, randf() * TAU, Color(0.4, 0.36, 0.32), true)
+	# A real person, dressed as the waste's people are, sitting on a crate where they hid
+	for ch in f.get_children():
+		if ch is MeshInstance3D:
+			ch.queue_free()
+	var dressed := Figure.new().setup(Figure.seeded(qid.hash()))
+	dressed.arms_forward = true
+	dressed.seated = true
+	dressed.position.y = -0.32
+	f.add_child(dressed)
+	WDress.kp(f, "pirate", "crate", Vector3(0, 0, -0.1), PI * 0.5, 0.75, false, Vector3.ZERO, 120.0)
+	WDress.kp(f, "food", "bag", Vector3(0.7, 0, 0.4), 0.4, 1.6, false, Vector3.ZERO, 120.0)
 	var body: StaticBody3D = f.get_meta("body")
 	body.collision_layer = 1 | 16
 	personal_interactable(body, "Speak with %s" % nm, func():
@@ -7204,6 +7216,39 @@ func debug_screen() -> void:
 		rearm()
 		ui._acat = "guns"
 		ui._asel = g
+	if which.begins_with("ruin_") or which.begins_with("square_") or which.begins_with("land_"):
+		# A close look at a ruin of a kind, a town's square, or a land's own ground cover
+		var eye := Vector3.ZERO
+		var look := Vector3.ZERO
+		if which.begins_with("ruin_"):
+			for r in ruins:
+				if r.kind == which.substr(5):
+					look = r.pos + Vector3(0, 2.0, 0)
+					eye = r.pos + Vector3(13, 0, 9)
+					break
+		elif which.begins_with("square_"):
+			var c := gpos(WPlaces.spos(which.substr(7)))
+			look = c + Vector3(0, 1.0, 0)
+			eye = c + Vector3(7, 0, 12)
+		else:
+			var rr := RandomNumberGenerator.new()
+			rr.seed = 5
+			for t in 4000:
+				var q := Vector2(rr.randf_range(-900, 900), rr.randf_range(-900, 900))
+				if terrain.biome_name(q.x, q.y) == which.substr(5) and terrain.weights(q.x, q.y)[WTerrain.BIOMES.find(which.substr(5))] > 0.9 and _clear_of_places(q, 80.0, 30.0):
+					eye = gpos(q)
+					look = gpos(q + Vector2(30, 20)) + Vector3(0, 1.0, 0)
+					break
+		eye.y = terrain.height_at(eye.x, eye.z) + (6.0 if which.begins_with("ruin_") else 3.0)
+		player.place(eye, 0.0)
+		var to := look - eye
+		player.yaw = atan2(-to.x, -to.z)
+		player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+		player.rotation.y = player.yaw
+		player.head.rotation.x = player.pitch
+		player.set_physics_process(false)
+		clock = 15.0
+		hud.visible = false
 	match which:
 		"pack", "craft", "arms", "build", "wear":
 			ui.open_inventory(which)

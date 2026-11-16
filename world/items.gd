@@ -160,6 +160,24 @@ const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]
 
+## The kit model that shows a thing: in the world (a quest's find, laid on its crate) and as its picture
+## in the pack (see tools/icons.gd). [kit, model, tint]: a tint paints it the item's own colour.
+const MODELS := {
+	"beacon_oil": ["food", "bottle-oil"], "oil": ["food", "bottle-oil"], "goods": ["food", "bag"],
+	"keepsake": ["grave", "urn-round"], "olive_cask": ["pirate", "barrel"], "tar": ["pirate", "barrel"],
+	"sea_iron": ["pirate", "cannon-ball"], "lamp_lens": ["grave", "lantern-glass"],
+	"ferry_log": ["furn", "books", true], "keep_roll": ["furn", "books", true], "ledger": ["furn", "books", true],
+	"book_engine": ["furn", "books", true], "book_furrier": ["furn", "books", true], "book_gunwright": ["furn", "books", true],
+	"book_herbal": ["furn", "books", true], "book_hymnal": ["furn", "books", true], "book_kanun": ["furn", "books", true],
+	"book_lamp": ["furn", "books", true], "book_rigging": ["furn", "books", true], "book_saga": ["furn", "books", true],
+	"book_salter": ["furn", "books", true], "book_ship": ["furn", "books", true],
+	"meat": ["food", "meat-ribs"], "raw_meat": ["food", "meat-raw"], "roast": ["food", "whole-ham"],
+	"broth": ["food", "bowl-broth"], "stew": ["food", "pot-stew"], "pie": ["food", "pie"], "tea": ["food", "cup-tea"],
+	"tuber": ["food", "beet"], "milk": ["food", "bowl"], "salt": ["food", "bag-flat"],
+	"wood": ["castle", "tree-log"], "stone": ["castle", "rocks-small"],
+}
+
+
 ## The great ones' powers, taken up at a Trophy Shrine (see the waste's take_power).
 const POWERS := {
 	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},

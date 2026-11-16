@@ -1,7 +1,7 @@
 class_name WGlyph
 extends Control
-## A small drawn picture of a thing, on a dark tile with a rim of its colour. Every item has its own
-## picture, drawn here from plain shapes, so the screens need no image files.
+## A small picture of a thing, on a dark tile with a rim of its colour. Things with a kit model show a
+## picture rendered from it (assets/icons); the rest are drawn here from plain shapes.
 
 var id := ""
 var tile := true        ## draw the tile behind the picture
@@ -72,7 +72,24 @@ func _draw() -> void:
 	_ink = base.lightened(0.25)
 	var a := 0.35 if dim else 1.0
 	modulate.a = a
+	var tex := icon(id)
+	if tex:
+		var k := 1.12 if tile else 1.0
+		var sz := Vector2(_s, _s) * k
+		draw_texture_rect(tex, Rect2(Vector2(side, side) * 0.5 - sz * 0.5, sz), false)
+		return
 	_picture(id, info, base)
+
+
+static var _icons := {}
+
+
+## A picture made from the thing's own 3D model (tools/icons.gd renders them), when there is one.
+static func icon(item: String) -> Texture2D:
+	if not _icons.has(item):
+		var path := "res://assets/icons/%s.png" % item
+		_icons[item] = load(path) if Items.MODELS.has(item) and ResourceLoader.exists(path) else null
+	return _icons[item]
 
 
 func _picture(item: String, info: Dictionary, c: Color) -> void:

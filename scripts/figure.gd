@@ -47,6 +47,30 @@ var _arms: Array = []
 const GEAR := {"eyes": 2, "mask": 2, "neck": 3, "cloak": 3, "hands": 2}
 
 
+## The townsfolk's own dress, over the same look: a second colour at the cuffs, belt and collar,
+## an apron or tabard for their work, and something of their trade in the hand (a kit model).
+const TRIMS := [Color(0.0, 0.0, 0.0, 0.0), Color(0.62, 0.48, 0.22), Color(0.5, 0.16, 0.12), Color(0.25, 0.36, 0.3),
+	Color(0.7, 0.66, 0.58), Color(0.3, 0.34, 0.45), Color(0.45, 0.3, 0.42), Color(0.75, 0.55, 0.3)]
+const APRONS := 4   ## none, leather apron, cloth apron, tabard
+const HELD := [[], ["grave", "lantern-candle", 1.3], ["food", "bag", 1.3], ["food", "mug", 0.9], ["food", "fish", 1.3],
+	["food", "loaf", 0.9], ["furn", "books", 0.25], ["food", "bottle-oil", 1.1], ["grave", "shovel-dirt", 1.4],
+	["food", "pot", 0.9], ["grave", "candle", 1.6], ["food", "bowl", 0.9], ["grave", "lantern-glass", 1.3], ["food", "frying-pan", 0.7]]
+const DRESS := {"trim": 8, "apron": 4, "held": 14}
+
+## What each town's people work with: [aprons], [held things], [dyes]; a town's people favour its own.
+const TOWN_DRESS := {
+	"cinderwick": [[0, 2], [2, 8, 3], [0, 3, 5]],
+	"lanternwell": [[0, 2], [1, 7, 12], [3, 5, 7]],
+	"hesk": [[0, 2, 2], [2, 5, 3, 4], [1, 3, 6]],
+	"kiln": [[1, 1, 0], [9, 11, 8], [5, 0, 7]],
+	"mourners": [[0, 3], [10, 1, 6], [7, 0, 4]],
+	"gallowmere": [[0, 2], [4, 1, 3], [4, 2, 0]],
+	"saltreach": [[0, 2], [2, 4, 3], [6, 4, 0]],
+	"emberhollow": [[1, 0], [8, 1, 9], [5, 7, 1]],
+	"lastlight": [[3, 0], [12, 6, 1], [4, 6, 2]],
+}
+
+
 static func clean(l) -> Dictionary:
 	var out := DEFAULT.duplicate()
 	if l is Dictionary:
@@ -56,7 +80,29 @@ static func clean(l) -> Dictionary:
 		for k in GEAR:
 			if l.has(k):
 				out[k] = clampi(int(l[k]), 0, int(GEAR[k]) - 1)
+		for k in DRESS:
+			if l.has(k):
+				out[k] = clampi(int(l[k]), 0, int(DRESS[k]) - 1)
 	return out
+
+
+## A look for one of a town's people: the waste's own look, with the town's colours and trade,
+## a trim, and some of the gear of the waste (goggles, a scarf, a cloak, gloves) now and then.
+static func townsman(seed: int, town := "") -> Dictionary:
+	var l := seeded(seed)
+	var r := RandomNumberGenerator.new()
+	r.seed = seed + 991
+	var td: Array = TOWN_DRESS.get(town, [[0, 2], [0, 2, 3, 5], []])
+	if not (td[2] as Array).is_empty() and r.randf() < 0.6:
+		l.dye = td[2][r.randi() % td[2].size()]
+	l.trim = r.randi_range(0, TRIMS.size() - 1) if r.randf() < 0.7 else 0
+	l.apron = td[0][r.randi() % td[0].size()]
+	l.held = td[1][r.randi() % td[1].size()] if r.randf() < 0.75 else 0
+	l.eyes = 1 if r.randf() < 0.12 else 0
+	l.neck = r.randi_range(1, 2) if r.randf() < 0.4 else 0
+	l.cloak = r.randi_range(1, 2) if r.randf() < 0.25 else 0
+	l.hands = 1 if r.randf() < 0.35 else 0
+	return l
 
 
 ## A look chosen by a seed, for the people of the waste.
@@ -215,6 +261,32 @@ func rebuild() -> void:
 	hand_r = Node3D.new()
 	_arms[1].add_child(hand_r)
 	hand_r.position = Vector3(0, -0.58, 0.05)
+	# The townsfolk's dress: trim, apron or tabard, and what they carry
+	var tc: Color = TRIMS[int(L.get("trim", 0))]
+	if tc.a > 0.0:
+		var trim := _mat(tc, 0.0, 0.85)
+		_box(self, Vector3(0.47 * w, 0.06, 0.29), Vector3(0, 0.96, 0), trim)
+		_box(self, Vector3(0.3 * w, 0.05, 0.27), Vector3(0, 1.5, 0.01), trim)
+		for sh in _arms:
+			_box(sh, Vector3(0.125, 0.06, 0.135), Vector3(0, -0.5, 0), trim)
+	match int(L.get("apron", 0)):
+		1:
+			var la := _mat(Color(0.3, 0.19, 0.11), 0.0, 0.7)
+			_box(self, Vector3(0.36 * w, 0.75, 0.02), Vector3(0, 0.82, 0.155), la)
+			_box(self, Vector3(0.02, 0.32, 0.02), Vector3(0.1, 1.38, 0.15), la)
+			_box(self, Vector3(0.02, 0.32, 0.02), Vector3(-0.1, 1.38, 0.15), la)
+		2:
+			_box(self, Vector3(0.34 * w, 0.55, 0.02), Vector3(0, 0.7, 0.155), _mat(Color(0.72, 0.68, 0.6), 0.0, 1.0))
+		3:
+			var tb := _mat(tc if tc.a > 0.0 else dye.lightened(0.25), 0.0, 0.9)
+			_box(self, Vector3(0.3 * w, 0.95, 0.02), Vector3(0, 1.02, 0.16), tb)
+			_box(self, Vector3(0.3 * w, 0.95, 0.02), Vector3(0, 1.02, -0.16), tb)
+			_sphere(self, 0.05, Vector3(0, 1.22, 0.175), _mat(Color(0.85, 0.75, 0.45), 0.6, 0.4)).scale = Vector3(1, 1, 0.3)
+	var held: Array = HELD[int(L.get("held", 0))]
+	if not held.is_empty():
+		var it := WIsleLife.put(hand_r, held[0], held[1], Vector3(0, -0.04, 0.02), 0.0, float(held[2]), false, Vector3.ZERO, null, 80.0)
+		var bb := WIsleLife.bounds(held[0] + "/" + held[1], it)
+		it.position -= Vector3(bb.get_center().x, bb.end.y, bb.get_center().z) * float(held[2]) - Vector3(0, 0.06, 0)
 	# What is carried
 	match L.pack:
 		1:

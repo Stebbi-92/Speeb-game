@@ -34,7 +34,7 @@ func setup(lvl, at: Vector3, r: float, seed: int) -> WTownsfolk:
 
 
 func _ready() -> void:
-	fig = Figure.new().setup(Figure.seeded(who.hash()))
+	fig = Figure.new().setup(Figure.townsman(who.hash(), w.settlement_at(home) if w.has_method("settlement_at") else ""))
 	fig.arms_forward = false
 	add_child(fig)
 	_voice = AudioStreamPlayer3D.new()
