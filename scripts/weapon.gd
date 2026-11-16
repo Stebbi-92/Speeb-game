@@ -1592,7 +1592,7 @@ class Rocket extends Node3D:
 		var from := global_position
 		var to := from + vel * delta
 		var q := PhysicsRayQueryParameters3D.create(from, to, 1 | 2)
-		if owner_player and is_instance_valid(owner_player):
+		if owner_player and is_instance_valid(owner_player) and owner_player is CollisionObject3D:
 			q.exclude = [owner_player.get_rid()]
 		var r := get_world_3d().direct_space_state.intersect_ray(q)
 		if not r.is_empty() or _life <= 0.0:
@@ -1640,7 +1640,7 @@ class Slug extends Node3D:
 		left -= step
 		var from := global_position
 		var q := PhysicsRayQueryParameters3D.create(from, from + dir * step, 1 | 2)
-		if shooter and is_instance_valid(shooter):
+		if shooter and is_instance_valid(shooter) and shooter is CollisionObject3D:
 			q.exclude = [shooter.get_rid()]
 		var r := get_world_3d().direct_space_state.intersect_ray(q)
 		if r.is_empty():

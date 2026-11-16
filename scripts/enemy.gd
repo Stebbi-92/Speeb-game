@@ -1693,7 +1693,7 @@ func sees(p: Node3D) -> bool:
 	if d > 6.0 and fwd.dot(flat) < 0.2:
 		return false
 	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3, 0))
-	q.exclude = [get_rid(), p.get_rid()]
+	q.exclude = [get_rid(), p.get_rid()] if p is CollisionObject3D else [get_rid()]
 	q.collision_mask = 1
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 

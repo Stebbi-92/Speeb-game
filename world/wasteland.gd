@@ -3777,7 +3777,7 @@ func _w_boat(bid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 		autosave_soon(5.0)
 
 
-## Interact on a boat: board it (the helm first), step off it, or mend it.
+## Interact on a boat: board it (the helm first), step off it. Holding it mends a hurt one (mend_boat).
 func boat_used(b: WBoat) -> void:
 	if b.riders.has(Net.me()):
 		_leave_boat(b)
@@ -3787,16 +3787,23 @@ func boat_used(b: WBoat) -> void:
 		return
 	if player.vessel != null:
 		return
-	if b.hp < float(b.spec.hp) - 1.0 and inv.count("wood") >= 4:
-		inv.take("wood", 4)
-		shared("_rq_boat_hp", [b.id, minf(float(b.spec.hp), b.hp + float(b.spec.hp) * 0.4)])
-		hud.notify("You mend the %s." % str(b.spec.name).to_lower())
-		sfx("carve", -6, b.global_position)
-		return
 	if b.free_seat() < 0:
 		hud.notify("There is no room aboard.")
 		return
 	shared("_rq_board", [b.id, Net.me()])
+
+
+## Hold interact on a hurt boat: 4 wood mends a good part of it.
+func mend_boat(b: WBoat) -> void:
+	if b.hp >= float(b.spec.hp) - 1.0:
+		return
+	if inv.count("wood") < 4:
+		hud.notify("You need 4 wood to mend it.")
+		return
+	inv.take("wood", 4)
+	shared("_rq_boat_hp", [b.id, minf(float(b.spec.hp), b.hp + float(b.spec.hp) * 0.4)])
+	hud.notify("You mend the %s." % str(b.spec.name).to_lower())
+	sfx("carve", -6, b.global_position)
 
 
 func _rq_board(bid: int, by: int) -> void:
@@ -7736,4 +7743,63 @@ func debug_serpent() -> void:
 	while b.hp >= 420.0 and Time.get_ticks_msec() - t0 < 25000 and is_instance_valid(b):
 		await get_tree().create_timer(0.5).timeout
 	print("SERPENT boat_hurt=%s" % [not is_instance_valid(b) or b.hp < 420.0])
+	get_tree().quit()
+
+
+## Testing aid (two machines): the host launches a raft and takes the helm, a friend climbs aboard,
+## and the friend is carried as the host paddles.
+func debug_boat_host() -> void:
+	while not ready_world or avatars.is_empty():
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var il0: Dictionary = terrain.isles[0]
+	var c0: Vector2 = il0.c
+	var dir2 := c0 / maxf(absf(c0.x), absf(c0.y))
+	var shore := dir2 * 1700.0
+	for k in 600:
+		shore = dir2 * (1700.0 + k * 1.0)
+		if terrain.height_at(shore.x, shore.y) < WIsles.SEA_Y + 0.6:
+			break
+	player.place(gpos(shore - dir2 * 3.0) + Vector3(0, 0.3, 0), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	inv.add("raft", 1)
+	launch_boat("raft")
+	await get_tree().create_timer(0.5).timeout
+	var b: WBoat = boats.values()[0]
+	b.yaw = atan2(dir2.x, dir2.y)
+	boat_used(b)
+	var t0 := Time.get_ticks_msec()
+	while b.riders.size() < 2 and Time.get_ticks_msec() - t0 < 30000:
+		await get_tree().create_timer(0.5).timeout
+	print("HOSTBOAT riders=%d" % b.riders.size())
+	await get_tree().create_timer(1.0).timeout
+	Input.action_press("move_forward")
+	await get_tree().create_timer(5.0).timeout
+	Input.action_release("move_forward")
+	await get_tree().create_timer(10.0).timeout
+	print("HOSTBOAT done")
+	get_tree().quit()
+
+
+func debug_boat_join() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0 := Time.get_ticks_msec()
+	while boats.is_empty() and Time.get_ticks_msec() - t0 < 40000:
+		await get_tree().create_timer(0.5).timeout
+	if boats.is_empty():
+		print("JOINBOAT no boat")
+		get_tree().quit()
+		return
+	var b: WBoat = boats.values()[0]
+	await get_tree().create_timer(1.5).timeout
+	player.global_position = b.global_position + Vector3(0, 1.0, 0)
+	boat_used(b)
+	var t1 := Time.get_ticks_msec()
+	while player.vessel != b and Time.get_ticks_msec() - t1 < 10000:
+		await get_tree().create_timer(0.25).timeout
+	var p0 := b.global_position
+	print("JOINBOAT aboard=%s seat=%s same=%s vessel=%s riders=%s me=%s" % [player.vessel == b, b.riders.get(Net.me(), -1), boats.values()[0] == b, player.vessel, b.riders, Net.me()])
+	await get_tree().create_timer(5.0).timeout
+	print("JOINBOAT carried=%s moved=%.1f" % [player.global_position.distance_to(b.global_position) < 3.0, b.global_position.distance_to(p0)])
 	get_tree().quit()

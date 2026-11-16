@@ -152,9 +152,12 @@ func _refresh_prompt() -> void:
 		t = "Take the helm of the %s" % str(spec.name).to_lower()
 	elif free_seat() > 0:
 		t = "Climb aboard the %s" % str(spec.name).to_lower()
-	if hp < float(spec.hp) - 1.0 and not riders.has(Net.me()):
-		t += "   (hold to mend: 4 wood)"
 	_body.set_meta("prompt", t)
+	if hp < float(spec.hp) - 1.0 and not riders.has(Net.me()) and t != "":
+		_body.set_meta("on_hold", func(): w.mend_boat(self))
+		_body.set_meta("hold_prompt", "Mend (4 wood)")
+	elif _body.has_meta("on_hold"):
+		_body.remove_meta("on_hold")
 
 
 func set_riders(r: Dictionary) -> void:
