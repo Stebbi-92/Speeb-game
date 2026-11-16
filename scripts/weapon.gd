@@ -1522,6 +1522,9 @@ func _build(g: String, mnts = null) -> Node3D:
 			top = 0.046
 			rear_z = 0.03
 			front = Vector3(0, 0.0435, -0.24)
+	var scan_top := _scan_gun(g, n, fit)
+	if scan_top > -1.0:
+		top = scan_top   # its own sights are on it; a fitted sight sits on its top
 	_frame_parts(g, fit, n, tip)
 	tip = n.get_meta("tip_after", tip)
 	var eye := top + 0.012
@@ -1549,18 +1552,19 @@ func _build(g: String, mnts = null) -> Node3D:
 				_tube(0.019, 0.04, Vector3(0, top + 0.034, rear_z + 0.015), dark, n, 0.022)
 				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.15), metal, n)
 				_box(Vector3(0.014, 0.022, 0.016), Vector3(0, top + 0.01, rear_z - 0.04), metal, n)
-			eye = 0.082 if built_glass(g, fit) else top + 0.034
+			eye = float(n.get_meta("glass_y", 0.082)) if built_glass(g, fit) else top + 0.034
 		_:
 			if built_glass(g, fit):
-				eye = 0.082
+				eye = float(n.get_meta("glass_y", 0.082))
 			else:
-				# Iron sights: a notch behind and a post before
-				for sx in [-1, 1]:
+				# Iron sights: a notch behind and a post before (a scanned gun has its own)
+				for sx in ([] if scan_top > -1.0 else [-1, 1]):
 					_box(Vector3(0.005, 0.012, 0.008), Vector3(0.0075 * sx, top + 0.006, rear_z), dark, n)
-				_box(Vector3(0.022, 0.004, 0.01), Vector3(0, top + 0.001, rear_z), dark, n)
-				var h := maxf(0.008, eye - front.y)
-				_box(Vector3(0.004, h, 0.006), Vector3(0, front.y + h * 0.5, front.z), dark, n)
-				_box(Vector3(0.012, 0.003, 0.01), Vector3(0, front.y + 0.001, front.z), dark, n)
+				if scan_top <= -1.0:
+					_box(Vector3(0.022, 0.004, 0.01), Vector3(0, top + 0.001, rear_z), dark, n)
+					var h := maxf(0.008, eye - front.y)
+					_box(Vector3(0.004, h, 0.006), Vector3(0, front.y + h * 0.5, front.z), dark, n)
+					_box(Vector3(0.012, 0.003, 0.01), Vector3(0, front.y + 0.001, front.z), dark, n)
 	for m in fit:
 		match m:
 			"suppressor":
@@ -1573,6 +1577,88 @@ func _build(g: String, mnts = null) -> Node3D:
 	n.set_meta("tip", tip)
 	n.set_meta("eye", eye)
 	return n
+
+
+## The guns that have a photo-scanned body (Poly Haven, CC0), in assets/models/arms/<name>/:
+## [model, turn (degrees), muzzle z, butt z, height of its middle, {part: what it is}]. A part is "pump"
+## (the bolt or slide, which works), "mag" (taken out on a reload), "glass" (shown only when a scope is
+## fitted) or "off" (left off). The plain-shape gun is built first for where its sights and parts sit.
+const SCANNED_GUNS := {
+	"sniper": ["bolt_action_rifle_7_62", Vector3(0, 90, 0), -0.975, 0.503, -0.068, {
+		"bolt_action_rifle_7_62_bolt_a": "pump", "bolt_action_rifle_7_62_bolt_b": "pump",
+		"bolt_action_rifle_7_62_scope": "glass", "bolt_action_rifle_7_62_bullet_54mm": "off"}],
+	"pistol": ["service_pistol", Vector3(0, 90, 0), -0.185, 0.045, -0.01, {
+		"service_pistol_slide_a": "pump", "service_pistol_magazine_loaded": "off",
+		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
+		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
+}
+
+
+## Swaps the plain shapes of a gun for its scanned body, keeping its working parts working.
+## Gives back the height of its top (where a fitted sight sits), or -1 if it has no scanned body.
+func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
+	if not SCANNED_GUNS.has(g) or Game.gilded:
+		return -1.0
+	var sg: Array = SCANNED_GUNS[g]
+	var path := "res://assets/models/arms/%s/%s.gltf" % [sg[0], sg[0]]
+	if not ResourceLoader.exists(path):
+		return -1.0
+	var pump: Node3D = n.get_meta("pump")
+	var mag: Node3D = n.get_meta("mag") if n.has_meta("mag") else null
+	for holder in [n, pump, mag]:
+		if holder == null:
+			continue
+		for c in holder.get_children():
+			if c is MeshInstance3D:
+				c.free()
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	var roles: Dictionary = sg[5]
+	var pivot := Node3D.new()
+	pivot.rotation_degrees = sg[1]
+	pivot.add_child(inst)
+	# Its extent as the gun sees it, the glass and what is left off not counted
+	var bb := AABB()
+	var first := true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var role: String = roles.get(mi.name, "")
+		if role == "off":
+			continue
+		if role == "glass":
+			continue
+		var a: AABB = pivot.transform * (mi as Node3D).transform * (mi as MeshInstance3D).get_aabb()
+		bb = a if first else bb.merge(a)
+		first = false
+	var sc := (float(sg[3]) - float(sg[2])) / maxf(bb.size.z, 0.001)
+	var off := Vector3(-bb.get_center().x * sc, float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
+	var glass: bool = built_glass(g, fit)
+	# The glass is lifted to where the eye looks through it
+	var gbb := AABB()
+	var gfirst := true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		if roles.get(mi.name, "") == "glass":
+			var a: AABB = pivot.transform * (mi as Node3D).transform * (mi as MeshInstance3D).get_aabb()
+			gbb = a if gfirst else gbb.merge(a)
+			gfirst = false
+	if not gfirst:
+		n.set_meta("glass_y", gbb.get_center().y * sc + off.y)
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var role: String = roles.get(mi.name, "")
+		if role == "off" or (role == "glass" and not glass):
+			continue
+		var tr: Transform3D = pivot.transform * (mi as Node3D).transform
+		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc + off)
+		var holder: Node3D = n
+		if role == "pump":
+			holder = pump
+		elif role == "mag" and mag != null:
+			holder = mag
+		var copy := MeshInstance3D.new()
+		copy.mesh = (mi as MeshInstance3D).mesh
+		copy.transform = tr
+		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(copy)
+	inst.free()
+	return bb.end.y * sc + off.y
 
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
@@ -1636,7 +1722,62 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 	n.set_meta("tip_after", tip)
 
 
+## The melee arms as photo-scanned models (Poly Haven, CC0), in assets/models/arms/<name>/:
+## [model, turn (degrees), where the grip ends, whole length, parts to leave off, haft off the middle
+## (an axe's head hangs to one side, so its haft is not the middle of it)]. Handle at the
+## hand (the origin), the head up along +Y, the edge to -Z, as the plain-shape arms are built.
+const SCANNED_MELEE := {
+	"hatchet": ["hatchet", Vector3(0, 180, 0), -0.09, 0.44, [], -0.04],
+	"machete": ["machete", Vector3(0, 180, 0), -0.08, 0.64, [], 0.0],
+	"sledge": ["sledgehammer_01", Vector3(0, 90, 0), -0.1, 0.66, [], 0.0],
+	"knife": ["ornate_medieval_dagger", Vector3(0, 90, 0), -0.06, 0.3, ["ornate_medieval_dagger_scabbard"], 0.0],
+	"sword": ["wooden_handle_saber", Vector3(0, 180, 0), -0.1, 0.92, [], 0.0],
+	"battle_axe": ["wooden_axe", Vector3(0, 180, 0), -0.14, 0.8, [], -0.1],
+}
+
+
+## A scanned model fitted to the hand: turned, then grown or shrunk to the length, its grip end at grip_y.
+static func scanned(key: String, turn: Vector3, grip_y: float, length: float, leave := [], haft_z := 0.0) -> Node3D:
+	var path := "res://assets/models/arms/%s/%s.gltf" % [key, key]
+	if not ResourceLoader.exists(path):
+		return null
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	for nm in leave:
+		var off := inst.find_child(nm, true, false)
+		if off:
+			off.free()
+	var pivot := Node3D.new()
+	pivot.rotation_degrees = turn
+	pivot.add_child(inst)
+	# Its extent, as the pivot sees it
+	var bb := AABB()
+	var first := true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var tr: Transform3D = (mi as Node3D).transform
+		var p: Node = mi.get_parent()
+		while p and p != pivot:
+			tr = (p as Node3D).transform * tr
+			p = p.get_parent()
+		var a: AABB = pivot.transform * (tr * (mi as MeshInstance3D).get_aabb())
+		bb = a if first else bb.merge(a)
+		first = false
+		(mi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var n := Node3D.new()
+	n.add_child(pivot)
+	var sc := length / maxf(bb.size.y, 0.001)
+	pivot.scale = Vector3.ONE * sc
+	pivot.rotation_degrees = turn
+	var c := bb.get_center()
+	pivot.position = Vector3(-c.x * sc, grip_y - bb.position.y * sc, -c.z * sc + haft_z)
+	return n
+
+
 func _build_melee(id: String) -> Node3D:
+	if SCANNED_MELEE.has(id):
+		var sm: Array = SCANNED_MELEE[id]
+		var sn := scanned(sm[0], sm[1], sm[2], sm[3], sm[4], sm[5])
+		if sn:
+			return sn
 	var n := Node3D.new()
 	var wood := _mat(Color(0.3, 0.19, 0.11))
 	var steel := _mat(Color(0.45, 0.45, 0.47), 0.85, 0.35)
@@ -1896,6 +2037,12 @@ class Thrown extends RigidBody3D:
 				mi.mesh = c
 				m.albedo_color = Color(0.85, 0.83, 0.78)
 		mi.material_override = m
+		if kind == "grenade":
+			# The scanned stick grenade (Poly Haven, CC0), about as long as a hand
+			var sg := Arms.scanned("stick_grenade", Vector3.ZERO, -0.13, 0.26)
+			if sg:
+				add_child(sg)
+				return
 		add_child(mi)
 
 	func _physics_process(delta: float) -> void:
