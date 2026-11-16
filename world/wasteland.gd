@@ -34,6 +34,8 @@ var ui: WUI
 var builder: WBuilder
 var quests: WQuests
 var hall: WHall   ## the Tenth Hall, under the ninth beacon
+var deep: WDeep   ## the Lamp-Eater and the Drowned Fleet, far out on the Grey Sea
+var vaults: WVaults   ## the rooms under the sealed vaults, and their keepers
 var slot := "1"
 var _owns_world := false   ## set once at build: only the host (or a lone survivor) ever writes the world file
 var world_uid := ""
@@ -200,6 +202,9 @@ func _make_world(sd: int) -> void:
 	WDress.cover(self)
 	hall = WHall.new(self)
 	hall.build()
+	deep = WDeep.new(self)
+	vaults = WVaults.new(self)
+	vaults.place_stairs()
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
@@ -328,6 +333,8 @@ func _process(delta: float) -> void:
 		_power_tick(delta)
 		if hall:
 			hall.local_tick(delta)
+		if deep:
+			deep.local_tick()
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -3497,8 +3504,10 @@ func _sea_tick(delta: float) -> void:
 					continue
 				if e.walks() and e.global_position.y < WIsles.SEA_Y - 2.0 and terrain.is_water(e.global_position.x, e.global_position.z, 2.0):
 					e.die(false)
-				elif e.kind == "serpent" and not terrain.is_water(e.global_position.x, e.global_position.z, 1.5):
+				elif e.kind in ["serpent", "lampeater"] and not terrain.is_water(e.global_position.x, e.global_position.z, 1.5):
 					e.die(false)   # it will not follow onto land; it sinks back
+			if deep:
+				deep.host_tick(1.0)
 			_serpent_t -= 1.0
 			if _serpent_t <= 0.0:
 				_serpent_t = 10.0
@@ -3530,6 +3539,8 @@ func _world_tick(delta: float) -> void:
 	_regrow_tick(delta)
 	if hall:
 		hall.host_tick(delta)
+	if vaults:
+		vaults.host_tick(delta)
 	_quest_t -= delta
 	if _quest_t <= 0.0:
 		_quest_t = 5.0
@@ -3995,6 +4006,37 @@ func _rq_launch(_by: int, k: String, p: Vector3, yaw: float) -> void:
 	var bid := boat_next
 	boat_next += 1
 	shared("_w_boat", [bid, k, p, yaw, float(WBoat.KINDS[k].hp)])
+
+
+func _w_vault_build(id: String) -> void:
+	if vaults:
+		vaults.build(id)
+
+
+func _w_vault_gate(id: String, room: int) -> void:
+	if vaults:
+		vaults.open_gate(id, room)
+
+
+func _w_vault_done(id: String, d: int, shares: Array) -> void:
+	if vaults:
+		vaults.done(id, d, shares)
+
+
+func _w_boat_lamp(bid: int, on: bool) -> void:
+	if boats.has(bid) and is_instance_valid(boats[bid]):
+		boats[bid].set_lamp(on)
+
+
+func _w_fleet(at: Vector3, yaw: float, d: int) -> void:
+	if deep:
+		deep.build_fleet(at, yaw, d)
+
+
+func _w_fleet_gone() -> void:
+	if deep:
+		deep.clear_fleet()
+		hud.notify("With the dawn the grey ship is gone, as if it had never been.")
 
 
 func _w_boat(bid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
@@ -7368,6 +7410,57 @@ func debug_screen() -> void:
 		rearm()
 		ui._acat = "guns"
 		ui._asel = g
+	if which == "vault":
+		# The first room of a deep vault, looking on toward its gate
+		var b8: Vector2 = WPlaces.bpos(8)
+		for r in ruins:
+			if r.kind == "vault" and not r.has("isle") and Vector2(r.pos.x, r.pos.z).distance_to(b8) >= 200.0:
+				vaults.build(r.id)
+				var rm: Array = vaults.built[r.id].rooms[1]
+				var eye: Vector3 = vaults.at(r.id, -4.0, 1.7, rm[0] - rm[2] + 1.0)
+				var look: Vector3 = vaults.at(r.id, 2.0, 1.2, rm[0] + rm[2])
+				player.place(eye, 0.0)
+				var to := look - eye
+				player.yaw = atan2(-to.x, -to.z)
+				player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+				player.rotation.y = player.yaw
+				player.head.rotation.x = player.pitch
+				player.set_physics_process(false)
+				clock = 15.0
+				hud.visible = false
+				break
+	if which in ["fleet", "lampeater"]:
+		# Far out on open water: the grey ship, or the pale thing risen beside a sloop
+		var spot := Vector3.INF
+		for k in 72:
+			var a := TAU * k / 72.0
+			var d := Vector2(cos(a), sin(a))
+			d /= maxf(absf(d.x), absf(d.y))
+			var q := d * 2700.0
+			if terrain.is_water(q.x, q.y, 6.0) and sea.open_water(Vector3(q.x, 0, q.y), 240.0) >= 160.0:
+				spot = Vector3(q.x, WIsles.SEA_Y, q.y)
+				break
+		var look := spot
+		deep.paused = true
+		if which == "fleet":
+			_w_fleet(spot, 0.6, day)
+			look = deep.fleet_deck
+		else:
+			_w_boat(79, "sloop", spot + Vector3(-6, 0, 3), 0.4, 420.0)
+			var e = spawn_at("lampeater", spot + Vector3(0, 1.5, 0))
+			if e:
+				e.set_physics_process(false)
+			look = spot + Vector3(0, 1.5, 0)
+		var eye := look + Vector3(26, 6, 18) if which == "fleet" else look + Vector3(12, 3.5, 9)
+		player.place(eye, 0.0)
+		var to := look - eye
+		player.yaw = atan2(-to.x, -to.z)
+		player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+		player.rotation.y = player.yaw
+		player.head.rotation.x = player.pitch
+		player.set_physics_process(false)
+		clock = 17.0
+		hud.visible = false
 	if which in ["hall", "hall_shore", "stair"]:
 		# The Tenth Hall from where Lena sets you down, its far shore, or the stair-head up in the waste
 		var eye: Vector3 = {"hall": hall.at(2.5, 1.7, 16), "hall_shore": hall.at(-6, 1.7, -50), "stair": hall.stair_top + (hall.stair_top - hall.at(0, 0, 0)) * Vector3(1, 0, 1).normalized() * 0.0}[which]
@@ -8148,6 +8241,120 @@ func _recipe_shown(id: String) -> bool:
 
 
 ## Testing aid: far out on open water a Grey Wyrm comes up after a boat, and its bites hurt the boat.
+## Testing aid: the deep. A lit sloop far out at night draws the Lamp-Eater; a doused one does not;
+## the grey ship comes, can be boarded, its watch stands up, and it is gone at dawn.
+func debug_deep() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var spot := Vector3.INF
+	for k in 72:
+		var a := TAU * k / 72.0
+		var d := Vector2(cos(a), sin(a))
+		d /= maxf(absf(d.x), absf(d.y))
+		var q := d * 2700.0
+		var p := Vector3(q.x, WIsles.SEA_Y, q.y)
+		if terrain.is_water(p.x, p.z, 6.0) and sea.open_water(p, 240.0) >= 160.0:
+			spot = p
+			break
+	if spot == Vector3.INF:
+		print("DEEP no open water")
+		get_tree().quit()
+		return
+	_w_boat(78, "sloop", spot, 0.0, 420.0)
+	var b: WBoat = boats[78]
+	player.place(spot + Vector3(0, 1, 0), 0.0)
+	boat_used(b)
+	await get_tree().create_timer(0.5).timeout
+	night = true
+	nights = 3
+	weather.kind = "clear"
+	# Doused: nothing comes
+	_w_boat_lamp(78, false)
+	for i in 40:
+		deep._lamp_watch()
+	var dark_safe := not enemies.any(func(x): return is_instance_valid(x) and x.is_alive() and x.kind == "lampeater")
+	_w_boat_lamp(78, true)
+	var rose := false
+	for i in 80:
+		deep._lamp_watch()
+		if enemies.any(func(x): return is_instance_valid(x) and x.is_alive() and x.kind == "lampeater"):
+			rose = true
+			break
+	for i in 200:
+		deep._fleet_watch()
+		if is_instance_valid(deep.fleet):
+			break
+		deep._fleet_night = -1
+	await get_tree().create_timer(1.0).timeout
+	var sailed := is_instance_valid(deep.fleet)
+	var crate := sailed and crates.has(deep.fleet_crate)
+	if sailed:
+		deep.board()
+	await get_tree().create_timer(1.0).timeout
+	var aboard := sailed and player.global_position.distance_to(deep.fleet_deck) < 3.0 and player.vessel == null
+	deep._crew_watch()
+	var crew := enemies.filter(func(x): return is_instance_valid(x) and x.is_alive() and x.kind in ["vigil", "saltbone", "warden"] and x.global_position.distance_to(deep.fleet_deck) < 15.0).size()
+	await get_tree().create_timer(2.0).timeout
+	var stood := player.global_position.y > deep.fleet_deck.y - 2.0 if sailed else false
+	night = false
+	deep._t = 0.0
+	deep.host_tick(0.1)
+	await get_tree().create_timer(0.5).timeout
+	var gone := not is_instance_valid(deep.fleet) and not crates.has("fleet_%d" % day)
+	var eater_gone := not enemies.any(func(x): return is_instance_valid(x) and x.is_alive() and x.kind == "lampeater")
+	print("DEEP dark_safe=%s rose=%s sailed=%s crate=%s aboard=%s crew=%d stood=%s gone=%s eater_gone=%s" % [dark_safe, rose, sailed, crate, aboard, crew, stood, gone, eater_gone])
+	get_tree().quit()
+
+
+## Testing aid: a deep vault. Down the stair, each room wakes and its gate opens when quiet; the keeper's
+## fall gives a share, brings you up, and the vault sleeps for days.
+func debug_vault() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var id := ""
+	var count := 0
+	var b8: Vector2 = WPlaces.bpos(8)
+	for r in ruins:
+		if r.kind == "vault" and not r.has("isle") and Vector2(r.pos.x, r.pos.z).distance_to(b8) >= 200.0:
+			count += 1
+			if id == "":
+				id = r.id
+	vaults.go_down(id)
+	await get_tree().create_timer(1.0).timeout
+	var down := vaults.inside(id, player.global_position)
+	var rooms: int = vaults.built[id].rooms.size() if vaults.built.has(id) else 0
+	var coins := inv.count("coin")
+	var gates := 0
+	for i in 240:
+		await get_tree().create_timer(0.5).timeout
+		var st: Dictionary = vaults.state.get(id, {})
+		if vaults.built.has(id) and not st.is_empty():
+			# Walk on to the next room once its gate is open
+			var rm: Array = vaults.built[id].rooms[mini(int(st.room), rooms - 1)]
+			if player.global_position.distance_to(vaults.at(id, 0, 1.0, rm[0])) > 4.0:
+				player.place(vaults.at(id, 0, 1.0, rm[0]), 0.0)
+			gates = int(flags.get("vault_open_" + id, gates))
+		for e in enemies.duplicate():
+			if is_instance_valid(e) and e.is_alive() and vaults.inside(id, e.global_position) and i % 4 == 3:
+				e.hurt(999999.0, Vector3.FORWARD)
+		if flags.has("vault_done_" + id):
+			break
+	await get_tree().create_timer(1.5).timeout
+	var cleared := flags.has("vault_done_" + id)
+	var share := inv.count("coin") > coins
+	var up := not hall.inside(player.global_position)
+	vaults.go_down(id)
+	await get_tree().create_timer(0.5).timeout
+	var sleeps := not hall.inside(player.global_position)
+	print("VAULT count=%d down=%s rooms=%d gates=%d cleared=%s share=%s up=%s sleeps=%s" % [count, down, rooms, gates, cleared, share, up, sleeps])
+	get_tree().quit()
+
+
 func debug_serpent() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout

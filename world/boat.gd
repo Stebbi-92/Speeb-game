@@ -32,6 +32,8 @@ var _net_yaw := 0.0
 var _send_t := 0.0
 var _beached := false
 var _wake: GPUParticles3D
+var lamp_lit := true      ## a lit lamp at sea by night draws the Lamp-Eater up from the deep
+var _lamp: OmniLight3D
 
 
 func setup(lvl, bid: int, k: String) -> WBoat:
@@ -95,12 +97,13 @@ func _ready() -> void:
 		boom.reparent(_sail_n, false)
 		boom.position = Vector3(0, 1.6, -1.4)
 		boom.rotation.x = PI * 0.5
-		var lamp := OmniLight3D.new()
-		lamp.light_color = Color(1.0, 0.75, 0.45)
-		lamp.light_energy = 1.2
-		lamp.omni_range = 8.0
-		lamp.position = Vector3(0, 2.0, -2.6)
-		_deck.add_child(lamp)
+		_lamp = OmniLight3D.new()
+		_lamp.light_color = Color(1.0, 0.75, 0.45)
+		_lamp.light_energy = 1.2
+		_lamp.omni_range = 8.0
+		_lamp.position = Vector3(0, 2.0, -2.6)
+		_deck.add_child(_lamp)
+		_lamp.visible = lamp_lit
 	# Something to look at and step aboard by
 	_body = StaticBody3D.new()
 	_body.collision_layer = 16
@@ -156,8 +159,23 @@ func _refresh_prompt() -> void:
 	if hp < float(spec.hp) - 1.0 and not riders.has(Net.me()) and t != "":
 		_body.set_meta("on_hold", func(): w.mend_boat(self))
 		_body.set_meta("hold_prompt", "Mend (4 wood)")
+	elif riders.has(Net.me()) and _lamp != null:
+		_body.set_meta("on_hold", func(): w.shared("_w_boat_lamp", [id, not lamp_lit]))
+		_body.set_meta("hold_prompt", "Douse the lamp" if lamp_lit else "Light the lamp")
 	elif _body.has_meta("on_hold"):
 		_body.remove_meta("on_hold")
+
+
+func set_lamp(on: bool) -> void:
+	lamp_lit = on
+	if _lamp:
+		_lamp.visible = on
+	_refresh_prompt()
+
+
+## Whether this boat shows a light on the water.
+func shows_light() -> bool:
+	return _lamp != null and lamp_lit
 
 
 func set_riders(r: Dictionary) -> void:
