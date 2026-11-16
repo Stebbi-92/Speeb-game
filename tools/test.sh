@@ -63,7 +63,7 @@ check dev       debug_dev      "DEV opened=true buttons=[3-9][0-9] lands=6/6 unh
 check brew      debug_brew     "BREW first=mend again=breath third= sour=true got=keen have=1 learned=true keener=true ward=true fireproof=true kept=true panel=true"
 check dread     debug_dread    "DREAD dark=([5-9]|1[0-9]) lamp=[2-7] drawn=true by_fire=[5-7][0-9] day=[2-4][0-9]"
 check settlers  debug_settlers "SETTLERS snug=[4-8] room=true came=2 shown=2 brought=12 reloaded=true gone=true"
-check kin       debug_kin      "KIN made=13/13 copies=13 in_lands=13 bad=\[\] kinds=4[0-9]"
+check kin       debug_kin      "KIN made=26/26 copies=26 in_lands=13 bad=\[\] kinds=5[0-9]"
 check kraken    debug_kraken   "KRAKEN found=true pulled=true rose=true hp=[0-9]+ chest=true trophy=1 stays_down=true"
 check spirit    debug_spirit   "SPIRIT came=true again_refused=true bitten=true left=[0-9]+ faded=true cold=true warm=true town_refused=true"
 check trades    debug_trades   "TRADES untrained=0 first=true smithed=1 sword=15/18 away_refused=true changed=true paid=25 tinker_rounds=15 alch_brews=2 kept=alchemist"

@@ -22,8 +22,8 @@ func find_ruth() -> Vector3:
 	for r in w.ruins:
 		if r.has("isle") or r.kind == "vault":
 			continue
-		if w.terrain.biome_name(r.pos.x, r.pos.z) != "forest":
-			continue
+		if w.terrain.biome_name(r.pos.x, r.pos.z) != "forest" or w.terrain.biome_name(r.pos.x + 7.0, r.pos.z + 5.0) != "forest":
+			continue   # Ruth stands just off the ruin, and that ground must be the forest's too
 		if best.is_empty() or str(r.id) < str(best.id):
 			best = r
 	if best.is_empty():
