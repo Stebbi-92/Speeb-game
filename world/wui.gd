@@ -559,7 +559,7 @@ var _shade: ColorRect
 var _panel_name := ""
 
 
-const SMALL := ["rest", "planter", "portal", "travel", "cat", "shrine"]
+const SMALL := ["boons", "rest", "planter", "portal", "travel", "cat", "shrine"]
 
 
 func _open(name: String) -> void:
@@ -659,6 +659,8 @@ func _redraw_now() -> void:
 			_draw_skills()
 		"rest":
 			_draw_rest()
+		"boons":
+			_draw_boons()
 		"dev":
 			_draw_dev()
 		"brew":
@@ -3219,6 +3221,35 @@ func _fuel_row(pid: int) -> HBoxContainer:
 	b.tooltip_text = "Each piece of wood burns for a day."
 	hb.add_child(b)
 	return hb
+
+
+var _boon_from := ""
+
+## A kindled beacon's boons: choose one, kept for good. Put off, it waits at any lit beacon.
+func open_boons(from_name: String) -> void:
+	if w.skills.boon_offer.is_empty():
+		return
+	_boon_from = from_name
+	_open("boons")
+
+
+func _draw_boons() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title("A Beacon Boon"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	_body.add_child(_wrap("%s burns. Its light gives you one of these, for good." % _boon_from if _boon_from != "" else "The beacons' light gives you one of these, for good.", 20, PALE))
+	for id in w.skills.boon_offer:
+		var b: Dictionary = WSkills.BOONS[id]
+		var bid: String = id
+		_body.add_child(_action("%s: %s" % [b.name, b.text], func():
+			if w.skills.take_boon(bid):
+				w.sfx("jingle_up", -6)
+				w.hud.notify("%s is yours." % WSkills.BOONS[bid].name)
+				w.autosave_soon(1.0)
+			close_all(), "", GOLD))
+	_body.add_child(_action("Later (it waits at any lit beacon)", close_all, "Esc", DIM))
 
 
 func ask_rest(kind := "fire", pid := -1) -> void:

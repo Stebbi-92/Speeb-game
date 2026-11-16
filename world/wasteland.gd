@@ -1283,6 +1283,9 @@ func _beacon_prompt(i: int) -> void:
 
 func _beacon_touched(i: int) -> void:
 	if i in lit:
+		if not skills.boon_offer.is_empty():
+			ui.open_boons(WPlaces.BEACONS[i].name)
+			return
 		ui.open_travel()
 		return
 	if vigils.has(i):
@@ -1335,11 +1338,56 @@ func _w_vigil_end(i: int, ok: bool) -> void:
 		quests.on_event("lit", {"beacon": i})
 		if Net.authority():
 			_clear_near(b.pos, WPlaces.BEACON_SAFE)
+		_beacon_payoff(i)
 	else:
 		b.flame.visible = false
 		b.light.light_energy = 0.0
 		hud.notify("The flame at %s guttered out. The oil is spent." % WPlaces.BEACONS[i].name)
 	_beacon_prompt(i)
+
+
+## What a kindled beacon gives every pilgrim: a gift from its bowl, a boon to choose, and the way
+## to the next dark beacon shown on the map.
+const BEACON_GIFT := [["tempered", 1], ["clockwork", 1], ["fittings_fine", 2], ["salt", 40]]
+
+func _beacon_payoff(i: int) -> void:
+	if Net.dedicated or _pfail:
+		return
+	var n := lit.size()
+	var gift: Array = []
+	for g in BEACON_GIFT:
+		gift.append([g[0], int(g[1]) * (1 + n / 3)])
+	if i == 8:
+		gift.append(["fittings_storied", 1])
+	give(gift)
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash([i, n, skills.boons.size(), Net.me(), Time.get_ticks_usec()])
+	if skills.boon_offer.is_empty():
+		skills.boon_offer = skills.roll_boons(rr)
+	var next := next_dark_beacon(beacon_nodes[i].pos)
+	if next >= 0:
+		reveal_place(WPlaces.bpos(next), 60.0)
+		hud.notify("From the bowl you can see the next dark beacon: %s. It is on your map." % WPlaces.BEACONS[next].name)
+	hud.title_card("%d of 9" % n, "%s burns again" % WPlaces.BEACONS[i].name)
+	autosave_soon(1.0)
+	if not skills.boon_offer.is_empty():
+		get_tree().create_timer(3.5, false).timeout.connect(func():
+			if is_instance_valid(ui) and not skills.boon_offer.is_empty():
+				ui.open_boons(WPlaces.BEACONS[i].name))
+
+
+## The unlit beacon nearest a place (never the ninth while others stand dark), or -1.
+func next_dark_beacon(from: Vector3) -> int:
+	var best := -1
+	var bd := INF
+	for k in WPlaces.BEACONS.size():
+		if k in lit or (k == 8 and lit.size() < 8):
+			continue
+		var d := Vector2(from.x, from.z).distance_to(WPlaces.bpos(k))
+		if d < bd:
+			bd = d
+			best = k
+	return best
 
 
 func _light_beacon(i: int, on: bool) -> void:
@@ -1499,7 +1547,7 @@ func _needs_tick(delta: float) -> void:
 		dev.tick()
 	# Breath comes back slower when weary or starving, and slower still under heavy plate
 	player.stamina_mult = (0.6 if rest < 20.0 else 1.0) * (0.7 if food <= 0.0 else 1.0) / maxf(0.8, float(wn.weary))
-	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0)
+	player.stamina_mult *= (1.0 + meal_sum("breath")) * (1.3 if rested > 0.0 else 1.0) * skills.breath_mult()
 	_meals_tick(delta)
 	alchemy.tick(delta)
 	_land_tick(delta)
@@ -4719,6 +4767,8 @@ func damage_player(amount: float, from: Vector3) -> void:
 	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power()) * (1.25 if flags.has("second_vow") else 1.0)
 	if power_is("gilt"):
 		amount *= 0.8
+	if night and skills.has_boon("night_eyes"):
+		amount *= 0.85
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -9948,4 +9998,32 @@ func debug_benchtabs() -> void:
 	await get_tree().process_frame
 	var craft_n: int = ui._body.get_child_count() if ui._body else -1
 	print("BENCHTABS arms=%d craft=%d tab=%s open=%s" % [arms_n, craft_n, ui._tab, ui._panel_name])
+	get_tree().quit()
+
+
+## Testing aid: a kindled beacon gives its gift, offers three boons, one is taken and works, and it is kept.
+func debug_boons() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0: int = inv.count("tempered")
+	var sp0: float = skills.speed_mult()
+	var pk0: int = skills.pack_size()
+	_w_vigil(0, 1.0)
+	_w_vigil_end(0, true)
+	var gift: bool = inv.count("tempered") > t0
+	var offered: int = skills.boon_offer.size()
+	var next_shown: bool = is_revealed(gpos(WPlaces.bpos(next_dark_beacon(beacon_nodes[0].pos))))
+	await get_tree().create_timer(4.0).timeout
+	var opened: bool = ui._panel_name == "boons"
+	# Choose Fleet Foot and Packrat by force, to see them work
+	skills.boon_offer = ["fleet"]
+	var took := skills.take_boon("fleet")
+	skills.boon_offer = ["packrat"]
+	skills.take_boon("packrat")
+	var faster: bool = skills.speed_mult() > sp0
+	var bigger: bool = skills.pack_size() == pk0 + 6
+	var back := WSkills.new()
+	back.from_data(skills.to_data())
+	ui.close_all()
+	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == 2, next_shown])
 	get_tree().quit()

@@ -59,6 +59,23 @@ var level := 1
 var points := 0
 var ranks := {}
 var second_wind_day := -1
+## Beacon boons: one is chosen each time a beacon is kindled, and kept for good.
+const BOONS := {
+	"fleet": {"name": "Fleet Foot", "text": "You walk and run 8% faster."},
+	"deep_breath": {"name": "Deep Breath", "text": "Your breath comes back 30% faster."},
+	"iron_skin": {"name": "Iron Skin", "text": "You take 10% less harm."},
+	"beacon_heart": {"name": "Beacon Heart", "text": "25 more health."},
+	"sure_aim": {"name": "Sure Aim", "text": "Your guns and blades hit 10% harder."},
+	"quick_hands": {"name": "Quick Hands", "text": "You reload 15% faster."},
+	"salvager": {"name": "Salvager", "text": "30% more from everything you gather."},
+	"packrat": {"name": "Packrat", "text": "6 more places in your pack."},
+	"cat_kin": {"name": "Cat-Kin", "text": "Your cat sprints twice as long."},
+	"silver_tongue": {"name": "Silver Tongue", "text": "Buy 10% cheaper and sell 15% dearer."},
+	"bandolier": {"name": "Deep Bandolier", "text": "Carry 150 more rounds."},
+	"night_eyes": {"name": "Night Eyes", "text": "Forms deal 15% less harm to you at night."},
+}
+var boons: Array = []        ## the boons chosen, kept for good
+var boon_offer: Array = []   ## three boons offered by a kindled beacon, waiting to be chosen
 var use := {}   ## practice with each gun and the blade: id -> points earned by using it
 
 ## Names for how well a survivor knows a weapon, from first use to mastery.
@@ -175,8 +192,37 @@ static func use_text(lv: int) -> String:
 
 # ------------------------------------------------------------------ what the skills do
 
+func has_boon(id: String) -> bool:
+	return id in boons
+
+
+## Three boons not yet held, to be chosen from (fewer once nearly all are taken).
+func roll_boons(rr: RandomNumberGenerator) -> Array:
+	var left: Array = []
+	for k in BOONS:
+		if not k in boons:
+			left.append(k)
+	var out: Array = []
+	while out.size() < 3 and not left.is_empty():
+		out.append(left.pop_at(rr.randi_range(0, left.size() - 1)))
+	return out
+
+
+func take_boon(id: String) -> bool:
+	if not id in boon_offer or id in boons:
+		return false
+	boons.append(id)
+	boon_offer = []
+	changed.emit()
+	return true
+
+
+func breath_mult() -> float:
+	return 1.3 if has_boon("deep_breath") else 1.0
+
+
 func health_max() -> float:
-	return 100.0 + 10.0 * rank("hardy")
+	return 100.0 + 10.0 * rank("hardy") + (25.0 if has_boon("beacon_heart") else 0.0)
 
 
 func regen_mult(by_fire: bool) -> float:
@@ -187,27 +233,27 @@ func regen_mult(by_fire: bool) -> float:
 
 
 func speed_mult() -> float:
-	return 1.0 + 0.05 * rank("light_step")
+	return (1.0 + 0.05 * rank("light_step")) * (1.08 if has_boon("fleet") else 1.0)
 
 
 func pack_size() -> int:
-	return 24 + 4 * rank("deep_pockets")
+	return 24 + 4 * rank("deep_pockets") + (6 if has_boon("packrat") else 0)
 
 
 func damage_mult() -> float:
-	return 1.0 + 0.08 * rank("steady_hand")
+	return (1.0 + 0.08 * rank("steady_hand")) * (1.1 if has_boon("sure_aim") else 1.0)
 
 
 func reload_mult() -> float:
-	return 1.0 - 0.15 * rank("quick_hands")
+	return (1.0 - 0.15 * rank("quick_hands")) * (0.85 if has_boon("quick_hands") else 1.0)
 
 
 func reserve_max() -> int:
-	return 400 + 100 * rank("bandolier")
+	return 400 + 100 * rank("bandolier") + (150 if has_boon("bandolier") else 0)
 
 
 func harm_mult() -> float:
-	return 1.0 - 0.06 * rank("ward")
+	return (1.0 - 0.06 * rank("ward")) * (0.9 if has_boon("iron_skin") else 1.0)
 
 
 func drop_bonus() -> float:
@@ -215,7 +261,7 @@ func drop_bonus() -> float:
 
 
 func gather_mult() -> float:
-	return 1.0 + 0.2 * rank("scavenger")
+	return (1.0 + 0.2 * rank("scavenger")) * (1.3 if has_boon("salvager") else 1.0)
 
 
 ## A recipe or building cost, lightened by Thrift. Nothing ever costs less than one of each.
@@ -230,11 +276,11 @@ func cost(c: Dictionary) -> Dictionary:
 
 
 func buy_mult() -> float:
-	return 1.0 - 0.06 * rank("haggler")
+	return (1.0 - 0.06 * rank("haggler")) * (0.9 if has_boon("silver_tongue") else 1.0)
 
 
 func sell_mult() -> float:
-	return 1.0 + 0.1 * rank("haggler")
+	return (1.0 + 0.1 * rank("haggler")) * (1.15 if has_boon("silver_tongue") else 1.0)
 
 
 func build_hp_mult() -> float:
@@ -252,7 +298,7 @@ func vigil_mult() -> float:
 # ------------------------------------------------------------------ keeping
 
 func to_data() -> Dictionary:
-	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use}
+	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use, "boons": boons, "offer": boon_offer}
 
 
 func from_data(d) -> void:
@@ -268,6 +314,14 @@ func from_data(d) -> void:
 			if SKILLS.has(k):
 				ranks[k] = clampi(int(r[k]), 0, int(SKILLS[k].ranks))
 	second_wind_day = int(d.get("sw", -1))
+	boons = []
+	for b in d.get("boons", []):
+		if BOONS.has(str(b)) and not str(b) in boons:
+			boons.append(str(b))
+	boon_offer = []
+	for b in d.get("offer", []):
+		if BOONS.has(str(b)):
+			boon_offer.append(str(b))
 	use = {}
 	var u = d.get("use", {})
 	if u is Dictionary:
