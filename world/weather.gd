@@ -154,14 +154,15 @@ func _process(delta: float) -> void:
 	var at: Vector3 = w.player.global_position
 	for ps in [_rain, _ash]:
 		ps.global_position = at + Vector3(0, 12, 0)
-	_rain.emitting = k > 0.3 and kind in ["rain", "gale"]
-	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"]
+	var under: bool = w.hall != null and w.hall.inside(at)
+	_rain.emitting = k > 0.3 and kind in ["rain", "gale"] and not under
+	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"] and not under
 	_ash.process_material.color = Color(0.45, 0.4, 0.36, 0.7) if kind == "ashstorm" else Color(0.92, 0.94, 0.96, 0.8)
 	_ash.process_material.initial_velocity_min = 2.0 if kind == "ashstorm" else 1.0
 	var wa: float = w.sea.wind_ang if w.sea else 0.0
 	_ash.process_material.direction = Vector3(cos(wa) * 2.0, -1.0, sin(wa) * 2.0) if kind == "ashstorm" else Vector3(0.1, -1, 0)
-	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, -14.0 if kind == "rain" and k > 0.2 else -60.0, delta * 15.0)
-	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, -10.0 if kind in ["gale", "ashstorm"] and k > 0.2 else -60.0, delta * 15.0)
+	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, -14.0 if kind == "rain" and k > 0.2 and not under else -60.0, delta * 15.0)
+	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, -10.0 if kind in ["gale", "ashstorm"] and k > 0.2 and not under else -60.0, delta * 15.0)
 	_roof_t -= delta
 	if _roof_t <= 0.0:
 		_roof_t = 0.5

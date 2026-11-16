@@ -7,7 +7,7 @@ pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
-	[ "$name" = minds ] && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	{ [ "$name" = minds ] || [ "$name" = ending ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
 	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
@@ -40,6 +40,7 @@ check fixes     debug_fixes    "FIXES map_ready=true map_open_fast=true slept=tr
 check newfoes   debug_newfoes  "NEWFOES made=8 hit=8 burning=true slowed=true hurts=true slow_speed=true"
 check questfoes debug_questfoes "QUESTFOES cleared=true"
 check questmarks debug_questmarks "QUESTMARKS shown=true kept=true gone=true reload=true"
+check ending    debug_ending   "ENDING sealed=[1-9][0-9]* offered=true barred=true stair=true down=true crossed=true dark=true held=true killed=1[2-9] leaf7=true nowriter=true ending=keeper done=true"
 check slug      debug_slug     "SLUG early=false landed=true flight_ms=true"
 check packfit   debug_packfit  "PACKFIT fits=true"
 check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"

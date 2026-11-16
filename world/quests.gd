@@ -123,6 +123,17 @@ const STORIES := {
 			{"t": "talk", "who": "ash_lena", "text": "Tell Lena what you found.", "ask": "Engines, still turning. Nobody tends them. This key locked them.",
 				"say": "Engines. He thought it was a church.\n\nKeep the key. Keep the boat too, and use it. He would have liked that someone still crosses.", "take": ["engine_key", 1]},
 		], "reward": {"salt": 150, "items": [["coin", 6]], "rep": 4}},
+	# The end of the road: after the ninth fire, Lena takes the fellowship down to the Tenth Hall
+	"ferryway": {"title": "The Ferryman's Way", "giver": "ash_lena", "at": "gallowmere", "after": "done_main",
+		"pitch": "Under Gallowmere there is a lake that has never had light on it. Aron rowed five men across it. One came back. Now the ninth fire burns, I can take you.",
+		"steps": [
+			{"t": "talk", "who": "ash_lena", "text": "Tell Lena you will go down.", "ask": "Take me across.",
+				"say": "Then go to the Lake Stair, by the ninth fire. I will be waiting at the bottom with his boat and his lantern.\n\nAron used to say the far shore was a hall nobody built. He would not go past the boat. Neither will I."},
+			{"t": "reach", "ruin": "lake_stair", "text": "Go to the Lake Stair by the ninth beacon, <dir:B:8:gallowmere> of Gallowmere. Lena waits below with the boat."},
+			{"t": "reach", "ruin": "tenth_shore", "text": "Go down the Lake Stair, and cross the dark water with Lena."},
+			{"t": "kill", "ruin": "tenth_hall", "n": 12, "text": "Something in the hall does not want you near the page. Hold your ground."},
+			{"t": "page", "ruin": "tenth_page", "text": "Go to the page at the head of the table."},
+		], "reward": {"salt": 200, "items": [["coin", 10]], "rep": 5}},
 	"olives": {"title": "Salt for Olives", "giver": "orla", "at": "hesk",
 		"pitch": "When I was a girl, ships came from Kalaja with olives. One of them never made it in. It lies on Kalaja's shore, <dir:R:wreck_kala_0:hesk> of here, across the sea.",
 		"steps": [
@@ -207,6 +218,8 @@ func from_data(d: Dictionary) -> void:
 	if not quests.has("main"):
 		start_new()
 	quests.main.steps = MAIN
+	if quests.main.state == "done":
+		w.flags["done_main"] = true
 	for qid in quests:
 		_place_things(qid)
 	refresh_hud()
@@ -242,7 +255,7 @@ func target_of(q: Dictionary):
 		"talk", "gather", "deliver":
 			var who: String = s.who
 			return w.people[who].pos if w.people.has(who) else null
-		"kill", "nest", "recover", "find":
+		"kill", "nest", "recover", "find", "page":
 			if s.has("ruin"):
 				return _ruin_pos(s.ruin)
 			if s.has("crate"):
@@ -266,6 +279,16 @@ func target_of(q: Dictionary):
 
 
 func _ruin_pos(id: String):
+	if w.hall:
+		match id:
+			"lake_stair":
+				return w.hall.stair_top
+			"tenth_shore":
+				return w.hall.shore_b
+			"tenth_hall":
+				return w.hall.mid
+			"tenth_page":
+				return w.hall.page_pos
 	for r in w.ruins:
 		if r.id == id:
 			return r.pos
@@ -337,7 +360,8 @@ func on_event(kind: String, data: Dictionary) -> void:
 				if s.t == "reach":
 					var c = target_of(q)
 					var r := 40.0 if s.has("at") else 25.0
-					if c != null and Vector2(p.x, p.z).distance_to(Vector2(c.x, c.z)) < r:
+					var down: bool = c != null and w.hall != null and (w.hall.inside(c) or w.hall.inside(p))
+					if c != null and (p.distance_to(c) < r if down else Vector2(p.x, p.z).distance_to(Vector2(c.x, c.z)) < r):
 						ask_advance(q.id)
 		"lit":
 			if not Net.authority():
@@ -431,6 +455,8 @@ func step_done(qid: String, stage: int) -> void:
 func _finish(q: Dictionary) -> void:
 	if q.has("story"):
 		w.flags["done_" + str(q.story)] = true
+	if q.get("main", false):
+		w.flags["done_main"] = true
 	w.sfx("choir", -6)
 	var r: Dictionary = q.get("reward", {})
 	var items: Array = []

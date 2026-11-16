@@ -33,6 +33,7 @@ var seen_biomes := {}
 var ui: WUI
 var builder: WBuilder
 var quests: WQuests
+var hall: WHall   ## the Tenth Hall, under the ninth beacon
 var slot := "1"
 var _owns_world := false   ## set once at build: only the host (or a lone survivor) ever writes the world file
 var world_uid := ""
@@ -197,6 +198,8 @@ func _make_world(sd: int) -> void:
 	_build_signposts()
 	_scatter_decor()
 	WDress.cover(self)
+	hall = WHall.new(self)
+	hall.build()
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
@@ -323,6 +326,8 @@ func _process(delta: float) -> void:
 			_place_sounds()
 		_cat_tick(delta)
 		_power_tick(delta)
+		if hall:
+			hall.local_tick(delta)
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -1301,6 +1306,8 @@ var great := {}             ## the great raid tonight (host): spawned, and where
 
 
 func safe_at(p: Vector3) -> bool:
+	if hall and hall.inside(p):
+		return true   # the night does not come down the Lake Stair: only the hall's own answer
 	for i in lit:
 		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
 			return true
@@ -1527,6 +1534,8 @@ func tier_at(p: Vector3) -> int:
 
 
 func gentle_at(p: Vector3) -> bool:
+	if hall and hall.inside(p):
+		return true
 	return Vector2(p.x, p.z).distance_to(WPlaces.start) < GENTLE
 
 
@@ -2275,6 +2284,8 @@ func nights_to_great() -> int:
 
 ## Said at dawn, and when a pilgrim wakes: the great raid is coming, and when.
 func _great_warning() -> void:
+	if flags.get("ending", "") == "writer":
+		return   # the Mouth is closed: no great raid comes again
 	match nights_to_great():
 		0:
 			hud.alert_banner("The seventh night", "The great raid comes at dusk. Hold your camp, or find a wall.")
@@ -2539,6 +2550,12 @@ func _rq_open(by: int, id: String) -> void:
 ## A lost book in a searched place, if one is to be found there: each isle's heart keeps its own,
 ## and now and then a ruin of the waste turns up the next of the waste's books.
 func _book_for(crate_id: String, rr: RandomNumberGenerator) -> String:
+	# The Tenth Page was torn up and carried off by those who fled: its leaves lie in sealed chests
+	if crates.has(crate_id) and crates[crate_id].sealed:
+		for k in 6:
+			var pg := "page_%d" % (k + 1)
+			if not flags.has("found_" + pg) and not flags.has(pg):
+				return pg
 	if crate_id.begins_with("isle_"):
 		var bits := crate_id.split("_")
 		var bk := str(Items.ISLE_BOOKS.get(bits[1], ""))
@@ -2568,12 +2585,44 @@ func _w_book(id: String, by: int) -> void:
 	flags[id] = true
 	flags["found_" + id] = true
 	var info: Dictionary = Items.info(id)
-	hud.title_card(info.name, "A lost book")
+	hud.title_card(info.name, "A leaf of the Tenth Page" if id.begins_with("page_") else "A lost book")
 	var who := "You read" if by == Net.me() else "%s reads" % Net.name_of(by)
 	hud.notify("%s %s.\n%s" % [who, info.name, info.text])
 	sfx("bell", -12, null, 1.2)
 	if by == Net.me():
 		award("ruin", 2.0)
+	if ready_world:
+		autosave_soon(3.0)
+
+
+## The page at the head of the table: the host settles what is done with it, once for the world.
+func _rq_ending(by: int, kind: String) -> void:
+	if not Net.authority() or flags.has("ending") or hall == null:
+		return
+	var q: Dictionary = quests.quests.get("story_ferryway", {})
+	if q.is_empty() or q.state != "active" or quests.step_of(q).get("t", "") != "page":
+		return
+	if kind == "writer" and hall.pages_read() < 6:
+		return
+	if kind != "writer":
+		kind = "keeper"
+	shared("_w_ending", [kind, by])
+	quests.advance(q.id, int(q.stage))
+
+
+const ENDINGS := {
+	"keeper": ["The Keeper", "You leave the page white. The pen stays where it lay.\n\nUp in the waste the nine fires burn. The Mouth is held for as long as someone keeps them.\n\nThe waste is not saved. It is kept. And now you keep it."],
+	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nBut the stars are gone. The waste is safe, and very empty, as if no one is looking any more."],
+}
+
+
+func _w_ending(kind: String, by: int) -> void:
+	flags["ending"] = kind
+	sfx("choir", -4)
+	var e: Array = ENDINGS.get(kind, ENDINGS.keeper)
+	hud.title_card(e[0], "The end of the road")
+	if ui:
+		ui.open_ending(e[0], e[1], "" if by == Net.me() else "%s stood at the page." % Net.name_of(by))
 	if ready_world:
 		autosave_soon(3.0)
 
@@ -3479,6 +3528,8 @@ func _world_tick(delta: float) -> void:
 			_day_t = 6.0
 			_day_watch()
 	_regrow_tick(delta)
+	if hall:
+		hall.host_tick(delta)
 	_quest_t -= delta
 	if _quest_t <= 0.0:
 		_quest_t = 5.0
@@ -3525,7 +3576,7 @@ func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
 	if Net.authority():
-		if great_night(nights + 1):
+		if great_night(nights + 1) and flags.get("ending", "") != "writer":
 			get_tree().create_timer(20.0, false).timeout.connect(func():
 				if is_instance_valid(self) and night:
 					_great_raid())
@@ -3670,7 +3721,16 @@ func _apply_time(force: bool) -> void:
 	weather.apply_env(env, night_k)
 	if _stars:
 		_stars.material_override.albedo_color.a = clampf(night_k * 1.5 - 0.3, 0.0, 1.0)
-		_stars.visible = night_k > 0.2
+		# Once the page is written, Speeb's gaze has left the waste: no stars
+		_stars.visible = night_k > 0.2 and flags.get("ending", "") != "writer"
+	var under: bool = hall != null and player != null and hall.inside(player.global_position)
+	env.fog_aerial_perspective = 0.0 if under else 0.5
+	if under:
+		# Under the waste no sun, no sky: only what light was carried down
+		sun.light_energy = 0.0
+		env.ambient_light_energy = 0.05
+		env.fog_light_color = Color(0.01, 0.01, 0.015)
+		env.fog_density = 0.03
 
 
 ## How many forms the night sends, and of what kind, grows with the nights survived.
@@ -3679,6 +3739,8 @@ func _night_wave() -> void:
 	if tg.is_empty():
 		return
 	var cap := 7 + tg.size() * 3 + mini(nights, 10)
+	if flags.get("ending", "") == "writer":
+		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
 	for t in tg:
 		if safe_at(t.global_position):
 			continue
@@ -3724,8 +3786,8 @@ func _quest_foes() -> void:
 	var tg := targets()
 	for q in quests.active():
 		var st: Dictionary = quests.step_of(q)
-		if st.get("t", "") != "kill":
-			continue
+		if st.get("t", "") != "kill" or st.get("ruin", "") == "tenth_hall":
+			continue   # the hall sends its own
 		var c = quests.target_of(q)
 		if not (c is Vector3):
 			continue
@@ -6659,6 +6721,70 @@ func debug_questmarks() -> void:
 	print("QUESTMARKS shown=%s kept=%s gone=%s reload=%s" % [shown, kept, gone, reload])
 	get_tree().quit()
 
+## Testing aid: the end of the road. The main road done opens Lena's crossing; the stair, the boat, the
+## hall's answer and the page; the writer's ending is barred until the six leaves are read.
+func debug_ending() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var sealed := 0
+	for id in crates:
+		if crates[id].sealed:
+			sealed += 1
+	quests.quests.main.stage = quests.quests.main.steps.size()
+	quests.quests.main.state = "done"
+	quests._finish(quests.quests.main)
+	quests.refresh_offers()
+	var k := quests._find_offer("gallowmere", "story_ferryway")
+	var offered := k >= 0
+	if offered:
+		quests.rq_accept(Net.me(), "gallowmere", quests.offers.gallowmere[k].id)
+	var q: Dictionary = quests.quests.get("story_ferryway", {})
+	var barred := not hall.open()
+	for o in quests.talk_options("ash_lena"):
+		o[1].call()
+	await get_tree().create_timer(0.3).timeout
+	player.place(hall.stair_top + Vector3(0, 0.5, 0), 0.0)
+	await get_tree().create_timer(0.6).timeout
+	quests.on_event("move", {"pos": player.global_position})
+	await get_tree().create_timer(0.3).timeout
+	var at_stair := int(q.stage) == 2
+	hall.go_down()
+	await get_tree().create_timer(0.8).timeout
+	var down := hall.inside(player.global_position) and player.global_position.y > WHall.DEPTH - 1.0
+	hall.cross(true)
+	await get_tree().create_timer(0.8).timeout
+	quests.on_event("move", {"pos": player.global_position})
+	await get_tree().create_timer(0.3).timeout
+	var crossed := int(q.stage) == 3
+	var dark := sun.light_energy == 0.0
+	var killed := 0
+	for i in 90:
+		await get_tree().create_timer(1.0).timeout
+		for e in enemies.duplicate():
+			if is_instance_valid(e) and e.is_alive() and hall.inside(e.global_position):
+				e.hurt(999999.0, Vector3.FORWARD)
+				killed += 1
+		if int(q.stage) >= 4:
+			break
+	var held := int(q.stage) == 4
+	player.place(hall.page_pos + Vector3(0, 0.6, -2.0), 0.0)
+	hall.touch_page()
+	await get_tree().create_timer(0.3).timeout
+	var leaf7 := flags.has("page_7")
+	_rq_ending(Net.me(), "writer")
+	var barred_writer := not flags.has("ending")
+	ui.close_all()
+	_rq_ending(Net.me(), "keeper")
+	await get_tree().create_timer(0.5).timeout
+	print("ENDING sealed=%d offered=%s barred=%s stair=%s down=%s crossed=%s dark=%s held=%s killed=%d leaf7=%s nowriter=%s ending=%s done=%s" % [sealed, offered, barred, at_stair, down, crossed, dark, held, killed, leaf7, barred_writer, flags.get("ending", ""), flags.has("done_ferryway")])
+	hall.go_up()
+	await get_tree().create_timer(0.5).timeout
+	print("ENDING up=%s" % [not hall.inside(player.global_position)])
+	get_tree().quit()
+
 ## Testing aid: a far shot takes time to land, and still lands, and a moving foe would have walked on.
 func debug_slug() -> void:
 	while not ready_world:
@@ -7242,6 +7368,24 @@ func debug_screen() -> void:
 		rearm()
 		ui._acat = "guns"
 		ui._asel = g
+	if which in ["hall", "hall_shore", "stair"]:
+		# The Tenth Hall from where Lena sets you down, its far shore, or the stair-head up in the waste
+		var eye: Vector3 = {"hall": hall.at(2.5, 1.7, 16), "hall_shore": hall.at(-6, 1.7, -50), "stair": hall.stair_top + (hall.stair_top - hall.at(0, 0, 0)) * Vector3(1, 0, 1).normalized() * 0.0}[which]
+		var look: Vector3 = {"hall": hall.at(0, 1.2, 44), "hall_shore": hall.at(3, 0.5, -30), "stair": hall.stair_top}[which]
+		if which == "stair":
+			var away := Vector3(look.x - hall.at(0, 0, 0).x, 0, look.z - hall.at(0, 0, 0).z).normalized()
+			eye = look + away * 12.0 + Vector3(4, 0, 0)
+			eye.y = terrain.height_at(eye.x, eye.z) + 2.5
+			look.y += 2.0
+		player.place(eye, 0.0)
+		var to := look - eye
+		player.yaw = atan2(-to.x, -to.z)
+		player.pitch = atan2(to.y, Vector2(to.x, to.z).length())
+		player.rotation.y = player.yaw
+		player.head.rotation.x = player.pitch
+		player.set_physics_process(false)
+		clock = 15.0
+		hud.visible = false
 	if which.begins_with("ruin_") or which.begins_with("square_") or which.begins_with("land_"):
 		# A close look at a ruin of a kind, a town's square, or a land's own ground cover
 		var eye := Vector3.ZERO

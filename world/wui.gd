@@ -650,6 +650,10 @@ func _redraw_now() -> void:
 			_draw_cat()
 		"shrine":
 			_draw_shrine()
+		"page":
+			_draw_page()
+		"ending":
+			_draw_ending()
 
 
 # ------------------------------------------------------------------ the strip along the top
@@ -3071,6 +3075,61 @@ func _draw_planter() -> void:
 
 
 # ------------------------------------------------------------------ the trophy shrine
+
+# ------------------------------------------------------------------ the end of the road
+
+func open_page() -> void:
+	_open("page")
+
+
+func _draw_page() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title("The Tenth Page"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	_body.add_child(_wrap("A long table, and five who never stood up. At its head, a white page, and a pen still wet.", 20, PALE, 1000))
+	_body.add_child(_gap(6))
+	_body.add_child(_wrap("At the foot of the page, one line, in a hand you almost know:\n\"It asked us not to look at it, and we were so tired of looking.\"", 19, DIM, 1000))
+	_body.add_child(_gap(14))
+	_body.add_child(_action("Leave it blank.", func():
+		w.shared("_rq_ending", [Net.me(), "keeper"])
+		close_all(), "1", GOLD))
+	var read: int = w.hall.pages_read()
+	if read >= 6:
+		_body.add_child(_action("Write on it.", func():
+			w.shared("_rq_ending", [Net.me(), "writer"])
+			close_all(), "2", GOLD))
+	else:
+		_body.add_child(_wrap("You do not know what to write. The rest of the Tenth Page lies torn up across the waste, in sealed chests: %d of 6 leaves read." % read, 17, DIM, 1000))
+	_body.add_child(_action("Not yet.", close_all, "Esc", DIM))
+
+
+var _end_title := ""
+var _end_text := ""
+var _end_note := ""
+
+
+func open_ending(title: String, text: String, note := "") -> void:
+	_end_title = title
+	_end_text = text
+	_end_note = note
+	_open("ending")
+
+
+func _draw_ending() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title(_end_title))
+	_body.add_child(top)
+	_close_and_rule(top)
+	if _end_note != "":
+		_body.add_child(_wrap(_end_note, 17, DIM, 1000))
+	_body.add_child(_wrap(_end_text, 21, PALE, 1000))
+	_body.add_child(_gap(14))
+	_body.add_child(_wrap("The world goes on. The fires still need keeping, and the roads are still long.", 17, DIM, 1000))
+	_body.add_child(_action("Go on", close_all, "Esc", GOLD))
+
 
 func open_shrine(pid: int) -> void:
 	_pid = pid
