@@ -327,7 +327,7 @@ func _process(delta: float) -> void:
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
 ## after dark, the wind in a hollow among ruins and lairs.
 func _place_sounds() -> void:
-	if _beds.is_empty():
+	if _beds.is_empty() or terrain == null:   # a joiner has no land until the host's snapshot comes
 		return
 	var p := player.global_position
 	var town := 0.0
@@ -8135,4 +8135,153 @@ func debug_tales() -> void:
 		if WPlaces.ruin_story(str(r.id), str(r.kind)) != "":
 			told += 1
 	print("TALES bad=%s told=%d/%d" % [bad, told, ruins.size()])
+	get_tree().quit()
+
+
+## Testing aid: walks the whole world and works every system a while, so script errors show up.
+## Run it twice on one save to check loading what it saved.
+func debug_soak() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0 := Time.get_ticks_msec()
+	var step := func(name: String): print("SOAK %s %.0fs" % [name, (Time.get_ticks_msec() - t0) / 1000.0])
+	for it in [["wood", 60], ["scrap", 40], ["cloth", 20], ["stone", 40], ["shells", 60], ["bandage", 4], ["raft", 1], ["sloop", 1], ["t_ash", 1], ["t_salt", 1]]:
+		inv.add(it[0], it[1])
+	flags["book_ship"] = true
+	ui.debug_bench = true
+	# Every panel, here at the start
+	for tab in ["pack", "wear", "craft", "arms", "build"]:
+		ui.open_inventory(tab)
+		await get_tree().process_frame
+	for f in [ui.open_map, ui.open_journal, ui.open_skills, ui.open_travel]:
+		ui.close_all()
+		f.call()
+		await get_tree().create_timer(0.3).timeout
+	ui.close_all()
+	step.call("panels")
+	# Talk to everyone, and take what work is offered
+	quests.refresh_offers()
+	await get_tree().create_timer(0.5).timeout
+	for pid in WPlaces.PEOPLE:
+		ui.open_dialogue(pid)
+		await get_tree().process_frame
+		ui.close_all()
+	for k in quests.offers:
+		for o in quests.offers[k]:
+			if quests.active().size() < WQuests.MAX_ACTIVE:
+				quests.accept(o)
+	await get_tree().create_timer(0.5).timeout
+	step.call("people active=%d" % quests.active().size())
+	# Every town, every isle, the coast and the open sea, a little while each, by day
+	clock = 11.0
+	var spots: Array = []
+	for k in WPlaces.SETTLEMENTS:
+		spots.append(WPlaces.spos(k) + Vector2(50, 0))
+	for r in ruins.slice(0, 12):
+		spots.append(Vector2(r.pos.x, r.pos.z) + Vector2(6, 0))
+	for il in terrain.isles:
+		spots.append(terrain.isle_heart(il) + Vector2(20, 0))
+		spots.append(Vector2(il.c) * 0.92)
+	for q in spots:
+		player.place(gpos(q) + Vector3(0, 0.4, 0), randf() * TAU)
+		player.velocity = Vector3.ZERO
+		await get_tree().create_timer(2.5).timeout
+	step.call("walked %d places" % spots.size())
+	# The weather, all of it
+	for kk in WWeather.KINDS:
+		shared("_w_weather", [kk, 60.0, randf() * TAU])
+		weather.k = 1.0
+		await get_tree().create_timer(5.5).timeout
+	shared("_w_weather", ["clear", 600.0, 0.0])
+	step.call("weather")
+	# Boats: launch, board, row, sail, wreck
+	var il0: Dictionary = terrain.isles[0]
+	var dir2: Vector2 = Vector2(il0.c) / maxf(absf(il0.c.x), absf(il0.c.y))
+	var shore := dir2 * 1700.0
+	for k in 600:
+		shore = dir2 * (1700.0 + k)
+		if terrain.height_at(shore.x, shore.y) < WIsles.SEA_Y + 0.6:
+			break
+	player.place(gpos(shore - dir2 * 3.0) + Vector3(0, 0.3, 0), atan2(-dir2.x, -dir2.y))
+	await get_tree().create_timer(1.0).timeout
+	for bk in ["raft", "sloop"]:
+		launch_boat(bk)
+		await get_tree().create_timer(0.6).timeout
+		var b: WBoat = boats.values()[boats.size() - 1]
+		b.yaw = atan2(dir2.x, dir2.y)
+		boat_used(b)
+		await get_tree().create_timer(0.5).timeout
+		Input.action_press("move_forward")
+		await get_tree().create_timer(4.0).timeout
+		Input.action_release("move_forward")
+		Input.action_press("move_left")
+		await get_tree().create_timer(2.0).timeout
+		Input.action_release("move_left")
+		boat_used(b)
+		await get_tree().create_timer(0.5).timeout
+	hurt_boat(boats.values()[0], 9999.0)
+	await get_tree().create_timer(1.0).timeout
+	step.call("boats left=%d" % boats.size())
+	# A swim far out, until the deep finds you
+	player.place(Vector3(dir2.x * 2700.0, WIsles.SEA_Y, dir2.y * 2700.0), 0.0)
+	await get_tree().create_timer(12.0).timeout
+	if downed or player.health <= 0.0:
+		await get_tree().create_timer(1.0).timeout
+	player.health = player.max_health
+	player.stamina = 100.0
+	player.place(gpos(WPlaces.spos("cinderwick") + Vector2(60, 0)), 0.0)
+	step.call("swim")
+	# A shrine and its powers
+	builder._rq_build(1, "shrine", player.global_position + Vector3(3, 0, 0), 0.0)
+	builder._rq_build(1, "campfire", player.global_position + Vector3(-4, 0, 2), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	for t in ["t_ash", "t_salt"]:
+		lay_trophy(t)
+		take_power(t)
+		await get_tree().create_timer(2.0).timeout
+	step.call("powers")
+	# Night: the seventh, with its raid, and every foe there is
+	nights = 6
+	clock = weather.dusk() - 0.01
+	await get_tree().create_timer(30.0).timeout
+	for kk in LesserSpeeb.KINDS:
+		var at := player.global_position + Vector3(randf_range(-20, 20), 0, randf_range(15, 25))
+		at.y = terrain.height_at(at.x, at.z) + 0.5
+		var e = spawn_at(kk, at)
+		if e:
+			e.hurt(9999.0, Vector3.FORWARD)
+		await get_tree().process_frame
+	await get_tree().create_timer(20.0).timeout
+	player.health = player.max_health
+	step.call("night foes=%d great=%s" % [enemies.size(), not great.is_empty()])
+	clock = weather.dawn() - 0.01
+	await get_tree().create_timer(5.0).timeout
+	step.call("dawn day=%d nights=%d" % [day, nights])
+	# Through a whole season in a hurry
+	for d in 6:
+		day += 1
+		_w_dawn(day)
+		await get_tree().create_timer(0.5).timeout
+	step.call("days season=%s" % weather.season().name)
+	save_all()
+	await get_tree().create_timer(2.0).timeout
+	print("SOAK done %.0fs" % [(Time.get_ticks_msec() - t0) / 1000.0])
+	get_tree().quit()
+
+
+## Testing aid: a second pilgrim who joins, follows the host about and opens things, for the co-op soak.
+func debug_soak_join() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 150000:
+		var host = avatars.get(1)
+		if host and is_instance_valid(host):
+			player.place(host.global_position + Vector3(3, 1.0, 3), 0.0)
+		for tab in ["pack", "craft"]:
+			ui.open_inventory(tab)
+			await get_tree().process_frame
+		ui.close_all()
+		await get_tree().create_timer(4.0).timeout
+	print("SOAKJOIN done day=%d boats=%d quests=%d weather=%s" % [day, boats.size(), quests.active().size(), weather.kind])
 	get_tree().quit()
