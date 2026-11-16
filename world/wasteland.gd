@@ -34,6 +34,7 @@ var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts 
 var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
+var spirits: WSpirits    ## spirit-cat relics, and the one running with you
 var dev_fast := 1.0      ## the stride, sped up from the playtest menu
 var skills := WSkills.new()
 var seen_biomes := {}
@@ -124,6 +125,7 @@ func build() -> void:
 	dread = WDread.new(self)
 	settlers = WSettlers.new(self)
 	kraken = WKraken.new(self)
+	spirits = WSpirits.new(self)
 	add_child(air)
 	builder = WBuilder.new()
 	builder.w = self
@@ -2567,6 +2569,11 @@ func _rq_open(by: int, id: String) -> void:
 			if book != "":
 				bag.add(book, 1)
 				flags["found_" + book] = true
+			# A spirit-cat relic, once, in a shrine's offerings or a sealed vault
+			var relic: String = {"shrine": "spirit_ember", "vault": "spirit_ash"}.get(c.table, "")
+			if relic != "" and not flags.has("found_" + relic) and rr.randf() < 0.35:
+				bag.add(relic, 1)
+				shared("_w_flag", ["found_" + relic])
 			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
 		var cache := quests.cache_items(id)
@@ -3712,6 +3719,10 @@ func _w_kraken_down(d: int) -> void:
 	kraken.fallen(d)
 
 
+func _w_spirit(peer: int, id: String, on: bool) -> void:
+	spirits.show(peer, id, on)
+
+
 func _w_settler(s: Dictionary) -> void:
 	settlers.add(s)
 	if not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
@@ -4851,7 +4862,7 @@ func char_data() -> Dictionary:
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(),
+		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(),
 	}
 
 
@@ -4878,6 +4889,7 @@ func apply_char(d: Dictionary) -> void:
 				meals[k] = [float(m[0]), float(m[1])]
 	rested = float(d.get("rested", 0.0))
 	alchemy.from_data(d.get("brews", {}))
+	spirits.from_data(d.get("spirits", {}))
 	power = str(d.get("power", ""))
 	power_left = float(d.get("power_left", 0.0))
 	_meal_stats()
@@ -8718,6 +8730,39 @@ func debug_dread() -> void:
 
 
 ## Testing aid: a snug base with spare beds draws settlers, who bring goods and keep fires.
+## Testing aid: calling a spirit-cat, its bites, the relic going cold and kindling again.
+func debug_spirit() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.god = true
+	dev.set_hour(12.0)
+	dev.go(dev.spot_in("ash"))
+	await get_tree().create_timer(1.0).timeout
+	inv.add("spirit_ember", 1)
+	var came := spirits.summon("spirit_ember")
+	var again := spirits.refusal("spirit_ember") != ""
+	var e = _spawn_near("rusher", player.global_position, 8.0, 10.0, true)
+	await get_tree().process_frame
+	var hp0: float = e.hp if e and is_instance_valid(e) else 0.0
+	await get_tree().create_timer(6.0).timeout
+	var bitten: bool = hp0 > 0.0 and (not is_instance_valid(e) or not e.is_alive() or e.hp < hp0)
+	var left := spirits.time_left()
+	spirits.cat.life = 0.0
+	await get_tree().create_timer(2.0).timeout
+	var faded := spirits.cat == null or not is_instance_valid(spirits.cat)
+	var kept: Dictionary = char_data().spirits
+	spirits.from_data(JSON.parse_string(JSON.stringify(kept)))
+	var cold := spirits.is_spent("spirit_ember")
+	spirits.rekindle()
+	var warm := not spirits.is_spent("spirit_ember")
+	var sk: String = WPlaces.SETTLEMENTS.keys()[0]
+	dev.go(Vector3(WPlaces.spos(sk).x, 0, WPlaces.spos(sk).y))
+	await get_tree().create_timer(0.5).timeout
+	var town := spirits.refusal("spirit_ember") != ""
+	print("SPIRIT came=%s again_refused=%s bitten=%s left=%d faded=%s cold=%s warm=%s town_refused=%s" % [came, again, bitten, int(left), faded, cold, warm, town])
+	get_tree().quit()
+
+
 func debug_settlers() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout

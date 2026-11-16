@@ -7,7 +7,7 @@ extends RefCounted
 const LANDS := [["ash", "Ash Plains"], ["dunes", "Rust Dunes"], ["forest", "Dead Forest"], ["salt", "Salt Flats"], ["marsh", "Tar Marsh"], ["basalt", "Basalt Heights"]]
 const KIT := {"scrap": 200, "wood": 200, "cloth": 100, "bone": 100, "stone": 100, "salt": 200, "oil": 60, "hide": 60, "herb": 60,
 	"red_iron": 40, "heartwood": 40, "salt_crystal": 40, "tar": 40, "obsidian": 40, "coin": 100,
-	"fittings_fine": 10, "fittings_rare": 6, "fittings_storied": 3}
+	"fittings_fine": 10, "fittings_rare": 6, "fittings_storied": 3, "spirit_ember": 1, "spirit_ash": 1, "spirit_grave": 1}
 const AMMO := {"shells": 200, "rounds": 300, "rifle": 400, "rockets": 20, "fuel": 400}
 
 var w
@@ -139,11 +139,12 @@ func heal() -> void:
 	w.player.stamina = 100.0
 	w.food = 100.0
 	w.rest = 100.0
+	w.spirits.rekindle()
 
 
 func give_kit() -> void:
 	for id in KIT:
-		if Items.DB.has(id):
+		if Items.DB.has(id) and not (id.begins_with("spirit_") and w.inv.count(id) > 0):
 			w.inv.add(id, int(KIT[id]))
 	give_ammo()
 

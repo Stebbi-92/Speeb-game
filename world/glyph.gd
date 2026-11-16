@@ -304,6 +304,13 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_box(0.44, 0.12, 0.12, 0.2, wood)
 				_poly([[0.42, 0.3], [0.58, 0.3], [0.8, 0.62], [0.74, 0.88], [0.26, 0.88], [0.2, 0.62]], Color(0.75, 0.8, 0.78, 0.5))
 				_poly([[0.26, 0.58], [0.74, 0.58], [0.78, 0.66], [0.72, 0.86], [0.28, 0.86], [0.22, 0.66]], c)
+			elif item.begins_with("spirit_"):
+				# A cat's skull-charm, glowing in the spirit's colour
+				_ring(0.5, 0.52, 0.36, Color(c, 0.45), 0.05)
+				_poly([[0.28, 0.38], [0.34, 0.16], [0.44, 0.32], [0.56, 0.32], [0.66, 0.16], [0.72, 0.38], [0.66, 0.72], [0.34, 0.72]], c)
+				_dot(0.41, 0.48, 0.05, Color(0.1, 0.1, 0.15))
+				_dot(0.59, 0.48, 0.05, Color(0.1, 0.1, 0.15))
+				_poly([[0.46, 0.6], [0.54, 0.6], [0.5, 0.65]], Color(0.1, 0.1, 0.15))
 			elif item.begins_with("pc_"):
 				_piece(item.substr(3))
 			elif item.begins_with("t_"):

@@ -912,8 +912,10 @@ func _draw_pack() -> void:
 	if not facts.is_empty():
 		side.add_child(_label(",  ".join(facts), 16, GOLD))
 	side.add_child(_gap(6))
-	if info.kind in ["food", "medicine", "boat", "book", "brew"]:
-		side.add_child(_action({"food": "Eat", "boat": "Launch", "book": "Read", "brew": "Drink"}.get(info.kind, "Use"), func(): _use_item(_sel), "Right click"))
+	if info.kind == "spirit":
+		side.add_child(_wrap("Cold. Rest by a fire to kindle it." if w.spirits.is_spent(s.id) else "Ready to call.", 16, DIM))
+	if info.kind in ["food", "medicine", "boat", "book", "brew", "spirit"]:
+		side.add_child(_action({"food": "Eat", "boat": "Launch", "book": "Read", "brew": "Drink", "spirit": "Call"}.get(info.kind, "Use"), func(): _use_item(_sel), "Right click"))
 	if info.kind == "wear":
 		var sid: String = s.id
 		side.add_child(_action("Wear", func(): _wear(sid); _sel = -1; _redraw(), "Right click"))
@@ -928,14 +930,14 @@ func _draw_pack() -> void:
 
 const FILTERS := [["all", "All"], ["food", "Food and aid"], ["material", "Materials"], ["gear", "Gear and ammo"], ["keep", "Keepsakes"]]
 const KIND_NAMES := {"material": "Material", "food": "Food", "medicine": "Medicine", "aid": "Aid", "seed": "Seed", "tool": "Tool",
-	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand", "boat": "Boat", "book": "Lost book", "brew": "Draught"}
+	"ammo": "Ammunition", "wear": "Clothing", "part": "Gun fittings", "trinket": "Trinket", "trophy": "Trophy", "quest": "Errand", "boat": "Boat", "book": "Lost book", "brew": "Draught", "spirit": "Spirit relic"}
 var _filter := "all"
 
 
 func _kinds_of(f: String) -> Array:
 	match f:
 		"food":
-			return ["food", "medicine", "aid", "seed", "brew"]
+			return ["food", "medicine", "aid", "seed", "brew", "spirit"]
 		"material":
 			return ["material"]
 		"gear":
@@ -951,7 +953,7 @@ func _tidy(bag: Inventory) -> void:
 	for s in bag.slots:
 		if s != null:
 			totals[s.id] = int(totals.get(s.id, 0)) + int(s.n)
-	var order := ["medicine", "brew", "aid", "food", "seed", "ammo", "tool", "wear", "material", "trinket", "trophy", "quest"]
+	var order := ["spirit", "medicine", "brew", "aid", "food", "seed", "ammo", "tool", "wear", "material", "trinket", "trophy", "quest"]
 	var ids := totals.keys()
 	ids.sort_custom(func(a, b):
 		var ka := order.find(Items.info(a).kind)
@@ -1080,6 +1082,10 @@ func _use_item(i: int) -> void:
 		done = w.read_book(s.id)
 	elif kind == "brew":
 		done = w.alchemy.drink(s.id)
+	elif kind == "spirit":
+		if w.spirits.summon(s.id):
+			close_all()
+		return
 	else:
 		done = w.eat(s.id)
 	if done:
@@ -1912,7 +1918,7 @@ func _pack_click(i: int, right: bool) -> void:
 	if right:
 		# The quick use: eat it, use it, or put it on. Nothing is dropped by accident.
 		var kind: String = Items.info(s.id).kind
-		if kind in ["food", "medicine", "boat", "book", "brew"]:
+		if kind in ["food", "medicine", "boat", "book", "brew", "spirit"]:
 			_use_item(i)
 			return
 		if kind == "wear":
@@ -3163,6 +3169,7 @@ func _draw_rest() -> void:
 			_body.add_child(_action("Not now", close_all, "Esc", DIM))
 			return
 		_body.add_child(_action("Brew draughts", func(): open_brew()))
+		w.spirits.rekindle()
 	var near := 0
 	for e in w.enemies:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
