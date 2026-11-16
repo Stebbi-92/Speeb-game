@@ -12,6 +12,7 @@ const ALL := [
 	["needs", "Hunger and tiredness", ["Off", "Gentle", "Normal"], 2, "How fast food and rest run down."],
 	["air", "Air support", ["Off", "On"], 1, "Calling the sky down after a run of kills."],
 	["ammo", "Ammunition", ["Counted", "Unlimited"], 0, "Unlimited: guns never spend their reserve."],
+	["pace", "Night pace", ["Steady", "Normal", "Chaos"], 1, "Steady: smaller waves with longer breaks, and fewer named nights. Chaos: bigger, quicker waves, and most nights are named."],
 	["death", "On falling", ["Drop your pack", "Keep your pack"], 0, "What happens to what you carried when you fall."],
 	# Vows: sworn when a world begins and kept for its life. Each makes the road harder, and pays for it.
 	["vow_glass", "Vow of Glass", ["Not sworn", "Sworn"], 0, "You take half again as much harm. Every weapon learns twice as fast."],
@@ -82,6 +83,11 @@ static func flanks() -> bool:
 
 static func spawn_mult() -> float:
 	return [0.0, 0.6, 1.0, 1.5][get_rule("enemies")]
+
+
+## How hard the nights press: [wave size, time between waves, chance a night is plain].
+static func pace() -> Array:
+	return [[0.65, 1.4, 0.7], [1.0, 1.0, 0.45], [1.4, 0.75, 0.2]][get_rule("pace")]
 
 
 static func yield_mult() -> float:

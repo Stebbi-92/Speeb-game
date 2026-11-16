@@ -4178,7 +4178,7 @@ func _world_tick(delta: float) -> void:
 	if night:
 		_wave_t -= delta
 		if _wave_t <= 0.0:
-			_wave_t = maxf(16.0, 34.0 - nights * 1.5)
+			_wave_t = maxf(16.0, 34.0 - nights * 1.5) * float(WRules.pace()[1])
 			_night_wave()
 	else:
 		_day_t -= delta
@@ -4248,7 +4248,7 @@ func night_theme_for(n: int) -> String:
 		return ""   # the first nights are plain, and the great raid is its own
 	var rr := RandomNumberGenerator.new()
 	rr.seed = hash([world_seed, n, "night"])
-	if rr.randf() < 0.45 and not WRules.sworn("vow_hunted"):
+	if rr.randf() < float(WRules.pace()[2]) and not WRules.sworn("vow_hunted"):
 		return ""
 	var ks := NIGHT_THEMES.keys()
 	return ks[rr.randi_range(0, ks.size() - 1)]
@@ -4475,7 +4475,7 @@ func _night_wave() -> void:
 	var tg := targets()
 	if tg.is_empty():
 		return
-	var cap := mini(int(WCrowd.scale(self, 10 + mini(nights, 10)) * (1.25 if night_theme == "long" else 1.0)), WCrowd.ALIVE_CAP)
+	var cap := mini(int(WCrowd.scale(self, 10 + mini(nights, 10)) * (1.25 if night_theme == "long" else 1.0) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP)
 	if flags.get("ending", "") == "writer":
 		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
 	if flags.get("ending", "") == "unlit":
@@ -4487,11 +4487,11 @@ func _night_wave() -> void:
 			return
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)))))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]))))
 		var roster: Array = forms_at(t.global_position)
 		# Near where the cast-out wake, the box cats run in packs some nights
 		if (tier == 1 and randf() < (0.8 if night_theme == "screaming" else 0.35)) or (night_theme == "screaming" and randf() < 0.3):
-			var pack := mini(WCrowd.scale(self, randi_range(8, 14) + mini(nights, 6)), WCrowd.ALIVE_CAP - alive_count())
+			var pack := mini(int(WCrowd.scale(self, randi_range(8, 14) + mini(nights, 6)) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP - alive_count())
 			var from: Vector3 = t.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 40.0
 			for k in pack:
 				var bc = _spawn_near("box_cat", from, 2.0, 8.0)
@@ -6171,6 +6171,23 @@ func _world_ready() -> void:
 
 
 ## Testing aid: vows are kept once sworn, and each one bites and pays.
+func debug_pace() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var out := []
+	for v in 3:
+		var r := rules.duplicate()
+		r["pace"] = v
+		set_rules(r)
+		var named := 0
+		for n in range(3, 60):
+			if night_theme_for(n) != "":
+				named += 1
+		out.append("%d/%.2f" % [named, float(WRules.pace()[0])])
+	print("PACE " + " ".join(out))
+	get_tree().quit()
+
+
 func debug_vows() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout

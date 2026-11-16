@@ -4,7 +4,9 @@ An open world, about four kilometres across, made fresh from a seed. Each world 
 
 ## World settings
 
-Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, and whether you drop your pack when you fall.
+Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, night pace, and whether you drop your pack when you fall.
+
+**Night pace** sets how hard the nights press. Steady brings smaller waves with longer breaks and fewer named nights. Chaos brings bigger, quicker waves, and most nights are named.
 
 **Vows** are sworn only when a world begins, and kept for its whole life. Each makes the road harder and pays for it:
 - **Vow of Glass:** you take half again as much harm, but every weapon learns twice as fast.
@@ -14,6 +16,8 @@ Each world has its own settings, chosen next to **Begin** and changed by the hos
 ## Days and nights
 
 A day passes in about forty minutes. By day the waste is quiet. At night the creatures rise, and each night is a little worse than the last. Light keeps them off: no creature rises within 40 paces of a burning campfire, or 15 of a torch, or inside a settlement's walls.
+
+When you fall, you wake knowing a little more: the nearest lair or ruin you had not found is marked on your map.
 
 Sleep through the night by resting at a fire or a bedroll. In company, everyone must agree to sleep.
 
