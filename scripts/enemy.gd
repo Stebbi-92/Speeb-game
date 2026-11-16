@@ -1686,6 +1686,8 @@ func sees(p: Node3D) -> bool:
 		reach *= 0.6
 	if p == level.player and Input.is_action_pressed("soft"):
 		reach *= 0.55
+	if p == level.player and level.has_method("power_is") and level.power_is("hush"):
+		reach *= 0.55
 	if d > reach:
 		return false
 	var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))

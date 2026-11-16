@@ -185,10 +185,10 @@ func hardship(at: Vector3) -> String:
 	var wn: Dictionary = WArms.worn(w.arms)
 	match kind:
 		"ashstorm":
-			if not wn.covered:
+			if not wn.covered and not w.power_is("ember"):
 				return "The ash chokes you.  Cover your face, or get under a roof."
 		"frost":
-			if w.night and float(wn.warm) < 2.0 and not w.near_fire(at):
+			if w.night and float(wn.warm) < 2.0 and not w.near_fire(at) and not w.power_is("ember"):
 				return "The frost bites.  Dress warm, or keep near a fire."
 	return ""
 

@@ -19,6 +19,7 @@ const REVEAL_N := 256
 var terrain: WTerrain
 var sea: WSea
 var boats := {}          ## boat id -> WBoat, on the Grey Sea
+var life: WIsleLife   ## landings, wrecks and what lives on the isles
 var weather: WWeather
 var boat_next := 1
 var inv := Inventory.new()
@@ -168,6 +169,7 @@ func _make_world(sd: int) -> void:
 		var hp: Vector2 = terrain.isle_heart(il)
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
+		WPlaces.ruin_at["isle_" + str(il.key)] = hp
 	sea = WSea.new().setup(self)
 	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
@@ -184,6 +186,9 @@ func _make_world(sd: int) -> void:
 	_scatter_nodes()
 	_scatter_isle_nodes()
 	sea.build_isles()
+	life = WIsleLife.new().setup(self)
+	add_child(life)
+	life.build()
 	for nd in nodes:
 		_off_the_road(nd)
 		_fade_far(nd.node, 420.0)
@@ -314,6 +319,7 @@ func _process(delta: float) -> void:
 			_bed_t = 0.5
 			_place_sounds()
 		_cat_tick(delta)
+		_power_tick(delta)
 
 
 ## Fades the sound of each place toward how near it is: a town's bustle by day, the night's insects
@@ -1263,6 +1269,20 @@ const TOWN_SAFE := 30.0    ## beyond a settlement's wall, how far its watch reac
 const RAID_CHANCE := 0.07  ## each night, the chance a camp with someone near it is raided
 
 var raiding := {}          ## campfire piece id -> seconds the raid has left
+## The great ones' powers: a trophy laid at a shrine once, and then taken up there for a while.
+const POWERS := {
+	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},
+	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Forms see you at little more than half the distance."},
+	"t_salt": {"key": "white", "name": "White Breath", "text": "Running, swinging and swimming cost far less breath."},
+	"t_forest": {"key": "eye", "name": "The Watcher's Eye", "text": "Your blows and shots strike a fifth harder."},
+	"t_basalt": {"key": "gilt", "name": "Gilded Skin", "text": "Every blow you take is a fifth lighter."},
+	"t_marsh": {"key": "tar", "name": "Tar Lungs", "text": "You swim without tiring, and the sea cannot drown you."},
+}
+const POWER_SECS := 1800.0  ## how long a power lasts once taken up
+var power := ""             ## the trophy whose power this pilgrim carries now
+var power_left := 0.0
+const GREAT_EVERY := 7       ## every seventh night the great raid comes
+var great := {}             ## the great raid tonight (host): spawned, and where it falls
 
 
 func safe_at(p: Vector3) -> bool:
@@ -2185,6 +2205,146 @@ func _maybe_raid() -> void:
 				var e = _spawn_near(roster[randi() % roster.size()], c, BASE_SAFE - 12.0, BASE_SAFE + 6.0, true)
 				if e:
 					e.set_meta("raid", true))
+
+
+## Whether this pilgrim carries the power with this key (see POWERS) now.
+func power_is(k: String) -> bool:
+	return power != "" and power_left > 0.0 and str(POWERS.get(power, {}).get("key", "")) == k
+
+
+## Lays a trophy on a shrine: from now on the fellowship may take its power at any shrine.
+func lay_trophy(t: String) -> void:
+	if inv.take(t, 1) < 1:
+		return
+	shared("_w_flag", ["shrine_" + t])
+	sfx("choir", -6)
+	hud.notify("You lay %s on the shrine. Its power is yours to take up now." % Items.iname(t))
+
+
+func _w_flag(f: String) -> void:
+	flags[f] = true
+	autosave_soon(3.0)
+
+
+func take_power(t: String) -> void:
+	if not flags.has("shrine_" + t):
+		return
+	power = t
+	power_left = POWER_SECS
+	_apply_skills()
+	sfx("choir", -8)
+	hud.title_card("", POWERS[t].name)
+	hud.notify(POWERS[t].text)
+
+
+func _power_tick(delta: float) -> void:
+	if power_left <= 0.0:
+		return
+	power_left -= delta
+	if power_left <= 0.0:
+		power_left = 0.0
+		hud.notify("The %s leaves you." % POWERS.get(power, {"name": "power"}).name)
+		power = ""
+		_apply_skills()
+
+
+## Whether the night with this number (the first night is 1) brings the great raid.
+static func great_night(n: int) -> bool:
+	return n > 0 and n % GREAT_EVERY == 0
+
+
+## How many nights until the great raid: 0 is tonight.
+func nights_to_great() -> int:
+	return (GREAT_EVERY - (nights + 1) % GREAT_EVERY) % GREAT_EVERY
+
+
+## Said at dawn, and when a pilgrim wakes: the great raid is coming, and when.
+func _great_warning() -> void:
+	match nights_to_great():
+		0:
+			hud.alert_banner("The seventh night", "The great raid comes at dusk. Hold your camp, or find a wall.")
+		1:
+			hud.notify("The great raid comes tomorrow night. Mend your walls and lay in shells.")
+		2:
+			hud.notify("Two nights to the great raid. The forms are gathering.")
+
+
+## The seventh night: three waves fall on every camp a pilgrim is keeping, or on the pilgrims themselves.
+func _great_raid() -> void:
+	var spots: Array = []
+	for t in targets():
+		var at: Vector3 = t.global_position
+		var best := -1
+		var bd := 150.0
+		for pid in pieces:
+			var pc: Dictionary = pieces[pid]
+			if pc.kind == "campfire" and pc.pos.distance_to(at) < bd:
+				bd = pc.pos.distance_to(at)
+				best = pid
+		var c: Vector3 = pieces[best].pos if best >= 0 else at
+		var dup := false
+		for o in spots:
+			if o.distance_to(c) < 60.0:
+				dup = true
+		if not dup:
+			spots.append(c)
+	if spots.is_empty():
+		return
+	great = {"spawned": 0, "spots": spots}
+	for c in spots:
+		shared("_w_great", [c])
+	var per := 6 + mini(nights / 2, 8) + targets().size() * 2
+	for wave in 3:
+		get_tree().create_timer(wave * 100.0 + 1.0, false).timeout.connect(func():
+			if not is_instance_valid(self) or not night:
+				return
+			for c in spots:
+				var roster: Array = forms_at(c)
+				for k in per + wave * 2:
+					get_tree().create_timer(randf_range(0.0, 25.0), false).timeout.connect(func():
+						if is_instance_valid(self) and night:
+							var kind: String = "elite" if randf() < 0.06 + wave * 0.04 else roster[randi() % roster.size()]
+							var e = _spawn_near(kind, c, 38.0, 55.0, true)
+							if e:
+								e.set_meta("raid", true)
+								e.set_meta("great", true)
+								great.spawned = int(great.get("spawned", 0)) + 1))
+
+
+func _w_great(at: Vector3) -> void:
+	sfx("bell", 0)
+	for k in 3:
+		get_tree().create_timer(0.8 * (k + 1), false).timeout.connect(func(): sfx("bell", -3, null, 0.75))
+	var d := int(player.global_position.distance_to(at))
+	hud.alert_banner("The great raid", ("They are coming for your camp, %d m away." % d) if d > 40 else "Three waves. Hold until dawn.")
+
+
+## Dawn after the seventh night: if the raid was beaten back, the fellowship shares what it carried.
+func _great_dawn() -> void:
+	if great.is_empty():
+		return
+	var spawned := int(great.get("spawned", 0))
+	var alive := 0
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.has_meta("great"):
+			alive += 1
+	great = {}
+	if spawned < 4 or alive > spawned / 2:
+		return
+	var r := RandomNumberGenerator.new()
+	r.randomize()
+	var spoils: Array = Items.roll("vault", 3, r)
+	spoils.append(["salt", 40 + nights * 4])
+	if r.randf() < 0.5:
+		spoils.append(["fittings_rare", 1])
+	shared("_w_great_spoils", [spoils])
+
+
+func _w_great_spoils(spoils: Array) -> void:
+	hud.title_card("", "The raid is broken")
+	hud.notify("The forms leave what they carried. The fellowship shares it.")
+	give(spoils)
+	award("beacon", 0.6)
 
 
 func _w_raid(at: Vector3) -> void:
@@ -3262,7 +3422,7 @@ func _serpent_watch() -> void:
 func _sea_tick(delta: float) -> void:
 	var p := player.global_position
 	player.water_y = sea.surface(p.x, p.z) if terrain.is_water(p.x, p.z, 1.0) else -INF
-	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated:
+	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated and not power_is("tar"):
 		_drown_t -= delta
 		if _drown_t <= 0.0:
 			_drown_t = 1.0
@@ -3359,9 +3519,14 @@ func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
 	if Net.authority():
-		get_tree().create_timer(randf_range(40.0, 160.0), false).timeout.connect(func():
-			if is_instance_valid(self) and night:
-				_maybe_raid())
+		if great_night(nights + 1):
+			get_tree().create_timer(20.0, false).timeout.connect(func():
+				if is_instance_valid(self) and night:
+					_great_raid())
+		else:
+			get_tree().create_timer(randf_range(40.0, 160.0), false).timeout.connect(func():
+				if is_instance_valid(self) and night:
+					_maybe_raid())
 	sfx("drone", -6)
 	hud.say("The sun goes down behind the ridges. Night comes to the waste, and the forms come with it.", 6.0)
 	quests.on_event("nightfall", {})
@@ -3381,10 +3546,12 @@ func _w_dawn(d: int) -> void:
 		hud.title_card("", se.name)
 		hud.notify(se.text)
 	if Net.authority():
+		_great_dawn()
 		for e in enemies:
 			if is_instance_valid(e) and e.is_alive():
 				e.die(false)
 		_dawn_world()
+	_great_warning()
 	quests.on_event("dawn", {})
 	award("dawn")
 	save_all()
@@ -3458,7 +3625,7 @@ func _apply_skills() -> void:
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
 	player.weapon.reserve_max = skills.reserve_max()
-	player.weapon.damage_mult = skills.damage_mult()
+	player.weapon.damage_mult = skills.damage_mult() * (1.2 if power_is("eye") else 1.0)
 	player.weapon.reload_mult = skills.reload_mult()
 	inv.grow(skills.pack_size())
 	if not Net.dedicated:
@@ -4065,6 +4232,8 @@ func damage_player(amount: float, from: Vector3) -> void:
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard)
 	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power())
+	if power_is("gilt"):
+		amount *= 0.8
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -4492,7 +4661,7 @@ func char_data() -> Dictionary:
 		"pos": player.global_position if player.is_inside_tree() else player.position, "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested,
+		"meals": meals, "rested": rested, "power": power, "power_left": power_left,
 	}
 
 
@@ -4518,6 +4687,8 @@ func apply_char(d: Dictionary) -> void:
 			if Items.info(k).has("meal") and m is Array and m.size() == 2:
 				meals[k] = [float(m[0]), float(m[1])]
 	rested = float(d.get("rested", 0.0))
+	power = str(d.get("power", ""))
+	power_left = float(d.get("power_left", 0.0))
 	_meal_stats()
 	Game.warms = arms
 	player.weapon.equip_loadout()
@@ -7129,6 +7300,35 @@ func debug_screen() -> void:
 			player.rotation.y = player.yaw
 			player.head.rotation.x = player.pitch
 			player.set_physics_process(false)
+		"hrafn_in", "fen_in", "kala_in", "cog_in", "pier_in":
+			# Close over an isle, from its landing side, without the HUD
+			var key2 := which.substr(0, which.length() - 3)
+			var il: Dictionary = terrain.isles[0]
+			for i2 in terrain.isles:
+				if i2.key == key2:
+					il = i2
+			var hp2: Vector2 = terrain.isle_heart(il)
+			var toward2: Vector2 = -Vector2(il.c).normalized()
+			var at4: Vector2 = hp2 + toward2 * 80.0 + Vector2(toward2.y, -toward2.x) * 30.0
+			var look2 := Vector3(hp2.x, terrain.height_at(hp2.x, hp2.y) + 4.0, hp2.y)
+			if key2 == "pier":
+				var s2: Vector2 = Vector2(il.c)
+				for k2 in 400:
+					s2 = Vector2(il.c) + toward2 * k2 * 2.0
+					if terrain.height_at(s2.x, s2.y) < WIsles.SEA_Y - 0.3:
+						break
+				at4 = s2 + toward2 * 30.0 + Vector2(toward2.y, -toward2.x) * 25.0
+				look2 = Vector3(s2.x, WIsles.SEA_Y + 2.0, s2.y) + Vector3(toward2.x, 0, toward2.y) * 8.0
+			var eye2 := Vector3(at4.x, maxf(terrain.height_at(at4.x, at4.y), WIsles.SEA_Y) + (8.0 if key2 == "pier" else 28.0), at4.y)
+			player.place(eye2, 0.0)
+			var to4 := look2 - eye2
+			player.yaw = atan2(-to4.x, -to4.z)
+			player.pitch = atan2(to4.y, Vector2(to4.x, to4.z).length())
+			player.rotation.y = player.yaw
+			player.head.rotation.x = player.pitch
+			player.set_physics_process(false)
+			clock = 16.5
+			hud.visible = false
 		"over_cinderwick", "over_hesk", "over_kiln", "over_lanternwell":
 			var c := gpos(WPlaces.spos(which.substr(5)))
 			var eye := c + Vector3(34, 0, 34)
@@ -7802,4 +8002,62 @@ func debug_boat_join() -> void:
 	print("JOINBOAT aboard=%s seat=%s same=%s vessel=%s riders=%s me=%s" % [player.vessel == b, b.riders.get(Net.me(), -1), boats.values()[0] == b, player.vessel, b.riders, Net.me()])
 	await get_tree().create_timer(5.0).timeout
 	print("JOINBOAT carried=%s moved=%.1f" % [player.global_position.distance_to(b.global_position) < 3.0, b.global_position.distance_to(p0)])
+	get_tree().quit()
+
+
+func debug_great() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	nights = 5
+	var warn2 := nights_to_great()
+	nights = 6
+	print("GREAT seventh=%s warn=%d tonight=%d" % [great_night(7) and not great_night(6), warn2, nights_to_great()])
+	clock = 22.0
+	night = true
+	player.place(gpos(WPlaces.spos("cinderwick") + Vector2(300, 0)), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	_great_raid()
+	await get_tree().create_timer(30.0).timeout
+	var n := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("great")).size()
+	print("GREAT spawned=%d alive=%d" % [int(great.get("spawned", 0)), n])
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.has_meta("great"):
+			e.die(false)
+	await get_tree().create_timer(0.5).timeout
+	var salt0 := inv.count("salt")
+	_great_dawn()
+	await get_tree().create_timer(0.5).timeout
+	print("GREAT spoils=%s" % [inv.count("salt") > salt0])
+	get_tree().quit()
+
+
+func debug_powers() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	flags.erase("shrine_t_basalt")
+	power = ""
+	power_left = 0.0
+	var at := player.global_position + Vector3(4, 0, 0)
+	builder._rq_build(1, "shrine", at, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var built := false
+	for pid in pieces:
+		if pieces[pid].kind == "shrine":
+			built = true
+	inv.add("t_basalt", 1)
+	take_power("t_basalt")
+	var refused := not power_is("gilt")
+	lay_trophy("t_basalt")
+	await get_tree().create_timer(0.3).timeout
+	take_power("t_basalt")
+	var hp0 := player.health
+	damage_player(20.0, player.global_position + Vector3(8, 0, 0))
+	var with := hp0 - player.health
+	player.health = hp0
+	power_left = 0.01
+	await get_tree().create_timer(0.3).timeout
+	damage_player(20.0, player.global_position + Vector3(8, 0, 0))
+	var without := hp0 - player.health
+	player.health = player.max_health
+	print("POWERS built=%s refused=%s laid=%s lighter=%s ended=%s" % [built, refused, flags.has("shrine_t_basalt"), with < without - 0.1, power == ""])
 	get_tree().quit()

@@ -550,7 +550,7 @@ var _shade: ColorRect
 var _panel_name := ""
 
 
-const SMALL := ["rest", "planter", "portal", "travel", "cat"]
+const SMALL := ["rest", "planter", "portal", "travel", "cat", "shrine"]
 
 
 func _open(name: String) -> void:
@@ -648,6 +648,8 @@ func _redraw_now() -> void:
 			_draw_portal()
 		"cat":
 			_draw_cat()
+		"shrine":
+			_draw_shrine()
 
 
 # ------------------------------------------------------------------ the strip along the top
@@ -3064,6 +3066,46 @@ func _draw_planter() -> void:
 		else:
 			_body.add_child(_wrap("%s, ready to lift." % grows, 20, PALE))
 			_body.add_child(_action("Harvest", func(): w.shared("_rq_harvest", [Net.me(), _pid]), "", GOLD))
+	_body.add_child(_action("Close", close_all, "Esc", DIM))
+
+
+# ------------------------------------------------------------------ the trophy shrine
+
+func open_shrine(pid: int) -> void:
+	_pid = pid
+	_open("shrine")
+
+
+func _draw_shrine() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title("Trophy Shrine"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	if w.power != "" and w.power_left > 0.0:
+		_body.add_child(_wrap("You carry %s for %d more minutes." % [w.POWERS[w.power].name, ceili(w.power_left / 60.0)], 20, GOLD))
+	var any := false
+	for t in w.POWERS:
+		var pw: Dictionary = w.POWERS[t]
+		if w.flags.has("shrine_" + t):
+			any = true
+			var b := _action("Take up %s" % pw.name, func():
+				w.take_power(t)
+				_redraw())
+			b.tooltip_text = pw.text
+			_body.add_child(b)
+			_body.add_child(_wrap(pw.text, 16, DIM))
+		elif w.inv.count(t) > 0:
+			any = true
+			var b2 := _action("Lay %s on the shrine" % Items.iname(t), func():
+				w.lay_trophy(t)
+				_redraw())
+			b2.tooltip_text = "Once laid, %s is yours to take up here: %s" % [pw.name, pw.text.to_lower()]
+			_body.add_child(b2)
+	if not any:
+		_body.add_child(_wrap("The shrine is bare. Bring the trophy of a great one, and lay it here.", 18, DIM))
+	else:
+		_body.add_child(_wrap("One power at a time. Each lasts half an hour.", 16, DIM))
 	_body.add_child(_action("Close", close_all, "Esc", DIM))
 
 

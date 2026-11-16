@@ -72,6 +72,16 @@ const DB := {
 	"book_hymnal": {"name": "The Drowned Hymnal", "kind": "book", "stack": 1, "value": 60, "color": Color(0.22, 0.24, 0.18), "text": "Its pages are still wet. Teaches a bog salve from tar."},
 	"book_kanun": {"name": "The Keeper's Law", "kind": "book", "stack": 1, "value": 60, "color": Color(0.66, 0.62, 0.55), "text": "The old law of the hill keeps of Kalaja. Teaches storied fittings from red iron."},
 	"book_engine": {"name": "The Engine Book", "kind": "book", "stack": 1, "value": 60, "color": Color(0.6, 0.45, 0.2), "text": "Diagrams of Cogwright's wheels. Teaches fine fittings from scrap and salt crystal."},
+	"ferry_log": {"name": "Ferryman's Log", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.5, 0.4, 0.3), "text": "Salt-stained pages. Crossings, names and fares, in a careful hand."},
+	"chapel_bell": {"name": "Chapel Bell", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.7, 0.55, 0.3), "text": "A small bronze bell, green with the fen. It still rings true."},
+	"engine_key": {"name": "Engine Key", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.55, 0.5, 0.45), "text": "A heavy iron key with too many teeth. Something on Cogwright was locked with it."},
+	"olive_cask": {"name": "Cask of Olives", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.45, 0.5, 0.3), "text": "Sealed with pitch. Orla has not tasted one since she was a girl."},
+	"keep_roll": {"name": "Muster Roll", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.75, 0.7, 0.55), "text": "The names of the keep's garrison, every one marked present, every day for sixty years."},
+	"sea_iron": {"name": "Sea Iron", "kind": "quest", "stack": 3, "value": 0, "color": Color(0.4, 0.4, 0.42), "text": "Good iron from a wreck, rusted only on the skin."},
+	"saga_rubbing": {"name": "Stone Rubbing", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.3, 0.3, 0.32), "text": "Charcoal on cloth: the names cut into one of the Saga Stones."},
+	"fen_moss": {"name": "Fen Moss", "kind": "quest", "stack": 3, "value": 0, "color": Color(0.35, 0.45, 0.3), "text": "Grey-green and damp. Tamsin says it closes a wound that will not close."},
+	"lamp_lens": {"name": "Lamp Lens", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.85, 0.9, 0.95), "text": "A thick glass lens from the Old Keep's lamp room. Not one scratch on it."},
+	"coal_chart": {"name": "Coal Chart", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.25, 0.22, 0.2), "text": "A chart of the sea, with Cogwright marked in black and the words: coal here."},
 	"order_seal": {"name": "Seal of the Inward Vault", "kind": "quest", "stack": 1, "value": 0, "color": Color(0.6, 0.6, 0.65), "text": "Cold to the touch. It was pressed from the inside of a door."},
 }
 
@@ -134,6 +144,7 @@ const PIECES := {
 	"bench": {"name": "Workbench", "group": "Camp", "cost": {"wood": 6, "scrap": 4}, "hp": 300.0, "text": "Make guns, parts, ammunition and tools."},
 	"lamp": {"name": "Oil Lamp", "group": "Camp", "cost": {"scrap": 2, "oil": 1}, "hp": 150.0, "text": "A tall light."},
 	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "text": "Name it. Two waystones of one name lead to each other."},
+	"shrine": {"name": "Trophy Shrine", "group": "Camp", "cost": {"stone": 10, "bone": 4, "scrap": 2}, "hp": 400.0, "text": "Lay a great one's trophy here once. After that, kneel to take its power for a while."},
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
 	"bed": {"name": "Bed", "group": "Home", "cost": {"wood": 6, "cloth": 4}, "hp": 160.0, "text": "Sleep here. You wake here if you fall. Snugger than a bedroll."},
 	"table": {"name": "Table", "group": "Home", "cost": {"wood": 5}, "hp": 140.0, "text": "A home is more than walls. Makes a place snug."},
@@ -144,7 +155,7 @@ const PIECES := {
 	"floorlamp": {"name": "Standing Lamp", "group": "Home", "cost": {"scrap": 2, "oil": 1, "cloth": 1}, "hp": 80.0, "text": "A warm light for indoors."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
-const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp",
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp", "shrine",
 	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]

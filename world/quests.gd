@@ -97,6 +97,84 @@ const STORIES := {
 			{"t": "gather", "item": "herb", "n": 10, "who": "benedek", "text": "Bring Benedek ten ash-bloom.", "ask": "Ash-bloom, as you asked.",
 				"say": "Good. Good. Here: two measures of beacon oil, fresh rendered. And do not ask me what I heard turning at the bottom of the well last night. I do not know, and I would rather not."},
 		], "reward": {"salt": 20, "items": [["beacon_oil", 2]], "rep": 2}},
+	# The town quest lines: each tale opens the next when it is done (after: done_<tale>)
+	"ferry1": {"title": "The Last Crossing", "giver": "ash_lena", "at": "gallowmere",
+		"pitch": "Before the lake died, my husband rowed people out to the isles. His boat went down off Hrafnsey, <dir:R:wreck_hrafn_0:gallowmere> of here, across the sea. His log was aboard.",
+		"steps": [
+			{"t": "recover", "crate": "wreck_hrafn_0", "item": "ferry_log", "text": "Find the ferryman's wreck on the shore of Hrafnsey, <dir:R:wreck_hrafn_0:gallowmere> across the sea, and search it."},
+			{"t": "talk", "who": "ash_lena", "text": "Bring the log to Lena at Gallowmere.", "ask": "His log. It was dry, under the seat.",
+				"say": "His hand. Every crossing, every name, every fare. He wrote down the weather too, like it mattered to anyone.\n\nThe last page is not a crossing. It says: the chapel on the fen rings by itself at night. Someone must take the bell away, or it will call them all. Then nothing.", "take": ["ferry_log", 1]},
+		], "reward": {"salt": 60, "items": [["cloth", 6], ["wood", 20]], "rep": 2}},
+	"ferry2": {"title": "The Bell on the Fen", "giver": "ash_lena", "at": "gallowmere", "after": "done_ferry1",
+		"pitch": "He wrote that the Drowned Chapel rings by itself, and that the bell calls the dead up out of the water. Will you go and take it down?",
+		"steps": [
+			{"t": "kill", "ruin": "isle_fen", "n": 8, "text": "Undo the drowned that keep the chapel on the Sunk Fen, <dir:R:isle_fen:gallowmere> across the sea."},
+			{"t": "recover", "crate": "isle_fen_0", "item": "chapel_bell", "text": "Search the Drowned Chapel for its bell."},
+			{"t": "talk", "who": "ash_lena", "text": "Bring the bell to Lena.", "ask": "The bell. It did not ring once on the way back.",
+				"say": "Good. Then it is only a bell now.\n\nI will hang it at the edge of the dry lake, where the jetty was. If it rings, I will know it is only the wind.\n\nThere is one more page. He saw lights on the iron isle, and a door that opened with a key. He never went in. I would like to know what was there.", "take": ["chapel_bell", 1]},
+		], "reward": {"salt": 80, "items": [["bandage", 3]], "rep": 3}},
+	"ferry3": {"title": "What the Ferryman Saw", "giver": "ash_lena", "at": "gallowmere", "after": "done_ferry2",
+		"pitch": "The iron isle, Cogwright, <dir:R:isle_cog:gallowmere> across the sea. He saw a lit door there. Find out what is behind it.",
+		"steps": [
+			{"t": "reach", "ruin": "isle_cog", "text": "Find the Engine Vault on Cogwright, <dir:R:isle_cog:gallowmere> across the sea."},
+			{"t": "kill", "ruin": "isle_cog", "n": 10, "text": "Clear the Engine Vault of what keeps it."},
+			{"t": "recover", "crate": "isle_cog_1", "item": "engine_key", "text": "Force the iron chest in the vault (it wants a pry bar)."},
+			{"t": "talk", "who": "ash_lena", "text": "Tell Lena what you found.", "ask": "Engines, still turning. Nobody tends them. This key locked them.",
+				"say": "Engines. He thought it was a church.\n\nKeep the key. Keep the boat too, and use it. He would have liked that someone still crosses.", "take": ["engine_key", 1]},
+		], "reward": {"salt": 150, "items": [["coin", 6]], "rep": 4}},
+	"olives": {"title": "Salt for Olives", "giver": "orla", "at": "hesk",
+		"pitch": "When I was a girl, ships came from Kalaja with olives. One of them never made it in. It lies on Kalaja's shore, <dir:R:wreck_kala_0:hesk> of here, across the sea.",
+		"steps": [
+			{"t": "recover", "crate": "wreck_kala_0", "item": "olive_cask", "text": "Search the wreck on Kalaja's shore, <dir:R:wreck_kala_0:hesk> across the sea."},
+			{"t": "talk", "who": "orla", "text": "Bring the cask to Orla at the Crossing.", "ask": "One cask, still sealed.",
+				"say": "Sealed with pitch, and stamped with the keep's mark. My father paid three salt a cask for these.\n\nThe keep sold them to keep its garrison fed. I wonder who it was feeding all those years, after the ships stopped.", "take": ["olive_cask", 1]},
+		], "reward": {"salt": 70, "items": [["stew", 2]], "rep": 2}},
+	"keep": {"title": "The Garrison of the Old Keep", "giver": "orla", "at": "hesk", "after": "done_olives",
+		"pitch": "The Old Keep on Kalaja had a garrison waiting for an enemy that never came. Go and see who is still standing watch.",
+		"steps": [
+			{"t": "reach", "ruin": "isle_kala", "text": "Find the Old Keep on Kalaja, <dir:R:isle_kala:hesk> across the sea."},
+			{"t": "kill", "ruin": "isle_kala", "n": 10, "text": "Relieve the Old Keep's watch. They will not stand down."},
+			{"t": "recover", "crate": "isle_kala_1", "item": "keep_roll", "text": "Search the keep for its muster roll."},
+			{"t": "talk", "who": "orla", "text": "Bring the roll to Orla.", "ask": "They were all present. Every day, for sixty years.",
+				"say": "Sixty years at their posts, and the enemy was the night all along. It came from behind them.\n\nI will sell copies of this roll at the Crossing. People should know their names.", "take": ["keep_roll", 1]},
+		], "reward": {"salt": 120, "items": [["coin", 4]], "rep": 3}},
+	"seairon": {"title": "Iron from the Sea", "giver": "hal", "at": "kiln",
+		"pitch": "My forge is starving. There is good iron in the wrecks off Cogwright, <dir:R:wreck_cog_1:kiln> across the sea. Ship iron rusts only on the skin.",
+		"steps": [
+			{"t": "recover", "crate": "wreck_cog_1", "item": "sea_iron", "text": "Search the wreck off Cogwright, <dir:R:wreck_cog_1:kiln> across the sea, for its iron."},
+			{"t": "talk", "who": "hal", "text": "Bring the sea iron to Old Hal.", "ask": "Ship iron, as you asked.",
+				"say": "Look at that. Rust on the skin and sound underneath, like I said.\n\nThis will make a good blade, or a better hinge. I will give you one of the first things I make with it.", "take": ["sea_iron", 1]},
+		], "reward": {"salt": 60, "items": [["scrap", 20], ["prybar", 1]], "rep": 2}},
+	"saga": {"title": "Names on the Stones", "giver": "ione", "at": "mourners", "after": "done_seal",
+		"pitch": "The dead tell me there are stones on Hrafnsey with names cut into them. Names nobody has said in a hundred years. Bring me one.",
+		"steps": [
+			{"t": "reach", "ruin": "isle_hrafn", "text": "Find the Saga Stones on Hrafnsey, <dir:R:isle_hrafn:mourners> across the sea."},
+			{"t": "kill", "ruin": "isle_hrafn", "n": 8, "text": "Undo what keeps the stones."},
+			{"t": "recover", "crate": "isle_hrafn_0", "item": "saga_rubbing", "text": "Search by the stones for something to take the names on."},
+			{"t": "talk", "who": "ione", "text": "Bring the names to Ione.", "ask": "Charcoal on cloth. These were cut into the tallest stone.",
+				"say": "I will read them out tonight, one at a time, slowly. The dead like to hear the old names. It reminds them there were people before the night, and there will be people after it.", "take": ["saga_rubbing", 1]},
+		], "reward": {"salt": 90, "items": [["beacon_oil", 1]], "rep": 3}},
+	"moss": {"title": "The Fen Cure", "giver": "tamsin", "at": "saltreach",
+		"pitch": "A wound that will not close is closing too many of my patients. There is a moss on the Sunk Fen, <dir:R:wreck_fen_0:saltreach> across the sea. The old books swear by it.",
+		"steps": [
+			{"t": "recover", "crate": "wreck_fen_0", "item": "fen_moss", "text": "Search the wreck on the Sunk Fen's shore, <dir:R:wreck_fen_0:saltreach> across the sea, where the moss grows thick."},
+			{"t": "talk", "who": "tamsin", "text": "Bring the moss to Tamsin at Saltreach.", "ask": "Fen moss, damp still.",
+				"say": "That is it. Grey-green, and it smells of nothing at all.\n\nI can make a dressing of it that holds better than anything we have. Take some. And if you ever see more of it, bring it.", "take": ["fen_moss", 1]},
+		], "reward": {"salt": 50, "items": [["salve", 3], ["bandage", 3]], "rep": 2}},
+	"lens": {"title": "A Lamp Across the Water", "giver": "aud", "at": "lastlight",
+		"pitch": "The Old Keep on Kalaja had a lamp room. Its lens could throw light ten miles over water. Mine is cracked, and the night is getting closer.",
+		"steps": [
+			{"t": "recover", "crate": "isle_kala_0", "item": "lamp_lens", "text": "Search the Old Keep on Kalaja, <dir:R:isle_kala:lastlight> across the sea, for its lamp lens."},
+			{"t": "talk", "who": "aud", "text": "Bring the lens to Aud at Lastlight.", "ask": "The lens. Not a scratch on it.",
+				"say": "Look at it. Hold it to the sun and it throws a spot you could not look at.\n\nTonight the lamp will be seen from the sea. If anyone is still out there, they will know where the shore is.", "take": ["lamp_lens", 1]},
+		], "reward": {"salt": 100, "items": [["oil", 4]], "rep": 3}},
+	"coal": {"title": "The Coal Ship", "giver": "gorm", "at": "emberhollow",
+		"pitch": "My grandfather's coal ship went down off Cogwright. There was a chart aboard showing where the good seam was. With it I could keep these fires lit for a generation.",
+		"steps": [
+			{"t": "recover", "crate": "wreck_cog_0", "item": "coal_chart", "text": "Search the wreck off Cogwright, <dir:R:wreck_cog_0:emberhollow> across the sea, for the coal chart."},
+			{"t": "talk", "who": "gorm", "text": "Bring the chart to Gorm at Emberhollow.", "ask": "The chart. Coal, it says, here.",
+				"say": "On Cogwright itself. So that is what fed the engines.\n\nI will send men when the sea is calm. You have done the hollow a great service, and it will not forget.", "take": ["coal_chart", 1]},
+		], "reward": {"salt": 90, "items": [["coin", 3], ["torch", 4]], "rep": 3}},
 }
 
 const KEEPSAKES := ["a child's carved cat", "her mother's prayer beads", "the bell from our chapel", "a box of letters", "my father's knife", "a painted icon of Speeb", "the deed to our well", "his spectacles"]
@@ -347,6 +425,8 @@ func step_done(qid: String, stage: int) -> void:
 
 
 func _finish(q: Dictionary) -> void:
+	if q.has("story"):
+		w.flags["done_" + str(q.story)] = true
 	w.sfx("choir", -6)
 	var r: Dictionary = q.get("reward", {})
 	var items: Array = []

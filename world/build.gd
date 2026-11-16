@@ -462,6 +462,8 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 			w.personal_interactable(body, "Tend the planter", func(): w.ui.open_planter(pid))
 		"portal":
 			w.personal_interactable(body, "Use the waystone", func(): w.ui.open_portal(pid))
+		"shrine":
+			w.personal_interactable(body, "Kneel at the shrine", func(): w.ui.open_shrine(pid))
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -732,6 +734,25 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				l.light_energy = 2.0
 				l.omni_range = 16.0
 				l.position.y = 3.0
+				n.add_child(l)
+		"shrine":
+			_part(n, body, Vector3(2.2, 1.2, 1.4), Vector3(0, 0.6, 0), null, is_ghost)
+			if is_ghost:
+				_part(n, null, Vector3(2.2, 1.0, 1.4), Vector3(0, 0.5, 0), m.stone, true)
+				_part(n, null, Vector3(0.6, 2.6, 0.6), Vector3(0, 1.3, -0.9), m.stone, true)
+			else:
+				var alt: Node3D = load("res://assets/models/isles/grave/altar-stone.glb").instantiate()
+				alt.scale = Vector3.ONE * 2.1
+				n.add_child(alt)
+				var ob: Node3D = load("res://assets/models/isles/grave/pillar-obelisk.glb").instantiate()
+				ob.scale = Vector3.ONE * 2.6
+				ob.position = Vector3(0, 0, -1.0)
+				n.add_child(ob)
+				var l := OmniLight3D.new()
+				l.light_color = Color(0.95, 0.7, 0.4)
+				l.light_energy = 1.2
+				l.omni_range = 6.0
+				l.position.y = 1.6
 				n.add_child(l)
 	return n
 

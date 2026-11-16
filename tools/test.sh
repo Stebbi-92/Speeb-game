@@ -50,6 +50,8 @@ check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT ab
 check weather   debug_weather  "WEATHER long_night=true thaw=true cold=true warm=true choke=true covered=true hurt=true" "WEATHER gale_swell=true"
 check books     debug_books    "BOOKS isle=true first=book_ship hidden=true read=true shown=true again=false"
 check serpent   debug_serpent  "SERPENT open_water_found=true" "SERPENT rose=true" "SERPENT boat_hurt=true"
+check greatraid debug_great "GREAT seventh=true warn=1 tonight=0" "GREAT spawned=[1-9][0-9]* alive=[0-9]+" "GREAT spoils=true"
+check powers  debug_powers   "POWERS built=true refused=true laid=true lighter=true ended=true"
 check floors     debug_floors   "FLOORS distinct heights [1-5]:"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
