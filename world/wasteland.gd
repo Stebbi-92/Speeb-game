@@ -6218,6 +6218,38 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: nothing on screen that cannot be seen catches the mouse.
+func debug_ghosts() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	# Everything that shows for a moment and fades: once faded it must not still catch clicks
+	hud.notify("A test.")
+	hud.title_card("Test", "A test")
+	hud.say("A test.", 1.0)
+	ui.xp_gained(5)
+	ui.saved_mark(true)
+	await get_tree().create_timer(14.0).timeout
+	var found: Array = []
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if n is Control and n.is_visible_in_tree() and n.mouse_filter == Control.MOUSE_FILTER_STOP:
+			var a := 1.0
+			var c: Node = n
+			while c is CanvasItem:
+				a *= c.modulate.a * c.self_modulate.a if c == n else c.modulate.a
+				c = c.get_parent()
+			if n is ColorRect:
+				a *= n.color.a
+			if a < 0.05 and n.size.x * n.size.y > 400.0:
+				found.append("%s %s a=%.2f size=%s" % [n.get_path(), n.get_class(), a, n.size])
+	print("GHOSTS n=%d" % found.size())
+	for f in found:
+		print("  " + f)
+	get_tree().quit()
+
+
 ## Testing aid: an autosave is written in the background, and the save it leaves reads back whole.
 func debug_bgsave() -> void:
 	while not ready_world:
