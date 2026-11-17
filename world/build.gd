@@ -11,14 +11,18 @@ const KIT_WALLS := {"wall": ["wall-wood", "wall"], "window": ["wall-wood-window-
 	"doorway": ["wall-wood-doorway-square", "wall-doorway-square"]}
 ## Furniture from Kenney's Furniture Kit: [model, scale]
 const KIT_HOME := {"bed": ["fu-bedSingle", 1.3], "table": ["fu-table", 2.3], "chair": ["fu-chair", 2.1], "shelf": ["fu-bookcaseOpen", 2.3],
-	"stove": ["fu-kitchenStove", 2.2], "rug": ["fu-rugRectangle", 1.9], "floorlamp": ["fu-lampRoundFloor", 2.1]}
+	"stove": ["fu-kitchenStove", 2.2], "rug": ["fu-rugRectangle", 1.9], "floorlamp": ["fu-lampRoundFloor", 2.1],
+	# Camp pieces from Kenney's Survival Kit ("sv-" is that kit's folder)
+	"chest": ["sv-chest", 3.1], "bench": ["sv-workbench", 4.5], "bedroll": ["sv-bedroll", 3.3],
+	"tent": ["sv-tent-canvas", 5.4], "barrel": ["sv-barrel", 3.5], "anvil": ["sv-workbench-anvil", 4.0]}
+const KIT_SV := "res://assets/models/survival/"
 ## Building up: timber, then stone, then iron. Each is tougher; each costs more to raise.
 const TIER_NAMES := ["Timber", "Stone", "Iron"]
 const TIER_HP := [1.0, 2.2, 3.5]
 const TIER_COST := [{}, {"stone": 8}, {"scrap": 6, "stone": 2}]
 const UPGRADES := ["wall", "window", "doorway", "floor"]
 ## Furniture that does the work of a camp piece
-const ACTS := {"bed": "bedroll", "stove": "cookpot", "shelf": "chest", "floorlamp": "lamp"}
+const ACTS := {"bed": "bedroll", "stove": "cookpot", "shelf": "chest", "floorlamp": "lamp", "tent": "bedroll", "barrel": "chest", "anvil": "bench"}
 
 
 static func acts(k: String) -> String:
@@ -571,8 +575,11 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				var s := _part(n, null, Vector3(0.12, 2.0, 0.12), Vector3(-1.25 + i * 0.5, 0.7, 0), m.wood, is_ghost)
 				s.rotation.x = 0.7 if i % 2 == 0 else -0.7
 		"campfire":
-			_part(n, body, Vector3(1.2, 0.3, 1.2), Vector3(0, 0.15, 0), m.stone, is_ghost)
+			_part(n, body, Vector3(1.2, 0.3, 1.2), Vector3(0, 0.15, 0), null if not is_ghost else m.stone, is_ghost)
 			if not is_ghost:
+				var pit := _kit(n, "sv-campfire-pit", Vector3.ONE * 4.3, Vector3.ZERO, 0.0)
+				var pab := _local_aabb(pit)
+				pit.position = Vector3(-pab.get_center().x, -pab.position.y, -pab.get_center().z)
 				var l := OmniLight3D.new()
 				l.light_color = Color(1.0, 0.6, 0.3)
 				l.light_energy = 2.2
@@ -745,12 +752,14 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 
 ## A kit model set into a piece: scaled, turned and placed. Iron binds it in dark metal.
 func _kit(n: Node3D, model: String, scale: Vector3, pos: Vector3, yaw: float, iron := false) -> Node3D:
-	var sc: PackedScene = load(KIT + model + ".glb")
+	var sc: PackedScene = load(((KIT_SV + model.substr(3)) if model.begins_with("sv-") else (KIT + model)) + ".glb")
 	var inst: Node3D = sc.instantiate()
 	inst.scale = scale
 	inst.rotation.y = yaw
 	inst.position = pos
 	n.add_child(inst)
+	if model.begins_with("sv-"):
+		_weather_kit(inst)
 	if iron:
 		var im: StandardMaterial3D = (w._m.iron as StandardMaterial3D).duplicate()
 		im.metallic = 0.7
@@ -758,6 +767,25 @@ func _kit(n: Node3D, model: String, scale: Vector3, pos: Vector3, yaw: float, ir
 		for mi in inst.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).material_override = im
 	return inst
+
+
+## The Survival Kit is painted bright; out in the waste its wood and canvas are worn grey-brown.
+static var _worn := {}
+static func _weather_kit(inst: Node3D) -> void:
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (mi as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for si in mesh.get_surface_count():
+			var m := mesh.surface_get_material(si)
+			if not m is StandardMaterial3D:
+				continue
+			if not _worn.has(m):
+				var d := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+				d.albedo_color = d.albedo_color * Color(0.62, 0.56, 0.5)
+				d.roughness = 0.95
+				_worn[m] = d
+			(mi as MeshInstance3D).set_surface_override_material(si, _worn[m])
 
 
 ## A wall, window or doorway of the kit: three paces wide and three high on its footing, timber or stone.

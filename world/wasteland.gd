@@ -8910,6 +8910,19 @@ func debug_power() -> void:
 
 ## Testing aid: a ward is worn in its slot and wards its land; taken off it no longer does; an old
 ## save's gas mask moves from the head to the face.
+## Testing aid: earlier checks share the world and may leave the pilgrim riding, aboard, at sea or out on
+## an isle, with roaming events about: back to the start, on foot, with none.
+func _debug_home() -> void:
+	if player.mount:
+		dismount()
+	if player.vessel != null and is_instance_valid(player.vessel):
+		_leave_boat(player.vessel)
+	player.place(spawn_pos, spawn_yaw)
+	for id in events.active.keys():
+		events.active.erase(id)
+	await get_tree().create_timer(0.3).timeout
+
+
 ## Testing aid: earlier checks share the world, so make room in the pack before a check gives things.
 func _debug_room(n := 4) -> void:
 	for i in range(inv.slots.size() - 1, maxi(-1, inv.slots.size() - 1 - n), -1):
@@ -10024,6 +10037,42 @@ func debug_build() -> void:
 			shelf = true
 	var snug := comfort(player.global_position)
 	print("BUILD up=%s kept=%s bed=%s stove=%s shelf=%s snug=%s" % [up, kept, bed, stove, shelf, snug >= 4])
+	get_tree().quit()
+
+
+## Testing aid: the camp pieces stand as real models, and the new ones do their work (tent rests, barrel
+## keeps, anvil works).
+func debug_campkit() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := ["tent", "barrel", "anvil", "chest", "bench", "bedroll", "campfire"]
+	var at := {}
+	for i in kinds.size():
+		var p := player.global_position + f * 30.0 + side * (i - 3) * 4.0
+		p.y = terrain.height_at(p.x, p.z)
+		at[kinds[i]] = p
+		builder._rq_build(1, kinds[i], p, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var modelled := 0
+	var barrel_keeps := false
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind in kinds and pc.pos.distance_to(at[pc.kind]) < 0.6:
+			var mis := (pc.node as Node3D).find_children("*", "MeshInstance3D", true, false)
+			for mi in mis:
+				if (mi as MeshInstance3D).mesh is ArrayMesh:
+					modelled += 1
+					break
+			if pc.kind == "barrel" and containers.has("p%d" % pid):
+				barrel_keeps = true
+	var tent_rests := builder.near_kind(at.tent, "bedroll", 1.0)
+	var anvil_works := builder.near_kind(at.anvil, "bench", 1.0)
+	print("CAMPKIT modelled=%d/%d tent=%s barrel=%s anvil=%s" % [modelled, kinds.size(), tent_rests, barrel_keeps, anvil_works])
 	get_tree().quit()
 
 
@@ -11738,6 +11787,7 @@ func _w_event_end(id: int, won: bool, by: int) -> void:
 func debug_events() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
 	clock = 12.0
 	events._t = 0.0
 	events.host_tick(0.1)
@@ -11891,6 +11941,7 @@ func debug_stuck() -> void:
 func debug_raidcamp() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
 	clock = 12.0
 	var p: Vector3 = player.global_position + Vector3(60, 0, 0)
 	p.y = terrain.height_at(p.x, p.z)

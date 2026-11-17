@@ -30,6 +30,7 @@ Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). T
 | [Fantasy Town Kit](https://kenney.nl/assets/fantasy-town-kit) | Kenney | CC0 |
 | [Building Kit](https://kenney.nl/assets/building-kit) | Kenney | CC0 |
 | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 |
+| [Survival Kit](https://kenney.nl/assets/survival-kit) (camp chest, workbench, anvil, bedroll, tent, barrel, fire pit) | Kenney | CC0 |
 
 Kenney's packs are at [kenney.nl](https://kenney.nl). CC0 asks for nothing, but credit is given gladly.
 

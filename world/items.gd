@@ -193,9 +193,12 @@ const PIECES := {
 	"stove": {"name": "Iron Stove", "group": "Home", "cost": {"scrap": 6, "stone": 4}, "hp": 260.0, "text": "Cook here, like a cooking station. Burns wood and warms the room."},
 	"rug": {"name": "Rug", "group": "Home", "cost": {"cloth": 4, "hide": 1}, "hp": 60.0, "text": "Soft underfoot. Makes a place snug."},
 	"floorlamp": {"name": "Standing Lamp", "group": "Home", "cost": {"scrap": 2, "oil": 1, "cloth": 1}, "hp": 80.0, "text": "A warm light for indoors."},
+	"tent": {"name": "Canvas Tent", "group": "Camp", "cost": {"cloth": 6, "wood": 4}, "hp": 180.0, "text": "Rest here. You wake here if you fall. Easy to carry the makings of."},
+	"barrel": {"name": "Barrel", "group": "Camp", "cost": {"wood": 5, "scrap": 1}, "hp": 200.0, "text": "Sixteen places to keep things, like a chest."},
+	"anvil": {"name": "Anvil", "group": "Camp", "cost": {"scrap": 8, "stone": 4}, "hp": 500.0, "text": "Work here as at a workbench. Hard to break."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
-const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "chest", "bench", "planter", "portal", "lamp", "shrine",
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine",
 	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]

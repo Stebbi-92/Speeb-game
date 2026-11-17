@@ -12,7 +12,10 @@ Press **B** to build. Scroll to choose a piece, left click to place it, **R** to
 | **Cooking Station** | 4 Deadwood, 4 Stone, 2 Scrap Iron | 160 | Cook raw food here. |
 | **Torch** | 1 Torch | 80 | While lit, no forms rise within 15 paces. |
 | **Bedroll** | 3 Cloth | 120 | Rest here. You wake here if you fall. |
+| **Canvas Tent** | 6 Cloth, 4 Deadwood | 180 | Rest here. You wake here if you fall. Easy to carry the makings of. |
 | **Storage Chest** | 8 Deadwood | 250 | Sixteen places to keep things. |
+| **Barrel** | 5 Deadwood, 1 Scrap Iron | 200 | Sixteen places to keep things, like a chest. |
+| **Anvil** | 8 Scrap Iron, 4 Stone | 500 | Work here as at a workbench. Hard to break. |
 | **Workbench** | 6 Deadwood, 4 Scrap Iron | 300 | Make guns, parts, ammunition and tools. |
 | **Planter Box** | 4 Deadwood, 2 Stone, 2 Bone | 150 | Plant seeds here. Come back in a day. |
 | **Waystone** | 12 Stone, 6 Scrap Iron, 2 Lamp Oil | 600 | Name it. Two waystones of one name lead to each other. |
