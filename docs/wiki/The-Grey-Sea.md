@@ -13,6 +13,8 @@ Past the coast of the waste lies the Grey Sea, and four isles. Each isle is its 
 
 Each isle has a pier facing the waste, a hut by it, and two wrecks with something left aboard.
 
+Each isle also keeps four **traces**: small scenes left by those who came before, not marked on any map. Look at one (**E**) to read it. Finding all four on an isle pays 25 coin.
+
 ## Swimming
 
 Swimming costs breath, and running in the water costs much more. Out of breath in deep water, you drown. Something lives in the open sea, far from land: keep moving, or keep near the shore.

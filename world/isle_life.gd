@@ -45,6 +45,7 @@ func build() -> void:
 				_kala(il, rr)
 			"cog":
 				_cog(il, rr)
+		_traces(il)
 		for k in 7:
 			_gull(Vector2(il.c) + Vector2(rr.randf_range(-1, 1), rr.randf_range(-1, 1)) * float(il.r) * 0.6, rr)
 	# Landings on the waste's own shore, one facing each isle, and gulls along it
@@ -523,6 +524,60 @@ func _wisp(at: Vector2, rr: RandomNumberGenerator) -> void:
 	l.distance_fade_begin = 90.0
 	n.add_child(l)
 	wisps.append([n, n.global_position, rr.randf() * TAU])
+
+
+## Small scenes left by those who came before, one short line each: found by walking the isle, not
+## marked on any map. Each is [kit, model, then what lies by it as [kit, model, offset], the line].
+const TRACES := {
+	"hrafn": [
+		["grave", "rocks-tall", [["grave", "shovel-dirt", Vector3(1.4, 0, 0.6)]], "A cairn of black stones, and a spade left by it. Someone meant to come back."],
+		["pirate", "boat-row-small", [["grave", "lantern-candle", Vector3(0.3, 0.4, 0)]], "A rowboat dragged far up from the sea. Its lamp burned until the oil ran out."],
+		["grave", "character-skeleton", [["grave", "trunk", Vector3(1.2, 0, 0.3)]], "Bones by a chest of letters, all written to the same name."],
+		["grave", "fire-basket", [["grave", "bench-damaged", Vector3(1.6, 0, 0)]], "A cold fire and a bench for two. Only one cup was ever used."],
+	],
+	"fen": [
+		["grave", "coffin-old", [["grave", "candle", Vector3(0.9, 0, 0.4)]], "A coffin the water lifted. It is empty, and the lid was opened from inside."],
+		["pirate", "boat-row-large", [["grave", "lantern-glass", Vector3(0.5, 0.5, 0)]], "A punt stuck fast in the reeds, its pole still in it."],
+		["grave", "cross-wood", [["grave", "candle-multiple", Vector3(0.7, 0, 0.5)]], "A cross of reeds, bound with a child's ribbon."],
+		["grave", "iron-fence-damaged", [["grave", "gravestone-round", Vector3(0, 0, 1.2)]], "An iron fence around nothing. The grave it kept has sunk."],
+	],
+	"kala": [
+		["castle", "siege-ballista-demolished", [], "A war engine that was never fired. Its bolts are still tied in their bundle."],
+		["grave", "altar-stone", [["grave", "candle-multiple", Vector3(0, 1.0, 0)]], "A stone altar with fresh wax on it. Someone still comes here."],
+		["pirate", "crate-bottles", [["grave", "urn-round", Vector3(1.1, 0, 0.2)]], "Oil jars sealed with the keep's mark. Stores for a siege that never came."],
+		["grave", "gravestone-wide", [["grave", "lantern-candle", Vector3(1.0, 0, 0.6)]], "A grave dug wide enough for two. Only one sleeps in it."],
+	],
+	"cog": [
+		["pirate", "cannon", [["pirate", "cannon-ball", Vector3(1.0, 0, 0.6)]], "A cannon turned to face inland, not out to sea."],
+		["pirate", "crate", [["pirate", "tool-paddle", Vector3(1.0, 0, 0)]], "Crates of gears, marked for a ship that never came for them."],
+		["castle", "siege-catapult-demolished", [], "A stone-thrower mended with clock springs. It still winds."],
+		["grave", "character-keeper", [["pirate", "barrel", Vector3(1.2, 0, 0)]], "A keeper's coat left on a post. In its pocket, a key to nothing here."],
+	],
+}
+var traces: Array = []   ## [id, where, line]
+
+
+## Sets the isle's traces down, the same on every machine.
+func _traces(il: Dictionary) -> void:
+	var rows: Array = TRACES.get(str(il.key), [])
+	var rr := RandomNumberGenerator.new()
+	rr.seed = w.world_seed + hash(str(il.key) + "traces")
+	for i in rows.size():
+		var p := spot(il, rr, 0.2, 0.85, 0.6)
+		if p == Vector3.INF:
+			continue
+		var row: Array = rows[i]
+		var yaw := rr.randf() * TAU
+		piece(row[0], row[1], p, yaw, 1.6, true)
+		var b := Basis(Vector3.UP, yaw)
+		for e in row[2]:
+			var off: Vector3 = b * (e[2] * 1.6)
+			var q := _ground(Vector2(p.x + off.x, p.z + off.z))
+			piece(e[0], e[1], Vector3(q.x, q.y + off.y, q.z), yaw, 1.6, false)
+		var id := "%s_%d" % [il.key, i]
+		traces.append([id, p, row[3]])
+		if w.has_method("interact_area"):
+			w.interact_area(p + Vector3(0, 1.0, 0), 1.8, "Look", w._trace_seen.bind(id, str(il.name), row[3]), 0.0, false)
 
 
 func _process(delta: float) -> void:

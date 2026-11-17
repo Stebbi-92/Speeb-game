@@ -78,6 +78,7 @@ var bedroll = null
 var revealed := PackedByteArray()
 var visited := {}
 var known_ruins := {}
+var traces_seen := {}   ## the isles' small scenes this player has looked at (see WIsleLife.TRACES)
 var piece_next := 1
 var satchel_next := 1
 var ready_world := false
@@ -4665,6 +4666,25 @@ const LOG_GOALS := {"kill_elite": "an elite felled", "kill_boss": "a great one f
 	"settlement": "a settlement found", "ruin": "a ruin found", "biome": "a new land seen"}
 
 
+## A trace on an isle looked at: its line, and the first time, a little learning and a count.
+func _trace_seen(id: String, isle: String, line: String) -> void:
+	hud.say(line, 6.0)
+	if traces_seen.has(id):
+		return
+	traces_seen[id] = true
+	award("ruin", 0.6)
+	var key := id.get_slice("_", 0)
+	var n := 0
+	for k in traces_seen:
+		if str(k).begins_with(key + "_"):
+			n += 1
+	var all: int = WIsleLife.TRACES.get(key, []).size()
+	hud.notify("Traces found on %s: %d of %d" % [isle, n, all])
+	if n == all:
+		give([["coin", 25]])
+		hud.notify("You have found every trace on %s." % isle)
+
+
 func award(kind: String, mult := 1.0) -> void:
 	if guide:
 		guide.event(kind)
@@ -5918,7 +5938,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []),
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
@@ -5943,6 +5963,7 @@ func apply_char(d: Dictionary) -> void:
 		kindled = []
 		for k in d.kindled:
 			kindled.append(int(k))
+	traces_seen = d.get("traces", {}) if d.get("traces") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	meals = {}
 	if d.get("meals") is Dictionary:
@@ -6696,6 +6717,8 @@ func debug_flamer() -> void:
 func debug_slotdrag() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room()
+	ui._move_n = 0   # an earlier check may have left the chest moving one at a time
 	var cid := "ptest"
 	containers[cid] = [["salt", 40], null, null, null]
 	for i in inv.slots.size():
@@ -6987,6 +7010,27 @@ func debug_gatewalk() -> void:
 
 ## Testing aid: on every isle the ground can be stood on where it is drawn: no holes, no cells
 ## where the solid ground lies far from the drawn one.
+## Testing aid: each isle has its traces, on dry land with something to look at; finding them all pays.
+func debug_traces() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	_debug_room()
+	traces_seen.clear()
+	var dry := 0
+	for t in life.traces:
+		if terrain.height_at(t[1].x, t[1].z) > WIsles.SEA_Y + 0.3:
+			dry += 1
+	var coins := inv.count("coin")
+	for t in life.traces:
+		if str(t[0]).begins_with("hrafn_"):
+			_trace_seen(t[0], "Hrafnsey", t[2])
+	_trace_seen("hrafn_0", "Hrafnsey", "again")
+	var paid := inv.count("coin") - coins
+	var kept: int = char_data().get("traces", {}).size()
+	print("TRACES count=%d dry=%d paid=%d kept=%d" % [life.traces.size(), dry, paid, kept])
+	get_tree().quit()
+
+
 ## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
 func debug_folk() -> void:
 	while not ready_world:
@@ -7187,6 +7231,7 @@ func debug_pace() -> void:
 	for v in 3:
 		var r := rules.duplicate()
 		r["pace"] = v
+		r.erase("vow_hunted")   # an earlier check may have sworn it, and it names every night
 		set_rules(r)
 		var named := 0
 		for n in range(3, 60):
@@ -10497,6 +10542,7 @@ func debug_dev() -> void:
 func debug_brew() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(14)
 	for id in WAlchemy.INGREDIENTS:
 		inv.add(id, 4)
 	inv.add("salt", 20)
@@ -10788,6 +10834,7 @@ func debug_endings() -> void:
 func debug_trades() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(10)
 	for it in [["scrap", 40], ["red_iron", 6], ["coin", 40], ["salt", 30], ["herb", 4], ["heartwood", 4]]:
 		inv.add(it[0], it[1])
 	var rec := func(id: String) -> Dictionary:
@@ -10925,7 +10972,7 @@ func debug_kin() -> void:
 		if copy.variant == v:
 			copies += 1
 		copy.free()
-		if spec_ok and tinted and int(LesserSpeeb.FORM_TIER.get(v, 0)) > 0:
+		if spec_ok and (tinted or not LesserSpeeb.VARIANTS[v].has("tint")) and int(LesserSpeeb.FORM_TIER.get(v, 0)) > 0:
 			ok += 1
 		else:
 			bad.append(v)
@@ -11618,6 +11665,7 @@ func debug_whatnow() -> void:
 func debug_subgoal() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(8)
 	var q: Dictionary = quests.quests["main"]
 	q.stage = 5
 	for id in ["beacon_oil", "oil", "herb", "salt"]:
