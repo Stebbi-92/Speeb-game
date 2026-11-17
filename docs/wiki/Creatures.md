@@ -38,6 +38,9 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 | **Lamp-Eater** | 1300 | 42 | blasts, fire | shotgun spread | A huge pale thing of the deep sea. It rises under any boat that carries a lit lamp at night. Sail dark, and it does not come. |
 | **Ashen Knight** | 240 | 30 | blasts | shotgun spread | Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it. Wears plate (160): aim for the head, or use piercing rounds. |
 | **Salt Rifleman** | 45 | 11 | blades, blasts, shotgun spread | bullets | A soldier the salt kept, still holding its rifle. Bullets slip through; use shot. |
+| **Ash Weaver** | 150 | 26 | fire | bullets | A spider the size of a cart, in the forest and the marsh. It climbs what you build. Fire still undoes it. |
+| **The Harrow** | 170 | 36 | fire, blades |  | A man with a spider's legs on his back, far out in the ash and the forest. It comes only when you look away. |
+| **The Gaunt** | 120 | 28 | shotgun spread | bullets | Thin as a rake and taller than a man. It waits under the ash of the dunes and the basalt and stands up at your feet. |
 
 ## The great ones
 

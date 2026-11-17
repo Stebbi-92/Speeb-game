@@ -232,6 +232,8 @@ func start_level(i: int, from_net := false) -> void:
 		await hud.show_loading(lname, "The waste is raised" if i == 12 else "The land is raised")
 	var script: GDScript = load("res://levels/%s.gd" % Game.LEVELS[i])
 	await _swap(script.new())
+	while is_instance_valid(level) and level.get("raising"):
+		await get_tree().process_frame
 	if hud.loading.visible:
 		# Let the land settle a moment behind the screen, then lift it
 		await get_tree().create_timer(0.4).timeout

@@ -538,8 +538,8 @@ func _process(delta: float) -> void:
 	# Aiming brings the sights onto the eye's own line
 	var aim_off := Vector3.ZERO
 	var ease_aim := smoothstep(0.0, 1.0, _aim)
-	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(float(_model.get_meta("eye_x", 0.0)), -float(_model.get_meta("eye", 0.07)), -0.6), ease_aim)
-	rotation = Vector3(0.02, 0.05, 0) * (1.0 - ease_aim)
+	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(float(_model.get_meta("eye_x", 0.0)), -float(_model.get_meta("eye", 0.07)), float(_model.get_meta("eye_z", -0.6))), ease_aim)
+	rotation = Vector3(0.02, 0.05, 0) * (1.0 - ease_aim) + (_model.get_meta("eye_rot", Vector3.ZERO) as Vector3) * ease_aim
 	_holder.position = Vector3(_sway.x, bob - _kick * 0.04 + _sway.y - _switch * 0.5, _kick * 0.12 * (1.0 - _aim * 0.6)) + aim_off
 	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4
 	if _swing > 0.0:
@@ -1107,6 +1107,7 @@ func _try_fire() -> void:
 				b.origin = origin
 				b.dir = dir
 				b.speed = float(MUZZLE.get(gun(), 340.0))
+				b.grav = GRAVITY * float(CALIBER.get(gun(), ["", 1.0])[1])
 				b.left = float(s.range) - near
 				b.dmg = float(s.dmg) * dmg_m
 				b.falloff = float(s.falloff)
@@ -1150,6 +1151,11 @@ const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
 const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
+## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
+## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
+const CALIBER := {"shotgun": ["12 gauge", 1.6], "pistol": [".45", 1.25], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
+	"machine_gun": ["5.56", 1.0], "lmg": ["7.62", 0.9], "minigun": ["7.62", 0.9], "sniper": [".308", 0.8]}
+const GRAVITY := 9.8
 
 
 ## Whether a ray passes within r of a point (the head's middle).
@@ -1827,6 +1833,15 @@ func _build(g: String, mnts = null) -> Node3D:
 	if sight == "" and not built_glass(g, fit):
 		eye -= float(IRON_DROP.get(g, 0.0))   # the scanned body's top is a hammer or slide: its own sights sit lower
 		n.set_meta("eye_x", float(IRON_SIDE.get(g, 0.0)))
+		if SIGHT_LINE.has(g):
+			# Turned so the rear's middle and the front's middle sit on the eye's line, the rear on the eye
+			var rear: Vector3 = SIGHT_LINE[g][0]
+			var tb := Basis.looking_at(SIGHT_LINE[g][1] - rear).inverse()
+			var at: Vector3 = tb * rear
+			eye = at.y
+			n.set_meta("eye_x", -at.x)
+			n.set_meta("eye_rot", tb.get_euler())
+			n.set_meta("eye_z", -float(SIGHT_LINE[g][2]) - at.z)
 	n.set_meta("eye", eye)
 	if Game.gilded:
 		gild(n)
@@ -1965,9 +1980,13 @@ func _acc_name(g: String, m: String) -> String:
 
 
 ## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
-const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "rocket": 0.014, "minigun": -0.1}
+const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "minigun": -0.1}
 ## How far each gun sits to the side when aimed, so its sights (not its body) are on the eye's line.
-const IRON_SIDE := {"rocket": -0.0045}
+const IRON_SIDE := {}
+## Guns whose own rear and front sights do not sit on one line along the barrel: [the rear aperture's middle,
+## the front hood's middle, how far the eye sits behind the rear], measured on the built model. Down the sights the
+## gun is turned so the two line up, and brought close enough that the front shows through the rear's hole.
+const SIGHT_LINE := {"rocket": [Vector3(0.006, 0.0876, 0.081), Vector3(0.0, 0.078, -0.144), 0.07]}
 
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
@@ -2475,8 +2494,13 @@ class Slug extends Node3D:
 	var crit := 1.0
 	var pierce := 1.0
 	var harm := "bullet"
+	var grav := 0.0   ## how fast it falls (m/s each second); the shot's first NEAR metres are counted as flown
+	var vel := Vector3.ZERO
 
 	func _ready() -> void:
+		var t0 := Arms.NEAR / maxf(speed, 1.0)
+		vel = dir * speed + Vector3.DOWN * grav * t0
+		global_position += Vector3.DOWN * 0.5 * grav * t0 * t0
 		var streak := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(0.025, 0.025, 1.6)
@@ -2492,7 +2516,11 @@ class Slug extends Node3D:
 		look_at(global_position + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
 
 	func _physics_process(delta: float) -> void:
-		var step := minf(speed * delta, left)
+		if grav > 0.0:
+			vel.y -= grav * delta
+			dir = vel.normalized()
+			look_at(global_position + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
+		var step := minf(vel.length() * delta, left)
 		left -= step
 		var from := global_position
 		var q := PhysicsRayQueryParameters3D.create(from, from + dir * step, 1 | 2)

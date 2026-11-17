@@ -17,6 +17,7 @@
 - **Recoil.** Each gun pulls sideways in its own fixed way, the same every time. Pull against it, and fire in short strings.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks. A practised hand also sways less down the sights: at the top rank the sway is about half.
 - **Sway.** Down the sights your aim sways a little, and the shot goes where the sights are. Heavy guns and rifles sway more, pistols less, and a foregrip steadies it. Walking or being winded makes it worse.
+- **Bullet drop.** Past about 25 metres a round falls as it flies. Slow, light rounds (shotgun, pistols) fall most; rifle rounds hold their line longer. At range, aim a little high. Rockets fall too.
 - **The scope.** Behind a scope the sway is bigger. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
 
 Guns and their parts are changed under **Arms** in your pack. Parts are made at a workbench, and fittings found in the waste rework them to better grades.

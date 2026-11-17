@@ -27,6 +27,7 @@ const FORM_TIER := {
 	"dust_choir": 3, "grass_stalker": 3, "raven_mask": 4, "rime_walker": 4, "glass_husk": 4, "mound_guard": 4, "herd_ghost": 4,
 	# 0.12: the old tales of the themed isles
 	"nykur": 2, "draugr": 3, "shtriga": 3, "kulshedra": 4,
+	"ash_weaver": 3, "gaunt": 3, "harrow": 4,
 }
 
 ## Kin of the common forms, bred hard by their own lands: each moves and fights as its "base" does,
@@ -98,7 +99,23 @@ const VARIANTS := {
 		"weak": {"fire": 2.0, "blade": 1.3}, "tough": {"bullet": 0.8}, "text": "A night witch of the keep. She drinks from you, and each sip heals her. Fire undoes her."},
 	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "tint": Color(0.45, 0.18, 0.1),
 		"weak": {"blast": 1.5, "bullet": 1.2}, "tough": {"fire": 0.1, "shot": 0.7}, "text": "The she-dragon of the south. She breathes fire in a fan. Get behind stone."},
+	# 0.12: forms with scanned bodies of their own (see SCANS)
+	"ash_weaver": {"base": "spider", "name": "Ash Weaver", "hp": 150.0, "bite": 26.0, "size": 1.0, "speed": 6.0, "radius": 0.8,
+		"weak": {"fire": 1.8}, "tough": {"bullet": 0.8}, "text": "A spider the size of a cart. It climbs what you build. Fire still undoes it."},
+	"harrow": {"base": "unseen", "name": "The Harrow", "hp": 170.0, "bite": 36.0, "size": 1.0, "radius": 0.5,
+		"weak": {"fire": 1.4, "blade": 1.2}, "tough": {}, "text": "A man with a spider's legs on his back. It comes only when you look away."},
+	"gaunt": {"base": "lurker", "name": "The Gaunt", "hp": 120.0, "bite": 28.0, "size": 1.0, "speed": 6.4, "radius": 0.45,
+		"weak": {"shot": 1.3}, "tough": {"bullet": 0.8}, "text": "Thin as a rake and taller than a man. It waits under the ash and stands up at your feet."},
 }
+
+## Scanned bodies (CC-BY 4.0, see CREDITS): [model, height in metres, animation, pace the walk is made for (0: it stands),
+## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
+const SCANS := {
+	"ash_weaver": ["res://assets/models/foes/spiderthing/spiderthing.glb", 1.5, 0, 4.0, Vector2(0.55, 0.55)],
+	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
+	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
+}
+static var _scan_bounds := {}
 
 
 const KINDS := {
@@ -346,11 +363,13 @@ func _ready() -> void:
 		head.set_gild(1.0)
 	if kind == "unseen":
 		_build_unseen()
-	if kind == "spider":
+	if SCANS.has(variant):
+		_build_scan(cs)
+	elif kind == "spider":
 		_build_spider()
 	if variant == "box_cat":
 		_build_box_cat()
-	elif spec.get("body", "") == "cat":
+	elif spec.get("body", "") == "cat" and not SCANS.has(variant):
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
@@ -811,6 +830,14 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			var amp := minf(0.4, 0.08 + pace * 0.05)
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
+	if _scan:
+		_scan.position.y = -float(spec.radius) + _lift - _buried * 1.6 * float(SCANS[variant][1])
+		_scan.visible = _buried < 0.95
+		if _scan_anim:
+			var walk: float = SCANS[variant][3]
+			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
+		if _dust:
+			_dust.emitting = _buried > 0.3 and pace > 1.0
 	if _box:
 		var hop := absf(sin(_t * 13.0)) * minf(1.0, pace / 5.0)
 		_box.position.y = -float(spec.radius) + hop * 0.14
@@ -907,6 +934,57 @@ func _build_box_cat() -> void:
 	add_child(_box)
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
+## A body of its own, scanned, in place of the drawn one: brought to its height, feet on the ground, walking as it goes.
+var _scan: Node3D
+var _scan_anim: AnimationPlayer
+
+func _build_scan(cs: CollisionShape3D) -> void:
+	var sc: Array = SCANS[variant]
+	if not ResourceLoader.exists(sc[0]):
+		return
+	head.visible = false
+	for c in get_children():
+		if c is MeshInstance3D:   # the unseen's own bent-light body gives way
+			(c as MeshInstance3D).visible = false
+	var m: Node3D = (load(sc[0]) as PackedScene).instantiate()
+	if not _scan_bounds.has(sc[0]):
+		var bb := AABB()
+		var first := true
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = Arms._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		_scan_bounds[sc[0]] = bb
+	var b: AABB = _scan_bounds[sc[0]]
+	var tall := float(sc[1]) * float(spec.size)
+	var k := tall / maxf(b.size.y, 0.001)
+	var c0 := b.get_center()
+	# A scan faces +Z, as a form does when it walks
+	m.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
+	_scan = Node3D.new()
+	_scan.add_child(m)
+	_scan.position.y = -float(spec.radius)
+	add_child(_scan)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var aps := m.find_children("*", "AnimationPlayer", true, false)
+	if not aps.is_empty():
+		_scan_anim = aps[0]
+		var an: StringName = _scan_anim.get_animation_list()[int(sc[2])]
+		_scan_anim.get_animation(an).loop_mode = Animation.LOOP_LINEAR
+		_scan_anim.play(an)
+		_scan_anim.seek(randf() * _scan_anim.get_animation(an).length, true)
+	var hp: Vector2 = sc[4]
+	head.position = Vector3(0, tall * hp.x - float(spec.radius), tall * hp.y)
+	# Struck anywhere up its height, not only about the feet
+	var r := float(spec.radius)
+	var cap := CapsuleShape3D.new()
+	cap.radius = r
+	cap.height = maxf(2.0 * r, tall * (0.75 if hp.y > 0.3 else 1.0))
+	cs.shape = cap
+	cs.position.y = -r + cap.height * 0.5
 
 
 func _build_cat() -> void:

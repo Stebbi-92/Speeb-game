@@ -83,10 +83,19 @@ var team_kills := 0
 var _gone := {}
 
 
+var raising := false   ## true while build() is still at work over several frames
+
+
 func _ready() -> void:
 	hud = Game.main.hud
 	_rng.seed = 7
-	build()
+	# Raising a great land may take many frames: nothing in it stirs till it is whole
+	raising = true
+	var mode := process_mode
+	process_mode = Node.PROCESS_MODE_DISABLED
+	await build()
+	process_mode = mode
+	raising = false
 	apply_quality()
 	player = Player.new()
 	add_child(player)
@@ -2935,6 +2944,20 @@ func debug_aimshot() -> void:
 	sun.light_energy = 2.0
 	add_child(sun)
 	sun.global_rotation = player.cam.global_rotation + Vector3(-0.6, 0.6, 0)
+
+
+func debug_scanshot() -> void:
+	combat_frozen = true
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	var ks: Array = LesserSpeeb.SCANS.keys()
+	for i in ks.size():
+		var e := LesserSpeeb.new().setup(Game.lesser.keys()[i % Game.lesser.size()], ks[i], self)
+		add_child(e)
+		enemies.append(e)
+		e.global_position = player.global_position + fwd * (5.0 + i * 4.0) + side * (i - 1) * 1.2 + Vector3(0, 1.0, 0)
+		e.look_at(player.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+		e.rotate_y(PI)
 
 
 func debug_catshot() -> void:

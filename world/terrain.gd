@@ -207,11 +207,21 @@ func legacy_raw(x: float, z: float) -> float:
 	return _raw(x, z) + smoothstep(840.0, 1000.0, e) * (110.0 + ridge * 90.0)
 
 
+var steps := false   ## when true, generate() and build() give up a frame now and then so the window keeps drawing
+
+
+func _breathe() -> void:
+	if steps:
+		await (Engine.get_main_loop() as SceneTree).process_frame
+
+
 func generate() -> void:
 	var w := N + 1
 	h.resize(w * w)
 	var half := N * CELL * 0.5
 	for j in w:
+		if j % 64 == 63:
+			await _breathe()
 		var z := -half + j * CELL
 		for i in w:
 			h[j * w + i] = _raw(-half + i * CELL, z)
@@ -522,6 +532,7 @@ func build(m: Material) -> void:
 	var half := N * CELL * 0.5
 	var chunks := N / CHUNK
 	for cj in chunks:
+		await _breathe()
 		for ci in chunks:
 			var verts := PackedVector3Array()
 			var norms := PackedVector3Array()

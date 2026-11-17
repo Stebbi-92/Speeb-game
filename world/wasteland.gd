@@ -153,7 +153,7 @@ func build() -> void:
 		if sd == 0:
 			sd = randi_range(10000, 99999999)
 		# Worlds made before 0.9 keep their land as it was; new ones begin on the Ash Plains
-		_make_world(sd, int(_pending.get("gen", 1)) if not _pending.is_empty() else GEN)
+		await _make_world(sd, int(_pending.get("gen", 1)) if not _pending.is_empty() else GEN, true)
 	else:
 		spawn_pos = Vector3(0, 400, 0)
 	ambient("wind", -10)
@@ -169,7 +169,8 @@ var world_gen := GEN
 
 
 ## Raises the whole waste from its seed: the land and its six biomes, then the places upon it.
-func _make_world(sd: int, gen := GEN) -> void:
+func _make_world(sd: int, gen := GEN, steps := false) -> void:
+	_steps = steps
 	world_seed = sd
 	world_gen = gen
 	terrain = WTerrain.new()
@@ -195,12 +196,16 @@ func _make_world(sd: int, gen := GEN) -> void:
 		terrain.add_road(rd[2])
 	for k in WPlaces.SETTLEMENTS:
 		_town_paths(k)
-	terrain.generate()
+	await _step("The land is raised")
+	terrain.steps = steps
+	await terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
 	for l in lairs:
 		l.pos.y = terrain.height_at(l.pos.x, l.pos.z)
-	terrain.build(_m.ground)
+	await _step("The ground is laid")
+	await terrain.build(_m.ground)
+	terrain.steps = false
 	terrain.make_isles(_m.ground)
 	add_child(terrain)
 	# The isles' hearts: a ruin on each, keeping a lost book (their own ids, after all the rest)
@@ -209,26 +214,33 @@ func _make_world(sd: int, gen := GEN) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
+	await _step("The sea is poured")
 	sea = WSea.new().setup(self)
 	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
+		await _step("The towns are built")
 		var s0 := get_child_count()
 		_build_settlement(k)
 		_batch_since(s0)
+	await _step("The ruins are set")
 	for i in WPlaces.BEACONS.size():
 		_build_beacon(i)
 	var before := get_child_count()
 	for r in ruins:
+		if ruins.find(r) % 6 == 5:
+			await _step("The ruins are set")
 		var r0 := get_child_count()
 		_build_ruin(r)
 		_batch_since(r0)
 	for i in range(before, get_child_count()):
 		_fade_far(get_child(i), 700.0)
+	await _step("The lairs are dug")
 	for l in lairs:
 		_build_lair(l)
 	_scatter_nodes()
 	_scatter_isle_nodes()
 	_scatter_ammo()
+	await _step("The isles wake")
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
 	add_child(life)
@@ -236,9 +248,11 @@ func _make_world(sd: int, gen := GEN) -> void:
 	for nd in nodes:
 		_off_the_road(nd)
 		_fade_far(nd.node, 420.0)
+	await _step("The waste is dressed")
 	_build_signposts()
 	_scatter_decor()
 	WDress.cover(self)
+	await _step("The halls are opened")
 	hall = WHall.new(self)
 	hall.build()
 	deep = WDeep.new(self)
@@ -249,6 +263,18 @@ func _make_world(sd: int, gen := GEN) -> void:
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
+	_steps = false
+
+
+var _steps := false
+## Between the great works of raising the waste: the loading words move on and a frame is drawn,
+## so the window never hangs still. Only on the host's own raising (the level waits for it).
+func _step(what: String) -> void:
+	if not _steps:
+		return
+	if hud:
+		hud.set_loading(what)
+	await get_tree().process_frame
 
 
 func intro() -> void:
@@ -3873,12 +3899,12 @@ const BIOME_TEXT := {
 }
 ## What the night sends, by land.
 const BIOME_FORMS := {
-	"ash": ["rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil", "deacon", "cinder_hound", "bile_elder", "dirge_howler"],
-	"dunes": ["spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone", "saltrifle", "wisp", "rust_stalker", "rust_stalker", "sand_maw"],
+	"ash": ["harrow", "rusher", "rusher", "spitter", "spider", "swarm", "idol", "bloater", "howler", "hollow", "hollow", "vigil", "deacon", "cinder_hound", "bile_elder", "dirge_howler"],
+	"dunes": ["gaunt", "gaunt", "spitter", "spitter", "rusher", "swarm", "spider", "lurker", "lurker", "saltbone", "saltrifle", "wisp", "rust_stalker", "rust_stalker", "sand_maw"],
 	"salt": ["rusher", "spitter", "swarm", "swarm", "rusher", "howler", "bloater", "saltbone", "saltbone", "vigil", "saltrifle", "saltrifle", "rime_bones", "rime_bones", "iron_idol"],
-	"forest": ["rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow", "deacon", "colossus", "mourner", "mourner", "dirge_howler"],
-	"basalt": ["idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight", "glass_crawler", "pyre_sack", "cinder_hauler", "cinder_hound"],
-	"marsh": ["spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus", "bog_crawler", "bog_crawler", "tar_giant"],
+	"forest": ["ash_weaver", "harrow", "rusher", "rusher", "spider", "spider", "idol", "brute", "howler", "hollow", "hollow", "deacon", "colossus", "mourner", "mourner", "dirge_howler"],
+	"basalt": ["gaunt", "idol", "idol", "rusher", "spitter", "spider", "brute", "bloater", "saltbone", "vigil", "wisp", "wisp", "knight", "glass_crawler", "pyre_sack", "cinder_hauler", "cinder_hound"],
+	"marsh": ["ash_weaver", "spider", "spider", "swarm", "swarm", "swarm", "rusher", "bloater", "lurker", "hollow", "drowned", "drowned", "colossus", "bog_crawler", "bog_crawler", "tar_giant"],
 }
 
 
@@ -6778,7 +6804,9 @@ func debug_flamer() -> void:
 	arms.owned.append("flamer")
 	arms.primary = "flamer"
 	rearm()
+	await _debug_home()
 	wpn.draw_gun(0)
+	player.pitch = -0.35   # at the ground before it, so the fire takes wherever the check stands
 	await get_tree().create_timer(0.6).timeout
 	var smoke0 := find_children("*", "CPUParticles3D", false, false).size()
 	for k in 12:
@@ -6788,7 +6816,7 @@ func debug_flamer() -> void:
 	var roaring: bool = wpn._flame_snd != null and wpn._flame_snd.playing and (wpn._flame_snd.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD
 	var parts := find_children("*", "CPUParticles3D", false, false).size() - smoke0
 	await get_tree().create_timer(0.4).timeout
-	print("FLAMER roaring=%s quiet_after=%s particles=%s" % [roaring, not wpn._flame_snd.playing, parts > 12])
+	print("FLAMER roaring=%s quiet_after=%s particles=%s" % [roaring, not wpn._flame_snd.playing, parts >= 8])   # twelve jets and their smoke, less any other fire that burns out meanwhile
 	get_tree().quit()
 
 
@@ -7200,6 +7228,40 @@ func debug_hostleave() -> void:
 
 
 ## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
+## Test: the scanned forms stand on the ground at their height, walk by their own animation and can be struck high.
+func debug_scanfoes() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var ok := 0
+	var out := []
+	for k in LesserSpeeb.SCANS:
+		var at: Vector3 = player.global_position + f * 14.0 + f.cross(Vector3.UP) * (ok - 1) * 4.0
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e := spawn_at(k, at)
+		if e == null:
+			out.append(k + "=none")
+			continue
+		e.set_physics_process(false)
+		await get_tree().create_timer(0.6).timeout
+		var body_ok: bool = e._scan != null and e._scan.get_child_count() > 0
+		var moving: bool = e._scan_anim != null and e._scan_anim.is_playing()
+		var tall := 0.0
+		for mi in e._scan.find_children("*", "MeshInstance3D", true, false):
+			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			tall = maxf(tall, ab.end.y - e.global_position.y)
+		var head_up: bool = e.weak_point()[0].y > e.global_position.y
+		if body_ok and moving and head_up and e.spec.name == LesserSpeeb.VARIANTS[k].name:
+			ok += 1
+		out.append("%s=%.1f" % [k, tall])
+		e.queue_free()
+	print("SCANFOES ok=%d/%d %s" % [ok, LesserSpeeb.SCANS.size(), " ".join(out)])
+	get_tree().quit()
+
+
 func debug_folk() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -7878,6 +7940,7 @@ func debug_bossshot() -> void:
 func debug_greatones() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
 	clock = 12.0   # midday, so that no dawn unmakes the test's foes
 	player.health = 999999.0
 	player.max_health = 999999.0
@@ -8444,13 +8507,17 @@ func debug_packshot() -> void:
 func debug_takeall() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	_debug_room(6)
+	await get_tree().create_timer(1.0).timeout
+	var had := [inv.count("hide"), inv.count("raw_meat"), inv.count("bone")]   # what the pack held before, picked up about the start
 	shared("_rq_satchel", [Net.me(), player.global_position + Vector3(0, 0, -2), [["hide", 3], ["raw_meat", 2], ["bone", 6]], false])
 	await get_tree().create_timer(1.0).timeout
 	var sid: String = satchels.keys()[-1]
 	var n0 := satchels.size()
 	var asked := take_all(sid)
 	await get_tree().create_timer(1.0).timeout
-	print("TAKEALL asked=%d hide=%d meat=%d bone=%d satchel_gone=%s" % [asked, inv.count("hide"), inv.count("raw_meat"), inv.count("bone"), satchels.size() < n0])
+	print("TAKEALL asked=%d hide=%d meat=%d bone=%d satchel_gone=%s" % [asked, inv.count("hide") - had[0], inv.count("raw_meat") - had[1], inv.count("bone") - had[2], satchels.size() < n0])
 	# A full pack takes only what fits
 	for i in inv.slots.size():
 		if inv.slots[i] == null:
@@ -12124,10 +12191,43 @@ func debug_rocketdrop() -> void:
 	add_child(r)
 	var start := player.global_position + Vector3(0, 300, 0)
 	r.global_position = start
-	await get_tree().create_timer(1.0).timeout
+	for i in Engine.physics_ticks_per_second:   # one second of its flight, however slow the machine
+		await get_tree().physics_frame
 	var fell: float = start.y - r.global_position.y if is_instance_valid(r) else -1.0
 	var nose: float = (-r.global_transform.basis.z).y if is_instance_valid(r) else 0.0
 	print("ROCKETDROP fell=%.2f nose_down=%s" % [fell, nose < -0.02])
+	get_tree().quit()
+
+
+## Test: rounds past the near reach fall, a light pistol round more than a heavy rifle one; and the rocket
+## launcher's rear hole and front hood sit on the eye's line down the sights.
+func debug_bulletdrop() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var fell := {}
+	for g in ["pistol", "sniper"]:
+		var b := Arms.Slug.new()
+		b.gun_id = g
+		b.dir = Vector3(1, 0, 0)
+		b.speed = float(Arms.MUZZLE[g])
+		b.grav = Arms.GRAVITY * float(Arms.CALIBER[g][1])
+		b.left = 10000.0
+		var start: Vector3 = player.global_position + Vector3(0, 400, 0)
+		b.origin = start
+		add_child(b)
+		b.global_position = start
+		for i in 30:
+			await get_tree().physics_frame
+		fell[g] = start.y - b.global_position.y
+		b.queue_free()
+	var n: Node3D = player.weapon._build("rocket", [])
+	var tr := Transform3D(Basis.from_euler(n.get_meta("eye_rot")), Vector3(float(n.get_meta("eye_x")), -float(n.get_meta("eye")), float(n.get_meta("eye_z"))))
+	var lined := true
+	for pt in Arms.SIGHT_LINE["rocket"].slice(0, 2):
+		var c: Vector3 = tr * (pt as Vector3)
+		lined = lined and absf(c.x) < 0.0005 and absf(c.y) < 0.0005 and c.z < -0.05
+	n.free()
+	print("BULLETDROP pistol=%.2f sniper=%.2f heavier_holds=%s sights=%s" % [fell.pistol, fell.sniper, fell.pistol > fell.sniper and fell.sniper > 0.05, lined])
 	get_tree().quit()
 
 

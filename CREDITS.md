@@ -56,6 +56,9 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Free Ammo Set Ver.2 ULTRA"](https://skfb.ly/pIyTC) | Rotten Design | Rounds, spent cases and shotgun shells |
 | ["Box Cat"](https://skfb.ly/o9JHT) | mellting | The Box Cat |
+| ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
+| ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
+| ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |
 | ["Flamethrower Low Poly"](https://skfb.ly/orCTI) | Shaz | The flamethrower |
