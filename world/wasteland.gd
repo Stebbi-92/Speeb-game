@@ -285,6 +285,7 @@ func _exit_tree() -> void:
 	super._exit_tree()
 	if ready_world:
 		save_all()
+	WPlaylog.end()
 	Game.wasteland = false
 	Game.milk_bag = null
 	# The waste's own strip, panels and keys live on the HUD, which outlasts the level: take them away
@@ -4259,6 +4260,7 @@ func _w_nightfall(_d: int) -> void:
 	_wave_t = 25.0
 	night_theme = night_theme_for(nights + 1)
 	_fell_tonight = false
+	WPlaylog.note("Night %d falls%s" % [nights + 1, (" (" + str(NIGHT_THEMES[night_theme].name) + ")") if night_theme != "" else ""])
 	if night_theme != "":
 		var nt: Dictionary = NIGHT_THEMES[night_theme]
 		get_tree().create_timer(3.0, false).timeout.connect(func():
@@ -4390,9 +4392,16 @@ func _w_settler_gone(id: int, why: String) -> void:
 # ================================================================== growing
 
 ## Gives this survivor experience for a deed (see WSkills.XP).
+const LOG_GOALS := {"kill_elite": "an elite felled", "kill_boss": "a great one felled", "step": "a quest step done",
+	"step_main": "a step of the main road done", "quest": "a quest finished", "beacon": "a beacon lit", "dawn": "a night lived through",
+	"settlement": "a settlement found", "ruin": "a ruin found", "biome": "a new land seen"}
+
+
 func award(kind: String, mult := 1.0) -> void:
 	if guide:
 		guide.event(kind)
+	if LOG_GOALS.has(kind) and not _pfail:
+		WPlaylog.goal(kind, LOG_GOALS[kind])
 	if Net.dedicated or _pfail or not WSkills.XP.has(kind):
 		return
 	var amount := int(round(WSkills.XP[kind] * mult * (1.25 if rested > 0.0 else 1.0)))
@@ -5205,6 +5214,7 @@ func _perish(message: String) -> void:
 	_meal_stats()
 	life_kills = 0
 	_pfail = true
+	WPlaylog.note("Fell: " + message.replace("\n", " "))
 	player.input_locked = true
 	if ui:
 		ui.close_all()
@@ -6160,6 +6170,8 @@ func _cont_count(cid: String, item: String) -> int:
 
 
 func _world_ready() -> void:
+	if not Net.dedicated:
+		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
 		ui.map_dirty = true
 		ui.prepare_map()
@@ -6170,7 +6182,38 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
-## Testing aid: vows are kept once sworn, and each one bites and pays.
+## Testing aid: no more than MAX_VOICES sounds play in the world, and a loud one near takes a faint one's place.
+func debug_voices() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cam := get_viewport().get_camera_3d()
+	var at: Vector3 = cam.global_position if cam else player.global_position
+	for i in 60:
+		sfx("horror_deep", -20, at + Vector3(150, 0, 0))
+	var faint: int = _voices.filter(func(v): return is_instance_valid(v) and not v.is_queued_for_deletion()).size()
+	sfx("horror_deep", 0, at + Vector3(2, 0, 0))
+	var near_in: bool = _voices.any(func(v): return is_instance_valid(v) and v.volume_db == 0.0)
+	print("VOICES capped=%s n=%d near_in=%s" % [faint <= MAX_VOICES, faint, near_in])
+	get_tree().quit()
+
+
+## Testing aid: the playtest log notes goals, the first of each kind, and the gap between them.
+func debug_playlog() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	award("ruin")
+	await get_tree().create_timer(1.1).timeout
+	award("beacon")
+	award("ruin")
+	var path := WPlaylog.path()
+	WPlaylog.end()
+	var text := FileAccess.get_file_as_string(path)
+	print("PLAYLOG begun=%s first_beacon=%s two_ruins=%s gap=%s ended=%s" % [text.contains("Sitting begun"), text.contains("beacon lit (first beacon)"),
+		text.count("ruin found") == 2, text.contains("0:00:01 since the last goal"), text.contains("first beacon at")])
+	get_tree().quit()
+
+
+## Testing aid: night pace sets how many nights are named and how big the waves are.
 func debug_pace() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -6188,6 +6231,7 @@ func debug_pace() -> void:
 	get_tree().quit()
 
 
+## Testing aid: vows are kept once sworn, and each one bites and pays.
 func debug_vows() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout

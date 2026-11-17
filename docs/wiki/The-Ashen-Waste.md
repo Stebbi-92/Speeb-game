@@ -64,3 +64,7 @@ When your health runs out you fall, unconscious, with a timer. A friend can rais
 ## Experience
 
 Everything you do earns experience. Each level gives a point to spend on [[Skills]].
+
+## Playtest log
+
+Each sitting in the waste writes a short log on your own computer, in the game's user folder under `playtest/`. It notes each goal reached (a beacon lit, a ruin found, a quest step done, a night lived through), the time since the last goal, and when you fell. Nothing is sent anywhere. Share a log when you report how a session felt.

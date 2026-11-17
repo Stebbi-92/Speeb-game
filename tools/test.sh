@@ -82,6 +82,8 @@ check vows       debug_vows     "VOWS locked=true learn=3->6 sell=[0-9.]+->[0-9.
 check embers     debug_embers   "EMBERS far=true toward=true near_off=true"
 check dream      debug_dream    "grew=true next_differs=true"
 check pace       debug_pace     "PACE 1[0-9]/0.65 2[0-9]/1.00 3[0-9]/1.40"
+check playlog    debug_playlog  "PLAYLOG begun=true first_beacon=true two_ruins=true gap=true ended=true"
+check voices     debug_voices   "VOICES capped=true n=32 near_in=true"
 check raidcamp   debug_raidcamp "CAMP dug=true foes=([6-9]|1[0-9]) broken=true paid=true"
 check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=true"
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"

@@ -1891,6 +1891,21 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.play()
 		p.finished.connect(p.queue_free)
 	else:
+		# No more than MAX_VOICES at once: a new sound takes the place of the faintest, or is not heard
+		var loud := _heard_db(vol_db, pos)
+		_voices = _voices.filter(func(v): return is_instance_valid(v) and v.playing)
+		if _voices.size() >= MAX_VOICES:
+			var qi := -1
+			var qd := INF
+			for i in _voices.size():
+				var d := _heard_db(_voices[i].volume_db, _voices[i].global_position)
+				if d < qd:
+					qd = d
+					qi = i
+			if qi < 0 or qd >= loud:
+				return
+			_voices[qi].queue_free()
+			_voices.remove_at(qi)
 		var p := AudioStreamPlayer3D.new()
 		p.stream = s
 		p.bus = bus
@@ -1901,6 +1916,18 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		add_child(p)
 		p.play()
 		p.finished.connect(p.queue_free)
+		_voices.append(p)
+
+
+const MAX_VOICES := 32   ## sounds in the world playing at once
+var _voices: Array = []
+
+
+## Roughly how loud a sound is where the listener stands, for choosing which to drop.
+func _heard_db(vol_db: float, at: Vector3) -> float:
+	var cam := get_viewport().get_camera_3d()
+	var d := cam.global_position.distance_to(at) if cam else 0.0
+	return vol_db - 20.0 * log(maxf(d, 8.0) / 8.0) / log(10.0)
 
 
 func fade_ambient(to_db: float, dur := 2.0) -> void:
