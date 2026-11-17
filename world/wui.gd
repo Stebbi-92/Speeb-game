@@ -1809,13 +1809,24 @@ func _draw_wear() -> void:
 		if it.has("needs") and not w.flags.has(it.needs) and w.inv.count(id) <= 0 and str(a.wear.get(_wslot, "")) != id:
 			continue   # taught by a lost book not yet found
 		var sub := _wear_sub(it)
+		var told := made_from(str(it.get("text", "")), _acost(it.cost))
 		if str(a.wear.get(_wslot, "")) == id:
-			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass, str(it.get("text", ""))))
+			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass, told))
 		elif w.inv.count(id) > 0:
-			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass, str(it.get("text", ""))))
+			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass, told))
 		else:
 			var c: Dictionary = _acost(it.cost)
 			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass, str(it.get("text", ""))))
+
+
+## What a thing is, and what it is made from (shown on worn and carried clothes, whose card has no cost).
+static func made_from(text: String, cost: Dictionary) -> String:
+	var parts: Array = []
+	for k in cost:
+		parts.append("%d %s" % [int(cost[k]), Items.iname(k)])
+	if parts.is_empty():
+		return text
+	return (text + " " if text != "" else "") + "Made from " + ", ".join(parts) + "."
 
 
 ## A worn thing's gifts in a few words.

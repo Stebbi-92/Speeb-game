@@ -8930,7 +8930,8 @@ func debug_wear() -> void:
 	var off := not warded("dunes") and inv.count("veil") == 1
 	var moved := str(WArms.clean({"wear": {"head": "gas_mask"}}).wear.get("face", "")) == "gas_mask"
 	ui.close_all()
-	print("WEAR before=%s on=%s off=%s moved=%s" % [before, on, off, moved])
+	var told := WUI.made_from("A veil.", {"cloth": 2}) == "A veil. Made from 2 %s." % Items.iname("cloth")
+	print("WEAR before=%s on=%s off=%s moved=%s told=%s" % [before, on, off, moved, told])
 	get_tree().quit()
 
 ## Testing aid: holding Hasten out in the waste runs faster than walking, and spends breath.
