@@ -70,7 +70,7 @@ func _ready() -> void:
 	add_child(cs)
 	# A solid body foes run into (and not through); the rider's own step ignores it
 	var solid := AnimatableBody3D.new()
-	solid.sync_to_physics = true   # moved each physics step, pushing foes aside rather than landing in them
+	solid.sync_to_physics = false   # on, a body moved outside the physics step lags behind it and foes pass through
 	solid.collision_layer = SOLID_LAYER
 	solid.collision_mask = 0
 	var scs := CollisionShape3D.new()
