@@ -108,6 +108,25 @@ const VARIANTS := {
 		"weak": {"shot": 1.3}, "tough": {"bullet": 0.8}, "text": "Thin as a rake and taller than a man. It waits under the ash and stands up at your feet."},
 }
 
+## What a form is made of, by the sound a hit makes on it: [sound, pitch]. Flesh when not named.
+const MATTER := {
+	"metal": ["hit_metal", 1.0], "glass": ["hit_metal", 1.7], "bone": ["chop", 1.45], "ghost": ["whoosh", 1.6], "shell": ["hit_flesh", 1.3],
+}
+const MATTER_OF := {
+	"idol": "metal", "saucer": "metal", "knight": "metal", "iron_idol": "metal", "mound_guard": "metal",
+	"glass_crawler": "glass", "glass_husk": "glass",
+	"saltbone": "bone", "rime_bones": "bone", "saltrifle": "bone", "draugr": "bone",
+	"vigil": "ghost", "wisp": "ghost", "flicker": "ghost", "herd_ghost": "ghost",
+	"spider": "shell", "bog_crawler": "shell", "ash_weaver": "shell", "swarm": "shell",
+}
+
+
+func matter() -> String:
+	if plate > 0.0:
+		return "metal"
+	return str(MATTER_OF.get(variant, MATTER_OF.get(kind, "flesh")))
+
+
 ## Scanned bodies (CC-BY 4.0, see CREDITS): [model, height in metres, animation, pace the walk is made for (0: it stands),
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
@@ -475,6 +494,13 @@ func _cry(sound: String, vol := 0.0) -> void:
 func _physics_process(delta: float) -> void:
 	if not _alive or level.player == null:
 		return
+	if _flinch != Vector2.ZERO:
+		# Struck, it rocks away from the blow and comes back
+		_flinch = _flinch.lerp(Vector2.ZERO, minf(1.0, delta * 9.0))
+		if _flinch.length() < 0.004:
+			_flinch = Vector2.ZERO
+		rotation.x = _flinch.x
+		rotation.z = _flinch.y
 	FoeTraits.look(self, delta)
 	if puppet:
 		_puppet_tick(delta)
@@ -1270,9 +1296,26 @@ func _on_plate(amount: float) -> float:
 	return amount - soak
 
 
+var _flinch := Vector2.ZERO   ## the lean a blow gives it (about x, about z), fading
+static var flinches := 0
+
+
+## A blow rocks the body away from where it came from: harder for a hard blow, little for the great ones.
+func flinch(amount: float, from_dir: Vector3) -> void:
+	if kind in ["saucer"] or from_dir.length() < 0.01:
+		return
+	var k := clampf(amount / (25.0 + max_hp * 0.12), 0.06, 0.32)
+	if boss != "" or kind in ["idol", "brute", "elite"]:
+		k *= 0.35
+	var d := global_transform.basis.inverse() * from_dir.normalized()
+	_flinch = Vector2(clampf(_flinch.x + d.z * k, -0.4, 0.4), clampf(_flinch.y - d.x * k, -0.4, 0.4))
+	flinches += 1
+
+
 func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive or hidden:
 		return false
+	flinch(amount, from_dir)
 	var raw := amount   # what a puppet sends on: the host weighs weakness, plate and guard itself
 	if harm_kind != "" and boss == "":
 		# A blunt blow is a blade's to a form that has no word on blunt harm

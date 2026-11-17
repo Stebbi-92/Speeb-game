@@ -17,6 +17,8 @@
 - **Recoil.** Each gun pulls sideways in its own fixed way, the same every time. Pull against it, and fire in short strings.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks. A practised hand also sways less down the sights: at the top rank the sway is about half.
 - **Sway.** Down the sights your aim sways a little, and the shot goes where the sights are. Heavy guns and rifles sway more, pistols less, and a foregrip steadies it. Walking or being winded makes it worse.
+- **Warnings.** The far forms warn before their ways: dust boils where a burrower will come up, a flicker crackles behind you before it appears, the ground hisses before a geyser bursts, ravens gather over a raven mask before they fly at you, a choir is heard singing, and a stalker rustles in the grass.
+- **Hits you can hear.** A struck form rocks away from the blow, and each one sounds of what it is made of: flesh, iron, glass, bone or shell.
 - **Bullet drop.** Past about 25 metres a round falls as it flies. Slow, light rounds (shotgun, pistols) fall most; rifle rounds hold their line longer. At range, aim a little high. Rockets fall too.
 - **The scope.** Behind a scope the sway is bigger. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
 

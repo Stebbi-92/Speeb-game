@@ -171,14 +171,20 @@ func _skills():
 
 
 ## Shots heard striking home: a wet thud in flesh, a ring off the gilded faces.
+static var heard_matter := {}
+
+
 func _impact_sounds(hits: Dictionary) -> void:
 	var n := 0
 	for t in hits:
 		if n >= 2 or not is_instance_valid(t):
 			break
 		n += 1
-		var metal: bool = t.get("kind") == "idol" or t.get("kind") == "saucer"
-		player.get_parent().sfx("hit_metal" if metal else "hit_flesh", -6 if metal else -9, t.global_position + Vector3(0, 0.8, 0))
+		# Each thing struck sounds of what it is made of: flesh, iron, glass, bone, a ghost's cold air, a shell
+		var mt: String = t.matter() if t.has_method("matter") else "flesh"
+		var snd: Array = LesserSpeeb.MATTER.get(mt, ["hit_flesh", 1.0])
+		player.get_parent().sfx(snd[0], -6 if mt == "metal" else -9, t.global_position + Vector3(0, 0.8, 0), float(snd[1]))
+		heard_matter[mt] = int(heard_matter.get(mt, 0)) + 1
 
 
 ## Practice with the weapon in hand from what a blow or a shot did.

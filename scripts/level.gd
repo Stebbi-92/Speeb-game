@@ -3042,6 +3042,61 @@ func _w_slam_fx(at: Vector3, r: float) -> void:
 var marks_seen := {}   ## warnings shown, by kind, for the tests
 
 
+## The warnings of the far forms' ways (see FoeTraits): [sound, loudness, pitch, colour of the puff (none if clear)].
+const TELLS := {
+	"phase": ["glitch", -3.0, 0.75, Color(0.75, 0.7, 0.95, 0.7)],
+	"burrow": ["crumble", 0.0, 0.6, Color(0.5, 0.44, 0.36, 0.85)],
+	"vent": ["hiss", -5.0, 0.5, Color(0.92, 0.93, 0.95, 0.6)],
+	"ravens": ["critter_2", 0.0, 0.6, Color(0.05, 0.05, 0.06, 0.9)],
+	"choir": ["choir", -8.0, 1.4, Color(0, 0, 0, 0)],
+	"stealth": ["cloth", -4.0, 0.8, Color(0, 0, 0, 0)],
+}
+var tells_seen := {}
+
+
+## Everyone: a far form's warning, where its way is about to happen.
+func _w_tell(what: String, at: Vector3) -> void:
+	if not TELLS.has(what):
+		return
+	tells_seen[what] = int(tells_seen.get(what, 0)) + 1
+	var tl: Array = TELLS[what]
+	sfx(tl[0], tl[1], at, tl[2])
+	var c: Color = tl[3]
+	if c.a <= 0.0 or Net.dedicated:
+		return
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.emitting = true
+	p.amount = 24
+	p.lifetime = 1.4
+	p.explosiveness = 0.5
+	p.direction = Vector3.UP
+	p.spread = 35.0
+	p.initial_velocity_min = 0.6
+	p.initial_velocity_max = 2.0
+	p.gravity = Vector3(0, -0.6, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.4
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.8
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.35, 0.35)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.material = m
+	p.mesh = qm
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 1))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	p.color_ramp = fade
+	add_child(p)
+	p.global_position = at
+	get_tree().create_timer(2.0, false).timeout.connect(p.queue_free)
+
+
 func _w_warn(at: Vector3, r: float, t: float, kind: int, angle := 0.0, half := 1.0) -> void:
 	marks_seen[kind] = int(marks_seen.get(kind, 0)) + 1
 	var y := at.y

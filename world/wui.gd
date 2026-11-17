@@ -3088,10 +3088,9 @@ func _map_layout() -> void:
 	for c in _map_canvas.get_children():
 		c.position = Vector2.ZERO
 		c.size = Vector2(full, full)
-	# The fog of the unknown lies over the waste itself; the sea and its isles are charted
-	var k := WPlaces.HALF / WIsles.MAP_HALF
-	_map_fog.position = Vector2(full, full) * (1.0 - k) * 0.5
-	_map_fog.size = Vector2(full, full) * k
+	# The unknown is black, the sea and its isles too, until walked or seen from a lit beacon
+	_map_fog.position = Vector2.ZERO
+	_map_fog.size = Vector2(full, full)
 	_map_draw.zoom = _map_zoom
 	_map_draw.queue_redraw()
 
@@ -3139,7 +3138,7 @@ func _update_fog() -> void:
 	var n: int = Wasteland.REVEAL_N
 	for j in n:
 		for i in n:
-			_fog_img.set_pixel(i, j, Color(0.03, 0.028, 0.025, 0.0 if w.revealed[j * n + i] != 0 else 0.93))
+			_fog_img.set_pixel(i, j, Color(0, 0, 0, 0.0 if w.revealed[j * n + i] != 0 else 1.0))
 	_fog_tex.update(_fog_img)
 
 
@@ -3920,6 +3919,8 @@ class MapDraw extends Control:
 			return
 		var font := ThemeDB.fallback_font
 		for il in w.terrain.isles:
+			if not w.is_revealed(Vector3(il.c.x, 0, il.c.y)):
+				continue
 			var ip := _to(Vector3(il.c.x, 0, il.c.y))
 			draw_string(font, ip + Vector2(-80, -float(il.r) / (WIsles.MAP_HALF * 2.0) * size.x - 6.0), il.name, HORIZONTAL_ALIGNMENT_CENTER, 160, 15, Color(0.85, 0.9, 0.92, 0.9))
 		for r in w.ruins:

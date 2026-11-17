@@ -18,6 +18,8 @@ extends RefCounted
 const PHASE_ON := 4.0
 const PHASE_OFF := 2.2
 const LIFE_STAMPEDE := 26.0
+## How long before a way is done its warning comes: a sound and a sign where it will happen.
+const TELL := {"phase": 0.7, "burrow": 0.9, "vent": 1.0, "ravens": 1.0}
 
 
 static func trait_of(e) -> String:
@@ -63,10 +65,14 @@ static func tick(e, delta: float, p: Node3D, dist: float) -> bool:
 	match tr:
 		"phase":
 			if e.hidden:
-				if t <= 0.0:
+				if t <= TELL.phase and not e.has_meta("told"):
 					var back: Vector3 = p.global_basis.z
 					back.y = 0.0
-					_appear(e, p.global_position + back.normalized() * 3.0 + Vector3(0, 0.6, 0))
+					e.set_meta("rise_at", p.global_position + back.normalized() * 3.0 + Vector3(0, 0.6, 0))
+					_tell(e, "phase", e.get_meta("rise_at"))
+				if t <= 0.0:
+					_appear(e, e.get_meta("rise_at", p.global_position + Vector3(0, 0.6, 3)))
+					_untold(e)
 					e.set_meta("trait_t", PHASE_ON)
 					e._attack_cd = 0.4
 				return true
@@ -77,10 +83,14 @@ static func tick(e, delta: float, p: Node3D, dist: float) -> bool:
 				return true
 		"burrow":
 			if e.hidden:
-				if t <= 0.0:
+				if t <= TELL.burrow and not e.has_meta("told"):
 					var back: Vector3 = p.global_basis.z
 					back.y = 0.0
-					_appear(e, p.global_position + back.normalized() * 8.0)
+					e.set_meta("rise_at", p.global_position + back.normalized() * 8.0)
+					_tell(e, "burrow", e.get_meta("rise_at"))
+				if t <= 0.0:
+					_appear(e, e.get_meta("rise_at", p.global_position + Vector3(0, 0, 8)))
+					_untold(e)
 					e.set_meta("trait_t", randf_range(8.0, 11.0))
 					e.level.sfx("crumble", -2, e.global_position)
 					e.level.burst(e.global_position, Color(0.5, 0.45, 0.38))
@@ -93,16 +103,25 @@ static func tick(e, delta: float, p: Node3D, dist: float) -> bool:
 				return true
 		"vent":
 			if e.hidden:
+				if dist < 15.0 and not e.has_meta("told"):
+					_tell(e, "vent", e.global_position)   # the ground rumbles and smokes before it bursts
 				if dist < 9.0:
 					_appear(e, e.global_position)
 					_steam(e)
+					_untold(e)
 					e.set_meta("trait_t", randf_range(10.0, 14.0))
 				return true
+			if t <= TELL.vent and dist < 9.0 and not e.has_meta("told"):
+				_tell(e, "vent", e.global_position)
 			if t <= 0.0 and dist < 7.0:
 				_steam(e)
+				_untold(e)
 				e.set_meta("trait_t", randf_range(10.0, 14.0))
 		"ravens":
+			if t <= TELL.ravens and dist < 25.0 and not e.has_meta("told"):
+				_tell(e, "ravens", e.global_position + Vector3(0, 1.5, 0))   # it calls; the ravens gather over it
 			if t <= 0.0 and dist < 25.0:
+				_untold(e)
 				e.set_meta("trait_t", randf_range(10.0, 13.0))
 				e.level.sfx("critter_1", 0, p.global_position, 0.7)
 				_afflict_target(e, p, "blind", 3.0)
@@ -111,9 +130,19 @@ static func tick(e, delta: float, p: Node3D, dist: float) -> bool:
 		"choir":
 			if t <= 0.0:
 				e.set_meta("trait_t", 1.0)
+				var sing: float = float(e.get_meta("sing_t", 0.0)) - 1.0
+				e.set_meta("sing_t", sing)
+				if sing <= 0.0:
+					e.set_meta("sing_t", 4.0)
+					_tell(e, "choir", e.global_position + Vector3(0, 1.2, 0))   # heard singing: find it and silence it
 				for o in e.level.enemies:
 					if o != e and is_instance_valid(o) and o.is_alive() and o.global_position.distance_to(e.global_position) < 12.0:
 						o.hp = minf(o.max_hp, o.hp + 4.0)
+		"stealth":
+			# Unseen in the grass, but heard: a rustle where it moves
+			if t <= 0.0 and dist < 18.0:
+				e.set_meta("trait_t", randf_range(2.5, 4.0))
+				_tell(e, "stealth", e.global_position)
 		"stampede":
 			e._busy = maxf(0.0, e._busy - delta)
 			if e._charge_t <= 0.0 and e._busy <= 0.0 and e._spent <= 0.0 and t <= 0.0 and dist > 3.0:
@@ -185,6 +214,18 @@ static func look(e, delta: float) -> void:
 	e.set_meta("struck_t", maxf(0.0, float(e.get_meta("struck_t", 0.0)) - delta))
 	if e.visible != shown:
 		e.visible = shown
+
+
+## A warning everyone sees and hears: what is about to happen, and where.
+static func _tell(e, what: String, at: Vector3) -> void:
+	e.set_meta("told", true)
+	if e.level.has_method("_w_tell"):
+		e.level.shared("_w_tell", [what, at])
+
+
+static func _untold(e) -> void:
+	e.remove_meta("told")
+	e.remove_meta("rise_at")
 
 
 static func _appear(e, at: Vector3) -> void:

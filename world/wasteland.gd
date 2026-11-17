@@ -14,7 +14,9 @@ const FIRE_KINDS := ["campfire", "cookpot", "torch", "stove"]
 const WOOD_HOURS := 24.0     ## one piece of wood keeps a fire for a whole day
 const FUEL_MAX := 240.0      ## a fire holds ten days of wood at most
 const FUEL_START := 72.0     ## a new fire is laid with three days' wood
-const REVEAL_N := 256
+const REVEAL_N := 320
+const REVEAL_HALF := WIsles.MAP_HALF   ## the fog lies over the whole map, the sea and its isles too: 20 m to a cell
+const BEACON_SIGHT := 520.0            ## a lit beacon shows the land about it on the map, this far
 
 var terrain: WTerrain
 var sea: WSea
@@ -1528,6 +1530,7 @@ func _beacon_payoff(i: int) -> void:
 		get_tree().create_timer(4.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("You were not there when it caught. Stand at %s yourself to keep its boon." % WPlaces.BEACONS[i].name))
+	_reveal_around(beacon_nodes[i].pos, BEACON_SIGHT)   # from the bowl you see the land about, and it is on your map
 	var next := next_dark_beacon(beacon_nodes[i].pos)
 	if next >= 0:
 		reveal_place(WPlaces.bpos(next), 60.0)
@@ -1797,6 +1800,34 @@ func debug_embers() -> void:
 	player.global_position.y = terrain.height_at(player.global_position.x, player.global_position.z) + 1.0
 	await get_tree().create_timer(1.2).timeout
 	print("EMBERS far=%s toward=%s near_off=%s" % [far_on, toward, not _embers.emitting])
+	get_tree().quit()
+
+
+## Test: the map is black till walked, the sea and its isles too; a lit beacon shows the land about it;
+## an older map's known ground carries over.
+func debug_fog() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var il: Dictionary = terrain.isles[0]
+	var isle_dark := not is_revealed(Vector3(il.c.x, 0, il.c.y))
+	var known := 0
+	for v in revealed:
+		known += int(v != 0)
+	var little := known < revealed.size() / 10
+	var bp: Vector3 = beacon_nodes[3].pos
+	var far_side := bp + Vector3(400, 0, 0)
+	var before := is_revealed(far_side)
+	if not 3 in lit:
+		lit.append(3)
+	reveal_lit()
+	var after := is_revealed(far_side)
+	revealed.fill(0)
+	var old := PackedByteArray()
+	old.resize(256 * 256)
+	old.fill(1)
+	_reveal_from(old, 256, WPlaces.HALF)
+	var carried := is_revealed(Vector3(1500, 0, -1500)) and not is_revealed(Vector3(3000, 0, 3000))
+	print("FOG isle_dark=%s little=%s beacon=%s carried=%s" % [isle_dark, little, (not before) and after, carried])
 	get_tree().quit()
 
 
@@ -5781,9 +5812,9 @@ func respawn_point() -> Vector3:
 # ================================================================== the map
 
 func _reveal_around(p: Vector3, radius: float) -> void:
-	var cell := WPlaces.SIZE / REVEAL_N
-	var ci := int((p.x + WPlaces.HALF) / cell)
-	var cj := int((p.z + WPlaces.HALF) / cell)
+	var cell := REVEAL_HALF * 2.0 / REVEAL_N
+	var ci := int((p.x + REVEAL_HALF) / cell)
+	var cj := int((p.z + REVEAL_HALF) / cell)
 	var rc := int(ceil(radius / cell))
 	var changed := false
 	for j in range(cj - rc, cj + rc + 1):
@@ -5802,11 +5833,9 @@ func reveal_place(p: Vector2, radius: float) -> void:
 
 
 func is_revealed(p: Vector3) -> bool:
-	if maxf(absf(p.x), absf(p.z)) > WPlaces.HALF:
-		return true   # the sea and its isles are on the old charts
-	var cell := WPlaces.SIZE / REVEAL_N
-	var i := clampi(int((p.x + WPlaces.HALF) / cell), 0, REVEAL_N - 1)
-	var j := clampi(int((p.z + WPlaces.HALF) / cell), 0, REVEAL_N - 1)
+	var cell := REVEAL_HALF * 2.0 / REVEAL_N
+	var i := clampi(int((p.x + REVEAL_HALF) / cell), 0, REVEAL_N - 1)
+	var j := clampi(int((p.z + REVEAL_HALF) / cell), 0, REVEAL_N - 1)
 	return revealed[j * REVEAL_N + i] != 0
 
 
@@ -6101,15 +6130,34 @@ func apply_char(d: Dictionary) -> void:
 		var raw := Marshalls.base64_to_raw(rv)
 		if raw.size() == revealed.size():
 			revealed = raw
+		elif raw.size() == 256 * 256:
+			_reveal_from(raw, 256, WPlaces.HALF)   # drawn before the fog lay over the sea too
 		elif raw.size() == 128 * 128:
-			# Drawn before the waste grew: the old map is the middle of the new one, cell for cell
-			for j in 128:
-				for i in 128:
-					revealed[(j + 64) * REVEAL_N + i + 64] = raw[j * 128 + i]
+			_reveal_from(raw, 128, WPlaces.HALF * 0.5)   # drawn before the waste grew
 	visited = d.get("visited", {})
 	known_ruins = d.get("known", {})
 	bedroll = d.get("bedroll", null)
 	player.weapon._ui()
+
+
+## An older map's known ground, laid onto the fog as it is now.
+func _reveal_from(raw: PackedByteArray, n: int, half: float) -> void:
+	var cell := REVEAL_HALF * 2.0 / REVEAL_N
+	for j in REVEAL_N:
+		for i in REVEAL_N:
+			var x := -REVEAL_HALF + (i + 0.5) * cell
+			var z := -REVEAL_HALF + (j + 0.5) * cell
+			var oi := int((x + half) / (half * 2.0) * n)
+			var oj := int((z + half) / (half * 2.0) * n)
+			if oi >= 0 and oj >= 0 and oi < n and oj < n and raw[oj * n + oi] != 0:
+				revealed[j * REVEAL_N + i] = 1
+
+
+## Every lit beacon shows the land about it.
+func reveal_lit() -> void:
+	for i in lit:
+		if i < beacon_nodes.size():
+			_reveal_around(beacon_nodes[i].pos, BEACON_SIGHT)
 
 
 static func world_path(s: String) -> String:
@@ -6682,6 +6730,7 @@ func _cont_count(cid: String, item: String) -> int:
 
 func _world_ready() -> void:
 	_warm_up()
+	reveal_lit()
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -7228,6 +7277,53 @@ func debug_hostleave() -> void:
 
 
 ## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
+## Test (0.13 feel): a struck form rocks away and comes back; each sounds of what it is made of;
+## the far forms warn before their ways.
+func debug_feel() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	player.max_health = 999999.0
+	player.health = 999999.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var rocked := true
+	var back := true
+	Arms.heard_matter.clear()
+	for k in ["hollow", "saltbone", "glass_crawler"]:
+		var at: Vector3 = player.global_position + f * 10.0
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e := spawn_at(k, at)
+		e.set_physics_process(true)
+		await get_tree().physics_frame
+		e.hp = 99999.0
+		e.max_hp = 99999.0
+		e.hurt(30.0, f)
+		player.weapon._impact_sounds({e: 30.0})
+		rocked = rocked and e._flinch.length() > 0.02
+		for i in 40:
+			await get_tree().physics_frame
+		back = back and e._flinch.length() < 0.01
+		e.queue_free()
+	var heard := ",".join(PackedStringArray(Arms.heard_matter.keys()))
+	tells_seen.clear()
+	for k in ["flicker", "tunnel_unlit", "geyser_wight", "raven_mask", "dust_choir", "grass_stalker"]:
+		var at: Vector3 = player.global_position + f * 12.0 + f.cross(Vector3.UP) * randf_range(-6.0, 6.0)
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e := spawn_at(k, at)
+		if e:
+			e.mind = "hunt"
+			e.set_meta("trait_t", 0.5)
+	for i in 14 * 60:
+		await get_tree().physics_frame
+		player.health = 999999.0
+	var told := tells_seen.keys()
+	told.sort()
+	print("FEEL rocked=%s back=%s heard=%s told=%s" % [rocked, back, heard, ",".join(PackedStringArray(told))])
+	get_tree().quit()
+
+
 ## Test: the scanned forms stand on the ground at their height, walk by their own animation and can be struck high.
 func debug_scanfoes() -> void:
 	while not ready_world:
@@ -11839,6 +11935,8 @@ func debug_boons() -> void:
 	var t0: int = inv.count("tempered")
 	var sp0: float = skills.speed_mult()
 	var pk0: int = skills.pack_size()
+	player.place(gpos(Vector2(beacon_nodes[0].pos.x + 4.0, beacon_nodes[0].pos.z)) + Vector3(0, 1.0, 0), 0.0)   # stood there when it caught
+	await get_tree().physics_frame
 	_w_vigil(0, 1.0)
 	_w_vigil_end(0, true)
 	var gift: bool = inv.count("tempered") > t0
