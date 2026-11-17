@@ -258,27 +258,50 @@ static func _cyl(p: Node3D, r: float, h: float, pos: Vector3, m: Material, rot :
 	return mi
 
 
-## A grey jet, nose toward -Z. The ground-attack one has straight wings and engines on its back.
-static func _jet(attack: bool) -> Node3D:
+## The aircraft are models ("Lowpoly F16 Block 70" and "Low poly A-10 Warthog" by SIpriv, "Low Poly Apache
+## Gunship" by Duane's Mind, all CC-BY 4.0), brought to their true length, nose toward -Z, wheels up.
+const AIR := {
+	"jet": ["res://assets/models/air/f16.glb", 15.0, 0.0, "Lndg gear"],
+	"attack": ["res://assets/models/air/a10.glb", 16.3, 0.0, "animation landing gear a10"],
+	"heli": ["res://assets/models/air/apache.glb", 15.5, PI, "Rotor Rotation"],
+}
+static var _air_bounds := {}
+
+
+static func _aircraft(kind: String) -> Node3D:
+	var spec: Array = AIR[kind]
 	var n := Node3D.new()
-	var grey := _mat(Color(0.36, 0.38, 0.4), 0.4, 0.5)
-	var dark := _mat(Color(0.12, 0.12, 0.13), 0.5, 0.5)
-	_cyl(n, 0.9, 15.0, Vector3.ZERO, grey)
-	_cyl(n, 0.5, 2.0, Vector3(0, 0, -8.2), grey).scale = Vector3(1, 1, 1)
-	_box(n, Vector3(0.7, 0.5, 2.2), Vector3(0, 0.75, -4.5), dark)
-	if attack:
-		_box(n, Vector3(17.0, 0.25, 2.6), Vector3(0, -0.2, -0.5), grey)
-		_cyl(n, 0.7, 3.4, Vector3(1.4, 1.1, 4.0), dark)
-		_cyl(n, 0.7, 3.4, Vector3(-1.4, 1.1, 4.0), dark)
-		_box(n, Vector3(6.0, 0.2, 1.6), Vector3(0, 0.3, 7.0), grey)
-		_box(n, Vector3(0.2, 2.4, 1.6), Vector3(3.0, 1.2, 7.0), grey)
-		_box(n, Vector3(0.2, 2.4, 1.6), Vector3(-3.0, 1.2, 7.0), grey)
-		_cyl(n, 0.12, 2.0, Vector3(0, -0.3, -8.6), dark)
-	else:
-		var wing := _box(n, Vector3(11.0, 0.22, 5.0), Vector3(0, -0.1, 1.0), grey)
-		wing.scale = Vector3(1, 1, 1)
-		_box(n, Vector3(4.5, 0.2, 2.0), Vector3(0, 0, 6.8), grey)
-		_box(n, Vector3(0.22, 3.0, 2.4), Vector3(0, 1.6, 6.4), grey, Vector3(-0.35, 0, 0))
+	var m: Node3D = (load(spec[0]) as PackedScene).instantiate()
+	if not _air_bounds.has(kind):
+		var bb := AABB()
+		var first := true
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = Arms._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		_air_bounds[kind] = bb
+	var b: AABB = _air_bounds[kind]
+	var k: float = float(spec[1]) / maxf(b.size.z, 0.01)
+	var c := b.get_center()
+	var turn := Basis(Vector3.UP, float(spec[2]))
+	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), turn * (-c * k))
+	n.add_child(m)
+	for ap in m.find_children("*", "AnimationPlayer", true, false):
+		var player := ap as AnimationPlayer
+		var an := player.get_animation(spec[3])
+		if kind == "heli":
+			an.loop_mode = Animation.LOOP_LINEAR
+			player.play(spec[3])
+		else:
+			player.play(spec[3])
+			player.seek(an.length, true)   # its wheels folded away
+			player.pause()
+	return n
+
+
+## A grey jet, nose toward -Z: the fighter, or the ground-attack one with straight wings and engines on its back.
+static func _jet(attack: bool) -> Node3D:
+	var n := _aircraft("attack" if attack else "jet")
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(1.0, 0.6, 0.3)
 	glow.light_energy = 2.0
@@ -288,29 +311,12 @@ static func _jet(attack: bool) -> Node3D:
 	return n
 
 
-## A dark attack helicopter: narrow body, stub wings, tail rotor. Its main rotor is named "rotor".
+## An attack helicopter, its blades turning. Its main rotor is named "rotor" (the blades spin in the model's own take).
 static func _helicopter() -> Node3D:
-	var n := Node3D.new()
-	var body := _mat(Color(0.16, 0.18, 0.15), 0.3, 0.6)
-	var dark := _mat(Color(0.08, 0.08, 0.08), 0.4, 0.5)
-	_box(n, Vector3(1.4, 1.8, 6.0), Vector3(0, 0, -0.5), body)
-	_box(n, Vector3(1.1, 1.1, 1.6), Vector3(0, 0.4, -3.9), dark)
-	_box(n, Vector3(0.5, 0.6, 7.0), Vector3(0, 0.3, 5.5), body)
-	_box(n, Vector3(0.15, 2.0, 1.2), Vector3(0, 1.0, 8.8), body)
-	_box(n, Vector3(4.6, 0.2, 1.0), Vector3(0, -0.3, -0.4), body)
-	_cyl(n, 0.22, 1.6, Vector3(2.0, -0.6, -0.6), dark)
-	_cyl(n, 0.22, 1.6, Vector3(-2.0, -0.6, -0.6), dark)
-	_cyl(n, 0.08, 1.4, Vector3(0, -1.2, -3.6), dark)
+	var n := _aircraft("heli")
 	var rotor := Node3D.new()
 	rotor.name = "rotor"
-	rotor.position = Vector3(0, 1.3, -0.5)
 	n.add_child(rotor)
-	_box(rotor, Vector3(14.0, 0.06, 0.45), Vector3.ZERO, dark)
-	_box(rotor, Vector3(0.45, 0.06, 14.0), Vector3.ZERO, dark)
-	var tail := Node3D.new()
-	tail.position = Vector3(0.2, 1.4, 8.8)
-	n.add_child(tail)
-	_box(tail, Vector3(0.05, 2.4, 0.3), Vector3.ZERO, dark)
 	var l := SpotLight3D.new()
 	l.light_energy = 3.0
 	l.spot_range = 60.0

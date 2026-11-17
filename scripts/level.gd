@@ -2856,6 +2856,10 @@ func debug_streakshot() -> void:
 	add_child(j)
 	j.global_position = player.global_position + fwd * 60.0 + Vector3(18, 22, 0)
 	j.look_at(j.global_position + Vector3(-1, -0.2, 0.3), Vector3.UP)
+	var f := Streaks._jet(false)
+	add_child(f)
+	f.global_position = player.global_position + fwd * 70.0 + Vector3(-25, 30, 0)
+	f.look_at(f.global_position + Vector3(1, 0.1, 0.4), Vector3.UP)
 	_debug_aim(player.global_position + fwd * 30.0 + Vector3(0, 12, 0))
 	await get_tree().create_timer(1.0).timeout
 	Arms.blast_fx(self, player.global_position + fwd * 25.0 + Vector3(6, 0.5, 0), 7.0)
