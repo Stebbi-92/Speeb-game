@@ -7,6 +7,7 @@ Brelm is in alpha. Each version is on the [Releases page](https://github.com/Ste
 - **Joining a fellowship:** the loading screen and bar stay up while the host's world comes over and is raised, so the game no longer hangs.
 - **Loading:** pictures of the waste behind the loading screen.
 - **T** uses the best healing you carry.
+- **Trees:** living pines and firs in clumps through the forest and on the isles.
 - **Lesser forms** have real cat bodies that stand, walk and stalk.
 - **Riding cats** are great sphynx cats now, with a Speeb's head, that walk, trot and gallop.
 - **Great ones** fight in set patterns you can learn, and change them when angered.

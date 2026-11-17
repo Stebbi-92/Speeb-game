@@ -263,6 +263,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	_scatter_decor()
 	await _step("The waste is dressed", 0.985)
 	WDress.cover(self)
+	WTrees.woods(self)
 	await _step("The halls are opened", 0.995)
 	hall = WHall.new(self)
 	hall.build()

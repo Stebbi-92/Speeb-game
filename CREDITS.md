@@ -63,6 +63,10 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Low Poly Apache Gunship"](https://skfb.ly/6uKJq) | Duane's Mind | The Gunship (`assets/models/air`) |
 | ["Low poly A-10 Warthog"](https://skfb.ly/oWQFH) | SIpriv | The Gun Run (`assets/models/air`) |
 | ["Lowpoly F16 Block 70"](https://skfb.ly/pwopy) | SIpriv | The Airstrike (`assets/models/air`) |
+| ["Mountain Trees"](https://skfb.ly/oJqEZ) | Jagobo | Living trees in the woods and on the isles (`assets/models/trees`) |
+| ["Conifer (medium-Poly)"](https://skfb.ly/oTUSZ) | Sereib | Living trees |
+| ["Scots Pine Trees Set"](https://skfb.ly/6sApt) | Maksim Batyrev | Living trees |
+| ["Coniferous Forest Assets Pack"](https://skfb.ly/pBtIF) | Dari | Living and dead trees |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |

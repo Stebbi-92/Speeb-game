@@ -45,6 +45,7 @@ func build() -> void:
 				_kala(il, rr)
 			"cog":
 				_cog(il, rr)
+		_woods(il, rr)
 		_traces(il)
 		for k in 7:
 			_gull(Vector2(il.c) + Vector2(rr.randf_range(-1, 1), rr.randf_range(-1, 1)) * float(il.r) * 0.6, rr)
@@ -401,10 +402,28 @@ func _kala(il: Dictionary, rr: RandomNumberGenerator) -> void:
 		if p != Vector3.INF:
 			for i in 3:
 				piece("castle", "rocks-large", p + Vector3(rr.randf_range(-5, 5), -0.3, rr.randf_range(-5, 5)), rr.randf() * TAU, rr.randf_range(3.0, 5.0), true)
-	for k in 12:
-		var p := spot(il, rr, 0.2, 0.85)
-		if p != Vector3.INF:
-			piece("castle", "tree-large" if rr.randf() < 0.5 else "tree-small", p, rr.randf() * TAU, rr.randf_range(3.5, 5.0), true)
+
+
+## Living trees in clumps over each isle: thick on the fen and the keep's hills, few on the stone and the salt.
+const ISLE_TREES := {"fen": 60, "kala": 40, "hrafn": 18, "cog": 10}
+
+func _woods(il: Dictionary, rr: RandomNumberGenerator) -> void:
+	var feet: Array = []
+	var want: int = ISLE_TREES.get(str(il.key), 20)
+	var clumps := maxi(2, want / 8)
+	for k in clumps:
+		var c := spot(il, rr, 0.15, 0.85)
+		if c == Vector3.INF:
+			continue
+		for i in want / clumps:
+			var q := Vector2(c.x, c.z) + Vector2(rr.randf_range(-1, 1), rr.randf_range(-1, 1)) * 18.0
+			var y: float = w.terrain.height_at(q.x, q.y)
+			if y < WIsles.SEA_Y + 0.8 or w.terrain.normal_at(q.x, q.y).y < 0.8:
+				continue
+			if Vector2(q - Vector2(il.c)).length() < 30.0:
+				continue   # the landing and the ruin's heart stay open
+			feet.append(Vector3(q.x, y, q.y))
+	WTrees.plant(w, feet, rr)
 
 
 ## Cogwright: mills that still turn, scaffolds and wagons rusting, cannon on the shore.
