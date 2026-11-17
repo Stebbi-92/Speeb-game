@@ -65,6 +65,10 @@ When your health runs out you fall, unconscious, with a timer. A friend can rais
 
 Everything you do earns experience. Each level gives a point to spend on [[Skills]].
 
+## The ash-radio
+
+Make an **ash-radio** at a workbench (or buy one from a smith) and carry it. Every few minutes it picks up a call for help somewhere near you: a caravan, a cache, a fallen star. An hour before dusk it tells you what kind of night is coming.
+
 ## Playtest log
 
 Each sitting in the waste writes a short log on your own computer, in the game's user folder under `playtest/`. It notes each goal reached (a beacon lit, a ruin found, a quest step done, a night lived through), the time since the last goal, and when you fell. Nothing is sent anywhere. Share a log when you report how a session felt.

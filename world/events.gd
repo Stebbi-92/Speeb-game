@@ -86,11 +86,11 @@ func _dig_in(p: Vector3) -> void:
 		e.foes.append(boss)
 
 
-func _start_one() -> void:
+func _start_one(near = null) -> void:
 	var ts: Array = w.targets()
 	if ts.is_empty():
 		return
-	var t: Node3D = ts[randi() % ts.size()]
+	var from: Vector3 = near if near is Vector3 else (ts[randi() % ts.size()] as Node3D).global_position
 	var kinds := KINDS.keys()
 	kinds.erase("camp")   # a camp only grows out of an event left alone
 	if w.night:
@@ -99,8 +99,8 @@ func _start_one() -> void:
 	for attempt in 30:
 		var a := randf() * TAU
 		var d := randf_range(140.0, 300.0)
-		var x: float = t.global_position.x + cos(a) * d
-		var z: float = t.global_position.z + sin(a) * d
+		var x: float = from.x + cos(a) * d
+		var z: float = from.z + sin(a) * d
 		if w.terrain.is_water(x, z, 1.0) or absf(x) > WPlaces.HALF - 30.0 or absf(z) > WPlaces.HALF - 30.0:
 			continue
 		var p := Vector3(x, w.terrain.height_at(x, z), z)
@@ -132,6 +132,15 @@ func _start_one() -> void:
 					if f:
 						e.foes.append(f)
 		return
+
+
+## Host: one carrying an ash-radio picks up a call for help near them, if the waste is quiet enough.
+func broadcast(near: Vector3) -> bool:
+	var cap := 2 if w.targets().size() >= 4 else 1
+	if active.values().filter(func(x): return x.kind != "camp").size() > cap:
+		return false
+	_start_one(near)
+	return true
 
 
 ## Everyone: the event appears, with its smoke on the horizon and word of it.

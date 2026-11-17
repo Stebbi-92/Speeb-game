@@ -378,6 +378,7 @@ func _process(delta: float) -> void:
 			_place_sounds()
 			_landmarks_tick()
 		_cat_tick(delta)
+		_radio_tick(delta)
 		_power_tick(delta)
 		if hall:
 			hall.local_tick(delta)
@@ -5264,6 +5265,40 @@ func _perish(message: String) -> void:
 		hud.notify("In the dark you glimpsed %s. It is now on your map." % seen)
 
 
+var _radio_t := 240.0
+var _radio_warned := -1
+
+
+## The ash-radio, carried: now and then a call for help nearby, and at dusk word of the night to come.
+func _radio_tick(delta: float) -> void:
+	if not ready_world or _pfail or inv.count("ash_radio") <= 0:
+		return
+	_radio_t -= delta
+	if _radio_t <= 0.0:
+		_radio_t = randf_range(240.0, 360.0)
+		shared("_rq_broadcast", [Net.me(), player.global_position])
+	# An hour before dusk, what the night will be
+	if not night and clock >= weather.dusk() - 1.0 and clock < weather.dusk() and _radio_warned != day:
+		_radio_warned = day
+		var n := nights + 1
+		var theme := night_theme_for(n)
+		var word := "The great raid comes tonight. Be near a fire." if great_night(n) \
+			else ("Tonight: %s. %s" % [NIGHT_THEMES[theme].name, NIGHT_THEMES[theme].text] if theme != "" else "A plain night, they say. Keep your fire lit anyway.")
+		hud.notify("The ash-radio crackles: " + word)
+		sfx("bell", -16, null, 0.7)
+
+
+func _rq_broadcast(by: int, near: Vector3) -> void:
+	if not Net.authority() or events == null:
+		return
+	if not events.broadcast(near):
+		Net.call_peer(by, "_w_radio_quiet", [])
+
+
+func _w_radio_quiet() -> void:
+	hud.notify("The ash-radio hisses. Nobody out there is calling just now.")
+
+
 ## Failure still pays: waking from a fall shows the nearest unknown lair or ruin.
 func _dream_reveal(from: Vector3) -> String:
 	var best := ""
@@ -6258,6 +6293,24 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: a carried ash-radio brings a call for help near, and word of the night at dusk.
+func debug_radio() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for id in events.active.keys():
+		events.active.erase(id)
+	inv.add("ash_radio", 1)
+	night = false
+	clock = weather.dusk() - 3.0
+	_radio_t = 0.0
+	_radio_tick(0.1)
+	var called := events.active.size()
+	clock = weather.dusk() - 0.5
+	_radio_tick(0.1)
+	print("RADIO called=%d warned=%s" % [called, _radio_warned == day])
+	get_tree().quit()
 
 
 ## Testing aid (host): a big world for a newcomer, sent in parts. Run with debug_snapclient joining.

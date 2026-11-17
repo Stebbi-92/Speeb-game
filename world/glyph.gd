@@ -196,6 +196,12 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 		"hatchet":
 			_ln([0.32, 0.9], [0.6, 0.2], wood, 0.09)
 			_poly([[0.5, 0.2], [0.82, 0.12], [0.86, 0.45], [0.56, 0.36]], steel)
+		"ash_radio":
+			_box(0.2, 0.38, 0.6, 0.44, Color(0.42, 0.36, 0.28))
+			draw_circle(P(0.36, 0.6), 0.1 * _s, Color(0.2, 0.18, 0.16))
+			_box(0.52, 0.5, 0.2, 0.04, Color(0.8, 0.7, 0.4))
+			_box(0.52, 0.62, 0.2, 0.04, Color(0.8, 0.7, 0.4))
+			_ln([0.7, 0.38], [0.82, 0.1], steel, 0.04)
 		"prybar":
 			_ln([0.25, 0.85], [0.7, 0.2], steel, 0.08)
 			draw_arc(P(0.62, 0.2), 0.1 * _s, -PI, 0.3, 10, steel, 0.08 * _s, true)

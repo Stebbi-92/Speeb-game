@@ -66,6 +66,7 @@ const DB := {
 	"tar": {"name": "Tar", "kind": "material", "stack": 40, "value": 9, "color": Color(0.12, 0.1, 0.09), "text": "Black and sticky. Gathered in the Tar Marsh."},
 	"obsidian": {"name": "Obsidian", "kind": "material", "stack": 40, "value": 14, "color": Color(0.1, 0.09, 0.12), "text": "Black glass from the Basalt Heights. Sharper than iron."},
 	"hatchet": {"name": "Hatchet", "kind": "tool", "stack": 1, "value": 20, "color": Color(0.4, 0.4, 0.42), "text": "Deadwood comes away twice as fast."},
+	"ash_radio": {"name": "Ash-Radio", "kind": "tool", "stack": 1, "value": 40, "color": Color(0.5, 0.45, 0.35), "text": "Carried, it picks up the waste's broadcasts: who is in trouble out there, and what the night will bring."},
 	"prybar": {"name": "Pry Bar", "kind": "tool", "stack": 1, "value": 30, "color": Color(0.35, 0.35, 0.38), "text": "Opens what was sealed: iron chests and vault doors."},
 	"coin": {"name": "Order Coin", "kind": "trinket", "stack": 50, "value": 8, "color": Color(0.85, 0.7, 0.3), "text": "Struck by the Order of the Silent Clerics. Worth salt at the Crossing."},
 	"icon": {"name": "Painted Icon", "kind": "trinket", "stack": 10, "value": 30, "color": Color(0.75, 0.55, 0.35), "text": "A white cat, painted on wood. Its eyes are open."},
@@ -137,6 +138,7 @@ const RECIPES := [
 	{"id": "pick", "n": 1, "cost": {"wood": 4, "scrap": 4}, "bench": true},
 	{"id": "hatchet", "n": 1, "cost": {"wood": 3, "scrap": 3}, "bench": true},
 	{"id": "prybar", "n": 1, "cost": {"scrap": 8}, "bench": true},
+	{"id": "ash_radio", "n": 1, "cost": {"scrap": 6, "fittings_fine": 1, "oil": 1}, "bench": true},
 	{"id": "roast", "n": 1, "cost": {"raw_meat": 1}, "bench": false, "fire": true},
 	{"id": "stew", "n": 1, "cost": {"tuber": 2, "raw_meat": 1, "salt": 1}, "bench": false, "fire": true},
 	{"id": "tea", "n": 2, "cost": {"herb": 2}, "bench": false, "fire": true},
@@ -244,7 +246,7 @@ const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_k
 const STOCK := {
 	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
-	"smith": ["pick", "hatchet", "prybar", "scrap", "shells", "rounds", "rifle", "rockets", "fittings_fine"],
+	"smith": ["pick", "hatchet", "prybar", "ash_radio", "scrap", "shells", "rounds", "rifle", "rockets", "fittings_fine"],
 	"healer": ["bandage", "salve", "salts", "herb", "herb_seed", "milk"],
 	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
 }
