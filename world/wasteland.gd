@@ -10153,11 +10153,25 @@ func debug_boat() -> void:
 	var il0: Dictionary = terrain.isles[0]
 	var c0: Vector2 = il0.c
 	var dir2 := c0 / maxf(absf(c0.x), absf(c0.y))
+	# The coast is ragged, with bays: walk in from the open sea to the first dry ground
 	var shore := dir2 * 1700.0
-	for k in 600:
-		shore = dir2 * (1700.0 + k * 1.0)
-		if terrain.height_at(shore.x, shore.y) < WIsles.SEA_Y + 0.6:
+	for k in 1400:
+		var q := dir2 * (1000.0 + k * 1.0)
+		var wet := true
+		for j in 6:
+			var r := q + dir2 * j * 6.0
+			if terrain.height_at(r.x, r.y) >= WIsles.SEA_Y + 0.6:
+				wet = false
+				break
+		if wet:
+			shore = q
 			break
+	# An earlier check in the same world may have left us riding or aboard
+	if player.mount:
+		dismount()
+	if player.vessel != null and is_instance_valid(player.vessel):
+		_leave_boat(player.vessel)
+	_debug_room()
 	player.place(gpos(shore - dir2 * 3.0) + Vector3(0, 0.3, 0), 0.0)
 	await get_tree().create_timer(1.0).timeout
 	inv.add("raft", 1)
