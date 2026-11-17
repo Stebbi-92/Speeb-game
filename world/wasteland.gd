@@ -162,7 +162,7 @@ func build() -> void:
 
 var world_seed := 0
 var _pending := {}
-const GEN := 2          ## how the land is raised: 2 keeps the Ash Plains about where the cast-out wake
+const GEN := 3          ## how the land is raised: 2 keeps the Ash Plains about where the cast-out wake; 3 gives the waste a ragged, rounded coast
 var world_gen := GEN
 
 
@@ -172,6 +172,7 @@ func _make_world(sd: int, gen := GEN) -> void:
 	world_gen = gen
 	terrain = WTerrain.new()
 	terrain.setup(sd)
+	terrain.natural_coast = gen >= 3
 	WPlaces.lay_out(sd, func(p: Vector2) -> Vector2: return Vector2(terrain.legacy_raw(p.x, p.y), terrain_probe(p)))
 	if gen >= 2:
 		terrain.home = WPlaces.start
@@ -185,6 +186,8 @@ func _make_world(sd: int, gen := GEN) -> void:
 	for r in ruins:
 		terrain.add_flat(Vector2(r.pos.x, r.pos.z), 9.0)
 	_plan_lairs()
+	if terrain.natural_coast:
+		_plan_bays(sd)
 	WPlaces.plan_roads(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
 	for rd in WPlaces.roads:
 		terrain.add_road(rd[2])
@@ -460,6 +463,8 @@ func _plan_ruins() -> void:
 		var p := far_point(fr)
 		if not _clear_of_places(p, 110.0, 70.0) or terrain_probe(p) > 0.22:
 			continue
+		if terrain.natural_coast and terrain._raw(p.x, p.y) < WIsles.SEA_Y + 8.0:
+			continue   # the ragged coast took this spot: not a ruin under the sea
 		var nm: String = WPlaces.RUIN_WORDS_A[fr.randi() % WPlaces.RUIN_WORDS_A.size()] + " " + WPlaces.RUIN_WORDS_B[fr.randi() % WPlaces.RUIN_WORDS_B.size()]
 		if ruins.any(func(o): return o.name == nm):
 			nm = "Far " + nm
@@ -467,6 +472,39 @@ func _plan_ruins() -> void:
 				continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[fr.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
 		far += 1
+
+
+## A few deep bays where the sea comes into the land, each well clear of every place laid out.
+func _plan_bays(sd: int) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = sd + 9191
+	var spots: Array = [WPlaces.start]
+	for k in WPlaces.SETTLEMENTS:
+		spots.append(WPlaces.spos(k))
+	spots.append_array(WPlaces.beacon_points())
+	for ru in ruins:
+		if not ru.has("isle"):
+			spots.append(Vector2(ru.pos.x, ru.pos.z))
+	for l in lairs:
+		spots.append(Vector2(l.pos.x, l.pos.z))
+	var want := 6
+	for t in 200:
+		if terrain.bays.size() >= want:
+			break
+		var a := r.randf() * TAU
+		var d := Vector2(cos(a), sin(a))
+		var c := d / maxf(absf(d.x), absf(d.y)) * 1980.0
+		var rad := r.randf_range(420.0, 720.0)
+		var clear := true
+		for sp in spots:
+			if (sp as Vector2).distance_to(c) < rad * 0.82 + 50.0:   # past that the sea hardly reaches
+				clear = false
+				break
+		for b in terrain.bays:
+			if (b[0] as Vector2).distance_to(c) < (rad + float(b[1])) * 0.8:
+				clear = false
+		if clear:
+			terrain.bays.append([c, rad])
 
 
 ## A tree or a rock that fell on a road is moved to its verge.
@@ -6500,6 +6538,46 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: the coast of a new world is not a square, and no place laid out on the land is drowned.
+func debug_coast() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wet: Array = []
+	var spots: Array = []
+	for k in WPlaces.SETTLEMENTS:
+		spots.append([k, WPlaces.spos(k)])
+	for b in WPlaces.beacon_points():
+		spots.append(["beacon", b])
+	for r in ruins:
+		if not r.has("isle"):
+			spots.append([r.name, Vector2(r.pos.x, r.pos.z)])
+	for l in lairs:
+		spots.append([l.name, Vector2(l.pos.x, l.pos.z)])
+	for sp in spots:
+		var p: Vector2 = sp[1]
+		if maxf(absf(p.x), absf(p.y)) < 2048.0 and terrain.height_at(p.x, p.y) < WIsles.SEA_Y + 0.5:
+			wet.append(sp[0])
+	# Along each side, how far in the sea comes: a square has it the same everywhere
+	var reach: Array = []
+	for t in range(-1600, 1601, 100):
+		var x := 2040.0
+		while x > 1500.0 and terrain.height_at(x, float(t)) < WIsles.SEA_Y:
+			x -= 10.0
+		reach.append(x)
+	var lo: float = reach.min()
+	var hi: float = reach.max()
+	var img := Image.create(256, 256, false, Image.FORMAT_RGB8)
+	for j in 256:
+		for i in 256:
+			var x := -2300.0 + i * 18.0
+			var z := -2300.0 + j * 18.0
+			var y := terrain.height_at(x, z)
+			img.set_pixel(i, j, Color(0.1, 0.2, 0.4) if y < WIsles.SEA_Y else Color(0.6, 0.55, 0.4).lerp(Color.WHITE, clampf(y / 200.0, 0.0, 1.0)))
+	img.save_png("user://coast.png")
+	print("COAST gen=%d bays=%d wet=%s shore_varies=%s (%d..%d) png=%s" % [world_gen, terrain.bays.size(), wet, hi - lo > 60.0, int(lo), int(hi), ProjectSettings.globalize_path("user://coast.png")])
+	get_tree().quit()
 
 
 ## Testing aid: the flamethrower roars while held and falls quiet when let go; its smoke rolls up.

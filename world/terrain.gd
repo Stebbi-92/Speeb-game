@@ -32,6 +32,8 @@ var _centres: Array = []
 var home := Vector2.INF
 const HOME_R := 640.0
 var _coast_turn := 0.0
+var bays: Array = []   ## [centre, radius]: deep inlets of the sea, cut where nothing stands
+var natural_coast := false   ## worlds begun from 0.12 on: the coast is ragged and the corners rounded, not a square
 ## The isles out in the Grey Sea: {key, name, base, c, r, o (grid corner), n (grid points a side), h (heights)}
 var isles: Array = []
 
@@ -169,6 +171,16 @@ func _raw(x: float, z: float) -> float:
 	for i in 6:
 		y += hs[i] * w[i]
 	var e := maxf(absf(x), absf(z))
+	if natural_coast and e > 1650.0:
+		# The corners drawn in, and the line of the shore wandering inward by up to a long bowshot.
+		# Only past 1650 paces, so nothing laid out in the land is put under the sea.
+		var round_in := clampf(Vector2(x, z).length() * 0.82 - e, 0.0, 260.0) * smoothstep(1650.0, 1800.0, e)
+		var n := _a.get_noise_2d(x * 0.11 + 500.0, z * 0.11) * 0.6 + sin(atan2(z, x) * 5.0 + _coast_turn) * 0.4
+		e += round_in + (n + 1.0) * 0.5 * 200.0 * smoothstep(1730.0, 1850.0, e)
+	for b in bays:
+		var d := Vector2(x, z).distance_to(b[0])
+		if d < b[1]:
+			e += 700.0 * (1.0 - smoothstep(float(b[1]) * 0.3, float(b[1]), d))
 	if e <= 1840.0:
 		return y
 	# The old rim: high cliffs on a few headlands, and elsewhere a shore running down into the Grey Sea.
