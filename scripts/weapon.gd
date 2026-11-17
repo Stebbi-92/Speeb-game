@@ -1962,7 +1962,7 @@ func _acc_name(g: String, m: String) -> String:
 
 
 ## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
-const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "rocket": 0.014}
+const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "rocket": 0.014, "minigun": -0.1}
 
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
