@@ -79,6 +79,7 @@ var revealed := PackedByteArray()
 var visited := {}
 var known_ruins := {}
 var traces_seen := {}   ## the isles' small scenes this player has looked at (see WIsleLife.TRACES)
+var slain_kinds := {}   ## the forms this player has slain at least once: the first of each opens its bestiary page
 var piece_next := 1
 var satchel_next := 1
 var ready_world := false
@@ -5041,6 +5042,7 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if player.relics:
 		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.1)
 	shared("_w_slain", [e.global_position, e.kind, Net.me()])
+	_bestiary(e)
 	if e.boss != "":
 		shared("_w_boss_down", [e.boss, e.global_position])
 		return
@@ -5053,6 +5055,31 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 		if e.kind in ["elite", "saucer"] and _gen.randf() < 0.3:
 			drop.append(["fittings_fine" if _gen.randf() < 0.75 else "fittings_rare", 1])
 		shared("_rq_satchel", [Net.me(), e.global_position, drop, false])
+
+
+const HARM_WORDS := {"shot": "shotgun spread", "bullet": "bullets", "blade": "blades", "blast": "blasts", "fire": "fire", "blunt": "heavy blows"}
+
+## The first time a form falls to you, its page: what it is, and what it fears.
+func _bestiary(e: LesserSpeeb) -> void:
+	var key: String = e.variant if e.variant != "" else e.kind
+	if slain_kinds.has(key) or _pfail:
+		return
+	slain_kinds[key] = true
+	var weak: Array = []
+	for h in e.spec.get("weak", {}):
+		if float(e.spec.weak[h]) > 1.0:
+			weak.append(HARM_WORDS.get(h, h))
+	var hard: Array = []
+	for h in e.spec.get("tough", {}):
+		if float(e.spec.tough[h]) < 1.0:
+			hard.append(HARM_WORDS.get(h, h))
+	var text := str(e.spec.get("text", ""))
+	if not weak.is_empty():
+		text += " Weak to %s." % ", ".join(weak)
+	if not hard.is_empty():
+		text += " Hard against %s." % ", ".join(hard)
+	hud.revelation("Bestiary: %s (%d known)" % [str(e.spec.name), slain_kinds.size()], text)
+	WPlaylog.note("First %s slain" % str(e.spec.name))
 
 
 func team_kill(e: LesserSpeeb) -> void:
@@ -5989,7 +6016,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
@@ -6015,6 +6042,7 @@ func apply_char(d: Dictionary) -> void:
 		for k in d.kindled:
 			kindled.append(int(k))
 	traces_seen = d.get("traces", {}) if d.get("traces") is Dictionary else {}
+	slain_kinds = d.get("slain", {}) if d.get("slain") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	meals = {}
 	if d.get("meals") is Dictionary:
@@ -7133,6 +7161,27 @@ func debug_chips() -> void:
 		if c is MeshInstance3D and (c as MeshInstance3D).mesh is BoxMesh and _chip_mats.values().has((c as MeshInstance3D).material_override):
 			left += 1
 	print("CHIPS first=%d last=%d left=%d" % [first, last, left])
+	get_tree().quit()
+
+
+## Testing aid: the first kill of a form opens its bestiary page (once), and the page is kept.
+func debug_bestiary() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	slain_kinds.clear()
+	var e := spawn_at("draugr", player.global_position + Vector3(20, 1, 20))
+	on_enemy_slain(e)
+	await get_tree().create_timer(0.3).timeout
+	var page := str(hud._deed_title.text)
+	var told := str(hud._deed_text.text)
+	for d in hud._deed_queue:   # other deeds (first blood) may be shown before it
+		page += str(d[0])
+		told += str(d[1])
+	var f := spawn_at("draugr", player.global_position + Vector3(-20, 1, 20))
+	_bestiary(f)
+	var once := slain_kinds.size() == 1
+	var kept: bool = char_data().get("slain", {}).has("draugr")
+	print("BESTIARY page=%s fire=%s once=%s kept=%s" % [page.contains("Draugr"), told.contains("Weak to fire"), once, kept])
 	get_tree().quit()
 
 
