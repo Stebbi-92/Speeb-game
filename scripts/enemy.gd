@@ -1825,6 +1825,11 @@ func _rain() -> void:
 
 ## A spat bolt of burning light.
 class Bolt extends Area3D:
+	const MAX_LIT := 6
+	static var lit := 0
+	static var _mesh: SphereMesh
+	static var _mat: StandardMaterial3D
+	var _has_light := false
 	var velocity := Vector3.ZERO
 	var damage := 13.0
 	var level: Level
@@ -1838,22 +1843,33 @@ class Bolt extends Area3D:
 		s.radius = 0.22
 		cs.shape = s
 		add_child(cs)
+		# One mesh and one look shared by every bolt, and only a few carry a light: a swarm spitting
+		# at once would otherwise light the night with dozens of lamps
+		if _mesh == null:
+			_mesh = SphereMesh.new()
+			_mesh.radius = 0.16
+			_mesh.height = 0.32
+			_mat = StandardMaterial3D.new()
+			_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_mat.albedo_color = Color(1.0, 0.35, 0.2)
 		var mi := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.16
-		sm.height = 0.32
-		mi.mesh = sm
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(1.0, 0.35, 0.2)
-		mi.material_override = m
+		mi.mesh = _mesh
+		mi.material_override = _mat
 		add_child(mi)
-		var l := OmniLight3D.new()
-		l.light_color = Color(1.0, 0.3, 0.15)
-		l.light_energy = 1.2
-		l.omni_range = 3.5
-		add_child(l)
+		if lit < MAX_LIT:
+			lit += 1
+			_has_light = true
+			var l := OmniLight3D.new()
+			l.light_color = Color(1.0, 0.3, 0.15)
+			l.light_energy = 1.2
+			l.omni_range = 3.5
+			add_child(l)
 		body_entered.connect(_hit)
+
+	func _exit_tree() -> void:
+		if _has_light:
+			lit -= 1
+			_has_light = false
 
 	func _physics_process(delta: float) -> void:
 		global_position += velocity * delta * level.enemy_time

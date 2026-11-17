@@ -6182,6 +6182,32 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: a swarm of spat bolts shares one look, and only a few carry a light.
+func debug_bolts() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var bs: Array = []
+	for i in 20:
+		var b := LesserSpeeb.Bolt.new()
+		b.level = self
+		b.life = 30.0
+		add_child(b)
+		b.global_position = player.global_position + Vector3(i, 40, 0)
+		bs.append(b)
+	var lights := 0
+	for b in bs:
+		for c in b.get_children():
+			if c is OmniLight3D:
+				lights += 1
+	var one_mat: bool = bs[0].get_child(1).material_override == bs[19].get_child(1).material_override
+	for b in bs:
+		b.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("BOLTS lights=%d shared=%s freed=%s" % [lights, one_mat, LesserSpeeb.Bolt.lit == 0])
+	get_tree().quit()
+
+
 ## Testing aid: no more than MAX_VOICES sounds play in the world, and a loud one near takes a faint one's place.
 func debug_voices() -> void:
 	while not ready_world:
