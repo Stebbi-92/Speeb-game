@@ -8564,7 +8564,7 @@ func debug_blade() -> void:
 	wpn.strike(true)
 	await get_tree().create_timer(0.9).timeout
 	var heavy: float = hp0 - e.hp
-	print("BLADE out=%s light=%.0f heavy=%.0f stamina %.0f -> %.0f" % [wpn.blade_out, light, heavy, st0, st1])
+	print("BLADE out=%s light=%.0f heavy=%.0f stamina %.0f -> %.0f stops=%d time=%.2f" % [wpn.blade_out, light, heavy, st0, st1, Arms.stops, Engine.time_scale])
 	# A guarded blow from the front
 	player.stamina = 100.0
 	player.health = 100.0

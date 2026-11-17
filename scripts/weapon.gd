@@ -1353,9 +1353,23 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		Arms.deal(hits, fwd, str(m.get("harm", "blade")))
 		LesserSpeeb.harm_pierce = 1.0
 		_practise("blade", hits)
+		_hit_stop(0.09 if heavy else 0.05)
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)
 		lvl.sfx("thud", -10)
+
+
+## A blade that lands holds the world still for a blink, so the blow is felt. Only when playing alone:
+## with others, time is shared and must not stop for one.
+static var stops := 0   ## how many hit-stops have been held (for the tests)
+func _hit_stop(secs: float) -> void:
+	if Net.online or Engine.time_scale < 1.0:
+		return
+	stops += 1
+	Engine.time_scale = 0.05
+	await get_tree().create_timer(secs, true, false, true).timeout
+	if Engine.time_scale <= 0.05:
+		Engine.time_scale = 1.0
 
 
 ## A knife in the back: the blow is worth more against a foe looking elsewhere.
