@@ -1403,12 +1403,33 @@ func _beacon_payoff(i: int) -> void:
 	if next >= 0:
 		reveal_place(WPlaces.bpos(next), 60.0)
 		hud.notify("From the bowl you can see the next dark beacon: %s. It is on your map." % WPlaces.BEACONS[next].name)
+		# Beyond it, the land's great one: its lair's smoke stands on the horizon
+		var lair := lair_seen_from(WPlaces.bpos(next))
+		if not lair.is_empty():
+			reveal_place(Vector2(lair.pos.x, lair.pos.z), 50.0)
+			get_tree().create_timer(6.0, false).timeout.connect(func():
+				if is_instance_valid(hud):
+					hud.notify("Past it, purple smoke on the horizon: the %s. It is on your map too." % str(lair.name)))
 	hud.title_card("%d of 9" % n, "%s burns again" % WPlaces.BEACONS[i].name)
 	autosave_soon(1.0)
 	if not skills.boon_offer.is_empty():
 		get_tree().create_timer(3.5, false).timeout.connect(func():
 			if is_instance_valid(ui) and not skills.boon_offer.is_empty():
 				ui.open_boons(WPlaces.BEACONS[i].name))
+
+
+## Beacon sightlines: the lair nearest a place whose ground has not yet been seen.
+func lair_seen_from(p: Vector2) -> Dictionary:
+	var best := {}
+	var bd := INF
+	for l in lairs:
+		if is_revealed(l.pos):
+			continue
+		var d := p.distance_to(Vector2(l.pos.x, l.pos.z))
+		if d < bd:
+			bd = d
+			best = l
+	return best
 
 
 ## The unlit beacon nearest a place (never the ninth while others stand dark), or -1.
@@ -6317,6 +6338,18 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: from a kindled beacon, the next land's lair is seen and marked.
+func debug_sightline() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var nxt := next_dark_beacon(beacon_nodes[0].pos)
+	var l := lair_seen_from(WPlaces.bpos(nxt))
+	var before: bool = is_revealed(l.pos)
+	_beacon_payoff(0)
+	print("SIGHTLINE found=%s before=%s marked=%s" % [not l.is_empty(), before, is_revealed(l.pos)])
+	get_tree().quit()
 
 
 ## Testing aid: the night director eases after a fall, builds back after nights held, and lit beacons press harder.
