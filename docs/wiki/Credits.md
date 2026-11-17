@@ -59,6 +59,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
 | ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
 | ["Sphynx Cat – Rigged & Animated (10 Anims)"](https://skfb.ly/pOMpF) | [Animal Animator](https://animalanimator.com) ([the sphynx cat reference](https://animalanimator.com/the-ultimate-sphinx-cat-reference-for-animal-animators/)) | The riding cat (`assets/models/mounts`), made big enough to ride, with a Speeb's head |
+| ["black panther"](https://skfb.ly/oREyv) | kenchoo | The lesser forms' bodies (`assets/models/foes/panther`), tinted to each form, with its head |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |

@@ -3006,9 +3006,11 @@ func debug_catshot() -> void:
 		var e := LesserSpeeb.new().setup(Game.lesser.keys()[(i * 17 + 5) % Game.lesser.size()], ks[i], self)
 		add_child(e)
 		enemies.append(e)
-		e.global_position = player.global_position + fwd * 2.6 + side * (i - 1) * 1.1 + Vector3(0, 1.5, 0)
+		var spread := float(OS.get_environment("SPREAD")) if OS.get_environment("SPREAD") != "" else 1.1
+		var away := float(OS.get_environment("AWAY")) if OS.get_environment("AWAY") != "" else 2.6
+		e.global_position = player.global_position + fwd * away + side * (i - 1) * spread + Vector3(0, 1.5, 0)
 		e.look_at(player.global_position + Vector3(0, 1.5, 0), Vector3.UP)
-		e.rotate_y(PI)
+		e.rotate_y(PI + float(OS.get_environment("ROT")))
 
 
 ## Test: an unseen form must hold still while looked upon and come on when the eye turns away.

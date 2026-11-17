@@ -874,6 +874,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	if _tail:
 		_tail.rotation.x = -0.6 + sin(_t * 2.2) * 0.25
 		_tail.rotation.y = sin(_t * 1.7) * 0.4
+	_pan_tick(pace)
 	if _body_node:
 		_body_node.position.y = _lift - _buried * 1.6 * spec.size
 		_body_node.visible = _buried < 0.95
@@ -1046,15 +1047,7 @@ func _build_cat() -> void:
 	head.reparent(_body_node, false)
 	head.position = Vector3(0, 0.15 * s, 0.55 * s)
 	head.scale = Vector3.ONE * 0.72
-	var torso := MeshInstance3D.new()
-	var cap := CapsuleMesh.new()
-	cap.radius = 0.32 * s
-	cap.height = 1.25 * s
-	torso.mesh = cap
-	torso.material_override = fur
-	torso.rotation.x = PI / 2
-	torso.position = Vector3(0, -0.05 * s, -0.12 * s)
-	_body_node.add_child(torso)
+	var torso := _panther_body(s, coat)
 	# Cracks of ember along the spine: the mark of a lesser form
 	for i in 4:
 		var c := MeshInstance3D.new()
@@ -1062,7 +1055,7 @@ func _build_cat() -> void:
 		bm.size = Vector3(0.05, 0.03, 0.16) * s
 		c.mesh = bm
 		c.material_override = ember
-		c.position = Vector3(sin(i * 2.3) * 0.06 * s, 0.24 * s, (0.25 - i * 0.2) * s)
+		c.position = Vector3(sin(i * 2.3) * 0.06 * s, 0.25 * s, (0.2 - i * 0.2) * s)
 		c.rotation.y = sin(i * 1.7) * 0.5
 		_body_node.add_child(c)
 	if kind == "idol":
@@ -1070,7 +1063,8 @@ func _build_cat() -> void:
 		gold.albedo_color = Color(0.85, 0.66, 0.3)
 		gold.metallic = 0.9
 		gold.roughness = 0.3
-		torso.material_override = gold
+		for mi in torso.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_override = gold
 		fur = gold
 	if kind == "brute":
 		# Plates of bone over the shoulders
@@ -1085,18 +1079,6 @@ func _build_cat() -> void:
 			pl.position = Vector3(sx * 0.18 * s, 0.22 * s, 0.2 * s)
 			pl.rotation.z = sx * 0.5
 			_body_node.add_child(pl)
-	for fz in [0.38, -0.55]:
-		for sx in [-1.0, 1.0]:
-			var hip := Node3D.new()
-			hip.position = Vector3(sx * 0.17 * s, -0.12 * s, fz * s)
-			_body_node.add_child(hip)
-			_segment(hip, Vector3.ZERO, Vector3(0, -0.32 * s, 0.05 * s), 0.1 * s, fur)
-			_segment(hip, Vector3(0, -0.32 * s, 0.05 * s), Vector3(0, -0.62 * s, -0.02 * s), 0.07 * s, fur)
-			_legs.append({"pivot": hip, "phase": (0.0 if sx > 0 else PI) + (PI * 0.5 if fz < 0 else 0.0)})
-	_tail = Node3D.new()
-	_tail.position = Vector3(0, 0.05 * s, -0.75 * s)
-	_body_node.add_child(_tail)
-	_segment(_tail, Vector3.ZERO, Vector3(0, 0.1 * s, -0.7 * s), 0.05 * s, fur)
 	if kind == "lurker":
 		_dust = CPUParticles3D.new()
 		_dust.amount = 24
@@ -1126,6 +1108,102 @@ func _build_cat() -> void:
 	_body_node.position.y = _lift
 	if puppet:
 		_buried = 0.0
+
+
+## The body of a lesser cat ("black panther" by kenchoo, CC-BY 4.0), in the coat of its face: its own head
+## shrinks away inside the lesser's, which rides on its neck. The one long take it came with is cut into
+## standing, walking and stalking.
+const PANTHER := "res://assets/models/foes/panther/panther.glb"
+const PANTHER_HEAD := "Bip001 Head_23"
+const PANTHER_CUTS := {"idle": [0.2, 5.5], "walk": [7.4, 8.933], "stalk": [12.467, 13.267]}
+const PANTHER_K := 1.53       ## its size to the lesser's: back at about a quarter of the size over the middle
+const PANTHER_WALK := 1.3     ## how fast its walk goes over the ground, at size 1
+static var _panther_cuts: AnimationLibrary
+var _pan_skel: Skeleton3D
+var _pan_anim: AnimationPlayer
+var _pan_head := -1
+var _pan_gait := ""
+
+
+static func _cut_panther(an: Animation, head_path: String) -> AnimationLibrary:
+	var lib := AnimationLibrary.new()
+	for cut in PANTHER_CUTS:
+		var r: Array = PANTHER_CUTS[cut]
+		var out := Animation.new()
+		out.length = float(r[1]) - float(r[0])
+		out.loop_mode = Animation.LOOP_LINEAR
+		for t in an.get_track_count():
+			var ty := an.track_get_type(t)
+			if ty == Animation.TYPE_SCALE_3D and str(an.track_get_path(t)) == head_path:
+				continue
+			if ty not in [Animation.TYPE_POSITION_3D, Animation.TYPE_ROTATION_3D, Animation.TYPE_SCALE_3D]:
+				continue
+			var nt := out.add_track(ty)
+			out.track_set_path(nt, an.track_get_path(t))
+			var step := 1.0 / 30.0
+			var x := 0.0
+			while x <= out.length + 0.0001:
+				var at := float(r[0]) + x
+				match ty:
+					Animation.TYPE_POSITION_3D: out.position_track_insert_key(nt, x, an.position_track_interpolate(t, at))
+					Animation.TYPE_ROTATION_3D: out.rotation_track_insert_key(nt, x, an.rotation_track_interpolate(t, at))
+					Animation.TYPE_SCALE_3D: out.scale_track_insert_key(nt, x, an.scale_track_interpolate(t, at))
+				x += step
+		lib.add_animation(cut, out)
+	return lib
+
+
+func _panther_body(s: float, coat: Color) -> Node3D:
+	var m: Node3D = (load(PANTHER) as PackedScene).instantiate()
+	m.scale = Vector3.ONE * PANTHER_K * s
+	m.position = Vector3(0, -0.74 * s, -0.05 * s)
+	_body_node.add_child(m)
+	_pan_skel = m.find_children("*", "Skeleton3D", true, false)[0]
+	_pan_anim = m.find_children("*", "AnimationPlayer", true, false)[0]
+	_pan_head = _pan_skel.find_bone(PANTHER_HEAD)
+	if _panther_cuts == null:
+		var hp := "%s:%s" % [str(_pan_anim.get_node(_pan_anim.root_node).get_path_to(_pan_skel)), PANTHER_HEAD]
+		_panther_cuts = _cut_panther(_pan_anim.get_animation("Animation"), hp)
+	_pan_anim.remove_animation_library("")   # the long take (and its head's scale) gives way to the cuts
+	_pan_anim.add_animation_library("cut", _panther_cuts)
+	_pan_skel.set_bone_pose_scale(_pan_head, Vector3.ONE * 0.05)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mm: MeshInstance3D = mi
+		mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var sm: Material = mm.mesh.surface_get_material(0) if mm.mesh else null
+		if sm is StandardMaterial3D:
+			var tinted := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+			tinted.albedo_color = Color(1, 1, 1).lerp(coat.lightened(0.2), 0.6) * 1.8
+			tinted.rim_enabled = true
+			tinted.rim = 0.25
+			tinted.rim_tint = 0.0
+			mm.material_override = tinted
+	_pan_gait = ""
+	_pan_play("idle")
+	_pan_anim.seek(randf() * 1.0, true)
+	_pan_tick(0.0)
+	return m
+
+
+func _pan_play(g: String) -> void:
+	if g != _pan_gait:
+		_pan_gait = g
+		_pan_anim.play("cut/" + g, 0.3)
+
+
+## Its gait by its pace (stalking when the lurker creeps or anything comes low), and the lesser's head on its neck.
+func _pan_tick(pace: float) -> void:
+	if _pan_anim == null:
+		return
+	var s: float = spec.size
+	if pace > 0.3:
+		_pan_play("stalk" if kind == "lurker" or _buried > 0.05 else "walk")
+		_pan_anim.speed_scale = clampf(pace / (PANTHER_WALK * s), 0.6, 3.2)
+	else:
+		_pan_play("idle")
+		_pan_anim.speed_scale = 1.0
+	var at: Vector3 = (_pan_skel.global_transform * _pan_skel.get_bone_global_pose(_pan_head)).origin
+	head.position = _body_node.to_local(at) + Vector3(0, 0.06, 0.1) * s
 
 
 ## The ember sack: a head swollen with fire, glowing through its skin.
@@ -1671,6 +1749,8 @@ func _puppet_tick(delta: float) -> void:
 	head.rotation.x = lerpf(head.rotation.x, _net_head.y, minf(1.0, delta * 12.0))
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	head.set_flash(_flash)
+	if _pan_anim:
+		_pan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _fb:
 		var pv := Vector2(_net_v.x, _net_v.z).length()
 		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
