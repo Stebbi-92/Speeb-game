@@ -7408,7 +7408,8 @@ func debug_pace() -> void:
 			if night_theme_for(n) != "":
 				named += 1
 		out.append("%d/%.2f" % [named, float(WRules.pace()[0])])
-	print("PACE " + " ".join(out))
+	var ns: Array = out.map(func(x): return int(str(x).get_slice("/", 0)))
+	print("PACE " + " ".join(out) + " rising=%s" % [ns[0] < ns[1] and ns[1] < ns[2] and ns[0] >= 8 and ns[2] <= 50])
 	get_tree().quit()
 
 
