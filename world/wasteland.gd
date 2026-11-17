@@ -4025,8 +4025,59 @@ func _gather(id: int) -> void:
 		return
 	shared("_rq_gather", [Net.me(), id])
 	var nk: Dictionary = NODE_KINDS[nd.kind]
-	sfx("crumble" if nd.kind in ["rock", "salt"] else "carve", -6, nd.pos, randf_range(0.9, 1.15))
-	player.shake(0.12)
+	var last: bool = int(nd.charges) <= 1
+	sfx("crumble" if nd.kind in ["rock", "salt"] else "carve", -2 if last else -6, nd.pos, randf_range(0.9, 1.15) * (0.8 if last else 1.0))
+	player.shake(0.22 if last else 0.12)
+	_gather_fx(nd, last)
+
+
+const CHIP_COLOURS := {"tree": Color(0.55, 0.4, 0.26), "rock": Color(0.5, 0.48, 0.45), "salt": Color(0.92, 0.92, 0.9),
+	"scrap": Color(0.45, 0.3, 0.2), "herb": Color(0.6, 0.7, 0.45), "bone": Color(0.88, 0.85, 0.76), "ammo": Color(0.75, 0.6, 0.3)}
+static var _chip_mats := {}
+var gather_chips := 0   ## chips thrown so far (for the tests)
+
+## What a blow at a node looks like: it shivers, and bits of it fly; the last blow throws more.
+func _gather_fx(nd: Dictionary, last: bool) -> void:
+	if Net.dedicated or not nd.node is Node3D or not is_instance_valid(nd.node):
+		return
+	var n: Node3D = nd.node
+	var tw := create_tween()
+	var r0 := n.rotation
+	tw.tween_property(n, "rotation", r0 + Vector3(0.06, 0, -0.05), 0.05)
+	tw.tween_property(n, "rotation", r0 + Vector3(-0.04, 0, 0.04), 0.06)
+	tw.tween_property(n, "rotation", r0, 0.08)
+	var kind := str(nd.kind)
+	if not _chip_mats.has(kind):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = CHIP_COLOURS.get(kind, Color(0.5, 0.5, 0.5))
+		m.roughness = 1.0
+		_chip_mats[kind] = m
+	var to_me := player.global_position - n.global_position
+	to_me.y = 0.0
+	to_me = to_me.normalized() if to_me.length() > 0.1 else Vector3.FORWARD
+	var from := n.global_position + Vector3(0, 0.9 if kind == "tree" else 0.4, 0) + to_me * 0.4
+	for i in (14 if last else 6):
+		var c := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		var sz := randf_range(0.05, 0.12)
+		bm.size = Vector3(sz, sz * 0.6, sz * 1.3)
+		c.mesh = bm
+		c.material_override = _chip_mats[kind]
+		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(c)
+		c.global_position = from
+		gather_chips += 1
+		var out := (to_me + Vector3(randf_range(-0.9, 0.9), 0, randf_range(-0.9, 0.9))).normalized() * randf_range(0.6, 1.6)
+		var land := from + out
+		land.y = terrain.height_at(land.x, land.z) + 0.03 if terrain else from.y - 0.4
+		var up := from.lerp(land, 0.5) + Vector3(0, randf_range(0.3, 0.7), 0)
+		var ct := create_tween()
+		ct.tween_property(c, "global_position", up, 0.12).set_ease(Tween.EASE_OUT)
+		ct.parallel().tween_property(c, "rotation", Vector3(randf() * 6, randf() * 6, randf() * 6), 0.3)
+		ct.tween_property(c, "global_position", land, 0.16).set_ease(Tween.EASE_IN)
+		ct.tween_interval(1.2)
+		ct.tween_property(c, "scale", Vector3.ONE * 0.01, 0.3)
+		ct.tween_callback(c.queue_free)
 
 
 func _rq_gather(by: int, id: int) -> void:
@@ -7053,6 +7104,35 @@ func debug_roofrain() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var wet_out: bool = weather._rain.emitting and not weather.sheltered
 	print("ROOFRAIN under=%s out=%s" % [dry_under, wet_out])
+	get_tree().quit()
+
+
+## Testing aid: a blow at a node throws chips (more on the last), and they clear away after.
+func debug_chips() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	_debug_room(8)
+	var best := -1
+	for nd in nodes:
+		if nd.kind == "rock" and int(nd.charges) == int(NODE_KINDS.rock.charges) and (best < 0 or nd.pos.distance_to(player.global_position) < nodes[best].pos.distance_to(player.global_position)):
+			best = nd.id
+	var nd: Dictionary = nodes[best]
+	player.place(nd.pos + Vector3(2.0, 0.5, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	_gather(best)
+	await get_tree().create_timer(0.2).timeout
+	var first := gather_chips
+	nd.charges = 1
+	_gather(best)
+	await get_tree().create_timer(0.2).timeout
+	var last := gather_chips - first
+	await get_tree().create_timer(2.5).timeout
+	var left := 0
+	for c in get_children():
+		if c is MeshInstance3D and (c as MeshInstance3D).mesh is BoxMesh and _chip_mats.values().has((c as MeshInstance3D).material_override):
+			left += 1
+	print("CHIPS first=%d last=%d left=%d" % [first, last, left])
 	get_tree().quit()
 
 
