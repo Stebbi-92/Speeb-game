@@ -8423,6 +8423,8 @@ func debug_slug() -> void:
 	clock = 12.0
 	player.max_health = 100000.0
 	player.health = 100000.0
+	player.place(spawn_pos, spawn_yaw)   # earlier checks in the same world leave the pilgrim anywhere, maybe behind trees
+	await get_tree().physics_frame
 	var f := -player.global_transform.basis.z
 	f.y = 0.0
 	f = f.normalized()
