@@ -39,10 +39,7 @@ var _going := Vector3.ZERO  ## where it trots to when called (or a stray wanders
 var _call := false
 var _t := 0.0
 var _speed := 0.0
-var _ph := 0.0
 var _body: Node3D
-var _legs: Array = []
-var _tail: Node3D
 var _head: Emoji3D
 var _bard: Node3D
 var _label: Label3D
@@ -107,39 +104,69 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D) -> MeshInsta
 	return mi
 
 
-## A big cat of plain shapes, in the colours of its face; the face itself is a Speeb's, alive.
+## A great sphynx cat (Animal Animator's model, made big enough to ride), in the colours of its face;
+## its own head is drawn small inside a Speeb's, alive, which rides where the head should be.
+const MODEL := "res://assets/models/mounts/sphynx_cat.glb"
+const MODEL_SCALE := 2.7
+const HEAD_BONE := "head_12"
+const GAITS := ["Cat_Idle", "Cat_Walk", "Cat_Trot", "Cat_Gallop_Run"]
+
+var _skel: Skeleton3D
+var _anim: AnimationPlayer
+var _head_bone := -1
+var _gait := ""
+
+
 func _build() -> void:
 	var tex: Texture2D = load("res://assets/emoji/%s.png" % face)
 	var coat: Color = Emoji3D._fur(face, tex) if tex else Color(0.7, 0.6, 0.5)
-	var fur := _mat(coat)
-	var dark := _mat(coat.darkened(0.35))
-	var pale := _mat(coat.lightened(0.3))
 	_body = Node3D.new()
 	add_child(_body)
-	_box(Vector3(0.62, 0.55, 1.35), Vector3(0, 0.95, 0), fur, _body)
-	_box(Vector3(0.5, 0.18, 1.0), Vector3(0, 0.66, 0.05), pale, _body)      # the pale belly
-	_box(Vector3(0.56, 0.6, 0.4), Vector3(0, 1.08, 0.62), fur, _body)       # the chest, a little higher
-	for z in [0.48, -0.5]:
-		for x in [-0.2, 0.2]:
-			var leg := Node3D.new()
-			leg.position = Vector3(x, 0.78, z)
-			_body.add_child(leg)
-			_box(Vector3(0.17, 0.7, 0.19), Vector3(0, -0.35, 0), fur, leg)
-			_box(Vector3(0.2, 0.08, 0.24), Vector3(0, -0.74, 0.03), pale, leg)  # the paw
-			_legs.append(leg)
-	_tail = Node3D.new()
-	_tail.position = Vector3(0, 1.1, -0.66)
-	_body.add_child(_tail)
-	# Up and back from the rump, then curling higher at the tip
-	_box(Vector3(0.12, 0.12, 0.62), Vector3(0, 0.17, -0.25), dark, _tail).rotation.x = 0.6
-	_box(Vector3(0.13, 0.13, 0.38), Vector3(0, 0.5, -0.56), dark, _tail).rotation.x = 1.2
-	_head = Emoji3D.new().setup(face, 0.95)
+	var model: Node3D = (load(MODEL) as PackedScene).instantiate()
+	model.scale = Vector3.ONE * MODEL_SCALE
+	_body.add_child(model)
+	_skel = model.find_children("*", "Skeleton3D", true, false)[0]
+	_anim = model.find_children("*", "AnimationPlayer", true, false)[0]
+	_head_bone = _skel.find_bone(HEAD_BONE)
+	# Its own head (and eyes) shrink away inside the Speeb's, in every gait
+	var head_path := "%s:%s" % [str(_anim.get_parent().get_path_to(_skel)), HEAD_BONE]
+	for a in _anim.get_animation_list():
+		var an := _anim.get_animation(a)
+		for t in range(an.get_track_count() - 1, -1, -1):
+			if an.track_get_type(t) == Animation.TYPE_SCALE_3D and str(an.track_get_path(t)) == head_path:
+				an.remove_track(t)
+		if a in GAITS:
+			an.loop_mode = Animation.LOOP_LINEAR
+	_skel.set_bone_pose_scale(_head_bone, Vector3.ONE * 0.08)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m: MeshInstance3D = mi
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		# The bare skin takes the face's colour, a little, so each cat is its own
+		var sm: Material = m.mesh.surface_get_material(0) if m.mesh else null
+		if sm is StandardMaterial3D and str(sm.resource_name).begins_with("Sphinx"):
+			var tinted := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+			tinted.albedo_color = Color.WHITE.lerp(coat.lightened(0.25), 0.55)
+			m.material_override = tinted
+	_set_gait("Cat_Idle")
+	_head = Emoji3D.new().setup(face, 0.85)
 	_head.glow = 0.05
-	_head.position = Vector3(0, 1.48, 0.95)
 	_body.add_child(_head)
+	_place_head()
 	# The saddle, once it is yours
 	_bard = Node3D.new()
 	_body.add_child(_bard)
+
+
+func _set_gait(g: String) -> void:
+	if g != _gait:
+		_gait = g
+		_anim.play(g, 0.25)
+
+
+## The Speeb's head sits where the cat's own would be, a little forward of the shrunk one.
+func _place_head() -> void:
+	var at: Vector3 = (_skel.global_transform * _skel.get_bone_global_pose(_head_bone)).origin
+	_head.position = _body.to_local(at) + Vector3(0, 0.12, 0.18)
 
 
 ## Saddle and barding as worn now.
@@ -222,17 +249,18 @@ func _process(delta: float) -> void:
 	if puppet or ridden:
 		_head.face_target = null
 		_head.rotation.y = lerp_angle(_head.rotation.y, 0.0, minf(1.0, delta * 3.0))   # eyes on the road
-	# The gait: legs swing faster and further the quicker it goes; the tail sways at rest
-	# A long, loping stride: the paws turn over about once and a half a second at full run
-	var k := clampf(_speed / 4.0, 0.0, 1.1)
-	_ph += delta * (2.5 + _speed * 0.5)
-	var ph := _ph
-	for i in _legs.size():
-		var leg: Node3D = _legs[i]
-		leg.rotation.x = sin(ph + (PI if i in [1, 2] else 0.0)) * 0.55 * k
-	_body.position.y = absf(sin(ph)) * 0.05 * k
-	_tail.rotation.y = sin(_t * (1.5 + k * 3.0)) * 0.35
-	_tail.rotation.x = -0.15 * k
+	# The gait: idle, walk, trot or gallop by the pace, the steps quickened to the ground it covers
+	var g := "Cat_Idle"
+	if _speed > 6.5:
+		g = "Cat_Gallop_Run"
+	elif _speed > 3.0:
+		g = "Cat_Trot"
+	elif _speed > 0.25:
+		g = "Cat_Walk"
+	_set_gait(g)
+	var ref: float = {"Cat_Walk": 1.6, "Cat_Trot": 4.5, "Cat_Gallop_Run": 9.0}.get(g, 0.0)
+	_anim.speed_scale = clampf(_speed / ref, 0.6, 1.6) if ref > 0.0 else 1.0
+	_place_head()
 
 
 ## On its own: a stray wanders and shies away; your cat waits, or trots to you when called.
