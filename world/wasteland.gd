@@ -4248,6 +4248,25 @@ const NIGHT_THEMES := {
 }
 var night_theme := ""
 var _fell_tonight := false
+var _falls_tonight := 0   ## host: how many of the fellowship fell this night
+
+
+func _w_fell(_by: int) -> void:
+	if night:
+		_falls_tonight += 1
+
+
+## The night director: how hard the waves press, from the beacons lit (each makes the dark angrier)
+## and how the fellowship has been faring (falls ease the next nights; nights held build it back up).
+func night_press() -> float:
+	return (1.0 + 0.05 * lit.size()) * (1.0 - float(flags.get("ease", 0.0)))
+
+
+func _director_dawn() -> void:
+	var e := float(flags.get("ease", 0.0))
+	e = e + 0.12 if _falls_tonight > 0 else e - 0.05
+	flags["ease"] = clampf(e, 0.0, 0.3)
+	_falls_tonight = 0
 
 func night_theme_for(n: int) -> String:
 	if n < 3 or great_night(n):
@@ -4265,6 +4284,7 @@ func _w_nightfall(_d: int) -> void:
 	_wave_t = 25.0
 	night_theme = night_theme_for(nights + 1)
 	_fell_tonight = false
+	_falls_tonight = 0
 	WPlaylog.note("Night %d falls%s" % [nights + 1, (" (" + str(NIGHT_THEMES[night_theme].name) + ")") if night_theme != "" else ""])
 	if night_theme != "":
 		var nt: Dictionary = NIGHT_THEMES[night_theme]
@@ -4312,6 +4332,7 @@ func _w_dawn(d: int) -> void:
 		hud.title_card("", se.name)
 		hud.notify(se.text)
 	if Net.authority():
+		_director_dawn()
 		_great_dawn()
 		for e in enemies:
 			if is_instance_valid(e) and e.is_alive():
@@ -4506,7 +4527,7 @@ func _night_wave() -> void:
 			return
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]))))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press())))
 		var roster: Array = forms_at(t.global_position)
 		# Near where the cast-out wake, the box cats run in packs some nights
 		if (tier == 1 and randf() < (0.8 if night_theme == "screaming" else 0.35)) or (night_theme == "screaming" and randf() < 0.3):
@@ -5224,6 +5245,9 @@ func _perish(message: String) -> void:
 	_meal_stats()
 	life_kills = 0
 	_pfail = true
+	if night:
+		_fell_tonight = true   # a named night gives nothing at dawn to one who fell in it
+	shared("_w_fell", [Net.me()])
 	WPlaylog.note("Fell: " + message.replace("\n", " "))
 	player.input_locked = true
 	if ui:
@@ -6293,6 +6317,26 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: the night director eases after a fall, builds back after nights held, and lit beacons press harder.
+func debug_director() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	flags["ease"] = 0.0
+	lit.clear()
+	var p0 := night_press()
+	night = true
+	_w_fell(Net.me())
+	_director_dawn()
+	var p1 := night_press()
+	_director_dawn()
+	var p2 := night_press()
+	lit.append(0)
+	lit.append(1)
+	var p3 := night_press()
+	print("DIRECTOR base=%.2f after_fall=%.2f held=%.2f beacons=%.2f" % [p0, p1, p2, p3])
+	get_tree().quit()
 
 
 ## Testing aid: a carried ash-radio brings a call for help near, and word of the night at dusk.
