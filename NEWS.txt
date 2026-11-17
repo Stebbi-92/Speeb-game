@@ -1,366 +1,50 @@
-Brelm alpha 0.10.0: The Fellowship
+Brelm alpha 0.12.0: The Road
 
-Walk together
-- Up to eight can now walk the Ashen Waste together. The trials still take four.
-- The waste grows to meet a bigger fellowship: more forms at night, at ruins, on the roads and in the vaults, each a little harder, and the great ones much harder. The first four count in full; past four, each counts for half.
-- At nightfall a fellowship of two or more is told how much harder the night will be.
-- With more than four, three in four lying down is enough to sleep through the night.
-- The Longboat: eight seats, oars and a mast. Made at a bench once you have the shipwright's book.
-- Beds can be owned. Lie down in one and make it yours, give it to a friend, or free it. Only the owner wakes there after a fall. The owner's name shows over it.
+Always a next goal
+- Red smoke rises over dead beacons and dark smoke over lairs that wait. "What now" at the top of the journal names the next goal, what is near, and how to grow.
+- Each beacon you light gives a gift: choose one of three boons. It also shows the next dark beacon and the next land's lair on the horizon.
+- Beacon steps show the next small goal. Vows can be sworn when a world begins (Glass, Hunted, Tithe).
+- Waking from a fall shows the nearest lair or ruin you have not found.
+- Guiding embers drift toward the goal you track now and then (toggle in Settings).
 
-A new list of fellowships
-- Walk Together has a new look: hosting and joining side by side, and a framed list beneath.
-- Each fellowship shows where it walks, how full it is (a dot for each place, in each pilgrim's colour), its day and fires lit, whether it is closed, and how near.
-- Search, hide full or closed ones, and sort by pilgrims, name or nearness.
+Nights and the road
+- Roaming events every few minutes: a caravan under attack, a fallen star, a supply cache, a Box Cat swarm. Ignore one and it may grow into a raid camp.
+- Named nights: the Screaming Night, the Long Dark, the Hunter's Moon and a Quiet Night. Hold until dawn and the morning pays.
+- The night eases after the fellowship falls and grows as beacons are lit. Choose the pace per world: Steady, Normal or Chaos.
+- The ash-radio brings calls for help nearby and warns of the night at dusk.
+- Ember runs: in company, carry an ember from a lit beacon to a dark one while the others guard you.
 
-New forms (in the dev menu for now)
-- Thirteen forms of the far lands are ready, each with a way of its own: the Flicker (there, then behind you), the Archivist's Hand (steals your rounds; slay it to get them back), the Tunnel Unlit (burrows), the Geyser Wight (bursts out of hot ground), the Raven Mask (blinds you), the Glass Husk (splits in two), the Grass Stalker (unseen in the grass), the Mound Guard (in pairs), the Dust Choir (heals the others), the Herd Ghost (stampedes), and more. They will walk in the world when their lands arrive. Try them from the dev menu (Ctrl+F8).
-- The Sledge now deals blunt harm, which breaks glass and plate better than a blade.
+New creatures
+- The Ash Weaver, a spider the size of a cart, in the forest and the marsh.
+- The Harrow, a man with a spider's legs on his back, far out in the ash and the forest. It comes only when you look away.
+- The Gaunt, thin and taller than a man, waits under the ash of the dunes and the basalt.
+- The old tales of the isles: draugr and nykur on Hrafnsey, shtriga and kulshedra on Kalaja.
+- A bestiary page the first time each kind falls to you.
 
-For testers
-- Dev menu: "Pretend fellowship" makes the waste act as if 2, 4, 6 or 8 walk with you.
+The isles
+- Hrafnsey and Kalaja have their own ground. Each isle hides four small story scenes to find.
+- New worlds get a natural coast with rounded corners and deep bays.
 
-Brelm alpha 0.9.0: The End of the Road
+Feel and arms
+- A landed blade holds time for a blink. Gathering throws chips and the node shivers.
+- Rounds fall past about 25 m: pistols and shot most, rifle rounds least. Rockets fall too.
+- Iron sights line up on the pistols, revolver and RPG; the RPG's rear sight hole lines up with its front hood.
+- Guns move: pump forends, slides, magazines out and in. Sway down the sights, which practice steadies.
+- The flamethrower roars while held, glows at the nozzle and throws rolling smoke.
+- The Auto Pistol (9mm).
 
-The end of the story
-- After the ninth beacon, Lena offers The Ferryman's Way. The Lake Stair by the ninth beacon leads down to a dark lake, and across it to the hall where the High Clerics sat down to write.
-- Four endings wait at the page:
-  The Keeper: leave it blank. The fires must be kept.
-  The Writer: with the six leaves of the Tenth Page read, write on it. No great raids, fewer forms, no stars.
-  The Unlit: Mother Ruth waits by a ruin in the Dead Forest. Put out one beacon for her and you may take the stair down. Nothing comes at night after that.
-  The Pilgrim: find the nine leaves of Brelm's journal in the waste's ruins, and the six leaves of the Tenth Page. Someone waits at the end of the table. The Second Vow begins: the same world, harder.
-- The world goes on after every ending.
-
-Foes and danger
-- Foes now come by the danger of the land. Near where you wake only the weakest come; the far lands hold the worst. Night raids grow with the danger too.
-- Thirteen new kin of the common forms, each with its own land and its own weakness, such as the Cinder Hound, Glass Crawler, Rime Bones and Tar Giant.
-- Dread: out in the open dark at night, fear grows. The edges of sight go dark and the whispers start, and near the top stranger things come for you. A fire, a town, a lantern or the day takes it away.
-- The Kraken-Bell: past the Sunk Fen a bell rings under the water. A whirlpool there pulls boats in, and the Bell-Wound is wound about a drowned tower.
-- The Lamp-Eater rises under boats that carry a lit lamp far out at night. Douse your lamp to slip past.
-- The Drowned Fleet: on quiet nights far out, a grey ship of the Lamp Fleet. Climb aboard if you dare. It is gone at dawn.
-- Deep vaults: under each sealed vault a stair goes down to rooms that wake when you enter, and a keeper at the end.
-
-Arms
-- New weapons: the Flamethrower (burns lamp fuel), Knife (deadly from behind), Sword, Battle Axe and the Obsidian Glaive.
-- New armour: Obsidian Plate. The better plate now needs the stuff of the harder lands.
-- Balance changes across guns, blades and foes.
-
-Trades
-- Each pilgrim keeps one trade, chosen in the Skills screen: Smith, Cook, Alchemist or Tinker.
-- Only a smith makes tempered steel, only a tinker clockwork, only a cook the Wayfarer's Feast, only an alchemist the Restoring Elixir. The best arms, plate and fittings need steel or clockwork, so friends lean on one another.
-- Changing your trade takes a town and 25 coin.
-
-Brewing
-- Six things of the waste each hold two hidden virtues. Taste one to learn its first. Brew two that share a virtue at a fire, with salt, for a draught: Mending, Long Breath, Swiftness, Warding, Keenness or Fireskin.
-
-Spirit-cats
-- Three relics hold the ghost of a cat: the Ember-Cat (in shrines), the Ash-Cat (in sealed vaults) and the Grave-Cat (at the Kraken-Bell). Call one up and it fights beside you for a minute or so.
-- A relic goes cold once used. Rest by a fire to kindle it again.
-
-Settlers
-- A snug base (a lit fire, walls, a roof, a light) with spare beds draws wanderers at dawn, up to three a fire. Each keeps a trade and leaves what it brings in your chest each dawn. Let the fire die and they go.
-
-The land
-- Every fire is now a living flame, with sparks, smoke and a flickering light.
-- New worlds always wake on the Ash Plains, in gentle land.
-- Each land has its own haze and its own drift in the air: ash, sand, salt, spores, embers and mist.
-- Ruins, crates, towns and townsfolk are dressed far more richly, and items have new pictures.
-- A quest's next crate shows its find on top in a pale light.
-
-For testing
-- A hidden playtest menu (Ctrl+F8): jump to any land or place, set the hour and weather, no harm, a full kit, every weapon, foes of each danger, and a frame meter.
+Building and the pack
+- Camp pieces: chest, bench, bedroll, tent, barrel, anvil and a fire pit, with new models.
+- While building, the pack key opens the pieces to pick from.
+- Drag things between chest and pack. Choose how much a click moves (all, half, 10 or 1).
+- Rain and snow stop under a roof; a sealed base keeps the storm's haze out.
+- Worn and carried clothes say what they are made from.
 
 Fixes
-- Many fixes from a full debugging pass of the game.
-
-Brelm alpha 0.8.0: The Grey Sea
-
-The sea and its isles
-- The waste now ends at a coast. Past it lies the Grey Sea, and four isles, each its own land:
-  Hrafnsey, with black sand, pines, hot springs and vents of scalding steam;
-  the Sunk Fen, a drowned graveyard where lights drift over the water at night;
-  Kalaja, with pale hills, olive trees, an old keep and siege engines facing the sea;
-  Cogwright, an isle of iron, with mills, scaffolds and wheels that still turn.
-- Each isle has a pier facing the waste, a hut to wait out a storm, two wrecks with something left aboard, and a ruin at its heart that keeps a lost book.
-- You can swim, but it tires you. Run out of breath in deep water and you drown.
-- Something lives in the deep water. Keep near the shore, or keep moving.
-
-Boats
-- Make a Raft at a workbench and paddle it, or learn to build a Sloop and sail it before the wind.
-- Launch a boat from your pack at the shore. Up to four can ride a sloop; the first aboard takes the helm.
-- Boats run aground in the shallows and can be wrecked. Hold the use key on a hurt boat to mend it with wood.
-
-Seasons and weather
-- Four seasons turn every five days: the Thaw, High Ember, Ashfall and Salt Frost. The nights are longer or shorter with them.
-- Rain, gales, ash storms and salt frost come and go. Ash storms choke you unless your face is covered; salt frost bites at night unless you dress warm or keep near a fire.
-- New warm clothes: the Fur Coat and Fur Hood.
-
-Lost books
-- Eleven lost books are hidden in ruins and on the isles. Reading one teaches the whole fellowship new things to make.
-
-Town quest lines
-- Ten new tales from seven towns, each opening the next, and most of them sending you across the sea.
-
-The seventh night
-- Every seventh night the great raid comes, in three waves, for your camp or for you. You are warned two nights ahead.
-- Beat it back and the forms leave behind what they carried.
-
-Trophy powers
-- Build a Trophy Shrine. Lay a great one's trophy on it once, and from then on you can kneel there to take up its power for half an hour.
-
-The land
-- Every ruin has a short story to tell the first time you find it.
-- Each land has its own sound: leaves in the forest, water in the marsh, birds on the green isles and insects after dark.
-- Beasts now graze on the isles too.
-- Towns are laid out in different ways, with houses of different sizes, a smithy, a well, stalls and a watchtower.
-- The lands near where you woke are gentle, with no hardship; danger grows the further out you go. Tar slows a run instead of stopping it.
-- A red line says what a land is doing to you and what to wear.
-- Friends sit astride their cats properly. Press Y near a fallen friend to use smelling salts.
-
-Fixes
-- The Wear tab no longer overflows its frame.
-- Fixed a script error when foes looked for a second player in co-op.
-
-Brelm alpha 0.7.1: Fixes, clothing, and a living land
-
-Fixes
-- Fixed a crash when starting a game in the waste. The new wall and furniture models were missing from 0.7.0.
-- The map is now drawn bit by bit as you play, so it never freezes and can't crash a hosted game.
-
-Clothing (an early look at 0.8)
-- A new Wear tab in the pack shows you as you stand, with eight places to wear things: head, eyes, face, neck, body, cloak, hands and feet.
-- Make clothes there at a workbench, wear them, or take them off.
-- The lands' wards are now worn, not carried: the Dust Veil at the neck, the Spore Mask (or a Gas Mask) on the face, Salt Goggles over the eyes, the Ember Cloak on the back and Tar Boots on the feet.
-- New pieces: Wool Scarf, Travelling Cloak and Hide Gloves.
-
-The land
-- Trees, rocks and heaps you have picked clean slowly come back, a little at a time, while no one is near.
-- Foes grow tougher as your guns improve, so the near lands stay dangerous after an upgrade.
-
-Brelm alpha 0.7.0: The journey
-
-Meals and rest
-- You can have up to three meals at once. Each adds health, stamina or healing while it lasts. You can eat the same meal again once it wears thin.
-- New foods made at a fire: Bloom Tea, Bone Broth and Salt-crust Pie.
-- Sleep somewhere comfortable and you wake rested, gaining more experience for a while. A fire, a bed, a roof, walls, a light and furniture all add to the comfort, and an inn bed is best of all.
-
-The lands
-- Each land is harder than the last. The ash is gentlest; the dunes and forest are harder, then the salt and marsh, and the basalt is hardest. Foes there have more health and hit harder.
-- Each land has its own danger: heat in the dunes, spores in the forest, glare on the salt, tar in the marsh, burning stone on the basalt. Make its ward at a workbench to be safe: Dust Veil, Spore Mask, Salt Goggles, Tar Boots or Ember Cloak.
-- Each land has its own material: red iron, heartwood, salt crystal, tar and obsidian. The better gun parts need them.
-
-Building
-- New walls, doorways and windows with proper models.
-- Build mode: press Interact on a wall to upgrade it from timber to stone to iron. Each is much tougher than the last.
-- Home pieces: bed, table, chair, shelf (a chest), iron stove (a cooking fire), rug and standing lamp.
-
-Towns and inns
-- Towns have houses, roads and an inn. At the inn, buy a meal, rent a bed, or listen for rumours that mark a ruin on your map.
-
-Foes
-- Eight new foes: the Unlit Marksman, the Unlit Firebrand (sets you burning), the Pale Deacon (heals as it bites), the Tar-Drowned (slows you), the Hollow Colossus, the Ember Wisp, the Ashen Knight (in plate) and the Salt Rifleman.
-- Great ones no longer wake as you walk up. Call one out at its stone when you are ready.
-
-Guns
-- Bullets now take time to fly. Beyond about 25 metres you must lead a moving target.
-- Gun upgrades and parts cost more, and the better ones need the lands' materials.
-
-Riding
-- Your cat now walks faster than you can run and sprints much faster. Its breath lasts twice as long and comes back quicker.
-- Feed a hurt cat meat to ride it again at once.
-- A tamed cat stays visible where you left it, for you and for friends.
-- You sit on top of the cat now, not inside it. You can't mine while riding.
-
-Fixes
-- Sprinting uses more stamina, jumping now uses some, and the stamina bar always shows when it is not full.
-- The Salt-Pan Caravans and other clearing quests keep sending forms until the count is made.
-- The pack screen scrolls when it is full, so the Make, Arms and Build tabs stay in reach.
-- The map no longer freezes the game the first time it opens.
-- Quest text no longer hides behind the hotbar. The crosshair hides while aiming down the sight.
-- The first-steps tip about dodging now clears when you dodge.
-- Scrolling in the settings no longer turns the hotbar, and the mouse stays visible.
-- Choosing a part in the Arms screen keeps your place in the list.
-- Window walls are the right way up, and you can shoot through the windows.
-
-Brelm alpha 0.6.1: Fixes, and riding cats
-
-Fixes
-- The Salt-Bones, the Hollowed, the Lost Vigil, the Gravewarden and the Unlit can now be hit anywhere on their bodies. Before, only shots at their legs struck them.
-- Head shots on these foes now aim at their real heads.
-
-Riding cats (an early look at 0.7)
-- Great stray cats with Speeb faces roam near the towns by day. Feed one meat three times and it is yours.
-- Ride it with Interact. It walks a little faster than you, and Hasten runs it fast until it is out of breath.
-- Hold Interact on your cat to name it and give it barding of hide, bone or iron.
-- It waits where you leave it. Whistle (N) and it comes.
-- Harm while riding is shared with your cat. If it is hurt too much, it throws you and must rest.
-- Friends see your cat under you.
-
-Brelm alpha 0.6.0: Arms and fighting
-
-Guns
-- A new Arms screen: your gun turns slowly as it is fitted, with every part it can take, grouped by place.
-- Make barrels, stocks and receivers at a workbench. Fittings found in the waste rework a part to Fine, Rare or Storied, each with its own traits.
-- Each gun kicks sideways in its own fixed way, so you can learn to hold it. Marks around the dot show how wide your shots may stray.
-- Practice: every gun and the blade get better the more you use them, through ten ranks.
-- Two new loads: Piercing Rounds go through armour; Hollow Rounds hit flesh harder but stop on plate.
-- Reloads you can see: the magazine drops out and a fresh one clicks home. The shotgun takes shells one by one.
-- The sniper rifle has iron sights until you fit a Scope. Rifles from older saves keep theirs.
-- A new scope: a clearer glass and crosshair, with marks for the drop. Your aim drifts with your breath; hold Hasten (Shift) to steady it for a few seconds.
-- Looking down a sight or scope now turns the view at the same pace on screen as from the hip. A new setting, "Aiming and scope sensitivity", tunes it.
-
-Armour
-- Iron Helm, Bone Mail, Scrap Plate and the new Salt-crust Plate soak harm until they break. Mend them at a workbench for scrap. A thin bar above your health shows what is left.
-- Head shots go over armour.
-
-Foes
-- The Unlit: raiders in Speeb masks. Gunmen keep their distance and shoot. Blades raise a guard against your gun. Breakers carry plate and a great maul. They camp by the roads.
-- The Hollowed, the Salt-Bones, the Lost Vigil and the Gravewarden walk the ruins and the night.
-- Foes of the waste keep to their camps until they see or hear you. Gunfire carries far; a suppressed shot hardly at all. One that spots you calls the rest, they search where they last saw you, and a badly hurt Unlit runs, then comes back.
-- Turn a blade's blow with your guard and it reels open.
-- Great ones charge, rain fire and slam the ground, with warnings on the ground first. After a charge they stand spent and take more harm, and at half health they grow wroth.
-
-Sound and blood
-- New sounds throughout: real gunshots (with distant versions), blades, hits, parries, roars, footsteps that change with the ground, and the sound of towns, nights and caves.
-- Volume for guns, creatures, world and menus, each on its own slider.
-- Blood when you hit something. You can turn it off in Settings.
-
-Brelm alpha 0.5.3
-
-- The hotbar shows again in the Ashen Waste. It had been drawn off the screen. It now sits low in the middle, with the stamina bar just above it.
-- The current quest shows as a card at the top left: its name, what to do and how far.
-- Soft shade in the corners of the screen keeps the words readable against a bright sky.
-- A firmer health bar.
-
-Brelm alpha 0.5.2
-
-Screens
-- A new look everywhere: every item has its own picture, screens have a cleaner frame with tabs and a close button, and the world dims behind them.
-- Making: groups down the side (healing, food, ammunition, tools, materials). Each thing has a card showing what it takes, with a Make button.
-- Arms and Build: the same cards and groups, with bars for harm, fire rate, reach and rounds.
-- The pack and chests use square slots with large pictures.
-
-Fighting
-- Press 3 to take your blade in hand. Tap fire to swing. Hold fire and let go for a heavy blow. Hold aim to guard.
-- A stamina bar for running, dodging and blade swings. Run it dry and you are winded for a moment.
-
-Fixes
-- Shot creatures no longer fly across the map. Heavy creatures like the gilded idols slow down under fire and keep coming.
-- Typing a chest's name no longer opens the map or other screens.
-
-Brelm alpha 0.5.1
-
-World settings
-- Each world has its own settings: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, ammunition, and whether you drop your pack when you fall.
-- Choose them with Settings next to Begin. The host can change them any time from the pause menu.
-
-Screens
-- Talking: clearer layout, and number keys choose what to say.
-- Work offers show their rewards plainly.
-- Trading: buy one, five or all you can afford; sell one or all; sell all trinkets at once.
-- Journal: a details column, and Show on the map.
-- Skills: cards for each skill, with a level bar.
-- Resting, planters, waystones and the beacon road open in a smaller window.
-
-Brelm alpha 0.5
-
-Polish and first steps. Everything here is in the Ashen Waste unless it says otherwise.
-
-Getting started
-- A new title screen: Continue, the waste first, the trials and arms in their own menus.
-- Worlds can be exported to a zip or deleted, and the saves folder opened.
-- New survivors get a short first-steps guide. Turn it off in Settings.
-- A loading screen, and a question before you leave.
-
-Screens
-- The pack has filters, a tidy button, icons and a details column. Right click eats, uses or wears.
-- Making groups recipes by where they are made, shows what you have and need, and can make many at once.
-- Chests in your base count when making and building.
-- Chests: take everything (R), store what the chest already holds, and name them.
-- Hold interact on a dropped satchel to take everything that fits.
-- Drops glow: gold, amber for rare things, blue for your own belongings.
-- The map zooms and drags. Right click marks a spot for everyone, also on the compass.
-
-Fighting
-- Bites are telegraphed: the head swells and glows before it lands. Step out of reach and it misses.
-- Dodge with Q.
-- Heavy harm, or a blade, staggers a creature.
-- Head shots do more, with a gold hit marker.
-- Stalkers and crawlers come at you from the sides.
-
-Falling
-- An unconscious timer. Hold jump to give up and wake at your bed.
-- Smelling salts raise a fallen friend faster and stronger.
-
-Together
-- The player list is on L, and shows a fallen friend on its own. It no longer covers your task.
-- Joins and leaves are shown on screen.
-- A plain choice of who can find a hosted game.
-- Fixed: items were copied when a joiner put things in a chest.
-- Fixed: gun parts did not show to other players.
-
-Also
-- People turn to face you and their mouths move as they talk.
-- Floors sit evenly on slopes.
-- Controller support (all modes).
-- A wiki: github.com/Stebbi-92/Speeb-game/wiki
-
-Brelm alpha 0.4.2
-
-- Join codes work for every fellowship, not only listed or private ones.
-- Joining from the internet list or by code now finds a host on your own network, and prefers an address everyone can reach.
-
-Brelm alpha 0.4.1
-
-- Fixed a white screen after updating from inside the game.
-- Updates fetched in game now wait safely until you restart.
-- Compatibility mode stays on after an update restart.
-
-Brelm alpha 0.4
-
-The Ashen Waste grows. Everything here is in the open world, alone or with a fellowship.
-
-A bigger waste
-- Four times the land: 4 km across, with three new towns in the far reaches (Saltreach, Ember Hollow, Last Light).
-- Roads join the towns, with signposts. Landmarks on the skyline: great bones, rock spires, old towers.
-- Things happen on the road: cold camps, fallen travelers, cairns, packs of forms crossing.
-- Your old worlds keep their towns, beacons and ruins.
-
-Living off the land
-- Hunt Ash Hares, Dune Goats and Ash Tuskers for meat and hide.
-- Build a Cooking Station to cook. Hunger and rest matter; eat and sleep at camp.
-- Farm tubers and herbs in planters.
-- Campfires, cooking stations and torches burn wood: a piece a day, up to ten days.
-
-Camps
-- A lit campfire makes a base. No forms rise near it, and towns are safe at night.
-- Now and then a camp is raided at night. A bell rings first.
-- Chests, torches, stairs, windows, palisades, and waystones: two with the same name link.
-- Skip the night when everyone lies down by a fire.
-
-Arms
-- No menu at the start: make, fit and improve guns at a workbench.
-- Several attachments per gun. Iron sights on every gun. Red dots and scopes can be looked through.
-- Hip fire is less accurate; aim down the sights.
-- Make every kind of ammunition at a workbench.
-- Armour and clothing for head, body and feet.
-- Choose which kill streak to call from the air support menu.
-- The Claw of Ascent grips any wall or rock. The Censer's smoke shows and slows forms. Flares reveal what moves.
-
-Forms
-- New kinds with names, strengths and weaknesses: the Bone Hauler, the Howler, the Ember Sack, the Dune Lurker.
-
-People
-- Each person in the waste speaks in their own voice. Townsfolk go about their day.
-- A quest tracker shows how far and which way.
-
-Together
-- Drop and give items to each other.
-- When anyone takes up a quest, everyone hears and follows it.
-- Join a game in progress and arrive beside the others. Leaving keeps where you were and what you carried.
-- Show what you are playing in Discord, and join friends from there.
-
-Also
-- Longer days and nights.
-- Clicking in a satchel no longer fires your gun.
-- Leaving a game no longer garbles the menu.
+- The world loads in steps, and the loading words move on as it does.
+- Joining checks the game version. Foes are only sent near each player. Chest moves can no longer lose or copy things.
+- A pilgrim stuck below ground is set back on top.
+- Leaving after hosting no longer waits on the router. A crashed player drops out in seconds.
+- Town floors meet the ground with a step to the door. Doorways on the isles can be walked through.
+- Mist, marsh and storm together can no longer white out the screen.
+- Saves are written in the background.

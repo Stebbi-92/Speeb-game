@@ -2,6 +2,16 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.12.0 (the road)
+
+- Always a next goal: smoke over dead beacons and lairs, "What now" in the journal, beacon boons, beacon steps and vows.
+- Roaming events, raid camps, named nights, a night pace per world, the ash-radio and ember runs.
+- New creatures: the Ash Weaver, the Harrow and the Gaunt, the folklore forms of Hrafnsey and Kalaja, and a bestiary.
+- Isle ground and story scenes; a natural coast for new worlds.
+- Hit-stop, gathering chips, bullet drop, lined-up iron sights, moving gun parts and a roaring flamethrower.
+- Camp pieces, a build menu, drag and drop, and roofs that keep the weather out.
+- Fixes: the world loads in steps, version check on join, safer chest moves, stuck rescue.
+
 ## 0.11.0 (the armoury)
 
 - Real models for every gun: HK 416 machine gun, a new Belt Gun (M60), minigun with spinning barrels, RPG, flamethrower, shotgun, revolver, pistol and rifle.
