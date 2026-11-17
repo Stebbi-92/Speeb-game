@@ -1309,7 +1309,7 @@ func _beacon_prompt(i: int) -> void:
 		return
 	var a: Area3D = beacon_nodes[i].area
 	if i in lit:
-		a.set_meta("prompt", "Walk the beacon road")
+		a.set_meta("prompt", "Walk the beacon road" if i in my_kindled() else "Keep a vigil here (its boon is yours)")
 	elif vigils.has(i):
 		a.set_meta("prompt", "")
 	else:
@@ -1318,6 +1318,14 @@ func _beacon_prompt(i: int) -> void:
 
 func _beacon_touched(i: int) -> void:
 	if i in lit:
+		if not i in my_kindled():
+			# Lit by the fellowship while this pilgrim was elsewhere: a vigil here keeps its credit
+			_keep_credit(i)
+			award("beacon", 0.5)
+			hud.notify("You keep a vigil at %s. Its credit is yours now." % WPlaces.BEACONS[i].name)
+			char_save_soon()
+			_beacon_prompt(i)
+			return
 		if not skills.boon_offer.is_empty():
 			ui.open_boons(WPlaces.BEACONS[i].name)
 			return
@@ -1389,16 +1397,21 @@ func _beacon_payoff(i: int) -> void:
 	if Net.dedicated or _pfail:
 		return
 	var n := lit.size()
+	# World credit and personal credit: the beacon burns for everyone, but its boon and full gift
+	# are for those who stood near when it caught
+	var there: bool = player.global_position.distance_to(beacon_nodes[i].pos) < BEACON_THERE
 	var gift: Array = []
 	for g in BEACON_GIFT:
-		gift.append([g[0], int(g[1]) * (1 + n / 3) * (2 if WRules.sworn("vow_tithe") else 1)])
-	if i == 8:
+		gift.append([g[0], maxi(1, int(int(g[1]) * (1 + n / 3) * (2 if WRules.sworn("vow_tithe") else 1) * (1.0 if there else 0.5)))])
+	if i == 8 and there:
 		gift.append(["fittings_storied", 1])
 	give(gift)
-	var rr := RandomNumberGenerator.new()
-	rr.seed = hash([i, n, skills.boons.size(), Net.me(), Time.get_ticks_usec()])
-	if skills.boon_offer.is_empty():
-		skills.boon_offer = skills.roll_boons(rr)
+	if there:
+		_keep_credit(i)
+	else:
+		get_tree().create_timer(4.0, false).timeout.connect(func():
+			if is_instance_valid(hud):
+				hud.notify("You were not there when it caught. Stand at %s yourself to keep its boon." % WPlaces.BEACONS[i].name))
 	var next := next_dark_beacon(beacon_nodes[i].pos)
 	if next >= 0:
 		reveal_place(WPlaces.bpos(next), 60.0)
@@ -1412,7 +1425,29 @@ func _beacon_payoff(i: int) -> void:
 					hud.notify("Past it, purple smoke on the horizon: the %s. It is on your map too." % str(lair.name)))
 	hud.title_card("%d of 9" % n, "%s burns again" % WPlaces.BEACONS[i].name)
 	autosave_soon(1.0)
-	if not skills.boon_offer.is_empty():
+	char_save_soon()
+
+
+const BEACON_THERE := 250.0   ## near enough to a beacon as it catches to share in its credit
+var kindled = null              ## the beacons this pilgrim has credit for (null: not yet known)
+
+
+## The beacons this pilgrim keeps credit for. A character from before credit was kept has every lit one.
+func my_kindled() -> Array:
+	if kindled == null:
+		kindled = lit.duplicate()
+	return kindled
+
+
+## This pilgrim's own credit for a beacon: its place in their tally, and a boon to choose.
+func _keep_credit(i: int) -> void:
+	if not i in my_kindled():
+		kindled.append(i)
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash([i, kindled.size(), skills.boons.size(), Net.me(), Time.get_ticks_usec()])
+	if skills.boon_offer.is_empty():
+		skills.boon_offer = skills.roll_boons(rr)
+	if is_instance_valid(ui) and not skills.boon_offer.is_empty():
 		get_tree().create_timer(3.5, false).timeout.connect(func():
 			if is_instance_valid(ui) and not skills.boon_offer.is_empty():
 				ui.open_boons(WPlaces.BEACONS[i].name))
@@ -5697,7 +5732,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []),
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
@@ -5717,6 +5752,11 @@ func apply_char(d: Dictionary) -> void:
 		cat.queue_free()
 		cat = null
 	food = clampf(float(d.get("food", 100.0)), 0.0, 100.0)
+	kindled = null
+	if d.get("kindled") is Array:
+		kindled = []
+		for k in d.kindled:
+			kindled.append(int(k))
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	meals = {}
 	if d.get("meals") is Dictionary:
@@ -6338,6 +6378,32 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: a beacon lit while far away gives half and no boon; a vigil at it later keeps its credit.
+func debug_credit() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	kindled = []
+	skills.boon_offer.clear()
+	lit.append(2)
+	player.global_position = beacon_nodes[2].pos + Vector3(600, 0, 0)
+	var s0 := inv.count(BEACON_GIFT[0][0])
+	_beacon_payoff(2)
+	var far_gift := inv.count(BEACON_GIFT[0][0]) - s0
+	var far_boon := not skills.boon_offer.is_empty()
+	var far_credit: bool = 2 in kindled
+	_beacon_touched(2)
+	var vigil: bool = 2 in kindled and not skills.boon_offer.is_empty()
+	skills.boon_offer.clear()
+	lit.append(3)
+	player.global_position = beacon_nodes[3].pos + Vector3(20, 0, 0)
+	s0 = inv.count(BEACON_GIFT[0][0])
+	_beacon_payoff(3)
+	var near_gift := inv.count(BEACON_GIFT[0][0]) - s0
+	var back := char_data()
+	print("CREDIT far_half=%s far_boon=%s far_credit=%s vigil=%s near=%s saved=%s" % [far_gift * 2 <= near_gift + 1 and far_gift > 0, far_boon, far_credit, vigil, 3 in kindled and not skills.boon_offer.is_empty(), back.kindled.has(2) and back.kindled.has(3)])
+	get_tree().quit()
 
 
 ## Testing aid: from a kindled beacon, the next land's lair is seen and marked.

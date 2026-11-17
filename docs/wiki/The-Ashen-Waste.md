@@ -65,6 +65,10 @@ When your health runs out you fall, unconscious, with a timer. A friend can rais
 
 Everything you do earns experience. Each level gives a point to spend on [[Skills]].
 
+## Beacon credit
+
+A lit beacon burns for the whole world, but its boon is personal. Those within 250 paces when it catches get the full gift and choose a boon. Those elsewhere get half the gift and no boon; they can walk to the lit beacon later and **keep a vigil** there to take its boon and credit for themselves. When a beacon is kindled you also see the next dark beacon and, past it, the smoke of that land's great one, both marked on your map.
+
 ## The ash-radio
 
 Make an **ash-radio** at a workbench (or buy one from a smith) and carry it. Every few minutes it picks up a call for help somewhere near you: a caravan, a cache, a fallen star. An hour before dusk it tells you what kind of night is coming.
