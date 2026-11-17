@@ -6567,6 +6567,26 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid (with a screen): a picture of the flamethrower going.
+func debug_flameshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 20.5
+	_apply_time(true)
+	var wpn: Arms = player.weapon
+	arms.owned.append("flamer")
+	arms.primary = "flamer"
+	rearm()
+	wpn.draw_gun(0)
+	await get_tree().create_timer(1.5).timeout
+	for k in 40:
+		wpn._cool = 0.0
+		wpn._try_fire()
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png("user://flame.png")
+	get_tree().quit()
+
+
 ## Testing aid: the warm-up makes no sound, leaves nothing lit, and puts the muzzle flash away again.
 func debug_warmup() -> void:
 	while not ready_world:
