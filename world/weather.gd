@@ -91,6 +91,10 @@ func _particles(c: Color, sz: Vector2, n: int, fall: float, life: float) -> GPUP
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y if sz.y > sz.x * 2.0 else BaseMaterial3D.BILLBOARD_ENABLED
 	m.vertex_color_use_as_albedo = true
+	# A flake that drifts past the eye fades away, not filling half the view
+	m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	m.distance_fade_min_distance = 0.6
+	m.distance_fade_max_distance = 1.8
 	q.material = m
 	ps.draw_pass_1 = q
 	ps.emitting = false
@@ -171,7 +175,11 @@ func _process(delta: float) -> void:
 	var under: bool = in_hall or (sheltered and inside > 0.5)
 	_rain.emitting = k > 0.3 and kind in ["rain", "gale"] and not under
 	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"] and not under
-	_ash.process_material.color = Color(0.45, 0.4, 0.36, 0.7) if kind == "ashstorm" else Color(0.92, 0.94, 0.96, 0.8)
+	# Dimmed with the daylight, so flakes do not glare white in the dark
+	var lit: float = clampf(float(w.sun.light_energy) / 1.45, 0.12, 1.0) if w.get("sun") else 1.0
+	var ac := Color(0.45, 0.4, 0.36, 0.7) if kind == "ashstorm" else Color(0.92, 0.94, 0.96, 0.8)
+	_ash.process_material.color = Color(ac.r * lit, ac.g * lit, ac.b * lit, ac.a)
+	_rain.process_material.color = Color(0.7 * lit, 0.75 * lit, 0.8 * lit, 0.5)
 	_ash.process_material.initial_velocity_min = 2.0 if kind == "ashstorm" else 1.0
 	var wa: float = w.sea.wind_ang if w.sea else 0.0
 	_ash.process_material.direction = Vector3(cos(wa) * 2.0, -1.0, sin(wa) * 2.0) if kind == "ashstorm" else Vector3(0.1, -1, 0)
