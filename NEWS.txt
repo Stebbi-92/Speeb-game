@@ -1,3 +1,12 @@
+Brelm alpha 0.13.1: playtest fixes
+
+- Box cats can be seen again.
+- Box cat packs are rarer and smaller in the first nights, and sized for the players near them.
+- Rugs no longer stop you mid-floor in town houses.
+- The auto pistol's magazine is solid.
+- The sniper rifle's iron sights no longer clip into the bolt.
+- Great ones fight in set patterns you can learn, and change them when angered.
+
 Brelm alpha 0.13.0: Feel
 
 The map
