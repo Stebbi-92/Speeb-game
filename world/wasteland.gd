@@ -474,6 +474,32 @@ func _plan_ruins() -> void:
 		far += 1
 
 
+## Shader warm-up: under the opening fade, the first fire, blast, burst and muzzle flash are drawn once
+## out of sight of the player's eye, so the first real one in a fight does not hitch while it compiles.
+func _warm_up(force := false) -> void:
+	# Only while the opening fade still hides it: on this machine's own world, not a joiner's late one
+	if not force and (Net.dedicated or DisplayServer.get_name() == "headless" or not Net.authority()):
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	hush = true
+	var fwd := -cam.global_transform.basis.z
+	var at := cam.global_position + fwd * 5.0
+	burst(at, Color(0.6, 0.05, 0.03))
+	Arms.flame_jet(self, at, fwd, true)
+	Arms.blast_fx(self, at + fwd * 3.0, 1.5)
+	_w_slam_fx(at, 2.0)
+	var wpn = player.weapon
+	if wpn and wpn._flash_mesh:
+		wpn._flash_mesh.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if wpn and wpn._flash_mesh:
+		wpn._flash_mesh.visible = false
+	hush = false
+
+
 ## A few deep bays where the sea comes into the land, each well clear of every place laid out.
 func _plan_bays(sd: int) -> void:
 	var r := RandomNumberGenerator.new()
@@ -6528,6 +6554,7 @@ func _cont_count(cid: String, item: String) -> int:
 
 
 func _world_ready() -> void:
+	_warm_up()
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -6538,6 +6565,21 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: the warm-up makes no sound, leaves nothing lit, and puts the muzzle flash away again.
+func debug_warmup() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var voices := _voices.size()
+	await _warm_up(true)
+	await get_tree().create_timer(2.5).timeout
+	var left := 0
+	for c in get_children():
+		if c is CPUParticles3D:
+			left += 1
+	print("WARMUP quiet=%s hush_off=%s flash_off=%s" % [_voices.size() == voices, not hush, not player.weapon._flash_mesh.visible])
+	get_tree().quit()
 
 
 ## Testing aid: the coast of a new world is not a square, and no place laid out on the land is drowned.

@@ -1868,7 +1868,12 @@ static func takes_of(name: String) -> Array:
 	return out
 
 
+var hush := false   ## while true no sound is made (the shader warm-up under the opening fade)
+
+
 func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
+	if hush:
+		return
 	# Heard from far off, a shot has its own recording: the crack gone, the roll of it left
 	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 35.0 \
 			and not takes_of(name + "_far").is_empty():
