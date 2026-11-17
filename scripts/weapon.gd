@@ -2014,6 +2014,8 @@ func _cut_line(n: Node3D, g: String, axis: int, u: float, w: float) -> Vector2:
 	if _cuts.has(key):
 		return _cuts[key]
 	var out := Vector2(9.0, -9.0)
+	if DisplayServer.get_name() == "headless":
+		return out   # no mesh data without a renderer (tests, a server): the drawn guns are not seen there
 	var stack: Array = [[n, Transform3D.IDENTITY]]
 	while not stack.is_empty():
 		var it: Array = stack.pop_back()
@@ -2211,7 +2213,7 @@ const SIGHT_LINE := {
 	# The belt gun's battle sight: the notch at the foot of the raised ladder, and the front post's tip
 	"lmg": [Vector3(0.0036, 0.0884, -0.0666), Vector3(0.0036, 0.0957, -0.695), 0.28],
 	# The rifle's tangent sight: the notch's shoulders level with the top of the front post's bead
-	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.3],
+	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
 }
 
 
@@ -2423,6 +2425,84 @@ func _carve_parts(g: String, n: Node3D, holders: Dictionary) -> void:
 			part.material_override = mi.material_override
 			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			holder.add_child(part)
+		if role == "mag" and g in MAG_FILL:
+			_mag_fill(holder)
+
+
+## Scans whose magazine is only its two side walls (the grip hid the rest): filled in, so it is not hollow when it drops.
+const MAG_FILL := ["pistol9"]
+
+## A dark body between a carved magazine's side walls, leaning with them.
+func _mag_fill(holder: Node3D) -> void:
+	var pts := PackedVector3Array()
+	for c in holder.get_children():
+		if not (c is MeshInstance3D):
+			continue
+		var mi := c as MeshInstance3D
+		for si in mi.mesh.get_surface_count():
+			var arr: Array = mi.mesh.surface_get_arrays(si)
+			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+			for i in idx:
+				pts.append(mi.transform * vs[i])
+	if pts.size() < 6:
+		return
+	var wide := 0.0
+	for v in pts:
+		wide = maxf(wide, absf(v.x))
+	# The walls are what stands furthest out to each side
+	var wall := PackedVector3Array()
+	for v in pts:
+		if absf(v.x) > wide * 0.8:
+			wall.append(v)
+	# Their lean: z against y, fitted
+	var my := 0.0
+	var mz := 0.0
+	for v in wall:
+		my += v.y
+		mz += v.z
+	my /= wall.size()
+	mz /= wall.size()
+	var syy := 0.0
+	var syz := 0.0
+	for v in wall:
+		syy += (v.y - my) * (v.y - my)
+		syz += (v.y - my) * (v.z - mz)
+	var lean := syz / maxf(syy, 0.000001)
+	var lo := Vector3(INF, INF, INF)
+	var hi := Vector3(-INF, -INF, -INF)
+	var zs: Array = []
+	for v in wall:
+		var u := Vector3(absf(v.x), v.y, v.z - lean * v.y)
+		lo = lo.min(u)
+		hi = hi.max(u)
+		zs.append(u.z)
+	# The walls curve: the body keeps to their middle, so no corner shows through the grip
+	zs.sort()
+	lo.z = zs[int(zs.size() * 0.2)]
+	hi.z = zs[int(zs.size() * 0.8)]
+	var x := lo.x - 0.0004   # just inside the walls
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var corner := func(sx: float, y: float, z: float) -> Vector3: return Vector3(sx * x, y, z + lean * y)
+	var c8: Array = []
+	for sx in [-1.0, 1.0]:
+		for y in [lo.y, hi.y]:
+			for z in [lo.z, hi.z]:
+				c8.append(corner.call(sx, y, z))
+	# (index = sx*4 + y*2 + z)
+	for q in [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]:
+		for t in [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]:
+			for i in t:
+				st.add_vertex(c8[i])
+	st.generate_normals()
+	var body := MeshInstance3D.new()
+	body.mesh = st.commit()
+	var m := _mat(Color(0.035, 0.035, 0.04), 0.2, 0.55)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	body.material_override = m
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(body)
 
 
 ## A mesh split in two by boxes (seen through tr): [what is inside or null, what is left].

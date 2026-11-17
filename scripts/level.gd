@@ -2925,9 +2925,14 @@ func debug_gunshot() -> void:
 
 ## Test: the shotgun fed shell by shell, held at k= (0 to 1) so a picture catches the shell on its way in.
 func debug_reloadshot() -> void:
-	Game.loadout.primary = "shotgun"
+	var g := "shotgun"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("gun="):
+			g = a.substr(4)
+	Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
+	Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
 	player.weapon.equip_loadout()
-	if player.weapon.gun() != "shotgun":
+	if player.weapon.gun() != g:
 		player.weapon.swap()
 	var sun := DirectionalLight3D.new()
 	sun.light_energy = 2.0
@@ -2957,6 +2962,8 @@ func debug_aimshot() -> void:
 		if a.begins_with("turn="):
 			player.yaw += float(a.substr(5))
 	Game.plevel = ArmsDB.MAX_LEVEL
+	if "waste" in OS.get_cmdline_user_args():
+		Game.wasteland = true   # the waste's build: a sniper rifle without its scope
 	Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
 	Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
 	Game.loadout.mounts = {g: fit}
@@ -2992,7 +2999,9 @@ func debug_catshot() -> void:
 	combat_frozen = true
 	var fwd := -player.global_transform.basis.z
 	var side := player.global_transform.basis.x
-	var ks := ["rusher", "idol", "spitter"]
+	var ks: Array = ["rusher", "idol", "spitter"]
+	if OS.get_environment("CATS") != "":
+		ks = Array(OS.get_environment("CATS").split(","))
 	for i in 3:
 		var e := LesserSpeeb.new().setup(Game.lesser.keys()[(i * 17 + 5) % Game.lesser.size()], ks[i], self)
 		add_child(e)

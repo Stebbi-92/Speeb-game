@@ -281,7 +281,10 @@ var _cry_cd := 0.0
 var boss := ""        ## the great one this is, or "" for a lesser form
 var max_hp := 1.0
 var hp_frac := 1.0    ## for puppets, as the host tells it
-var _way_cd := {}
+var _pat_i := 0          ## which step of its pattern a great one is on
+var _combo: Array = []   ## the ways of the step now under way, one after another
+var _gap := 3.0          ## the breath between steps: the time to strike back
+var _reach_wait := 0.0
 var _busy := 0.0      ## a great one winding up a way: it does nothing else meanwhile
 var _charge_t := 0.0  ## running down a line
 var _charge_dir := Vector3.ZERO
@@ -951,10 +954,20 @@ func _build_box_cat() -> void:
 		return
 	_box = Node3D.new()
 	var m: Node3D = (load(path) as PackedScene).instantiate()
-	# The model stands about 2.3 high and 1.8 wide; brought down to the size of a small cat
-	var k := 0.42 * float(spec.size) / 0.55
-	m.scale = Vector3.ONE * k
-	m.rotation.y = PI
+	# Measured through the model's own nodes (its file shrinks it a hundredfold), then brought to about a metre
+	if not _scan_bounds.has(path):
+		var bb := AABB()
+		var first := true
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = Arms._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		_scan_bounds[path] = bb
+	var b: AABB = _scan_bounds[path]
+	var k := 0.97 * float(spec.size) / 0.55 / maxf(b.size.y, 0.0001)
+	var c0 := b.get_center()
+	# Turned about to face the way it runs, feet on the ground
+	m.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
 	_box.add_child(m)
 	_box.position.y = -float(spec.radius)
 	add_child(_box)
@@ -1808,18 +1821,72 @@ func is_boss() -> bool:
 	return boss != ""
 
 
-func _ready_way(w: String, cd: float) -> bool:
-	if not spec.ways.has(w) or _busy > 0.0 or _spent > 0.0 or _charge_t > 0.0:
-		return false
-	if _wroth:
-		cd *= 0.7
-	var t: float = _way_cd.get(w, randf_range(2.0, cd))
-	t -= get_physics_process_delta_time() * level.enemy_time
-	_way_cd[w] = t
-	if t > 0.0:
-		return false
-	_way_cd[w] = cd * randf_range(0.85, 1.15)
+## Each great one fights in a set order that can be learned: a loop of steps, each step one way or a
+## few run back to back, every way shown before it lands, and a breath after each step to strike
+## back in. Past half its life ("wroth") it turns to a harder loop with its own worst trick.
+const PATTERNS := {
+	"boss_ash": [[["charge"], ["slam"], ["brood"]], [["charge", "slam"], ["brood"], ["slam"]]],
+	"boss_dunes": [[["volley"], ["rain"], ["brood"]], [["volley", "volley"], ["rain"], ["brood", "volley"]]],
+	"boss_salt": [[["volley"], ["line"], ["charge"]], [["line", "line"], ["volley"], ["charge", "rain"]]],
+	"boss_forest": [[["charge"], ["ambush"]], [["ambush", "charge"], ["charge"]]],
+	"boss_basalt": [[["slam"], ["volley"], ["charge"]], [["quake"], ["volley"], ["charge", "slam"]]],
+	"boss_marsh": [[["brood"], ["rain"], ["charge"]], [["charge", "charge"], ["rain"], ["brood"]]],
+}
+
+
+## Whether a way can reach from here (otherwise the great one closes in, or gives the step up).
+func _way_reaches(w: String, dist: float) -> bool:
+	match w:
+		"slam":
+			return dist < 10.0 + spec.radius
+		"quake":
+			return dist < 16.0 + spec.radius
+		"volley":
+			return dist < 40.0
+		"charge":
+			return dist > 6.0 and dist < 34.0
+		"rain", "line":
+			return dist < 45.0
+		"ambush":
+			return dist < 40.0
 	return true
+
+
+func _do_way(w: String, p: Node3D) -> void:
+	match w:
+		"slam":
+			_slam()
+		"quake":
+			_quake()
+		"volley":
+			# A breath drawn and a glow before the bolts fly
+			_busy = 0.9
+			_flash = 0.8
+			level.sfx("hiss", -2, global_position, 1.3)
+			get_tree().create_timer(0.55, false).timeout.connect(func():
+				if not _alive or not is_instance_valid(p):
+					return
+				var target := p.global_position + Vector3(0, 1.2, 0)
+				for k in ([-0.4, -0.2, 0.0, 0.2, 0.4] if _wroth else [-0.3, -0.15, 0.0, 0.15, 0.3]):
+					_spit(global_position + (target - global_position).rotated(Vector3.UP, k)))
+		"charge":
+			_start_charge(p)
+		"rain":
+			_rain()
+		"line":
+			_line(p)
+		"ambush":
+			_ambush(p)
+		"brood":
+			_busy = 1.0
+			_brood = _brood.filter(func(m): return is_instance_valid(m) and m.is_alive())
+			if _brood.size() < 6:
+				level.sfx("roar", -2, global_position, 1.3)
+				for k in 3:
+					var at := global_position + Vector3(randf_range(-3, 3), 0.5, randf_range(-3, 3))
+					var e: LesserSpeeb = level.spawn_at(str(spec.get("brood", "swarm")), at)
+					if e:
+						_brood.append(e)
 
 
 ## The ways of the great ones, run by the host.
@@ -1829,32 +1896,31 @@ func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
 		_wroth = true
 		level.sfx("great_roar", 8, global_position, 0.8)
 		level.shared("_w_boss_wroth", [boss])
-	if dist < 10.0 + spec.radius and _ready_way("slam", 7.5):
-		_slam()
-	if dist < 40.0 and _ready_way("volley", 4.0):
-		# A breath drawn and a glow before the bolts fly
-		_busy = 0.6
-		_flash = 0.8
-		level.sfx("hiss", -2, global_position, 1.3)
-		get_tree().create_timer(0.55, false).timeout.connect(func():
-			if not _alive or not is_instance_valid(p):
-				return
-			var target := p.global_position + Vector3(0, 1.2, 0)
-			for k in ([-0.4, -0.2, 0.0, 0.2, 0.4] if _wroth else [-0.3, -0.15, 0.0, 0.15, 0.3]):
-				_spit(global_position + (target - global_position).rotated(Vector3.UP, k)))
-	if dist > 6.0 and dist < 34.0 and _ready_way("charge", 9.0):
-		_start_charge(p)
-	if dist < 45.0 and _ready_way("rain", 8.0):
-		_rain()
-	if _ready_way("brood", 9.0):
-		_brood = _brood.filter(func(m): return is_instance_valid(m) and m.is_alive())
-		if _brood.size() < 6:
-			level.sfx("roar", -2, global_position, 1.3)
-			for k in 3:
-				var at := global_position + Vector3(randf_range(-3, 3), 0.5, randf_range(-3, 3))
-				var e: LesserSpeeb = level.spawn_at(str(spec.get("brood", "swarm")), at)
-				if e:
-					_brood.append(e)
+		_combo = []
+		_pat_i = 0
+		_gap = 1.5
+	# One way at a time: nothing new while one is shown, run or recovered from
+	if _busy <= 0.0 and _spent <= 0.0 and _charge_t <= 0.0:
+		var pats: Array = PATTERNS.get(boss, [[spec.ways.map(func(x): return [x])]])
+		var loop: Array = pats[1 if _wroth and pats.size() > 1 else 0]
+		if _combo.is_empty():
+			_gap -= delta * level.enemy_time
+			if _gap <= 0.0:
+				_combo = (loop[_pat_i % loop.size()] as Array).duplicate()
+				_pat_i += 1
+				_reach_wait = 0.0
+		if not _combo.is_empty():
+			var w: String = _combo[0]
+			if _way_reaches(w, dist):
+				_combo.pop_front()
+				_do_way(w, p)
+				if _combo.is_empty():
+					_gap = 1.6 if _wroth else 2.6
+			else:
+				_reach_wait += delta * level.enemy_time
+				if _reach_wait > 6.0:
+					_combo = []
+					_gap = 0.5
 	if spec.ways.has("blink"):
 		_watched_t = _watched_t + get_physics_process_delta_time() if _watched else 0.0
 		if _watched_t > 4.5:
@@ -1888,6 +1954,83 @@ func _slam() -> void:
 			var d: float = t.global_position.distance_to(at)
 			if d < r and absf(t.global_position.y - at.y) < 6.0:
 				level.hurt_target(t, lerpf(36.0, 12.0, d / r), at))
+
+
+## The Basalt Idol's worst: the ground breaks in three rings, one after another, each further out.
+## Stand where the last one broke.
+func _quake() -> void:
+	level.sfx("great_roar", 6, global_position, 0.8)
+	_flash = 1.0
+	_busy = 3.2
+	var at := global_position
+	var r0: float = spec.radius + 2.0
+	for k in 3:
+		var inner: float = r0 + k * 6.0
+		var outer := inner + 6.0
+		get_tree().create_timer(0.7 * k, false).timeout.connect(func():
+			if _alive:
+				level.shared("_w_warn", [at, outer, 0.9, 0]))
+		get_tree().create_timer(0.7 * k + 0.9, false).timeout.connect(func():
+			if not _alive:
+				return
+			level.sfx("boom", 2, at, 0.7 - k * 0.08)
+			level.shared("_w_slam_fx", [at, outer])
+			for t in level.targets():
+				var d: float = Vector2(t.global_position.x - at.x, t.global_position.z - at.z).length()
+				if d >= inner and d < outer and absf(t.global_position.y - at.y) < 6.0:
+					level.hurt_target(t, 28.0, at))
+	get_tree().create_timer(3.0, false).timeout.connect(func():
+		if _alive:
+			_spent = 1.4)
+
+
+## Fire comes down in a line from the great one out past a pilgrim, one spot after another.
+func _line(p: Node3D) -> void:
+	_busy = 1.0
+	_flash = 0.7
+	level.sfx("beam", 0, global_position, 0.6)
+	var d := p.global_position - global_position
+	d.y = 0.0
+	if d.length() < 0.5:
+		d = Vector3.FORWARD
+	var dir := d.normalized()
+	var spots: Array = []
+	for k in 9:
+		var at := global_position + dir * (4.0 + k * 4.0)
+		at.y = p.global_position.y
+		spots.append(at)
+		level.shared("_w_warn", [at, 2.4, 1.1 + k * 0.12, 2])
+	for k in spots.size():
+		var at: Vector3 = spots[k]
+		get_tree().create_timer(1.1 + k * 0.12, false).timeout.connect(func():
+			if not _alive:
+				return
+			level.shared("_w_slam_fx", [at, 2.8])
+			level.sfx("boom", -6, at, 1.2)
+			for t in level.targets():
+				var off: Vector3 = t.global_position - at
+				if Vector2(off.x, off.z).length() < 2.4 and absf(off.y) < 4.0:
+					level.hurt_target(t, 22.0, at))
+
+
+## The Long Watcher is gone, and then it is behind you. A click, a scream, and it runs at you.
+func _ambush(p: Node3D) -> void:
+	var back := -p.global_transform.basis.z
+	if p is Player and p.cam:
+		back = -p.cam.global_transform.basis.z
+	back.y = 0.0
+	if back.length() < 0.1:
+		back = Vector3.FORWARD
+	var to := p.global_position - back.normalized() * 12.0 + Vector3(0, 1.5, 0)
+	level.sfx("unseen_click", 2, global_position, 0.7)
+	global_position = to
+	level.sfx("unseen_scream", 2, to, 0.75)
+	_seen = 1.0
+	_busy = 0.8
+	get_tree().create_timer(0.8, false).timeout.connect(func():
+		if _alive and is_instance_valid(p):
+			_busy = 0.0
+			_start_charge(p))
 
 
 ## The great one marks a line toward a pilgrim, rears, then runs it down. It stands spent at the end.

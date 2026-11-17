@@ -4911,8 +4911,11 @@ func _night_wave() -> void:
 		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press())))
 		var roster: Array = forms_at(t.global_position)
 		# Near where the cast-out wake, the box cats run in packs some nights
-		if (tier == 1 and randf() < (0.8 if night_theme == "screaming" else 0.35)) or (night_theme == "screaming" and randf() < 0.3):
-			var pack := mini(int(WCrowd.scale(self, randi_range(8, 14) + mini(nights, 6)) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP - alive_count())
+		# (rare and small on the first nights; a pack is sized for those near, not for the whole group)
+		var screaming := night_theme == "screaming"
+		if (tier == 1 and nights >= 1 and randf() < (0.8 if screaming else 0.08 + 0.02 * mini(nights, 6))) or (screaming and randf() < 0.3):
+			var base := (randi_range(6, 9) + mini(nights, 5)) if screaming else (randi_range(3, 4) + mini(nights, 4))
+			var pack := mini(int(base * WCrowd.share(self, t.global_position) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP - alive_count())
 			var from: Vector3 = t.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 40.0
 			for k in pack:
 				var bc = _spawn_near("box_cat", from, 2.0, 8.0)
@@ -8134,6 +8137,38 @@ func debug_greatones() -> void:
 		await get_tree().physics_frame
 		print("GREAT %s ring=%d lane=%d fire=%d spent=%s wroth %s->%s spent_harm=%.0f" % [b, marks_seen.get(0, 0), marks_seen.get(1, 0), marks_seen.get(2, 0), spent, w0, e._wroth, h0 - e.hp])
 		e.die(false)
+	get_tree().quit()
+
+
+## Test: the great ones fight in learnable loops; their worst tricks (the Idol's rings, the Disc's line,
+## the Watcher's ambush) are each shown before they land.
+func debug_patterns() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	clock = 12.0
+	player.health = 999999.0
+	player.max_health = 999999.0
+	var out := []
+	for spec in [["boss_basalt", "quake", 0], ["boss_salt", "line", 2], ["boss_forest", "ambush", 1]]:
+		marks_seen = {}
+		var e := spawn_at(spec[0], player.global_position + Vector3(0, 2, -14))
+		e.set_meta("raid", true)
+		e.hurt(e.max_hp * 0.55, Vector3(0, 0, -1))
+		await get_tree().physics_frame
+		var before: Vector3 = e.global_position
+		e._busy = 0.0
+		e._spent = 0.0
+		e._combo = []
+		e._do_way(spec[1], player)
+		for i in 5 * 60:
+			await get_tree().physics_frame
+		var moved: bool = e.global_position.distance_to(before) > 5.0
+		out.append("%s=%d%s" % [spec[1], marks_seen.get(spec[2], 0), " moved" if moved else ""])
+		# Its loop: the wroth loop is the one it now walks
+		out.append("%s_wroth=%s" % [spec[0], e._wroth])
+		e.die(false)
+	print("PATTERNS " + " ".join(out))
 	get_tree().quit()
 
 
@@ -11979,7 +12014,13 @@ func debug_boxcat() -> void:
 	var d0: float = cats[0].global_position.distance_to(player.global_position)
 	await get_tree().create_timer(2.0).timeout
 	var d1: float = cats[0].global_position.distance_to(player.global_position) if is_instance_valid(cats[0]) else 0.0
-	print("BOXCAT made=%d name=%s boxed=%s closed=%s hp=%.0f" % [cats.size(), cats[0].spec.name, cats[0]._box != null, d1 < d0, cats[0].hp])
+	# Seen at its size: about a metre tall, not shrunk away to nothing
+	var tall := 0.0
+	if is_instance_valid(cats[0]) and cats[0]._box != null:
+		for mi in cats[0]._box.find_children("*", "MeshInstance3D", true, false):
+			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			tall = maxf(tall, ab.size.y)
+	print("BOXCAT made=%d name=%s boxed=%s closed=%s hp=%.0f tall=%.2f" % [cats.size(), cats[0].spec.name, cats[0]._box != null, d1 < d0, cats[0].hp, tall])
 	get_tree().quit()
 
 
@@ -12272,6 +12313,36 @@ func debug_doorwalk() -> void:
 		if ok:
 			inside += 1
 	print("DOORWALK tried=%d inside=%d" % [tried, inside])
+	get_tree().quit()
+
+
+## Testing aid: a pilgrim walks straight over a house's rug and is not stopped by it.
+func debug_rugwalk() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var base: Vector3 = player.global_position + Vector3(0, 60, 0)
+	var n := Node3D.new()
+	add_child(n)
+	n.global_position = base
+	var fb := StaticBody3D.new()
+	n.add_child(fb)
+	builder._part(n, fb, Vector3(12, 1.0, 12), Vector3(0, -0.5, 0), _m.stone, false)
+	_furnish(n, "rug", Vector3(0, 0.02, 0), 0.0)
+	player.place(base + Vector3(0, 0.3, 4.0), 0.0)
+	player.yaw = 0.0
+	player.rotation.y = 0.0
+	await get_tree().create_timer(0.5).timeout
+	Input.action_press("move_forward")
+	var t := 0.0
+	var crossed := false
+	while t < 4.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if player.global_position.z < base.z - 2.5:
+			crossed = true
+			break
+	Input.action_release("move_forward")
+	print("RUGWALK crossed=%s z=%.1f" % [crossed, player.global_position.z - base.z])
 	get_tree().quit()
 
 

@@ -121,7 +121,7 @@ func _start_one(near = null) -> void:
 					if f:
 						e.foes.append(f)
 			"swarm":
-				for k in randi_range(7, 11):
+				for k in WCrowd.scale(w, randi_range(4, 6)):
 					var f = w._spawn_one("box_cat", p, 3.0, 12.0, true)
 					if f:
 						e.foes.append(f)

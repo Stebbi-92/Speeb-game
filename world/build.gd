@@ -820,7 +820,8 @@ func _kit_home(n: Node3D, body: StaticBody3D, k: String, is_ghost: bool) -> void
 	var ab := _local_aabb(inst)
 	inst.position = Vector3(-ab.get_center().x, -ab.position.y, -ab.get_center().z)
 	if not is_ghost:
-		var tall := maxf(ab.size.y, 0.12)
+		# A rug's box stays flat: a ledge a hand high in the middle of a floor stops a pilgrim dead
+		var tall := 0.02 if k == "rug" else maxf(ab.size.y, 0.12)
 		_part(n, body, Vector3(maxf(ab.size.x, 0.3), tall, maxf(ab.size.z, 0.3)), Vector3(0, tall * 0.5, 0), null, false)
 		if k == "stove":
 			_fire(n, Vector3(0, ab.size.y * 0.75, 0), 1.3, 8.0)
