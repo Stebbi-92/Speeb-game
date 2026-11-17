@@ -2371,7 +2371,15 @@ func _draw_container() -> void:
 				_redraw.call_deferred())
 	_body.add_child(top)
 	_close_and_rule(top)
-	_body.add_child(_label("Click a thing to move it across.", 16, DIM))
+	# How much one click moves: the whole stack, half of it, ten or one. A right click always moves half.
+	var how := HBoxContainer.new()
+	how.add_theme_constant_override("separation", 6)
+	how.add_child(_label("Click a thing to move it across. Move:", 16, DIM))
+	for m in MOVE_CHOICES:
+		var mm: int = m[0]
+		how.add_child(_chip(m[1], _move_n == mm, func(): _move_n = mm; _redraw()))
+	how.add_child(_label("(right click: half)", 15, DIM))
+	_body.add_child(how)
 	var bag := Inventory.new(w.containers[_cont_id].size())
 	bag.from_data(w.containers[_cont_id])
 	var hb := HBoxContainer.new()
@@ -2379,24 +2387,52 @@ func _draw_container() -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 8)
 	left.add_child(_label("In the " + name.to_lower() if cpid < 0 else name, 20, GOLD))
-	left.add_child(_slot_grid(bag, func(i, _r): w.shared("_rq_take", [Net.me(), _cont_id, i]), 4, -1, [], 80))
+	left.add_child(_slot_grid(bag, func(i, r): _take(bag, i, r), 4, -1, [], 80))
 	left.add_child(_action("Take everything", func(): _take_all(), "[%s]" % Game.key_text("reload")))
 	hb.add_child(left)
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 8)
 	right.add_child(_label("Your pack", 20, GOLD))
-	right.add_child(_slot_grid(w.inv, func(i, _r): _put(i), 6, -1, [], 80))
+	right.add_child(_slot_grid(w.inv, func(i, r): _put(i, r), 6, -1, [], 80))
 	if cpid >= 0:
 		right.add_child(_action("Store what's already here", func(): _store_matching(), "Adds to stacks in the chest"))
 	hb.add_child(right)
 	_body.add_child(hb)
 
 
-func _put(i: int) -> void:
-	var it = w.inv.take_slot(i)
-	if it == null:
+const MOVE_CHOICES := [[0, "All"], [-2, "Half"], [10, "10"], [1, "1"]]
+var _move_n := 0   ## 0: the whole stack; -2: half; else that many
+
+
+## How many of a stack of `total` one click moves.
+func move_count(total: int, right: bool) -> int:
+	var m := -2 if right else _move_n
+	if m == 0:
+		return total
+	if m == -2:
+		return maxi(1, int(ceil(total / 2.0)))
+	return clampi(m, 1, total)
+
+
+func _take(bag: Inventory, i: int, right: bool) -> void:
+	var s = bag.slots[i]
+	if s == null:
 		return
-	w.shared("_rq_put", [Net.me(), _cont_id, it.id, int(it.n)])
+	var n := move_count(int(s.n), right)
+	w.shared("_rq_take", [Net.me(), _cont_id, i, 0 if n >= int(s.n) else n])
+
+
+func _put(i: int, right := false) -> void:
+	var s = w.inv.slots[i]
+	if s == null:
+		return
+	var n := move_count(int(s.n), right)
+	if n >= int(s.n):
+		w.inv.take_slot(i)
+	else:
+		s.n = int(s.n) - n
+		w.inv.changed.emit()
+	w.shared("_rq_put", [Net.me(), _cont_id, s.id, n])
 	w.char_save_soon()
 
 

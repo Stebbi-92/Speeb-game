@@ -3326,14 +3326,19 @@ func _w_opened(id: String) -> void:
 
 
 ## Takes one slot of a container into the asker's pack.
-func _rq_take(by: int, id: String, i: int) -> void:
+func _rq_take(by: int, id: String, i: int, n := 0) -> void:
 	if not Net.authority() or not containers.has(id):
 		return
 	var data: Array = containers[id]
 	if i < 0 or i >= data.size() or data[i] == null:
 		return
 	var it: Array = data[i]
-	data[i] = null
+	if n > 0 and n < int(it[1]):
+		# Part of the stack: the rest stays
+		data[i] = [it[0], int(it[1]) - n]
+		it = [it[0], n]
+	else:
+		data[i] = null
 	shared("_w_cont", [id, data])
 	Net.call_peer(by, "_w_give", [[it]])
 	_check_satchel(id)
@@ -6495,6 +6500,36 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: a right click moves half a stack between chest and pack; "1" moves one; "All" the rest.
+func debug_split() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cid := "ptest"
+	containers[cid] = [["salt", 40], null, null, null]
+	ui._cont_id = cid
+	var s0 := inv.count("salt")
+	var bag := Inventory.new(4)
+	bag.from_data(containers[cid])
+	ui._take(bag, 0, true)
+	await get_tree().process_frame
+	var half: bool = inv.count("salt") - s0 == 20 and int(containers[cid][0][1]) == 20
+	var slot := -1
+	for i in inv.slots.size():
+		if inv.slots[i] != null and inv.slots[i].id == "salt":
+			slot = i
+	ui._move_n = 1
+	var before := inv.count("salt")
+	ui._put(slot)
+	await get_tree().process_frame
+	var one: bool = inv.count("salt") == before - 1 and int(containers[cid][0][1]) == 21
+	ui._move_n = 0
+	bag.from_data(containers[cid])
+	ui._take(bag, 0, false)
+	await get_tree().process_frame
+	print("SPLIT half=%s one=%s all=%s" % [half, one, containers[cid][0] == null])
+	get_tree().quit()
 
 
 ## Testing aid: at a cooking station only what is cooked is listed; at a workbench, everything.
