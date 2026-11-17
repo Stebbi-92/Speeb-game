@@ -324,6 +324,7 @@ func intro() -> void:
 		player.set_physics_process(false)
 		snap_wait = true
 		shared("_rq_hello", [Net.me()])
+		_hello_again()
 	_load_character()
 	_apply_time(true)
 	if not flags.has("intro_seen_" + str(Net.me())) and quests.main_stage() == 0:
@@ -5925,6 +5926,16 @@ func _rq_hello(by: int) -> void:
 	for bid in boats:
 		if is_instance_valid(boats[bid]) and not boats[bid].riders.is_empty():
 			Net.call_peer(by, "_w_riders", [bid, boats[bid].riders])
+
+
+## A newcomer asks again now and then while nothing of the world has come (a first word may be lost).
+func _hello_again() -> void:
+	var t := 0.0
+	while is_inside_tree() and snap_wait and Net.online:
+		await get_tree().create_timer(1.0).timeout
+		t += 1.0
+		if _snap_parts.is_empty() and terrain == null and int(t) % 12 == 0:
+			shared("_rq_hello", [Net.me()])
 
 
 var snap_wait := false        ## a newcomer whose world is still arriving
