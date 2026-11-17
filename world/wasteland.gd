@@ -6223,6 +6223,32 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: a doorway wall is solid where it is drawn, but its door can be walked through.
+func debug_gatewalk() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := Vector3(0, 600, 0)
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.global_position = at
+	WIsleLife.put(holder, "castle", "wall-doorway", Vector3.ZERO, 0.0, 4.0, true)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var space := get_world_3d().direct_space_state
+	var through := false
+	var solid := false
+	for dir in [Vector3(1, 0, 0), Vector3(0, 0, 1)]:
+		for h in [0.6, 1.2, 2.0]:
+			var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, h, 0) - dir * 30.0, at + Vector3(0, h, 0) + dir * 30.0)
+			q.collision_mask = 1
+			if space.intersect_ray(q).is_empty():
+				through = true
+			else:
+				solid = true
+	print("GATEWALK through=%s solid=%s" % [through, solid])
+	get_tree().quit()
+
+
 ## Testing aid: on every isle the ground can be stood on where it is drawn: no holes, no cells
 ## where the solid ground lies far from the drawn one.
 func debug_isleground() -> void:

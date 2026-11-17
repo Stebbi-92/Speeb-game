@@ -80,18 +80,57 @@ static func put(parent: Node3D, kit: String, model: String, local: Vector3, yaw 
 		if mat:
 			(mi as GeometryInstance3D).material_override = mat
 	if solid:
-		var bb := bounds(kit + "/" + model, n)
 		var body := StaticBody3D.new()
 		body.collision_layer = 1
 		body.collision_mask = 0
 		var cs := CollisionShape3D.new()
-		var bs := BoxShape3D.new()
-		bs.size = bb.size * 0.9
-		cs.shape = bs
-		cs.position = bb.get_center()
+		if hollow(model):
+			# A building or wall is solid where it is drawn, and no more: its doors and insides stay open
+			cs.shape = faces_of(kit + "/" + model, n)
+		else:
+			var bb := bounds(kit + "/" + model, n)
+			var bs := BoxShape3D.new()
+			bs.size = bb.size * 0.9
+			cs.shape = bs
+			cs.position = bb.get_center()
 		body.add_child(cs)
 		n.add_child(body)
 	return n
+
+
+static var _faces := {}
+const HOLLOW := ["tower", "gate", "crypt", "structure", "wall", "house", "church", "ruin", "arch", "door", "platform"]
+
+
+## Whether a model is a building or wall, to be solid only where it is drawn.
+static func hollow(model: String) -> bool:
+	for h in HOLLOW:
+		if model.contains(h):
+			return true
+	return false
+
+
+## The drawn surface of a model as one shape, made once for each model.
+static func faces_of(key: String, n: Node3D) -> ConcavePolygonShape3D:
+	if _faces.has(key):
+		return _faces[key]
+	var all := PackedVector3Array()
+	for mi in n.find_children("*", "MeshInstance3D", true, false) + ([n] if n is MeshInstance3D else []):
+		var m: Mesh = (mi as MeshInstance3D).mesh
+		if m == null:
+			continue
+		var tr: Transform3D = Transform3D.IDENTITY if mi == n else (mi as Node3D).transform
+		var p: Node = mi.get_parent() if mi != n else null
+		while p and p != n:
+			tr = (p as Node3D).transform * tr
+			p = p.get_parent()
+		for v in m.get_faces():
+			all.append(tr * v)
+	var shape := ConcavePolygonShape3D.new()
+	shape.backface_collision = true
+	shape.set_faces(all)
+	_faces[key] = shape
+	return shape
 
 
 ## A fresh copy of a kit model (a .glb scene, or an .obj mesh).
