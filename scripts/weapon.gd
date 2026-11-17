@@ -1822,6 +1822,8 @@ func _build(g: String, mnts = null) -> Node3D:
 				_box(Vector3(0.03, 0.012, 0.05), fore, dark, n)
 				_box(Vector3(0.026, 0.085, 0.03), fore + Vector3(0, -0.045, 0.004), dark, n, Vector3(0.12, 0, 0))
 	n.set_meta("tip", tip)
+	if sight == "" and not built_glass(g, fit):
+		eye -= float(IRON_DROP.get(g, 0.0))   # the scanned body's top is a hammer or slide: its own sights sit lower
 	n.set_meta("eye", eye)
 	if Game.gilded:
 		gild(n)
@@ -1957,6 +1959,10 @@ func _acc_name(g: String, m: String) -> String:
 	if v is Dictionary:
 		return str(v.get(g, v.get("", "")))
 	return str(v)
+
+
+## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
+const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "rocket": 0.014}
 
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.

@@ -929,6 +929,9 @@ func _announce_remove() -> void:
 
 ## Asks the router to open the port by UPnP, so that pilgrims beyond the local network can join.
 func _open_port_upnp() -> void:
+	if _upnp_thread:
+		_upnp_thread.wait_to_finish()   # an earlier ask, left running when that fellowship ended
+		_upnp_thread = null
 	upnp_state = "Asking the router to open port %d..." % port
 	_upnp_thread = Thread.new()
 	_upnp_thread.start(_upnp_work.bind(port))
@@ -969,6 +972,10 @@ func _upnp_done(u, state: String, ip: String) -> void:
 
 
 func _close_port_upnp() -> void:
+	if _upnp_thread and _upnp_thread.is_alive():
+		# Still asking the router (it can take seconds): do not wait for it here. When it answers,
+		# _upnp_done sees we are no longer hosting and closes what it opened.
+		return
 	if _upnp_thread:
 		_upnp_thread.wait_to_finish()
 		_upnp_thread = null
@@ -1031,3 +1038,6 @@ func _process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	leave("")
+	if _upnp_thread:
+		_upnp_thread.wait_to_finish()   # quitting: a thread must be waited for, however long the router takes
+		_upnp_thread = null

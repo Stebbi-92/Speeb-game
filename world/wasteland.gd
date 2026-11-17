@@ -7185,6 +7185,19 @@ func debug_bestiary() -> void:
 	get_tree().quit()
 
 
+## Testing aid: leaving right after hosting does not wait on the router's answer.
+func debug_hostleave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	Net.host(24611, "leave test", false)
+	var t0 := Time.get_ticks_msec()
+	Net.leave("")
+	var took := Time.get_ticks_msec() - t0
+	# Leaving takes the game back to the title, so this check ends here
+	print("HOSTLEAVE took=%d quick=%s offline=%s" % [took, took < 500, not Net.online])
+	get_tree().quit()
+
+
 ## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
 func debug_folk() -> void:
 	while not ready_world:
@@ -9082,6 +9095,11 @@ func debug_wear() -> void:
 func debug_sprint() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	ui.close_all()   # an earlier check may have left a screen open, which holds the pilgrim still
+	player.stamina = 100.0
+	rest = 100.0
+	food = 100.0
 	clock = 12.0
 	await get_tree().create_timer(1.0).timeout
 	Input.action_press("move_forward")
@@ -10452,6 +10470,7 @@ func debug_weather() -> void:
 func debug_books() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(8)
 	# Start from a fellowship that has read nothing (earlier checks may have read some)
 	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values():
 		flags.erase(bk)
@@ -11155,6 +11174,8 @@ func debug_settlers() -> void:
 	var n := settlers.at_fire(fire).size()
 	var shown := settlers._nodes.size()
 	# Make sure one brings goods, then a dawn of work
+	for st in settlers.list:
+		st.job = "keeper"   # only the one below brings salt (another may have been a salter too)
 	settlers.list[0].job = "salter"
 	var cid: String = settlers.chests_at(fire)[0]
 	var before := _cont_count(cid, "salt")
@@ -11374,6 +11395,7 @@ func debug_great() -> void:
 func debug_powers() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(8)
 	flags.erase("shrine_t_basalt")
 	power = ""
 	power_left = 0.0
