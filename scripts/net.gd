@@ -239,6 +239,41 @@ func leave(reason := "") -> void:
 func _patient(id: int) -> void:
 	if peer and peer.get_peer(id):
 		peer.get_peer(id).set_timeout(32, 90000, 180000)
+		brisk_links.erase(id)
+
+
+## Once the land is raised on both ends, a link that goes quiet is a crash: drop it in seconds, not minutes.
+var brisk_links := {}   ## the links made brisk (for the tests)
+func _brisk(id: int) -> void:
+	if peer and peer.get_peer(id):
+		peer.get_peer(id).set_timeout(32, 8000, 20000)
+		brisk_links[id] = true
+
+
+
+## A new land is being raised: every link waits patiently again until the land is ready.
+func loading() -> void:
+	if not online or peer == null:
+		return
+	if is_host():
+		for id in multiplayer.get_peers():
+			_patient(id)
+	else:
+		_patient(1)
+
+
+## This machine's land is ready. A joiner tells the host, and both ends of its link grow brisk.
+func settled() -> void:
+	if not online or peer == null or is_host():
+		return
+	_brisk(1)
+	_settled_peer.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _settled_peer() -> void:
+	if is_host():
+		_brisk(multiplayer.get_remote_sender_id())
 
 
 func _on_connected() -> void:

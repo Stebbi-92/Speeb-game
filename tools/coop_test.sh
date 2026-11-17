@@ -9,7 +9,7 @@ HP=$!
 for i in $(seq 1 70); do grep -q "SNAPHOST ready" "$H" && break; sleep 3; done
 XDG_DATA_HOME=$(mktemp -d) timeout 150 "$G" --headless --path . -- join=127.0.0.1:$PORT call=debug_snapclient name=Guest > "$C" 2>&1
 kill $HP 2>/dev/null
-if grep -qE "SNAPCLIENT ready=true day=42 pads=6000 waiting=false" "$C"; then
+if grep -qE "SNAPCLIENT ready=true day=42 pads=6000 waiting=false brisk=true" "$C"; then
 	echo "pass  snapshot"
 else
 	echo "FAIL  snapshot   (host: $H  newcomer: $C)"; exit 1

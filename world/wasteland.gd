@@ -5899,6 +5899,7 @@ func _w_snapshot(d: Dictionary) -> void:
 	apply_world(d)
 	ready_world = true
 	_world_ready()
+	Net.settled()
 	player.set_physics_process(true)
 	hud.notify("You stand in the same waste as the fellowship. Day %d." % day)
 
@@ -7057,7 +7058,7 @@ func debug_snapclient() -> void:
 	for k in flags:
 		if str(k).begins_with("pad_"):
 			pads += 1
-	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s" % [ready_world, day, pads, snap_wait])
+	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s brisk=%s" % [ready_world, day, pads, snap_wait, Net.brisk_links.has(1)])
 	get_tree().quit()
 
 

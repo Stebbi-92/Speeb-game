@@ -214,6 +214,7 @@ func start_level(i: int, from_net := false) -> void:
 			return
 	_busy = true
 	get_tree().paused = false
+	Net.loading()
 	if Net.dedicated:
 		Net._log("The fellowship walks %s." % (Game.LEVEL_NAMES[i] if i < Game.LEVEL_NAMES.size() else ["The Forgotten Cave", "The Tenth Trial", "The Ashen Waste"][i - 10]))
 	elif OS.get_cmdline_user_args().size() > 0:
