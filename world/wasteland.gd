@@ -6502,6 +6502,25 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: while building, the pack key opens the pieces at the group of the piece in hand.
+func debug_buildmenu() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	builder.sel = Items.PIECE_ORDER.size() - 1
+	if not builder.active:
+		builder.toggle()
+	var ev: InputEvent = null
+	for k in InputMap.action_get_events("pack"):
+		if k is InputEventKey:
+			ev = k.duplicate()
+			break
+	ev.pressed = true
+	ui._input(ev)
+	await get_tree().process_frame
+	print("BUILDMENU open=%s tab=%s group=%s" % [ui._panel_name == "pack", ui._tab, ui._bcat == str(Items.PIECES[builder.kind()].group)])
+	get_tree().quit()
+
+
 ## Testing aid: a right click moves half a stack between chest and pack; "1" moves one; "All" the rest.
 func debug_split() -> void:
 	while not ready_world:

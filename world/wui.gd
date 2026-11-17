@@ -525,7 +525,8 @@ func _input(e: InputEvent) -> void:
 		if _panel != null and _panel_name == "pack":
 			close_all()
 		else:
-			open_inventory("pack")
+			# While building, the pack key opens the pieces to choose from
+			open_inventory("build" if w.builder.active else "pack")
 		accept_event()
 	elif e.is_action_pressed("map"):
 		if _panel_name == "map":
@@ -777,13 +778,15 @@ func set_build_bar(k: String, sel: int) -> void:
 	var prev: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel - 1, n)]].name
 	var next: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel + 1, n)]].name
 	_build_title.text = "%s" % pc.name
-	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color]\n[color=#8d877b]%s on a wall or floor: build it up to stone, then iron[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next, Game.key_text("interact")]
+	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color]\n[color=#8d877b][%s] choose a piece    %s on a wall or floor: build it up to stone, then iron[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next, Game.key_text("pack"), Game.key_text("interact")]
 
 
 # ------------------------------------------------------------------ the pack, and making things
 
 func open_inventory(tab := "pack") -> void:
 	_tab = tab
+	if tab == "build":
+		_bcat = str(Items.PIECES[w.builder.kind()].group)   # open where the piece in hand is
 	_open("pack")
 
 
@@ -3738,7 +3741,7 @@ var _bcat := "Camp"
 func _draw_build_guide() -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
-	top.add_child(_pill("[%s] build    wheel: choose    [%s] turn    aim: take down (half back)" % [Game.key_text("build"), Game.key_text("reload")], true))
+	top.add_child(_pill("Pick a piece and Build.    [%s] stop building    [%s] turn    wheel: next piece    aim: take down (half back)" % [Game.key_text("build"), Game.key_text("reload")], true))
 	_body.add_child(top)
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 18)
