@@ -458,6 +458,7 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 	scaled.resize(hh.size())
 	for k in hh.size():
 		scaled[k] = hh[k] / WIsles.CELL
+	_mend_holes(scaled)
 	hs.map_data = scaled
 	cs.shape = hs
 	cs.scale = Vector3.ONE * WIsles.CELL
@@ -551,6 +552,7 @@ func build(m: Material) -> void:
 	scaled.resize(h.size())
 	for k in h.size():
 		scaled[k] = h[k] / CELL
+	_mend_holes(scaled)
 	hs.map_data = scaled
 	cs.shape = hs
 	cs.scale = Vector3.ONE * CELL
@@ -596,3 +598,16 @@ func map_rows(img: Image, j0: int, j1: int) -> void:
 			if rd > 0.3:
 				c = c.lerp(Color(0.86, 0.74, 0.52), 0.8)
 			img.set_pixel(i, j, c)
+
+
+## A height that is not a number makes a hole in the ground's collision that a pilgrim can fall
+## through: each such cell takes the height of the cell before it (or sea level).
+static func _mend_holes(a: PackedFloat32Array) -> int:
+	var mended := 0
+	for k in a.size():
+		if is_nan(a[k]) or is_inf(a[k]):
+			a[k] = a[k - 1] if k > 0 else 0.0
+			mended += 1
+	if mended > 0:
+		push_warning("Terrain: mended %d cells with no height" % mended)
+	return mended

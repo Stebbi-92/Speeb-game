@@ -6223,6 +6223,41 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: on every isle the ground can be stood on where it is drawn: no holes, no cells
+## where the solid ground lies far from the drawn one.
+func debug_isleground() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().physics_frame
+	var space := get_world_3d().direct_space_state
+	var holes := 0
+	var off := 0
+	var tried := 0
+	var worst := ""
+	for il in terrain.isles:
+		var c: Vector2 = il.c
+		var r: float = il.r
+		var step := r / 14.0
+		for j in range(-14, 15):
+			for i in range(-14, 15):
+				var x := c.x + i * step
+				var z := c.y + j * step
+				var y := terrain.height_at(x, z)
+				if y < 1.0 or is_nan(y):
+					continue
+				tried += 1
+				var q := PhysicsRayQueryParameters3D.create(Vector3(x, y + 60.0, z), Vector3(x, y - 60.0, z))
+				q.collision_mask = 1
+				var hit := space.intersect_ray(q)
+				if hit.is_empty():
+					holes += 1
+					worst = "%s hole at %d,%d" % [il.name, int(x), int(z)]
+				elif absf(hit.position.y - y) > 1.5 and hit.collider.has_meta("ground"):
+					off += 1
+	print("ISLEGROUND tried=%d holes=%d off=%d %s" % [tried, holes, off, worst])
+	get_tree().quit()
+
+
 ## Testing aid: the marsh at night in an ash storm, the thickest haze there is, stays under the cap.
 func debug_fogcap() -> void:
 	while not ready_world:
