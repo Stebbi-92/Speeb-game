@@ -1105,7 +1105,8 @@ func show_loading(title: String, what := "The land is raised") -> void:
 const LOAD_PICS := ["res://assets/textures/loading/vista_0.jpg", "res://assets/textures/loading/vista_1.jpg",
 	"res://assets/textures/loading/vista_2.jpg", "res://assets/textures/loading/vista_3.jpg",
 	"res://assets/textures/loading/vista_4.jpg", "res://assets/textures/loading/vista_5.jpg",
-	"res://assets/textures/loading/vista_6.jpg", "res://assets/textures/loading/vista_7.jpg"]
+	"res://assets/textures/loading/vista_6.jpg", "res://assets/textures/loading/vista_7.jpg",
+	"res://assets/textures/loading/vista_8.jpg", "res://assets/textures/loading/vista_9.jpg"]
 
 
 func _next_load_pic() -> Texture2D:
@@ -2054,6 +2055,9 @@ func _build_deed() -> void:
 	_deed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_deed_box)
 	var v := VBoxContainer.new()
+	# Clicks pass through: once a revelation has been shown this box stays on top of the screens
+	# (faded out), and over the pack's tabs it had taken every click meant for them
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_deed_box.add_child(v)
 	v.add_child(_label("A Revelation", 15, DIM, HORIZONTAL_ALIGNMENT_CENTER))
 	_deed_title = _label("", 30, GOLD, HORIZONTAL_ALIGNMENT_CENTER)

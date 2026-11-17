@@ -5,7 +5,10 @@ Brelm alpha 0.13.3: clear view
 - A red dot sight's dot no longer shows through walls and trees on another pilgrim's gun.
 - Town roofs sit the right way: the ridge runs along the long side of the house.
 - Built doors fill their doorway.
-- The pack's tabs answer the click at once, and the faded loading screen no longer catches clicks after a world is raised.
+- The pack's tabs work again: a faded revelation card had sat over them and taken their clicks.
+- Mounts look ahead, and turn their heads toward you only as far as a neck goes.
+- Drifting motes are only in the marsh now.
+- Pictures of the waste behind the loading screen.
 
 Brelm alpha 0.13.2: joining fix
 

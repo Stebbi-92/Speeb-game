@@ -23,7 +23,7 @@ var _want_thick := 1.0
 var _t := 0.0
 var _drift: CPUParticles3D
 var _mist: CPUParticles3D
-var _mat: StandardMaterial3D
+var _mat: ShaderMaterial
 
 
 func setup(world) -> WAir:
@@ -39,16 +39,12 @@ func _ready() -> void:
 	var q := QuadMesh.new()
 	q.size = Vector2(1, 1)
 	_drift.mesh = q
-	_mat = StandardMaterial3D.new()
-	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	_mat.vertex_color_use_as_albedo = true
-	_mat.albedo_texture = Relics._soft_dot()
-	# Motes right at the eye fade out, so none hangs as a blur before the face
-	_mat.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
-	_mat.distance_fade_min_distance = 1.5
-	_mat.distance_fade_max_distance = 5.0
+	# Round soft motes that are gone well before the eye (see weather_fleck.gdshader): a mote right at
+	# the face had hung there as a big white blur
+	_mat = ShaderMaterial.new()
+	_mat.shader = load("res://world/weather_fleck.gdshader")
+	_mat.set_shader_parameter("near", 2.0)
+	_mat.set_shader_parameter("clear", 6.0)
 	_drift.material_override = _mat
 	_drift.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	_drift.emission_box_extents = Vector3(24, 7, 24)
@@ -119,7 +115,8 @@ func _set_drift() -> void:
 		_mist.emitting = false
 		return
 	var d: Array = LOOK[land].drift
-	_drift.emitting = true
+	# Only the marsh has its drifting lights (its spores): elsewhere the air is clear
+	_drift.emitting = land == "marsh"
 	_drift.amount = int(d[2])
 	_drift.color = d[0]
 	_drift.scale_amount_min = float(d[1]) * 0.6 / 1.0
@@ -129,7 +126,7 @@ func _set_drift() -> void:
 	_drift.initial_velocity_max = 0.3
 	_drift.direction = Vector3(1, 0, 0.3)
 	_drift.spread = 180.0
-	_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if d[5] else BaseMaterial3D.BLEND_MODE_MIX
+	_mat.set_shader_parameter("glow", bool(d[5]))
 	_mist.emitting = land == "marsh" or land == "forest"
 
 

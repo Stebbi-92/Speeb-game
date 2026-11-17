@@ -9674,6 +9674,12 @@ func debug_cat() -> void:
 	var followed := c.global_position.distance_to(player.global_position) < 0.5
 	dismount()
 	var off: bool = player.mount == null and not c.ridden
+	# Stood behind it and to the side: it looks round only as far as a neck goes, and the right way
+	c.rotation.y = 0.0
+	player.global_position = c.global_position + Vector3(-2.5, 0, -2.0)
+	await get_tree().create_timer(2.5).timeout
+	var hy: float = c._head.rotation.y
+	var neck := absf(hy) <= 1.11 and hy < -0.5
 	var saved := c.to_data()
 	saved.name = "Biscuit"
 	c.queue_free()
@@ -9681,6 +9687,7 @@ func debug_cat() -> void:
 	_cat_saved = saved
 	await get_tree().create_timer(0.5).timeout
 	print("CAT drains=%s blocked=%s tamed=%s riding=%s faster=%s sprint=%s spent=%s shared=%s followed=%s off=%s back=%s" % [drains, blocked, tamed, riding, walk > player.walk_speed, sprint > walk * 1.5, spent, shared, followed, off, cat != null and cat.cat_name == "Biscuit"])
+	print("CAT neck=%s head=%.2f" % [neck, hy])
 	get_tree().quit()
 
 
@@ -12057,6 +12064,14 @@ func debug_benchtabs() -> void:
 			start_tab = a.substr(4)
 		if a.begins_with("click="):
 			click = a.substr(6)
+	if "busy" in OS.get_cmdline_user_args():
+		# The screen as in play: a long quest line, a word said, news, a banner, others in company
+		hud.set_objective("Hunt the raiders who have been hosting in the Salt-Pan Caravans, north-west of Cinderwick.   3 / 10")
+		hud.say("A long line of words said by someone nearby, to fill the middle of the screen for a while.", 20.0)
+		hud.notify("Someone joined the fellowship.")
+		hud.set_banner("A banner", "and its small line")
+		hud.revelation("A deed", "Remembered, and then faded")
+		await get_tree().create_timer(5.5).timeout
 	ui.open_inventory(start_tab)
 	for f in 5:
 		await get_tree().process_frame
@@ -12078,7 +12093,24 @@ func debug_benchtabs() -> void:
 		var cc := c as Control
 		if cc.is_visible_in_tree() and cc.mouse_filter != Control.MOUSE_FILTER_IGNORE and cc.get_global_rect().has_point(at) and cc != btn:
 			over.append("%s(%s)" % [cc.get_class(), cc.name])
-	print("BENCHCLICK button=%s at=%s over=%s" % [btn != null, at, over])
+	var mv := InputEventMouseMotion.new()
+	mv.position = at
+	mv.global_position = at
+	get_viewport().push_input(mv, true)
+	await get_tree().process_frame
+	var hov = get_viewport().gui_get_hovered_control()
+	var fr: Rect2 = ui._frame.get_global_rect()
+	print("BENCHFRAME ", fr)
+	var band := Rect2(fr.position.x, 90, fr.size.x, 90)   # where the tab row sits in play (the frame centred on a 900-high screen)
+	var blockers := 0
+	for c in get_tree().root.find_children("*", "Control", true, false):
+		var cc := c as Control
+		if cc.is_visible_in_tree() and cc.mouse_filter != Control.MOUSE_FILTER_IGNORE and cc.get_global_rect().intersects(band) and not ui._frame.is_ancestor_of(cc) and cc != ui._frame:
+			blockers += 1
+			var cl = cc.get_canvas_layer_node()
+			print("BENCHBAND %s %s rect=%s layer=%s filter=%d idx=%d texts=%s" % [cc.get_class(), cc.get_path(), cc.get_global_rect(), str(cl.layer) if cl else "none", cc.mouse_filter, cc.get_parent().get_index(), cc.find_children("*", "Label", true, false).map(func(l): return l.text.left(30))])
+	print("BENCHBLOCKERS n=%d" % blockers)
+	print("BENCHCLICK button=%s at=%s over=%s hovered=%s" % [btn != null, at, over, (hov.get_class() + "(" + str(hov.get_path()) + ")") if hov else "none"])
 	for pressed in [true, false]:
 		var ev := InputEventMouseButton.new()
 		ev.button_index = MOUSE_BUTTON_LEFT

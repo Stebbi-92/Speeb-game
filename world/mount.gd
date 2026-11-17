@@ -219,6 +219,9 @@ func _process(delta: float) -> void:
 		_speed = p.cur_speed
 	else:
 		_walk(delta)
+	if puppet or ridden:
+		_head.face_target = null
+		_head.rotation.y = lerp_angle(_head.rotation.y, 0.0, minf(1.0, delta * 3.0))   # eyes on the road
 	# The gait: legs swing faster and further the quicker it goes; the tail sways at rest
 	# A long, loping stride: the paws turn over about once and a half a second at full run
 	var k := clampf(_speed / 4.0, 0.0, 1.1)
@@ -260,11 +263,15 @@ func _walk(delta: float) -> void:
 		var step := want.normalized() * _speed * delta
 		var at := global_position + step
 		global_position = w.gpos(Vector2(at.x, at.z))
-	elif to_p.length() < 6.0 and not wild:
-		# It turns its head toward you when you are near
-		_head.face_target = p
-	else:
-		_head.face_target = null
+	# It turns its head toward you when you are near and still, as far as a neck goes, and looks
+	# ahead again otherwise (the turn is the body's own: before, it was taken as the world's, so the
+	# head spun right round or stayed staring off one way)
+	_head.face_target = null
+	var look := 0.0
+	if want.length() <= 0.1 and to_p.length() < 6.0 and not wild:
+		var lp: Vector3 = _body.global_transform.affine_inverse() * p.global_position
+		look = clampf(atan2(lp.x, lp.z), -1.1, 1.1)
+	_head.rotation.y = lerp_angle(_head.rotation.y, look, minf(1.0, delta * 3.0))
 
 
 ## Whistled for: far off, it comes running from just out of sight; near, it trots to you.

@@ -2,6 +2,15 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.13.1 to 0.13.3 (playtest fixes)
+
+- **Joining a fellowship:** the loading screen and bar stay up while the host's world comes over and is raised, so the game no longer hangs.
+- **Loading:** pictures of the waste behind the loading screen.
+- **Great ones** fight in set patterns you can learn, and change them when angered.
+- **Box cats** can be seen again; their packs are rarer and smaller in the first nights.
+- **Clear view:** snow, ash, rain and drifting motes vanish near your eye; the drifting lights are only in the marsh now.
+- **Fixes:** the pack's tabs answer clicks after a revelation, rugs no longer stop you mid-floor, built doors fill their doorway, town roofs sit the right way, mounts look forward, the auto pistol's magazine is solid, the sniper's iron sights no longer clip the bolt, and a red dot no longer shows through walls on another's gun.
+
 ## 0.13.0 (feel)
 
 - **The map** is black until you have been there, sea and isles too. Lit beacons show the land about 500 m around them.
