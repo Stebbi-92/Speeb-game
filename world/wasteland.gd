@@ -7675,6 +7675,7 @@ func debug_practice() -> void:
 		await get_tree().create_timer(1.0).timeout
 	var wpn = player.weapon
 	var g: String = wpn.gun()
+	skills.use[g] = 0   # earlier checks in the same world may have practised it already
 	var d0: float = wpn.spec().dmg
 	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.5, -3))
 	e.hp = 10000.0
