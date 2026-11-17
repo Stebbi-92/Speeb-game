@@ -342,6 +342,19 @@ func isle_heart(il: Dictionary) -> Vector2:
 
 
 ## Raises the isles: a height grid for each, then their ground and a shape to stand on.
+## An isle with its own photographed ground (Hrafnsey's moss and black gravel, Kalaja's dry limestone
+## hills) wears its own maps; the rest share the waste's.
+func isle_ground(il: Dictionary, m: Material) -> Material:
+	var dir := "res://assets/textures/ground/isles/%s/" % str(il.get("key", ""))
+	if not (m is ShaderMaterial) or not ResourceLoader.exists(dir + "ground_a.png"):
+		return m
+	var own := (m as ShaderMaterial).duplicate() as ShaderMaterial
+	for k in ["ground_a", "ground_b", "ground_n1", "ground_n2", "ground_n3", "ground_n4"]:
+		if ResourceLoader.exists(dir + k + ".png"):
+			own.set_shader_parameter(k, load(dir + k + ".png"))
+	return own
+
+
 func make_isles(m: Material) -> void:
 	for il in isles:
 		var rad: float = il.r
@@ -359,7 +372,7 @@ func make_isles(m: Material) -> void:
 	if m == null:
 		return
 	for il in isles:
-		_build_isle(il, m)
+		_build_isle(il, isle_ground(il, m))
 	# The sea bed, out past every isle, so nothing falls for ever
 	var floor_b := StaticBody3D.new()
 	floor_b.collision_layer = 1

@@ -6567,6 +6567,33 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid (with a screen): pictures of Hrafnsey's and Kalaja's own ground, and a check that
+## those isles wear their own maps.
+func debug_isleshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 13.0
+	_apply_time(true)
+	var own := 0
+	for il in terrain.isles:
+		if not str(il.key) in ["hrafn", "kala"]:
+			continue
+		var c: Vector2 = il.c
+		var d := (c.normalized() * -1.0)
+		var at := c + d * float(il.r) * 0.35
+		player.place(Vector3(at.x, terrain.height_at(at.x, at.y) + 1.0, at.y), atan2(-d.x, -d.y) + PI)
+		player.pitch = -0.25
+		await get_tree().create_timer(4.0).timeout
+		for ch in terrain.get_children():
+			if ch is MeshInstance3D and ch.material_override != _m.ground and ch.global_position.distance_to(Vector3(c.x, 0, c.y)) < 1.0e9:
+				own += 1
+				break
+		if DisplayServer.get_name() != "headless":
+			get_viewport().get_texture().get_image().save_png("user://isle_%s.png" % il.key)
+	print("ISLESHOT own=%d" % own)
+	get_tree().quit()
+
+
 ## Testing aid (with a screen): a picture of the flamethrower going.
 func debug_flameshot() -> void:
 	while not ready_world:
