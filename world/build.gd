@@ -563,12 +563,13 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 			_part(n, body, Vector3(1.2, 0.8, 0.3), Vector3(0, 2.6, 0), m.wood, is_ghost)
 		"door":
 			var hinge := Node3D.new()
-			hinge.position = Vector3(-0.52, 0, 0)
+			# Sized to the kit doorway's own opening (1.2 wide, 2.25 high), with a finger's gap round it
+			hinge.position = Vector3(-0.59, 0, 0)
 			n.add_child(hinge)
 			n.set_meta("hinge", hinge)
 			body.reparent(hinge, false)
-			_part(hinge, body, Vector3(1.04, 2.04, 0.12), Vector3(0.52, 1.02, 0), m.darkwood, is_ghost)
-			_part(hinge, null, Vector3(0.1, 0.1, 0.2), Vector3(0.9, 1.02, 0.08), m.iron, is_ghost)
+			_part(hinge, body, Vector3(1.18, 2.23, 0.12), Vector3(0.59, 1.115, 0), m.darkwood, is_ghost)
+			_part(hinge, null, Vector3(0.1, 0.1, 0.2), Vector3(1.03, 1.05, 0.08), m.iron, is_ghost)
 		"spikes":
 			_part(n, body, Vector3(2.8, 1.4, 0.8), Vector3(0, 0.7, 0), null, is_ghost)
 			for i in 6:

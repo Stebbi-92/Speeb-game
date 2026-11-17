@@ -874,7 +874,8 @@ func _tab_btn(t: String, on: bool, cb: Callable) -> Button:
 		sb.content_margin_bottom = 6
 		b.add_theme_stylebox_override(st, sb)
 	b.size_flags_vertical = Control.SIZE_SHRINK_END
-	b.pressed.connect(cb)
+	# Taken on the press itself, not the release: a screen drawn afresh between the two loses no click
+	b.button_down.connect(cb)
 	return b
 
 

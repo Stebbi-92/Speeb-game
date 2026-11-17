@@ -1095,6 +1095,8 @@ func show_loading(title: String, what := "The land is raised") -> void:
 	_load_pic.texture = _next_load_pic()
 	loading.visible = true
 	loading.modulate.a = 1.0
+	loading.mouse_filter = Control.MOUSE_FILTER_STOP
+	_load_hiding = false
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 
@@ -1159,7 +1161,10 @@ func _tick_loading(d: float) -> void:
 func hide_loading() -> void:
 	if not loading.visible:
 		return
-	var tw := create_tween()
+	# It lets clicks through at once, and is gone for good even if its fade is cut short
+	loading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_load_hiding = true
+	var tw := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.tween_property(loading, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(func(): loading.visible = false)
 
@@ -1521,9 +1526,13 @@ func toggle_codex() -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+var _load_hiding := false
+
 func _process(d: float) -> void:
 	if loading and loading.visible:
 		_tick_loading(d)
+		if _load_hiding and loading.modulate.a <= 0.02:
+			loading.visible = false
 	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused and not ads
 	_place_ticks(d)
 	if _hurt > 0.0:

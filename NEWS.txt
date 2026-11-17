@@ -4,6 +4,8 @@ Brelm alpha 0.13.3: clear view
 - The puffs a far form gives before its way are soft and round too.
 - A red dot sight's dot no longer shows through walls and trees on another pilgrim's gun.
 - Town roofs sit the right way: the ridge runs along the long side of the house.
+- Built doors fill their doorway.
+- The pack's tabs answer the click at once, and the faded loading screen no longer catches clicks after a world is raised.
 
 Brelm alpha 0.13.2: joining fix
 

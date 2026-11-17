@@ -12051,9 +12051,12 @@ func debug_benchtabs() -> void:
 		await get_tree().create_timer(1.0).timeout
 	ui.debug_bench = true
 	var start_tab := "arms"
+	var click := "Make"
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("tab="):
 			start_tab = a.substr(4)
+		if a.begins_with("click="):
+			click = a.substr(6)
 	ui.open_inventory(start_tab)
 	for f in 5:
 		await get_tree().process_frame
@@ -12066,7 +12069,7 @@ func debug_benchtabs() -> void:
 	# Click the Make tab as a mouse would
 	var btn: Button = null
 	for b in ui.find_children("*", "Button", true, false):
-		if (b as Button).text == "Make" and b.is_visible_in_tree():
+		if (b as Button).text == click and b.is_visible_in_tree():
 			btn = b
 			break
 	var at := btn.get_global_rect().get_center() if btn else Vector2.ZERO
