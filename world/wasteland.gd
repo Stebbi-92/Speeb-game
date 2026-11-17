@@ -4468,6 +4468,8 @@ func _apply_time(force: bool) -> void:
 	if air:
 		air.apply_env(env, day_k)
 	weather.apply_env(env, night_k)
+	# The hour, the land and the weather each thicken the haze; together they may not white it out
+	env.fog_density = minf(env.fog_density, FOG_CAP)
 	if _stars:
 		_stars.material_override.albedo_color.a = clampf(night_k * 1.5 - 0.3, 0.0, 1.0)
 		# Once the page is written, Speeb's gaze has left the waste: no stars
@@ -4480,6 +4482,9 @@ func _apply_time(force: bool) -> void:
 		env.ambient_light_energy = 0.05
 		env.fog_light_color = Color(0.01, 0.01, 0.015)
 		env.fog_density = 0.03
+
+
+const FOG_CAP := 0.028   ## the thickest the haze may get above ground (about 35 paces of sight)
 
 
 ## How many forms the night sends, and of what kind, grows with the nights survived.
@@ -6216,6 +6221,22 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: the marsh at night in an ash storm, the thickest haze there is, stays under the cap.
+func debug_fogcap() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var worst := 0.0
+	for c in [12.0, 23.0]:
+		clock = c
+		air.thick = 2.3
+		weather.kind = "ashstorm"
+		weather.k = 1.0
+		_apply_time(true)
+		worst = maxf(worst, env.fog_density)
+	print("FOGCAP worst=%.4f capped=%s" % [worst, worst <= FOG_CAP + 0.0001])
+	get_tree().quit()
 
 
 ## Testing aid: nothing on screen that cannot be seen catches the mouse.
