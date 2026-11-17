@@ -4009,8 +4009,10 @@ func _physics_process(delta: float) -> void:
 	_save_t -= delta
 	if _save_soon >= 0.0:
 		_save_soon -= delta
+	if _save_task >= 0 and WorkerThreadPool.is_task_completed(_save_task):
+		_save_wait()
 	if _save_t <= 0.0 or (_save_soon >= 0.0 and _save_soon <= 0.0):
-		save_all()
+		save_all(true)
 	if _char_soon >= 0.0:
 		_char_soon -= delta
 		if _char_soon < 0.0:
@@ -4090,6 +4092,7 @@ func save_char_now() -> void:
 	_char_soon = -1.0
 	if world_uid == "" or not is_instance_valid(player) or Net.dedicated or _pfail:
 		return
+	_save_wait()
 	DirAccess.make_dir_recursive_absolute("user://wasteland")
 	Game.write_safe(_char_path(), var_to_str(char_data()))
 
@@ -5683,19 +5686,52 @@ func _load_character() -> void:
 
 ## Keeps the world (if this is the host) and this survivor's own character.
 ## Both are written crash-safe, with the previous save kept as a backup.
-func save_all() -> void:
+## Keeps the world and this pilgrim. In the background (an autosave), what is kept is gathered
+## now, and turned to text and written on a worker thread, so play does not stop for it. Leaving
+## and closing save at once, after any save still being written has finished.
+func save_all(background := false) -> void:
 	# This also runs from _exit_tree, after the player has already left the tree; its data is still good
 	if world_uid == "" or not is_instance_valid(player):
 		return
+	_save_wait()
 	DirAccess.make_dir_recursive_absolute("user://wasteland")
-	var ok := true
+	var jobs: Array = []
 	if _owns_world:
-		ok = Game.write_safe(world_path(slot), var_to_str(world_data())) and ok
+		jobs.append([world_path(slot), world_data().duplicate(true)])
 	if not Net.dedicated and not _pfail:
-		ok = Game.write_safe(_char_path(), var_to_str(char_data())) and ok
+		jobs.append([_char_path(), char_data().duplicate(true)])
 	_save_t = _save_every()
 	_save_soon = -1.0
 	_last_save = Time.get_ticks_msec()
+	if background:
+		_save_task = WorkerThreadPool.add_task(_write_jobs.bind(jobs, true), false, "Brelm autosave")
+	else:
+		_write_jobs(jobs, false)
+
+
+var _save_task := -1
+
+
+## Waits for a save being written in the background, if there is one.
+func _save_wait() -> void:
+	if _save_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_save_task)
+		_save_task = -1
+
+
+func _write_jobs(jobs: Array, threaded: bool) -> void:
+	var ok := true
+	for j in jobs:
+		ok = Game.write_safe(j[0], var_to_str(j[1])) and ok
+	if threaded:
+		_saved.call_deferred(ok)
+	else:
+		_saved(ok)
+
+
+func _saved(ok: bool) -> void:
+	if not is_instance_valid(self):
+		return
 	if is_instance_valid(ui) and ui.is_inside_tree() and not Net.dedicated:
 		ui.saved_mark(ok)
 	if not ok:
@@ -5721,7 +5757,7 @@ func _notification(what: int) -> void:
 		NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Alt-tabbing away: keep things, but not more than once every 20 seconds
 			if ready_world and Time.get_ticks_msec() - _last_save > 20000:
-				save_all()
+				save_all(true)
 
 
 ## A short line for the title screen's list of worlds.
@@ -6180,6 +6216,27 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: an autosave is written in the background, and the save it leaves reads back whole.
+func debug_bgsave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	day = 77
+	var t0 := Time.get_ticks_usec()
+	save_all(true)
+	var bg_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	t0 = Time.get_ticks_usec()
+	_save_wait()
+	var wr_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	var d = Game.read_var_safe(world_path(slot))
+	var back: bool = d is Dictionary and int(d.get("day", -1)) == 77
+	day = 78
+	save_all(true)
+	save_all()   # a save at once waits for the one in the background
+	d = Game.read_var_safe(world_path(slot))
+	print("BGSAVE back=%s after=%s call_ms=%.1f write_ms=%.1f" % [back, d is Dictionary and int(d.get("day", -1)) == 78, bg_ms, wr_ms])
+	get_tree().quit()
 
 
 ## Testing aid: a swarm of spat bolts shares one look, and only a few carry a light.
