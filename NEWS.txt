@@ -1,3 +1,8 @@
+Brelm alpha 0.13.2: joining fix
+
+- Joining a fellowship: the loading screen and its bar stay up while the host's world comes over and is raised, a step at a time, so the game no longer hangs.
+- Snow, ash and rain fade near your eye and dim at night, so no white flashes fill the view.
+
 Brelm alpha 0.13.1: playtest fixes
 
 - Box cats can be seen again.

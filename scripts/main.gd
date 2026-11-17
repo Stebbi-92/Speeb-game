@@ -234,6 +234,11 @@ func start_level(i: int, from_net := false) -> void:
 	await _swap(script.new())
 	while is_instance_valid(level) and level.get("raising"):
 		await get_tree().process_frame
+	# One joining a fellowship: the loading screen stays up till the host's world has come and been raised
+	var wait := 0.0
+	while is_instance_valid(level) and level.get("snap_wait") and wait < 240.0:
+		await get_tree().process_frame
+		wait += get_process_delta_time()
 	if hud.loading.visible:
 		# Let the land settle a moment behind the screen, then lift it
 		await get_tree().create_timer(0.4).timeout

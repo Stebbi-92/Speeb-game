@@ -158,6 +158,7 @@ func build() -> void:
 		await _make_world(sd, int(_pending.get("gen", 1)) if not _pending.is_empty() else GEN, true)
 	else:
 		spawn_pos = Vector3(0, 400, 0)
+		snap_wait = true   # the host's world is still to come
 	ambient("wind", -10)
 	_beds = {"night": ambient("amb_desert_night", -60), "town": ambient("amb_town", -60), "cave": ambient("amb_cave", -60),
 		"forest": ambient("amb_forest", -60), "birds": ambient("amb_birds", -60), "crickets": ambient("amb_crickets", -60),
@@ -290,9 +291,11 @@ func _step(what: String, at := -1.0) -> void:
 
 
 ## How far the raising has got, 0 to 1, for the loading screen's bar.
+var _prog_from := 0.0   ## a newcomer's bar has already come this far while the world was sent
+
 func _progress(f: float) -> void:
 	if _steps and f >= 0.0 and hud:
-		hud.set_loading_progress(f)
+		hud.set_loading_progress(_prog_from + (1.0 - _prog_from) * f)
 
 
 func intro() -> void:
@@ -420,7 +423,7 @@ var _ground_laid := false
 func _process(delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
-	if terrain and player and not Net.dedicated:
+	if terrain and player and not Net.dedicated and not _steps:
 		# The ground about the eye: all at once the first time, then a little at a time as it moves
 		var cam := get_viewport().get_camera_3d()
 		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
@@ -5936,7 +5939,11 @@ func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
 	if i < 0 or i >= n:
 		return
 	_snap_parts[i] = part
-	if hud and n > 4:
+	if hud and hud.loading.visible:
+		# The newcomer's loading screen stays up: first the world comes over, then it is raised here
+		hud.set_loading("The world is sent")
+		hud.set_loading_progress(0.25 * (i + 1) / n)
+	elif hud and n > 4:
 		hud.set_banner("", "The waste is taking shape  %d%%" % int(100.0 * (i + 1) / n))
 	for p in _snap_parts:
 		if p == null:
@@ -5951,7 +5958,7 @@ func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
 	if not (d is Dictionary):
 		push_warning("Wasteland: the world sent could not be read")
 		return
-	_w_snapshot(d)
+	await _w_snapshot(d)
 	snap_wait = false
 	var q := snap_queue
 	snap_queue = []
@@ -5962,7 +5969,10 @@ func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
 
 func _w_snapshot(d: Dictionary) -> void:
 	if terrain == null:
-		_make_world(int(d.get("seed", 1771)), int(d.get("gen", 1)))
+		# Raised a step at a time, as the host's was, so the window never hangs and the bar moves on
+		_prog_from = 0.25
+		await _make_world(int(d.get("seed", 1771)), int(d.get("gen", 1)), not Net.dedicated)
+		_prog_from = 0.0
 		player.place(spawn_pos, spawn_yaw)
 	apply_world(d)
 	ready_world = true
