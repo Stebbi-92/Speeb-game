@@ -7256,8 +7256,10 @@ func debug_pace() -> void:
 	for v in 3:
 		var r := rules.duplicate()
 		r["pace"] = v
-		r.erase("vow_hunted")   # an earlier check may have sworn it, and it names every night
+		# An earlier check may have sworn the Hunted vow (it names every night), and set_rules keeps vows
+		rules["vow_hunted"] = 0
 		set_rules(r)
+		Game.wrules["vow_hunted"] = 0
 		var named := 0
 		for n in range(3, 60):
 			if night_theme_for(n) != "":
