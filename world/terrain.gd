@@ -210,8 +210,12 @@ func legacy_raw(x: float, z: float) -> float:
 var steps := false   ## when true, generate() and build() give up a frame now and then so the window keeps drawing
 
 
-func _breathe() -> void:
+var on_progress := Callable()   ## told how far generate() or build() has got, 0 to 1
+
+func _breathe(f := -1.0) -> void:
 	if steps:
+		if f >= 0.0 and on_progress.is_valid():
+			on_progress.call(f)
 		await (Engine.get_main_loop() as SceneTree).process_frame
 
 
@@ -221,7 +225,7 @@ func generate() -> void:
 	var half := N * CELL * 0.5
 	for j in w:
 		if j % 64 == 63:
-			await _breathe()
+			await _breathe(float(j) / w)
 		var z := -half + j * CELL
 		for i in w:
 			h[j * w + i] = _raw(-half + i * CELL, z)
@@ -532,7 +536,7 @@ func build(m: Material) -> void:
 	var half := N * CELL * 0.5
 	var chunks := N / CHUNK
 	for cj in chunks:
-		await _breathe()
+		await _breathe(float(cj) / chunks)
 		for ci in chunks:
 			var verts := PackedVector3Array()
 			var norms := PackedVector3Array()

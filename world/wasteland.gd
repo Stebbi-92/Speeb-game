@@ -198,15 +198,18 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		terrain.add_road(rd[2])
 	for k in WPlaces.SETTLEMENTS:
 		_town_paths(k)
-	await _step("The land is raised")
+	await _step("The land is raised", 0.02)
 	terrain.steps = steps
+	terrain.on_progress = func(f: float): _progress(0.02 + 0.19 * f)
 	await terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
 	for l in lairs:
 		l.pos.y = terrain.height_at(l.pos.x, l.pos.z)
-	await _step("The ground is laid")
+	await _step("The ground is laid", 0.21)
+	terrain.on_progress = func(f: float): _progress(0.21 + 0.25 * f)
 	await terrain.build(_m.ground)
+	terrain.on_progress = Callable()
 	terrain.steps = false
 	terrain.make_isles(_m.ground)
 	add_child(terrain)
@@ -216,33 +219,36 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
-	await _step("The sea is poured")
+	await _step("The sea is poured", 0.46)
 	sea = WSea.new().setup(self)
 	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
-		await _step("The towns are built")
+		await _step("The towns are built", 0.46 + 0.12 * WPlaces.SETTLEMENTS.keys().find(k) / WPlaces.SETTLEMENTS.size())
 		var s0 := get_child_count()
 		_build_settlement(k)
 		_batch_since(s0)
-	await _step("The ruins are set")
+	await _step("The ruins are set", 0.58)
 	for i in WPlaces.BEACONS.size():
 		_build_beacon(i)
 	var before := get_child_count()
 	for r in ruins:
 		if ruins.find(r) % 6 == 5:
-			await _step("The ruins are set")
+			await _step("The ruins are set", 0.59 + 0.21 * ruins.find(r) / ruins.size())
 		var r0 := get_child_count()
 		_build_ruin(r)
 		_batch_since(r0)
 	for i in range(before, get_child_count()):
 		_fade_far(get_child(i), 700.0)
-	await _step("The lairs are dug")
+	await _step("The lairs are dug", 0.80)
 	for l in lairs:
 		_build_lair(l)
+	await _step("Stores are hidden", 0.83)
 	_scatter_nodes()
+	await _step("Stores are hidden", 0.87)
 	_scatter_isle_nodes()
+	await _step("Stores are hidden", 0.90)
 	_scatter_ammo()
-	await _step("The isles wake")
+	await _step("The isles wake", 0.92)
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
 	add_child(life)
@@ -250,11 +256,13 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	for nd in nodes:
 		_off_the_road(nd)
 		_fade_far(nd.node, 420.0)
-	await _step("The waste is dressed")
+	await _step("The waste is dressed", 0.93)
 	_build_signposts()
+	await _step("The waste is dressed", 0.94)
 	_scatter_decor()
+	await _step("The waste is dressed", 0.96)
 	WDress.cover(self)
-	await _step("The halls are opened")
+	await _step("The halls are opened", 0.98)
 	hall = WHall.new(self)
 	hall.build()
 	deep = WDeep.new(self)
@@ -265,18 +273,26 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	_scatter_landmarks()
 	spawn_pos = gpos(WPlaces.start) + Vector3(0, 0.2, 0)
 	spawn_yaw = yaw_to(spawn_pos, gpos(WPlaces.spos("cinderwick")))
+	_progress(1.0)
 	_steps = false
 
 
 var _steps := false
 ## Between the great works of raising the waste: the loading words move on and a frame is drawn,
 ## so the window never hangs still. Only on the host's own raising (the level waits for it).
-func _step(what: String) -> void:
+func _step(what: String, at := -1.0) -> void:
 	if not _steps:
 		return
 	if hud:
 		hud.set_loading(what)
+	_progress(at)
 	await get_tree().process_frame
+
+
+## How far the raising has got, 0 to 1, for the loading screen's bar.
+func _progress(f: float) -> void:
+	if _steps and f >= 0.0 and hud:
+		hud.set_loading_progress(f)
 
 
 func intro() -> void:

@@ -636,6 +636,8 @@ class ScopeView extends Control:
 	var breath := 1.0           ## the held breath left (1 = full); shown as a thin arc below
 
 	func _process(d: float) -> void:
+	if loading and loading.visible:
+		_tick_loading(d)
 		if not visible:
 			return
 		shift = shift.lerp(Vector2.ZERO, minf(1.0, d * 9.0))
@@ -969,6 +971,11 @@ var _load_title: Label
 var _load_tip: Label
 var _load_dots: Label
 var _load_t := 0.0
+var _load_bar: ColorRect     ## the filled part of the loading bar
+var _load_frame: Control
+var _load_goal := 0.0
+var _load_shown := 0.0
+var _load_tips: Array = []
 
 ## Things worth knowing, shown while a land is raised. Short and plain.
 const TIPS := [
@@ -986,6 +993,11 @@ const TIPS := [
 	"Eat and sleep at camp, or hunger and weariness wear you down.",
 	"Lie down by a fire together to skip the night.",
 	"Name your chests to tell your stores apart.",
+	"Light a beacon to see the land around it on your map.",
+	"The map shows only what you have seen.",
+	"Heavy bullets drop less over a long shot.",
+	"Listen. Many forms give a sound before they strike.",
+	"A shotgun is loaded one shell at a time.",
 ]
 
 
@@ -1025,13 +1037,33 @@ func _build_loading() -> void:
 	_load_dots.position.y -= 70
 	_load_dots.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	loading.add_child(_load_dots)
+	# The bar: a thin gold line that fills as the land is raised
+	_load_frame = ColorRect.new()
+	(_load_frame as ColorRect).color = Color(GOLD, 0.12)
+	_load_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_load_frame.size = Vector2(420, 3)
+	_load_frame.position = Vector2(-210, -40)
+	_load_frame.visible = false
+	loading.add_child(_load_frame)
+	_load_bar = ColorRect.new()
+	_load_bar.color = Color(GOLD, 0.8)
+	_load_bar.size = Vector2(0, 3)
+	_load_frame.add_child(_load_bar)
 
 
 ## Shows the loading screen and waits until it is really on the screen, so the work that follows
 ## (which may hold the game still for a while) happens behind it rather than behind a black window.
 func show_loading(title: String, what := "The land is raised") -> void:
 	_load_title.text = title
-	_load_tip.text = TIPS[randi() % TIPS.size()]
+	_load_tips = TIPS.duplicate()
+	_load_tips.shuffle()
+	_load_tip.text = _load_tips.pop_back()
+	_load_tip.modulate.a = 1.0
+	_load_t = 0.0
+	_load_goal = 0.0
+	_load_shown = 0.0
+	_load_bar.size.x = 0.0
+	_load_frame.visible = false
 	_load_dots.text = what + "..."
 	_load_dots.set_meta("what", what)
 	loading.visible = true
@@ -1044,6 +1076,33 @@ func set_loading(what: String) -> void:
 	if loading.visible:
 		_load_dots.text = what + "..."
 		_load_dots.set_meta("what", what)
+
+
+## How far the loading has got, 0 to 1. The bar shows only for work that reports it.
+func set_loading_progress(f: float) -> void:
+	_load_frame.visible = true
+	_load_goal = maxf(_load_goal, clampf(f, 0.0, 1.0))
+
+
+## While the loading screen is up: the bar eases toward where the work has got, and a new hint
+## comes every few seconds, so it is plain the game is still at work.
+func _tick_loading(d: float) -> void:
+	_load_shown = move_toward(_load_shown, _load_goal, d * maxf(0.25, (_load_goal - _load_shown) * 4.0))
+	_load_bar.size.x = _load_frame.size.x * _load_shown
+	_load_t += d
+	const EVERY := 6.0
+	var into := fmod(_load_t, EVERY)
+	if into > EVERY - 0.4:
+		_load_tip.modulate.a = (EVERY - into) / 0.4
+	elif into < 0.4:
+		_load_tip.modulate.a = into / 0.4
+	else:
+		_load_tip.modulate.a = 1.0
+	if _load_t >= EVERY and int(_load_t / EVERY) != int((_load_t - d) / EVERY):
+		if _load_tips.is_empty():
+			_load_tips = TIPS.duplicate()
+			_load_tips.shuffle()
+		_load_tip.text = _load_tips.pop_back()
 
 
 func hide_loading() -> void:
