@@ -6502,6 +6502,75 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: with the mouse, a click on a chest slot moves it to the pack, and a drag from the
+## pack onto the chest moves it back.
+func debug_slotdrag() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var cid := "ptest"
+	containers[cid] = [["salt", 40], null, null, null]
+	for i in inv.slots.size():
+		if inv.slots[i] != null and inv.slots[i].id == "salt":
+			inv.slots[i] = null
+	inv.changed.emit()
+	ui.open_container(cid)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var grids: Array = ui._body.find_children("*", "GridContainer", true, false)
+	var chest_g: GridContainer = grids[0]
+	var pack_g: GridContainer = grids[1]
+	var vp := get_viewport()
+	var press := func(at: Vector2, down: bool):
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = down
+		ev.button_mask = MOUSE_BUTTON_MASK_LEFT if down else 0
+		ev.position = at
+		ev.global_position = at
+		vp.push_input(ev, true)
+	var move := func(at: Vector2, held: bool):
+		var ev := InputEventMouseMotion.new()
+		ev.position = at
+		ev.global_position = at
+		ev.button_mask = MOUSE_BUTTON_MASK_LEFT if held else 0
+		vp.push_input(ev, true)
+	var c0: Vector2 = (chest_g.get_child(0) as Control).get_global_rect().get_center()
+	move.call(c0, false)
+	await get_tree().process_frame
+	press.call(c0, true)
+	await get_tree().process_frame
+	press.call(c0, false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var clicked: bool = inv.count("salt") == 40 and containers[cid][0] == null
+	await get_tree().process_frame
+	grids = ui._body.find_children("*", "GridContainer", true, false)
+	chest_g = grids[0]
+	pack_g = grids[1]
+	var from := -1
+	for i in inv.slots.size():
+		if inv.slots[i] != null and inv.slots[i].id == "salt":
+			from = i
+	var p0: Vector2 = (pack_g.get_child(from) as Control).get_global_rect().get_center()
+	var t0: Vector2 = (chest_g.get_child(2) as Control).get_global_rect().get_center()
+	move.call(p0, false)
+	await get_tree().process_frame
+	press.call(p0, true)
+	await get_tree().process_frame
+	for k in 8:
+		move.call(p0.lerp(t0, (k + 1) / 8.0), true)
+		await get_tree().process_frame
+	press.call(t0, false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var back := 0
+	for it in containers[cid]:
+		if it != null and it[0] == "salt":
+			back += int(it[1])
+	print("SLOTDRAG clicked=%s dragged=%s" % [clicked, back == 40 and inv.count("salt") == 0])
+	get_tree().quit()
+
+
 ## Testing aid: while building, the pack key opens the pieces at the group of the piece in hand.
 func debug_buildmenu() -> void:
 	while not ready_world:

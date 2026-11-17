@@ -98,6 +98,7 @@ check ember      debug_ember    "EMBER alone_refused=true carrying=true kindling
 check cooklist   debug_cooklist "COOKLIST pot=[1-9][0-9]* bench=[0-9]+ odd=0"
 check split      debug_split    "SPLIT half=true one=true all=true"
 check buildmenu  debug_buildmenu "BUILDMENU open=true tab=build group=true"
+check slotdrag   debug_slotdrag "SLOTDRAG clicked=true dragged=true"
 check raidcamp   debug_raidcamp "CAMP dug=true foes=([6-9]|1[0-9]) broken=true paid=true"
 check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=true"
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"

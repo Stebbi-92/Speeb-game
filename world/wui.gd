@@ -1969,11 +1969,43 @@ func _slot_grid(bag: Inventory, cb: Callable, cols := 6, sel := -1, kinds: Array
 		b.add_theme_stylebox_override("hover", hs)
 		b.add_theme_stylebox_override("pressed", hs)
 		var idx := i
+		# A right click acts at once; a left click acts when it lets go, so a press can become a drag
 		b.gui_input.connect(func(ev):
-			if ev is InputEventMouseButton and ev.pressed and ev.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-				cb.call(idx, ev.button_index == MOUSE_BUTTON_RIGHT or ev.shift_pressed))
+			if not ev is InputEventMouseButton:
+				return
+			if ev.pressed and ev.button_index == MOUSE_BUTTON_RIGHT:
+				cb.call(idx, true)
+			elif ev.button_index == MOUSE_BUTTON_LEFT:
+				if ev.pressed:
+					b.set_meta("down", true)
+				elif b.get_meta("down", false):
+					b.set_meta("down", false)
+					cb.call(idx, ev.shift_pressed))
+		# Drag a thing onto the other side to move it there, or onto another place in the pack to swap
+		b.set_drag_forwarding(func(_at):
+			if bag.slots[idx] == null:
+				return null
+			b.set_meta("down", false)
+			var pv := WGlyph.make(bag.slots[idx].id, 56, false)
+			pv.size = Vector2(56, 56)
+			b.set_drag_preview(pv)
+			return {"slot_drag": true, "grid": g.get_instance_id(), "i": idx, "cb": cb},
+			func(_at, d): return d is Dictionary and d.has("slot_drag"),
+			func(_at, d): _slot_dropped(d, g, bag, idx))
 		g.add_child(b)
 	return g
+
+
+func _slot_dropped(d: Dictionary, g: GridContainer, bag: Inventory, to: int) -> void:
+	if int(d.grid) == g.get_instance_id():
+		# Within one grid: the pack's places swap
+		if bag == w.inv and int(d.i) != to:
+			var a = w.inv.slots[int(d.i)]
+			w.inv.slots[int(d.i)] = w.inv.slots[to]
+			w.inv.slots[to] = a
+			w.inv.changed.emit()
+		return
+	(d.cb as Callable).call(int(d.i), false)
 
 
 func _pack_click(i: int, right: bool) -> void:
