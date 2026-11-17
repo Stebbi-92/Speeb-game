@@ -528,55 +528,9 @@ func _vcolor(x: float, z: float, y: float, n: Vector3, w := PackedFloat32Array()
 
 ## Builds the visible ground in chunks, and one shape to stand on.
 func build(m: Material) -> void:
+	# The ground is no longer drawn all at once: stream_to() lays tiles about the eye, fine near and coarse far
+	_ground_m = m
 	var w := N + 1
-	var half := N * CELL * 0.5
-	var chunks := N / CHUNK
-	for cj in chunks:
-		await _breathe()
-		for ci in chunks:
-			var verts := PackedVector3Array()
-			var norms := PackedVector3Array()
-			var cols := PackedColorArray()
-			var c0 := PackedByteArray()
-			var c1 := PackedByteArray()
-			var idx := PackedInt32Array()
-			var cw := CHUNK + 1
-			for j in cw:
-				for i in cw:
-					var gi := ci * CHUNK + i
-					var gj := cj * CHUNK + j
-					var x := -half + gi * CELL
-					var z := -half + gj * CELL
-					var y := h[gj * w + gi]
-					var l := h[gj * w + maxi(gi - 1, 0)]
-					var r := h[gj * w + mini(gi + 1, N)]
-					var u := h[maxi(gj - 1, 0) * w + gi]
-					var d := h[mini(gj + 1, N) * w + gi]
-					var n := Vector3(l - r, 2.0 * CELL, u - d).normalized()
-					verts.append(Vector3(x, y, z))
-					norms.append(n)
-					var wt := weights(x, z)
-					cols.append(_vcolor(x, z, y, n, wt))
-					_land_bytes(c0, c1, wt, road_at(x, z))
-			for j in CHUNK:
-				for i in CHUNK:
-					var a := j * cw + i
-					idx.append_array([a, a + 1, a + cw, a + 1, a + cw + 1, a + cw])
-			var arr := []
-			arr.resize(Mesh.ARRAY_MAX)
-			arr[Mesh.ARRAY_VERTEX] = verts
-			arr[Mesh.ARRAY_NORMAL] = norms
-			arr[Mesh.ARRAY_COLOR] = cols
-			arr[Mesh.ARRAY_INDEX] = idx
-			arr[Mesh.ARRAY_CUSTOM0] = c0
-			arr[Mesh.ARRAY_CUSTOM1] = c1
-			var am := ArrayMesh.new()
-			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, LAND_FORMAT)
-			var mi := MeshInstance3D.new()
-			mi.mesh = am
-			mi.material_override = m
-			mi.visibility_range_end = 1100.0
-			add_child(mi)
 	var sb := StaticBody3D.new()
 	sb.collision_layer = 1
 	sb.set_meta("ground", true)
@@ -594,6 +548,164 @@ func build(m: Material) -> void:
 	cs.scale = Vector3.ONE * CELL
 	sb.add_child(cs)
 	add_child(sb)
+
+
+# ------------------------------------------------------------------ the ground, streamed
+
+const TILE_CELLS := 64                ## a tile of ground is 64 cells (256 m) square
+const NEAR_R := 420.0                 ## within this the ground is drawn in full
+const FAR_R := 1250.0                 ## out to this, in one cell in four; past it, not at all
+const COARSE := 4
+var _ground_m: Material
+var _tiles := {}       ## Vector2i -> {"lod": int, "node": MeshInstance3D}
+var _jobs := {}        ## Vector2i -> {"lod": int, "task": int, "out": Array}
+static var tiles_built := 0
+
+
+## Lays the ground about p: tiles near in full, further ones coarse, the furthest let go. With now,
+## all at once (at the start); else a few at a time, made on worker threads.
+func stream_to(p: Vector3, now := false) -> void:
+	if _ground_m == null:
+		return
+	var size := TILE_CELLS * CELL
+	var half := N * CELL * 0.5
+	var tn := N / TILE_CELLS
+	var want := {}
+	var r := int(ceil(FAR_R / size)) + 1
+	var pi := int((p.x + half) / size)
+	var pj := int((p.z + half) / size)
+	for tj in range(maxi(0, pj - r), mini(tn, pj + r + 1)):
+		for ti in range(maxi(0, pi - r), mini(tn, pi + r + 1)):
+			var x0 := -half + ti * size
+			var z0 := -half + tj * size
+			var cx := clampf(p.x, x0, x0 + size)
+			var cz := clampf(p.z, z0, z0 + size)
+			var d := Vector2(p.x - cx, p.z - cz).length()
+			if d < NEAR_R:
+				want[Vector2i(ti, tj)] = 0
+			elif d < FAR_R:
+				want[Vector2i(ti, tj)] = 1
+	# Let go what is too far
+	for k in _tiles.keys():
+		if not want.has(k):
+			(_tiles[k].node as Node).queue_free()
+			_tiles.erase(k)
+	# Finish what the workers have made
+	for k in _jobs.keys():
+		var jb: Dictionary = _jobs[k]
+		if now or WorkerThreadPool.is_task_completed(jb.task):
+			WorkerThreadPool.wait_for_task_completion(jb.task)
+			_jobs.erase(k)
+			if want.get(k, -1) == jb.lod:
+				_place_tile(k, jb.lod, jb.out)
+	# Ask for what is missing, nearest first
+	var need: Array = []
+	for k in want:
+		var have: int = _tiles[k].lod if _tiles.has(k) else -1
+		if have != want[k] and not _jobs.has(k):
+			need.append(k)
+	var at := Vector2(pi, pj)
+	need.sort_custom(func(a, b): return Vector2(a).distance_squared_to(at) < Vector2(b).distance_squared_to(at))
+	var budget := need.size() if now else 2
+	for k in need.slice(0, budget):
+		var lod: int = want[k]
+		if now:
+			var out: Array = []
+			_tile_arrays(k, lod, out)
+			_place_tile(k, lod, out)
+		else:
+			var out: Array = []
+			var task := WorkerThreadPool.add_task(_tile_arrays.bind(k, lod, out))
+			_jobs[k] = {"lod": lod, "task": task, "out": out}
+
+
+func _place_tile(k: Vector2i, lod: int, out: Array) -> void:
+	if out.is_empty():
+		return
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0], [], {}, LAND_FORMAT)
+	var mi := MeshInstance3D.new()
+	mi.mesh = am
+	mi.material_override = _ground_m
+	add_child(mi)
+	if _tiles.has(k):
+		(_tiles[k].node as Node).queue_free()
+	_tiles[k] = {"lod": lod, "node": mi}
+	tiles_built += 1
+
+
+## One tile's ground as mesh arrays (safe on a worker: it only reads). A skirt hangs from its edges
+## so a coarse tile beside a fine one shows no crack.
+func _tile_arrays(k: Vector2i, lod: int, out: Array) -> void:
+	var step := 1 if lod == 0 else COARSE
+	var w := N + 1
+	var half := N * CELL * 0.5
+	var n := TILE_CELLS / step
+	var cw := n + 1
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var cols := PackedColorArray()
+	var c0 := PackedByteArray()
+	var c1 := PackedByteArray()
+	var idx := PackedInt32Array()
+	for j in cw:
+		for i in cw:
+			var gi := k.x * TILE_CELLS + i * step
+			var gj := k.y * TILE_CELLS + j * step
+			var x := -half + gi * CELL
+			var z := -half + gj * CELL
+			var y := h[gj * w + gi]
+			var l := h[gj * w + maxi(gi - step, 0)]
+			var r := h[gj * w + mini(gi + step, N)]
+			var u := h[maxi(gj - step, 0) * w + gi]
+			var d := h[mini(gj + step, N) * w + gi]
+			var nn := Vector3(l - r, 2.0 * CELL * step, u - d).normalized()
+			verts.append(Vector3(x, y, z))
+			norms.append(nn)
+			var wt := weights(x, z)
+			cols.append(_vcolor(x, z, y, nn, wt))
+			_land_bytes(c0, c1, wt, road_at(x, z))
+	for j in n:
+		for i in n:
+			var a := j * cw + i
+			idx.append_array([a, a + 1, a + cw, a + 1, a + cw + 1, a + cw])
+	# The skirt: each edge's points again, a little below, joined down
+	var edges := [[], [], [], []]
+	for t in cw:
+		edges[0].append(t)                    # north, west to east
+		edges[1].append(n * cw + (n - t))     # south, east to west
+		edges[2].append((n - t) * cw)         # west, south to north
+		edges[3].append(t * cw + n)           # east, north to south
+	var drop := 3.0 * step
+	for e in edges:
+		var base := verts.size()
+		for vi in e:
+			verts.append(verts[vi] - Vector3(0, drop, 0))
+			norms.append(norms[vi])
+			cols.append(cols[vi])
+			c0.append_array(c0.slice(vi * 4, vi * 4 + 4))
+			c1.append_array(c1.slice(vi * 4, vi * 4 + 4))
+		for t in e.size() - 1:
+			var a: int = e[t]
+			var b: int = e[t + 1]
+			# Both faces, so it shows from either side whichever way the edge runs
+			idx.append_array([a, base + t, b, b, base + t, base + t + 1, a, b, base + t, b, base + t + 1, base + t])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_INDEX] = idx
+	arr[Mesh.ARRAY_CUSTOM0] = c0
+	arr[Mesh.ARRAY_CUSTOM1] = c1
+	out.append(arr)
+
+
+func tiles_now() -> Dictionary:
+	var c := {0: 0, 1: 0}
+	for k in _tiles:
+		c[_tiles[k].lod] += 1
+	return c
 
 
 ## The whole waste drawn from above, for the map: shaded relief in the land's own colours.

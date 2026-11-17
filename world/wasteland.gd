@@ -399,9 +399,16 @@ var _beds := {}   ## the sound of places: night, town and cave, faded in and out
 var _bed_t := 0.0
 
 
+var _ground_laid := false
+
 func _process(delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
+	if terrain and player and not Net.dedicated:
+		# The ground about the eye: all at once the first time, then a little at a time as it moves
+		var cam := get_viewport().get_camera_3d()
+		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
+		_ground_laid = true
 	if player and hud and not Net.dedicated:
 		_stuck_tick(delta)
 		_boss_watch()
