@@ -975,6 +975,8 @@ var _load_goal := 0.0
 var _load_shown := 0.0
 var _load_since := 0.0
 var _load_tips: Array = []
+var _load_pic: TextureRect   ## a view of the waste behind the loading screen, a new one each time
+static var _load_pic_last := -1
 
 ## Things worth knowing, shown while a land is raised. Short and plain.
 const TIPS := [
@@ -1011,6 +1013,30 @@ func _build_loading() -> void:
 	top.layer = 100
 	add_child(top)
 	top.add_child(loading)
+	_load_pic = TextureRect.new()
+	_load_pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_load_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_load_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_load_pic.modulate = Color(0.5, 0.47, 0.44)
+	_load_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loading.add_child(_load_pic)
+	# Darker toward the middle and the foot, so the words stand clear of the picture
+	var shade := TextureRect.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	grad.colors = PackedColorArray([Color(0, 0, 0, 0.15), Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.85)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0.5, 0.0)
+	gt.fill_to = Vector2(0.5, 1.0)
+	gt.width = 4
+	gt.height = 256
+	shade.texture = gt
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	loading.add_child(shade)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1066,10 +1092,29 @@ func show_loading(title: String, what := "The land is raised") -> void:
 	_load_frame.visible = false
 	_load_dots.text = what + "..."
 	_load_dots.set_meta("what", what)
+	_load_pic.texture = _next_load_pic()
 	loading.visible = true
 	loading.modulate.a = 1.0
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+
+
+## The pictures of the waste shown behind the loading screen (taken in the game), one each time it is up.
+const LOAD_PICS := ["res://assets/textures/loading/vista_0.jpg", "res://assets/textures/loading/vista_1.jpg",
+	"res://assets/textures/loading/vista_2.jpg", "res://assets/textures/loading/vista_3.jpg",
+	"res://assets/textures/loading/vista_4.jpg", "res://assets/textures/loading/vista_5.jpg",
+	"res://assets/textures/loading/vista_6.jpg", "res://assets/textures/loading/vista_7.jpg"]
+
+
+func _next_load_pic() -> Texture2D:
+	var have: Array = LOAD_PICS.filter(func(p): return ResourceLoader.exists(p))
+	if have.is_empty():
+		return null
+	if _load_pic_last < 0:
+		_load_pic_last = randi() % have.size()
+	else:
+		_load_pic_last = (_load_pic_last + 1) % have.size()
+	return load(have[_load_pic_last])
 
 
 func set_loading(what: String) -> void:

@@ -1,50 +1,26 @@
-Brelm alpha 0.12.0: The Road
+Brelm alpha 0.13.0: Feel
 
-Always a next goal
-- Red smoke rises over dead beacons and dark smoke over lairs that wait. "What now" at the top of the journal names the next goal, what is near, and how to grow.
-- Each beacon you light gives a gift: choose one of three boons. It also shows the next dark beacon and the next land's lair on the horizon.
-- Beacon steps show the next small goal. Vows can be sworn when a world begins (Glass, Hunted, Tithe).
-- Waking from a fall shows the nearest lair or ruin you have not found.
-- Guiding embers drift toward the goal you track now and then (toggle in Settings).
+The map
+- The map starts black. You see only the land you have walked, and a lit beacon shows the land for about 500 m around it.
 
-Nights and the road
-- Roaming events every few minutes: a caravan under attack, a fallen star, a supply cache, a Box Cat swarm. Ignore one and it may grow into a raid camp.
-- Named nights: the Screaming Night, the Long Dark, the Hunter's Moon and a Quiet Night. Hold until dawn and the morning pays.
-- The night eases after the fellowship falls and grows as beacons are lit. Choose the pace per world: Steady, Normal or Chaos.
-- The ash-radio brings calls for help nearby and warns of the night at dusk.
-- Ember runs: in company, carry an ember from a lit beacon to a dark one while the others guard you.
+Hits and foes
+- Struck forms rock back from the blow. Hits sound like what they strike: flesh, stone, bone or plate.
+- Far forms show a sign before they use their ways, so you can see a charge or a volley coming.
 
-New creatures
-- The Ash Weaver, a spider the size of a cart, in the forest and the marsh.
-- The Harrow, a man with a spider's legs on his back, far out in the ash and the forest. It comes only when you look away.
-- The Gaunt, thin and taller than a man, waits under the ash of the dunes and the basalt.
-- The old tales of the isles: draugr and nykur on Hrafnsey, shtriga and kulshedra on Kalaja.
-- A bestiary page the first time each kind falls to you.
+Arms on the road
+- In the waste you carry two long guns, a side arm and a blade. Change what you carry at camp, in a town or at a workbench. Keys 1 to 3 are the guns, 4 the blade, 5 to 9 the relics.
+- The shotgun loads real shells one at a time and throws out the spent ones.
+- The belt gun's and the sniper rifle's iron sights now line up.
+- New muzzle flashes, set at each gun's muzzle.
+- Sights clamp onto the rail with no riser. The Red Dot and Reflex have a small, bright dot, and the Holo a thin ring round a dot.
+- The Short Scope is a real scope now: you look through it at 4x. The Scope and the sniper rifle's glass are 8x, and the sniper's iron sights 2x.
+- Fixed parts that floated off the gun: muzzle parts and long barrels sit on the muzzle, grips sit under the fore-end, and stocks and receiver plates sit on the gun. A side arm's heavy barrel no longer covers the slide.
 
-The isles
-- Hrafnsey and Kalaja have their own ground. Each isle hides four small story scenes to find.
-- New worlds get a natural coast with rounded corners and deep bays.
+Sound
+- Gunshots are louder and the flamethrower is much quieter.
+- Bites, roars, growls, shrieks, footsteps, blows, the pump and shells now use real recordings.
 
-Feel and arms
-- A landed blade holds time for a blink. Gathering throws chips and the node shivers.
-- Rounds fall past about 25 m: pistols and shot most, rifle rounds least. Rockets fall too.
-- Iron sights line up on the pistols, revolver and RPG; the RPG's rear sight hole lines up with its front hood.
-- Guns move: pump forends, slides, magazines out and in. Sway down the sights, which practice steadies.
-- The flamethrower roars while held, glows at the nozzle and throws rolling smoke.
-- The Auto Pistol (9mm).
-
-Building and the pack
-- Camp pieces: chest, bench, bedroll, tent, barrel, anvil and a fire pit, with new models.
-- While building, the pack key opens the pieces to pick from.
-- Drag things between chest and pack. Choose how much a click moves (all, half, 10 or 1).
-- Rain and snow stop under a roof; a sealed base keeps the storm's haze out.
-- Worn and carried clothes say what they are made from.
-
-Fixes
-- The world loads in steps, and the loading words move on as it does.
-- Joining checks the game version. Foes are only sent near each player. Chest moves can no longer lose or copy things.
-- A pilgrim stuck below ground is set back on top.
-- Leaving after hosting no longer waits on the router. A crashed player drops out in seconds.
-- Town floors meet the ground with a step to the door. Doorways on the isles can be walked through.
-- Mist, marsh and storm together can no longer white out the screen.
-- Saves are written in the background.
+The world
+- The ground loads in tiles, in full detail near you and coarse far away.
+- The loading screen shows a progress bar and hints that change.
+- The light over a lit beacon and the red smoke over a dead one are softer, with wisps rising up them.

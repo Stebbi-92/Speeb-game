@@ -20,7 +20,7 @@ const GUNS := {
 		"mag": 100, "rate": 0.11, "reload": "mag", "reload_t": 5.0, "sound": "mg", "kick": 0.3, "falloff": 80.0, "unlock": 8, "slow": 0.85,
 		"mounts": ["red_dot", "scope", "suppressor", "foregrip"], "text": "A belt of a hundred heavy rounds. Slow to load and heavy to carry, and it does not stop."},
 	"sniper": {"name": "Sniper Rifle", "slot": "primary", "mode": "bolt", "dmg": 135.0, "pellets": 1, "spread": 0.0, "range": 400.0,
-		"mag": 5, "rate": 1.25, "reload": "mag", "reload_t": 2.6, "sound": "sniper", "kick": 1.6, "falloff": 0.0, "unlock": 6, "zoom": 2.5,
+		"mag": 5, "rate": 1.25, "reload": "mag", "reload_t": 2.6, "sound": "sniper", "kick": 1.6, "falloff": 0.0, "unlock": 6, "zoom": 8.0, "iron_zoom": 2.0,
 		"mounts": ["scope", "suppressor", "ext_mag"], "text": "One heavy round, then the bolt. Aim to look down the glass."},
 	"rocket": {"name": "Rocket Launcher", "slot": "primary", "mode": "rocket", "dmg": 170.0, "radius": 5.5, "speed": 38.0, "pellets": 1,
 		"spread": 0.0, "range": 300.0, "mag": 1, "rate": 0.9, "reload": "mag", "reload_t": 2.4, "sound": "rocket", "kick": 1.4, "falloff": 0.0,
@@ -101,8 +101,8 @@ const ATTACHMENTS := {
 const SLOT_NAMES := {"sight": "Sight", "muzzle": "Muzzle", "grip": "Grip", "mag": "Magazine", "barrel": "Barrel", "stock": "Stock", "receiver": "Receiver", "ammo": "Load"}
 
 ## What the right mouse does to the view and the spread, per sight.
-const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 3.5, "spread": 0.15},
-	"reflex": {"zoom": 1.35, "spread": 0.38}, "holo": {"zoom": 1.45, "spread": 0.32}, "combat_scope": {"zoom": 2.2, "spread": 0.2}}
+const SIGHTS := {"": {"zoom": 1.25, "spread": 0.6}, "red_dot": {"zoom": 1.4, "spread": 0.35}, "scope": {"zoom": 8.0, "spread": 0.15},
+	"reflex": {"zoom": 1.35, "spread": 0.38}, "holo": {"zoom": 1.45, "spread": 0.32}, "combat_scope": {"zoom": 4.0, "spread": 0.2}}
 
 const DEFAULT := {"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages", "mounts": {}}
 

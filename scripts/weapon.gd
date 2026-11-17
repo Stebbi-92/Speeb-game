@@ -87,7 +87,8 @@ var _melee_models := {}
 var _model: Node3D
 var _pump: Node3D
 var _flash: OmniLight3D
-var _flash_mesh: MeshInstance3D
+var _flash_mesh: Node3D   ## the muzzle flash: a burst seen from behind, and flames along the barrel seen from the side
+var _flash_sides: Array = []
 var _holder: Node3D
 var _melee_holder: Node3D
 
@@ -103,15 +104,7 @@ func _ready() -> void:
 	_flash.light_energy = 0.0
 	_flash.omni_range = 7
 	_holder.add_child(_flash)
-	_flash_mesh = MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.06
-	sm.height = 0.12
-	_flash_mesh.mesh = sm
-	var fm := StandardMaterial3D.new()
-	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fm.albedo_color = Color(1.0, 0.85, 0.5)
-	_flash_mesh.material_override = fm
+	_flash_mesh = _make_flash()
 	_flash_mesh.visible = false
 	_holder.add_child(_flash_mesh)
 	position = Vector3(0.16, -0.19, -0.5)
@@ -777,6 +770,8 @@ func _set_aim(target: float, delta: float) -> void:
 	var zoom := float(ArmsDB.SIGHTS.get(mount(), ArmsDB.SIGHTS[""]).zoom) if enabled else 1.0
 	if enabled and built_glass(gun(), Game.mounts_of(gun())):
 		zoom = maxf(zoom, float(spec().zoom))
+	elif enabled and mount() == "" and spec().has("iron_zoom"):
+		zoom = float(spec().iron_zoom)   # a long gun's own iron sights draw the eye in a little
 	var f: float = Game.fov / lerpf(1.0, zoom, _aim)
 	if absf(player.cam.fov - f) > 0.01:
 		player.cam.fov = f
@@ -1097,6 +1092,9 @@ func _try_fire() -> void:
 		_flash.light_energy = 4.0 if s.mode != "spin" else 2.5
 		_flash_mesh.visible = true
 		_flash_mesh.rotation.z = randf() * TAU
+		_flash_mesh.scale = Vector3.ONE * float(FLASH_SIZE.get(gun(), 0.18)) * randf_range(0.85, 1.15)
+		for q in _flash_sides:
+			(q as MeshInstance3D).material_override = _flash_mats[randi() % _flash_mats.size()]
 		get_tree().create_timer(0.04, false).timeout.connect(func():
 			_flash.light_energy = 0.0
 			_flash_mesh.visible = false)
@@ -1190,6 +1188,65 @@ static var _told_deflect := -100000
 const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
+## How long each gun's muzzle flame is, in metres.
+const FLASH_SIZE := {"pistol": 0.1, "pistol9": 0.1, "pistol45": 0.11, "revolver": 0.13, "shotgun": 0.24, "machine_gun": 0.18,
+	"rifle": 0.18, "lmg": 0.22, "minigun": 0.2, "sniper": 0.24}
+static var _flash_mats: Array = []
+static var _flash_star: StandardMaterial3D
+
+
+static func _flash_mat(path: String) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = false
+	m.albedo_texture = load(path)
+	m.albedo_color = Color(1.4, 1.05, 0.55)
+	return m
+
+
+## The flash, made one metre long (scaled to each gun as it fires): two crossed flames from Kenney's
+## Particle Pack (CC0) along the barrel, their roots at the muzzle, and a burst facing the eye.
+func _make_flash() -> Node3D:
+	if _flash_mats.is_empty():
+		for i in range(1, 6):
+			_flash_mats.append(_flash_mat("res://assets/textures/fx/muzzle_0%d.png" % i))
+		_flash_star = _flash_mat("res://assets/textures/fx/flash_star.png")
+		_flash_star.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		_flash_star.albedo_color = Color(1.6, 1.25, 0.75)
+	var root := Node3D.new()
+	_flash_sides.clear()
+	for k in 2:
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2(0.55, 1.0)
+		q.mesh = qm
+		q.material_override = _flash_mats[k]
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# The picture's flame rises up its height; laid along -Z, its root (low in the picture) at the muzzle
+		q.rotation = Vector3(-PI / 2, 0, 0)
+		q.position = Vector3(0, 0, -0.36)
+		if k == 1:
+			var turn := Node3D.new()
+			turn.rotation.z = PI / 2
+			turn.add_child(q)
+			root.add_child(turn)
+		else:
+			root.add_child(q)
+		_flash_sides.append(q)
+	var star := MeshInstance3D.new()
+	var sq := QuadMesh.new()
+	sq.size = Vector2(0.32, 0.32)
+	star.mesh = sq
+	star.material_override = _flash_star
+	star.position = Vector3(0, 0, -0.04)
+	star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(star)
+	return root
+
+
 const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 ## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
 ## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
@@ -1506,7 +1563,7 @@ func _show_model() -> void:
 	_model = _models[g]
 	_model.visible = true
 	_pump = _model.get_meta("pump") if _model.has_meta("pump") else null
-	var tip: Vector3 = _model.get_meta("tip")
+	var tip: Vector3 = _model.transform * (_model.get_meta("tip") as Vector3)
 	_flash.position = tip
 	_flash_mesh.position = tip
 	_ui()
@@ -1794,6 +1851,11 @@ func _build(g: String, mnts = null) -> Node3D:
 	var scan_top := _scan_gun(g, n, fit)
 	if scan_top > -1.0:
 		top = scan_top   # its own sights are on it; a fitted sight sits on its top
+		# Its mouth and the underside of its fore-end, as the scanned body has them
+		tip = SCAN_TIP.get(g, tip)
+		var under := _cut_line(n, g, 1, 0.0, fore.z)
+		if under.x < 8.0:
+			fore.y = under.x
 	_frame_parts(g, fit, n, tip)
 	tip = n.get_meta("tip_after", tip)
 	if scan_top <= -1.0:
@@ -1810,9 +1872,16 @@ func _build(g: String, mnts = null) -> Node3D:
 		# A scanned body's top is its tallest part (a hammer, a rear sight): the sight sits on the
 		# metal right under it instead, so it does not float above the gun
 		var sz := rear_z - (0.12 if sight in ["scope", "combat_scope"] else 0.08)
-		var low := _top_near(n, g, sz - 0.045, sz + 0.045)
-		if low > -1.0:
-			top = minf(top, low)
+		var tops: Array = []
+		for k in 5:
+			var h := _cut_line(n, g, 1, 0.0, sz - 0.03 + k * 0.015).y
+			if h > -8.0:
+				tops.append(h)
+		tops.sort()
+		if tops.size() >= 2:
+			# On a rail, the tops of its ridges; on a slide or a frame, its surface (a rear sight or a
+			# hammer standing up in the way is not counted)
+			top = minf(top, tops[-1] if g in RAILED else tops[1])
 			eye = top + 0.012
 	if sight != "" and not (sight == "scope" and built_glass(g, fit)):
 		scan_eye = _put_sight(n, g, sight, top, rear_z)
@@ -1900,7 +1969,7 @@ static func gild(n: Node) -> void:
 
 
 ## Sights, muzzles and grips from "Free weapon accessories" (Rotten Design, CC-BY 4.0): each part's piece of the
-## pack, or {gun: piece} where it differs by gun ("" for the rest). A sight sits on the rail named in ACC_RAIL.
+## pack, or {gun: piece} where it differs by gun ("" for the rest). A sight clamps onto the rail (SIGHT_CUT).
 const ACC_PATH := "res://assets/models/arms/accessories/accessories.glb"
 const ACC := {
 	"red_dot": "Sight 1", "reflex": "Sight 2", "holo": "Sight 3", "scope": "Scope 3_001", "combat_scope": "Scope 1",
@@ -1911,7 +1980,10 @@ const ACC := {
 	"flash_hider": {"pistol": "Flashhider", "pistol9": "Flashhider", "revolver": "Flashhider", "": "Flashhider 2"},
 	"foregrip": "Cube_001", "angled_grip": "Cube", "slim_grip": "Plane",
 }
-const ACC_RAIL := {"red_dot": "Rail 2", "reflex": "Rail 2", "holo": "Rail 1", "scope": "Rail 1", "combat_scope": "Rail 3"}
+## How deep the cut in each sight's foot is (the rail's height it takes in), measured from the pack.
+const SIGHT_CUT := {"red_dot": 0.008, "reflex": 0.0072, "holo": 0.008, "scope": 0.0068, "combat_scope": 0.0092}
+## The guns with a rail along their top.
+const RAILED := ["machine_gun"]
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
 ## The height of the highest visible piece of a gun, in its own space.
@@ -1931,6 +2003,63 @@ func _geo_top(n: Node3D) -> float:
 
 
 static var _tops := {}
+static var _cuts := {}
+
+
+## Where a straight line through a built gun meets its metal: the line runs across (axis 0) at (y, z), up
+## (axis 1) at (x, z), or along the barrel (axis 2) at (x, y). Gives back the nearest and furthest meetings along it, or (9, -9) if none.
+## Cached per gun.
+func _cut_line(n: Node3D, g: String, axis: int, u: float, w: float) -> Vector2:
+	var key := "%s:%d:%.4f:%.4f:%s" % [g, axis, u, w, Game.gilded]
+	if _cuts.has(key):
+		return _cuts[key]
+	var out := Vector2(9.0, -9.0)
+	var stack: Array = [[n, Transform3D.IDENTITY]]
+	while not stack.is_empty():
+		var it: Array = stack.pop_back()
+		for c in (it[0] as Node).get_children():
+			if not (c is Node3D) or not (c as Node3D).visible:
+				continue
+			var t: Transform3D = it[1] * (c as Node3D).transform
+			stack.append([c, t])
+			if not (c is MeshInstance3D) or not ((c as MeshInstance3D).mesh is ArrayMesh):
+				continue
+			var m: ArrayMesh = (c as MeshInstance3D).mesh
+			for si in m.get_surface_count():
+				var arr: Array = m.surface_get_arrays(si)
+				var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+				var ids: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+				var count := ids.size() if ids.size() > 0 else vs.size()
+				for i in range(0, count - 2, 3):
+					var a := t * vs[ids[i] if ids.size() > 0 else i]
+					var b := t * vs[ids[i + 1] if ids.size() > 0 else i + 1]
+					var d := t * vs[ids[i + 2] if ids.size() > 0 else i + 2]
+					# Into the plane across the line: (p, q) are the two coordinates the line is fixed at
+					var pa := _across(a, axis)
+					var pb := _across(b, axis)
+					var pd := _across(d, axis)
+					var q := Vector2(u, w)
+					var den := (pb.y - pd.y) * (pa.x - pd.x) + (pd.x - pb.x) * (pa.y - pd.y)
+					if absf(den) < 1e-12:
+						continue
+					var l1 := ((pb.y - pd.y) * (q.x - pd.x) + (pd.x - pb.x) * (q.y - pd.y)) / den
+					var l2 := ((pd.y - pa.y) * (q.x - pd.x) + (pa.x - pd.x) * (q.y - pd.y)) / den
+					var l3 := 1.0 - l1 - l2
+					if l1 < 0.0 or l2 < 0.0 or l3 < 0.0:
+						continue
+					var h := l1 * a[axis] + l2 * b[axis] + l3 * d[axis]
+					out = Vector2(minf(out.x, h), maxf(out.y, h))
+	_cuts[key] = out
+	return out
+
+
+static func _across(v: Vector3, axis: int) -> Vector2:
+	match axis:
+		0:
+			return Vector2(v.y, v.z)
+		1:
+			return Vector2(v.x, v.z)
+	return Vector2(v.x, v.y)
 
 ## The highest metal of a built gun along its middle between two depths (cached per gun); -1 if none.
 func _top_near(n: Node3D, g: String, z0: float, z1: float) -> float:
@@ -1999,6 +2128,19 @@ func _acc_piece(piece: String) -> Node3D:
 		if String(mi.name).contains("_Aim_") or String(mi.name).contains("_Material_"):
 			aim = a if not has_aim else aim.merge(a)
 			has_aim = true
+			# A red-dot sight's own reticle is a broad blot: drawn instead as a small, bright dot
+			# (a ring round a dot in the holo sight)
+			if RETICLE.has(piece):
+				copy.visible = false
+				var q := MeshInstance3D.new()
+				var qm := QuadMesh.new()
+				var across: float = maxf(a.size.x, float(RETICLE[piece][1]) * 1.3)
+				qm.size = Vector2(across, across)
+				q.mesh = qm
+				q.position = a.get_center()
+				q.material_override = _reticle_mat(piece, across)
+				q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				h.add_child(q)
 		bb = a if first else bb.merge(a)
 		first = false
 	if first:
@@ -2010,6 +2152,44 @@ func _acc_piece(piece: String) -> Node3D:
 	h.set_meta("bb", AABB(bb.position - bb.get_center(), bb.size))
 	h.set_meta("aim_y", aim.get_center().y - bb.get_center().y if has_aim else 0.0)
 	return h
+
+
+## Each red-dot sight's reticle: [dot across, ring across (0 for none)], in metres on the glass.
+## (Sized for the eye where it sits when aiming, about a forearm behind the glass: a dot a few pixels across.)
+const RETICLE := {"Sight 1": [0.0026, 0.0], "Sight 2": [0.0024, 0.0], "Sight 3": [0.0013, 0.012]}
+static var _reticles := {}
+
+
+static func _reticle_mat(piece: String, across: float) -> StandardMaterial3D:
+	var key := "%s:%.5f" % [piece, across]
+	if _reticles.has(key):
+		return _reticles[key]
+	var size := 256
+	var px := across / size   # metres to a pixel
+	var dot_r: float = RETICLE[piece][0] * 0.5 / px
+	var ring_r: float = RETICLE[piece][1] * 0.5 / px
+	var line := (0.0003 if ring_r > 0.0 else 0.0007) / px
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var c := size * 0.5
+	for y in size:
+		for x in size:
+			var d := Vector2(x + 0.5 - c, y + 0.5 - c).length()
+			var a := clampf(dot_r + 0.6 - d, 0.0, 1.0)                    # the hard dot
+			a = maxf(a, 0.3 * clampf(1.0 - (d - dot_r) / (dot_r * 0.8), 0.0, 1.0))   # a tight glow round it
+			if ring_r > 0.0:
+				a = maxf(a, clampf(line * 0.5 + 0.6 - absf(d - ring_r), 0.0, 1.0))
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	img.generate_mipmaps()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = true   # it is lit on the glass: nothing of the sight's own body covers it
+	m.render_priority = 10
+	m.albedo_texture = ImageTexture.create_from_image(img)
+	m.albedo_color = Color(2.4, 0.12, 0.06)
+	_reticles[key] = m
+	return m
 
 
 func _acc_name(g: String, m: String) -> String:
@@ -2043,17 +2223,12 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 	if p == null:
 		return -1.0
 	var z := rear_z - (0.12 if m in ["scope", "combat_scope"] else 0.08)
-	var base := top
-	var rail := _acc_piece(ACC_RAIL.get(m, ""))
-	if rail != null:
-		rail.rotation.y = PI * 0.5
-		var rb: AABB = rail.get_meta("bb")
-		n.add_child(rail)
-		rail.position = Vector3(0, top + rb.size.y * 0.5, z)
-		base = top + rb.size.y
 	var bb: AABB = p.get_meta("bb")
 	n.add_child(p)
-	p.position = Vector3(0, base + bb.size.y * 0.5, z)
+	# Its clamp's jaws close round the gun's rail: the cut in its foot takes the rail, so the foot
+	# sits down over it (no riser). A gun with no rail has the foot flat on its top.
+	var sink: float = SIGHT_CUT.get(m, 0.008) if g in RAILED else 0.0
+	p.position = Vector3(0, top - sink + bb.size.y * 0.5, z)
 	return p.position.y + float(p.get_meta("aim_y"))
 
 
@@ -2294,9 +2469,18 @@ static func _split_mesh(mesh: Mesh, tr: Transform3D, boxes: Array) -> Array:
 
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
-const BUTT := {"shotgun": Vector3(0, -0.07, 0.5), "machine_gun": Vector3(0, -0.014, 0.432), "lmg": Vector3(0, -0.014, 0.45), "sniper": Vector3(0, -0.068, 0.495)}
-const SIDE := {"shotgun": Vector3(0.027, 0.0, 0.03), "machine_gun": Vector3(0.026, 0.012, 0.0), "lmg": Vector3(0.03, 0.012, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
-	"rocket": Vector3(0.06, -0.06, 0.2), "minigun": Vector3(0.066, -0.02, 0.12), "pistol": Vector3(0.016, -0.01, -0.0), "pistol9": Vector3(0.016, -0.01, -0.0), "revolver": Vector3(0.016, 0.014, -0.01)}
+## The middle of each gun's butt plate, and how tall it is (measured off the scanned bodies).
+const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
+const BUTT_H := {"shotgun": 0.16, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
+## The middle of each scanned gun's mouth, read off side views of it.
+const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
+	"sniper": Vector3(0, 0.0145, -0.975), "rocket": Vector3(0, 0.026, -0.66), "minigun": Vector3(0, -0.1, -0.68),
+	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.185), "pistol9": Vector3(0, 0.047, -0.19),
+	"revolver": Vector3(0, 0.051, -0.26)}
+## Where a receiver's side plates go (x is found from the gun's own side).
+const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
+	"rocket": Vector3(0.045, 0.026, -0.05), "minigun": Vector3(0.066, -0.09, 0.12), "pistol": Vector3(0.014, 0.036, -0.07), "pistol9": Vector3(0.016, 0.05, -0.08),
+	"revolver": Vector3(0.02, 0.045, -0.035)}
 
 
 ## Barrels, stocks and receivers, each shown on the gun; a graded part carries a band of its grade's colour.
@@ -2321,28 +2505,56 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 				tip += Vector3(0, 0, -0.03)
 				at = tip + Vector3(0, 0, 0.02)
 			"heavy_barrel":
-				_tube(0.021, 0.22, tip + Vector3(0, 0, 0.12), dark, n)
-				for i in 4:
-					_tube(0.023, 0.008, tip + Vector3(0, 0, 0.05 + i * 0.045), metal, n)
-				at = tip + Vector3(0, 0, 0.22)
+				if ArmsDB.GUNS[g].slot == "secondary":
+					# A side arm's heavy barrel: a thick stub out past the slide
+					_tube(0.0125, 0.05, tip + Vector3(0, 0, -0.022), dark, n)
+					for i in 2:
+						_tube(0.0135, 0.005, tip + Vector3(0, 0, -0.012 - i * 0.022), metal, n)
+					tip += Vector3(0, 0, -0.045)
+					at = tip + Vector3(0, 0.012, 0.03)
+				else:
+					var r := 0.06 if g == "minigun" else 0.021
+					_tube(r, 0.22, tip + Vector3(0, 0, 0.12), dark, n)
+					for i in 4:
+						_tube(r + 0.002, 0.008, tip + Vector3(0, 0, 0.05 + i * 0.045), metal, n)
+					at = tip + Vector3(0, r, 0.22)
 			"padded_stock", "light_stock", "heavy_stock":
 				var b: Vector3 = BUTT.get(g, Vector3(0, -0.04, 0.45))
+				var bh: float = BUTT_H.get(g, 0.12)
+				# The stock a hand's width before the butt: its top, its bottom and its sides
+				var sz := b.z - 0.05
+				var ud := _cut_line(n, g, 1, 0.0, sz)
+				if ud.x > 8.0:
+					ud = Vector2(b.y - bh * 0.4, b.y + bh * 0.4)
+				var sd := _cut_line(n, g, 0, (ud.x + ud.y) * 0.5, sz)
+				var half := sd.y if sd.y > -8.0 else 0.022
 				match m:
 					"padded_stock":
-						_box(Vector3(0.05, 0.115, 0.03), b + Vector3(0, 0, 0.02), _mat(Color(0.32, 0.16, 0.1), 0.0, 0.9), n)
+						# A pad over the butt plate, pressed onto it
+						_box(Vector3(half * 2.0 + 0.006, bh * 0.92, 0.026), b + Vector3(0, 0, 0.01), _mat(Color(0.32, 0.16, 0.1), 0.0, 0.9), n)
 					"light_stock":
-						_box(Vector3(0.008, 0.008, 0.2), b + Vector3(0, 0.03, -0.06), metal, n)
-						_box(Vector3(0.008, 0.008, 0.2), b + Vector3(0, -0.04, -0.06), metal, n)
-						_box(Vector3(0.03, 0.1, 0.012), b + Vector3(0, -0.005, 0.04), dark, n)
+						# Bent rod along both sides of the stock, round a thin plate on the butt
+						for sx in [-1, 1]:
+							for ry in [0.25, 0.75]:
+								_box(Vector3(0.006, 0.006, 0.09), Vector3(sx * (half + 0.003), lerpf(ud.x, ud.y, ry), b.z - 0.04), metal, n)
+						_box(Vector3(half * 2.0 + 0.012, bh * 0.85, 0.008), b + Vector3(0, 0, 0.008), metal, n)
 					"heavy_stock":
-						_box(Vector3(0.052, 0.13, 0.18), b + Vector3(0, -0.01, -0.06), _mat(Color(0.22, 0.12, 0.07), 0.0, 0.6), n)
-				at = b + Vector3(0, 0.04, -0.06)
+						# Solid wood: cheeks on both sides of the stock and a thick wooden heel
+						var wood := _mat(Color(0.22, 0.12, 0.07), 0.0, 0.6)
+						for sx in [-1, 1]:
+							_box(Vector3(0.006, (ud.y - ud.x) * 0.7, 0.09), Vector3(sx * (half + 0.003), (ud.x + ud.y) * 0.5, b.z - 0.04), wood, n)
+						_box(Vector3(half * 2.0 + 0.012, bh * 0.95, 0.03), b + Vector3(0, 0, 0.012), wood, n)
+				at = Vector3(half + 0.002, (ud.x + ud.y) * 0.5, sz)
 			"rapid_receiver", "heavy_receiver", "smooth_receiver":
 				var sd: Vector3 = SIDE.get(g, Vector3(0.026, 0, 0.03))
 				var c: Color = {"rapid_receiver": Color(0.12, 0.16, 0.28), "heavy_receiver": Color(0.7, 0.55, 0.3), "smooth_receiver": Color(0.8, 0.8, 0.82)}[m]
+				var size := Vector3(0.003, 0.014, 0.045) if ArmsDB.GUNS[g].slot == "secondary" else Vector3(0.003, 0.026, 0.09)
+				# Laid flat on the receiver's own side
 				for sx in [-1, 1]:
-					_box(Vector3(0.004, 0.034, 0.11), Vector3(sd.x * sx, sd.y, sd.z), _mat(c, 0.85, 0.3), n)
-				at = sd + Vector3(0.003, 0.02, 0)
+					var w := _cut_line(n, g, 0, sd.y, sd.z)
+					var x := (w.y if sx > 0 else -w.x) if w.y > -8.0 else sd.x
+					_box(size, Vector3(sx * (x + 0.0015), sd.y, sd.z), _mat(c, 0.85, 0.3), n)
+				at = sd + Vector3(0.003, size.y * 0.5 + 0.003, 0)
 		var gr := WArms.grade_of(a, g, m) if Game.wasteland else {}
 		var r := int(gr.get("r", 0))
 		if r > 0:

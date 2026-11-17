@@ -2,9 +2,7 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
-## 0.13.0 (feel): coming next
-
-Not out yet. This is what is on the way, and may still change.
+## 0.13.0 (feel)
 
 - **The map** is black until you have been there, sea and isles too. Lit beacons show the land about 500 m around them.
 - **Hits:** struck forms rock away from the blow, and each hit sounds of what it strikes (flesh, iron, glass, bone, shell).
@@ -13,7 +11,8 @@ Not out yet. This is what is on the way, and may still change.
 - **Sights:** every sight seated on the rail, smaller dots on the Red Dot, Reflex and Holo, the Short Scope with a crosshair at 4x, the Scope and sniper scope at 8x, and the sniper's iron sights at 2x. The Belt Gun and Sniper Rifle iron sights line up. Gun parts sit where they belong, and muzzle flashes come from the muzzle.
 - **Shotgun:** each reload pushes in a real 12 gauge shell, and the pump throws out the fired one.
 - **Sound:** louder guns, a quieter flamethrower, and 14 sounds that were made in code replaced with real recordings.
-- **Loading:** the world streams in around you (much smoother in towns), and loading shows a bar, changing hints and pictures of the waste.
+- **Loading:** the world streams in around you (much smoother in towns), and loading shows a bar and changing hints.
+- **Beacons:** the light over a lit beacon and the red smoke over a dead one are soft, with wisps rising up them.
 
 ## 0.12.0 (the road)
 

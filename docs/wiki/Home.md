@@ -28,6 +28,6 @@ There are two ways to play, in one install:
 ## Other
 
 - [[Saves and Updates|Saves-and-Updates]]
-- [[Versions]]: what changed in each release, and what is coming in 0.13
+- [[Versions]]: what changed in each release
 
 Download the latest version from the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases). The game updates itself when a new version is out.

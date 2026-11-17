@@ -1382,22 +1382,9 @@ func _build_beacon(i: int) -> void:
 	light.position = Vector3(0, 13, 0)
 	n.add_child(light)
 	# A pale pillar of light, seen across the waste once kindled
-	var beam := MeshInstance3D.new()
-	var bm := CylinderMesh.new()
-	bm.top_radius = 0.6
-	bm.bottom_radius = 1.2
-	bm.height = 260.0
-	beam.mesh = bm
-	var beam_m := StandardMaterial3D.new()
-	beam_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	beam_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	beam_m.albedo_color = Color(1.0, 0.95, 0.8, 0.22)
-	beam_m.disable_fog = true
-	beam_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	beam.material_override = beam_m
-	beam.position = Vector3(0, 144, 0)
+	var beam := landmark_column(Color(1.0, 0.86, 0.6, 0.3), 260.0, 1.3, true)
+	beam.position = Vector3(0, 142, 0)
 	beam.visible = false
-	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	n.add_child(beam)
 	var lbl := label3d(b.name, c + Vector3(0, 3.6, 5.4), 0.6, Color(0.85, 0.82, 0.75), 0.0, true)
 	lbl.visibility_range_end = 40.0
@@ -1714,30 +1701,30 @@ func next_dark_beacon(from: Vector3) -> int:
 
 
 ## A tall, faint column seen from far across the waste, through the haze: a goal on the horizon.
-static func landmark_column(c: Color, height: float, radius: float) -> MeshInstance3D:
+## A column of smoke (or light) standing over a place, seen from far across the waste: soft-edged,
+## with wisps climbing it, thinning to nothing at the top, bent a little by the wind.
+static func landmark_column(c: Color, height: float, radius: float, light := false) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = radius * 2.5
-	cm.bottom_radius = radius
+	cm.top_radius = radius * (1.6 if light else 7.0)
+	cm.bottom_radius = radius * (1.0 if light else 1.8)
 	cm.height = height
-	cm.radial_segments = 10
-	cm.rings = 1
+	cm.radial_segments = 24
+	cm.rings = 12
 	cm.cap_top = false
 	cm.cap_bottom = false
 	mi.mesh = cm
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = c
-	m.disable_fog = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.proximity_fade_enabled = true
-	m.proximity_fade_distance = 6.0
-	m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
-	m.distance_fade_min_distance = 25.0
-	m.distance_fade_max_distance = 90.0
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/column_light.gdshader" if light else "res://world/column_smoke.gdshader")
+	# Seen through its middle the column is thicker than its colour alone gave before: a little more of it
+	m.set_shader_parameter("tint", Color(c.r, c.g, c.b, minf(1.0, c.a * (1.6 if light else 2.4))))
+	m.set_shader_parameter("height", height)
+	m.set_shader_parameter("wisp", 0.35 if light else 0.75)
+	m.set_shader_parameter("rise", 6.0 if light else 2.2)
+	m.set_shader_parameter("sway", 0.0 if light else height * 0.06)
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = height * 0.1
 	return mi
 
 
@@ -6790,6 +6777,60 @@ func debug_isleshot() -> void:
 		if DisplayServer.get_name() != "headless":
 			get_viewport().get_texture().get_image().save_png("user://isle_%s.png" % il.key)
 	print("ISLESHOT own=%d" % own)
+	get_tree().quit()
+
+
+## Making aid (with a screen): views of the waste with no hud and no gun, for the loading screen's pictures.
+## Saves user://vista_<n>.png.
+func debug_vistas() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var spots := [
+		["town", "cinderwick", 7.2, Vector2(38, 26), 2.0],
+		["town", "hesk", 17.6, Vector2(-44, 30), 2.5],
+		["beacon", "0", 22.5, Vector2(26, 22), 1.5],
+		["ruin", "stone_field", 9.5, Vector2(30, -18), 1.8],
+		["ruin", "order_tower", 16.4, Vector2(-36, -40), 1.6],
+		["town", "kiln", 19.2, Vector2(40, -30), 2.0],
+		["ruin", "sealed_vault", 6.4, Vector2(-30, 28), 1.8],
+		["town", "mourners", 13.0, Vector2(46, 18), 3.0],
+		["far", "1", 15.5, Vector2(160, 120), 3.0],
+		["far", "0", 22.5, Vector2(150, 110), 3.0],
+	]
+	hud.visible = false
+	player.weapon.visible = false
+	player.weapon.set_process(false)
+	player.weapon.set_physics_process(false)
+	player.weapon._holder.visible = false
+	var from := 0
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("from="):
+			from = int(arg.substr(5))
+	for i in range(from, spots.size()):
+		var sp: Array = spots[i]
+		var c: Vector2
+		match sp[0]:
+			"town":
+				c = WPlaces.spos(sp[1])
+			"ruin":
+				c = WPlaces.rpos(sp[1])
+			"far":
+				c = WPlaces.bpos(int(sp[1]))
+			"beacon":
+				c = WPlaces.bpos(int(sp[1]))
+				if not int(sp[1]) in lit:
+					lit.append(int(sp[1]))
+					_light_beacon(int(sp[1]), true)
+		var at: Vector2 = c + sp[3]
+		clock = sp[2]
+		night = clock > 20.5 or clock < 5.0
+		_apply_time(true)
+		player.place(Vector3(at.x, terrain.height_at(at.x, at.y) + sp[4], at.y), 0.0)
+		player.face(Vector3(c.x, terrain.height_at(c.x, c.y) + (40.0 if sp[0] == "far" else 3.0), c.y))
+		await get_tree().create_timer(6.0).timeout
+		if DisplayServer.get_name() != "headless":
+			get_viewport().get_texture().get_image().save_png("user://vista_%d.png" % i)
+	print("VISTAS done")
 	get_tree().quit()
 
 

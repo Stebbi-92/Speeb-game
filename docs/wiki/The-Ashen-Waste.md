@@ -2,7 +2,7 @@
 
 An open world, about four kilometres across, made fresh from a seed. Each world keeps its own save, and up to eight can walk it together.
 
-The world is laid out as you move: the ground near you is in full detail, the far ground in less (coming in 0.13; this makes towns much smoother). While a world loads, a bar shows how far it has got, with changing hints and pictures of the waste (coming in 0.13).
+The world is laid out as you move: the ground near you is in full detail, the far ground in less (this makes towns much smoother). While a world loads, a bar shows how far it has got, with changing hints.
 
 ## World settings
 
@@ -33,7 +33,7 @@ Sleep through the night by resting at a fire or a bedroll. In company, everyone 
 
 Press **M**. Scroll to zoom, drag to move, right click to mark a spot. Marks are shared with your fellowship and show on the compass.
 
-**Coming in 0.13:** the whole map, sea and isles too, is black until you have been there. A lit beacon shows the land for about 500 metres around it, also for beacons lit in older worlds. Maps from older saves carry over.
+The whole map, sea and isles too, is black until you have been there. A lit beacon shows the land for about 500 metres around it, also for beacons lit in older worlds. Maps from older saves carry over.
 
 ## Roaming events
 

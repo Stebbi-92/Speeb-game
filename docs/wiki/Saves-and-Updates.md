@@ -13,7 +13,7 @@ Each world of the Ashen Waste has its own save. On the title screen, **The Ashen
 
 ## Loading
 
-The waste loads in steps. Coming in 0.13: a bar shows how far it has got, with hints that change every few seconds and pictures of the waste.
+The waste loads in steps. A bar shows how far it has got, with hints that change every few seconds.
 
 ## Updates
 

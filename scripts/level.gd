@@ -2954,6 +2954,8 @@ func debug_aimshot() -> void:
 			g = a.substr(4)
 		if a.begins_with("fit="):
 			fit = Array(a.substr(4).split(","))
+		if a.begins_with("turn="):
+			player.yaw += float(a.substr(5))
 	Game.plevel = ArmsDB.MAX_LEVEL
 	Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
 	Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
@@ -2962,6 +2964,10 @@ func debug_aimshot() -> void:
 	if player.weapon.gun() != g:
 		player.weapon.swap()
 	player.weapon.debug_aim = not "hip" in OS.get_cmdline_user_args()
+	if "flash" in OS.get_cmdline_user_args():
+		var w = player.weapon
+		w._flash_mesh.visible = true
+		w._flash_mesh.scale = Vector3.ONE * float(w.FLASH_SIZE.get(g, 0.18))
 	var sun := DirectionalLight3D.new()
 	sun.light_energy = 2.0
 	add_child(sun)

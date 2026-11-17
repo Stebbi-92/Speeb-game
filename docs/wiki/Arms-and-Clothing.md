@@ -2,7 +2,7 @@
 
 What you carry and wear in the Ashen Waste. Guns, blades and parts are made at a **workbench** and changed under **Arms** in your pack. Clothing is worn under **Wear**. Nothing here is unlocked by level: if you can make it, you can use it.
 
-## Carrying (coming in 0.13)
+## Carrying
 
 On the road you carry **two long guns, one side arm and one blade**. Change gun (**X**) goes through every gun you carry.
 
@@ -31,17 +31,17 @@ You start with the Pump Shotgun and the Pistol.
 
 Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases of its own calibre.
 
-**Shotgun reload (coming in 0.13).** Each reload pushes a whole 12 gauge shell into the tube, and each pump throws out the fired one.
+**Shotgun reload.** Each reload pushes a whole 12 gauge shell into the tube, and each pump throws out the fired one.
 
 ## Aiming
 
-- **Iron sights.** Every gun has its own sights, lined up so the shot goes where they point. The Belt Gun and Sniper Rifle sights are lined up properly in 0.13.
+- **Iron sights.** Every gun has its own sights, lined up so the shot goes where they point.
 - **Sway.** Down the sights your aim sways a little. Heavy guns sway more, pistols less. A foregrip and practice steady it.
 - **Bullet drop.** Past about 25 metres a round falls. Shot and pistol rounds fall most, rifle rounds least. Rockets fall too.
 - **Hold your breath.** Behind a scope, hold Hasten (Shift) to steady it for a few seconds.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks.
 
-### Sights (coming in 0.13)
+### Sights
 
 - All sights sit straight on the gun's rail.
 - **Red Dot** and **Reflex Sight**: a small, bright red dot.

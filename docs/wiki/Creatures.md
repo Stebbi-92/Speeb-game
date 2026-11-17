@@ -47,7 +47,7 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 | **Shtriga** | 120 | 20 | fire, blades | bullets | On Kalaja, at night. A night witch of the keep. Each sip she drinks from you heals her. Fire undoes her. |
 | **Kulshedra** | 460 | 34 | blasts, bullets | fire, shotgun spread | On Kalaja. The she-dragon of the south. She breathes fire in a fan. Get behind stone. |
 
-**Coming in 0.13:** a struck form rocks away from the blow and sounds of what it is made of. The far forms warn you before they act: dust boils where a burrower will rise, a crackle sounds where a flicker will appear, the ground hisses before a geyser, ravens gather before they fly at you, a choir is heard singing, and a stalker rustles in the grass. Everyone in the fellowship sees and hears the warnings. The far forms (Flicker, Geyser Wight, Raven Mask, Dust Choir, Grass Stalker and the rest) come with the far lands; until then they are only in the dev menu.
+A struck form rocks away from the blow and sounds of what it is made of. The far forms warn you before they act: dust boils where a burrower will rise, a crackle sounds where a flicker will appear, the ground hisses before a geyser, ravens gather before they fly at you, a choir is heard singing, and a stalker rustles in the grass. Everyone in the fellowship sees and hears the warnings. The far forms (Flicker, Geyser Wight, Raven Mask, Dust Choir, Grass Stalker and the rest) come with the far lands; until then they are only in the dev menu.
 
 ## The great ones
 

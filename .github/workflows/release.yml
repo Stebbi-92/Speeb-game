@@ -32,11 +32,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: bash tools/release.sh publish
       - name: Refresh the wiki
-        # The wiki lives in docs/wiki. Its data pages are made from the game first. A wiki that has
-        # never had a page made on github.com cannot be pushed to yet, so this step never fails a release.
+        # The wiki lives in docs/wiki and is kept by hand; it is pushed as it stands. (tools/wiki.gd, which
+        # remade its data pages from the game, is behind the hand-written pages and would undo them, so it
+        # is not run here.) A wiki that has never had a page made on github.com cannot be pushed to yet,
+        # so this step never fails a release.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          "$RUNNER_TEMP/godot/Godot_v4.3-stable_linux.x86_64" --headless --path . -s tools/wiki.gd || true
-          bash tools/wiki_push.sh
+        run: bash tools/wiki_push.sh

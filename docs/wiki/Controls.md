@@ -69,7 +69,7 @@ A controller works too: the left stick walks, the right stick looks.
 
 In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a dropped satchel takes everything without opening it. **Enter** makes the chosen thing at the workbench.
 
-## The bar in the Ashen Waste (coming in 0.13)
+## The bar in the Ashen Waste
 
 | Key | What |
 |---|---|
