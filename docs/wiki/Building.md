@@ -4,6 +4,8 @@ _This page is made from the game's own data by `tools/wiki.gd`. Edit the game, n
 
 Press **B** to build. Scroll to choose a piece, left click to place it, **R** to turn it, right click to take a built piece down (you get most of it back). A campfire makes a base: chests within it are used when you make or build there.
 
+While building, the pack key (**I**) opens the pieces to pick from. Rain and snow stop under a roof, and a sealed base keeps a storm's haze out.
+
 ## Camp
 
 | Piece | Cost | Strength | Notes |

@@ -1,6 +1,6 @@
 # Brelm: The Hermit of Nine Visions
 
-Brelm is a first-person game of survival and strange faith, played alone or with up to three friends. It is in **alpha**: things change between versions, and saves are kept across updates.
+Brelm is a first-person game of survival and strange faith, played alone or with friends: up to eight in the Ashen Waste, four in the trials. It is in **alpha**: things change between versions, and saves are kept across updates.
 
 There are two ways to play, in one install:
 
@@ -17,7 +17,7 @@ There are two ways to play, in one install:
 ## The waste
 
 - [[The Ashen Waste|The-Ashen-Waste]]: how the world works
-- [[Items]], [[Making]], [[Building]]
+- [[Items]], [[Arms and Clothing|Arms-and-Clothing]], [[Making]], [[Building]]
 - [[Creatures]] and [[Combat]]
 - [[Skills]]
 - [[Places]]
@@ -28,6 +28,6 @@ There are two ways to play, in one install:
 ## Other
 
 - [[Saves and Updates|Saves-and-Updates]]
-- [[Versions]]: what changed in each release
+- [[Versions]]: what changed in each release, and what is coming in 0.13
 
 Download the latest version from the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases). The game updates itself when a new version is out.

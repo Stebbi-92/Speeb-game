@@ -3,7 +3,8 @@
 - **Read the bite.** Biting creatures gather themselves first: the head swells and glows. Then they lunge. If you are out of reach when it lands, it misses.
 - **Dodge** with Q. A quick step in the way you are moving (or back, standing still). For a moment, bites pass by you.
 - **Stamina.** Running, dodging and blade swings use the bar at the bottom of the screen. It refills after a breath. When it runs out you are winded and cannot run or dodge until a quarter has come back. It refills slower when you are tired, starving or in heavy armour.
-- **The blade.** Press 3 to take your blade in hand. Tap fire to swing, or hold fire and let go for a heavy blow that hits twice as hard and reaches further. Hold aim to guard: a blow from the front does a quarter of its harm but costs stamina. Press 1 or 2 to go back to your guns.
+- **The blade.** Press the blade key to take it in hand (3 in 0.12, 4 from 0.13). Tap fire to swing, or hold fire and let go for a heavy blow that hits twice as hard and reaches further. Hold aim to guard: a blow from the front does a quarter of its harm but costs stamina. A landed blow holds time for a blink (playing alone).
+- **What you carry.** Coming in 0.13: two long guns, a side arm and a blade, changed only at camp, in a town or at a workbench. See [[Arms and Clothing|Arms-and-Clothing]].
 - **Heavy creatures** (gilded idols, haulers, lions) barely give ground when shot. They slow down under fire and keep coming. Rockets and heavy blows still push them back.
 - **Stagger.** Enough harm at once, or a blade, makes a creature reel: it stops, and its bite is broken off. A close shotgun blast staggers most small creatures.
 - **Aim for the head.** Head shots do 60% more harm, and the hit marker turns gold.
@@ -17,9 +18,11 @@
 - **Recoil.** Each gun pulls sideways in its own fixed way, the same every time. Pull against it, and fire in short strings.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks. A practised hand also sways less down the sights: at the top rank the sway is about half.
 - **Sway.** Down the sights your aim sways a little, and the shot goes where the sights are. Heavy guns and rifles sway more, pistols less, and a foregrip steadies it. Walking or being winded makes it worse.
-- **Warnings.** The far forms warn before their ways: dust boils where a burrower will come up, a flicker crackles behind you before it appears, the ground hisses before a geyser bursts, ravens gather over a raven mask before they fly at you, a choir is heard singing, and a stalker rustles in the grass.
-- **Hits you can hear.** A struck form rocks away from the blow, and each one sounds of what it is made of: flesh, iron, glass, bone or shell.
+- **Warnings** (coming in 0.13). The far forms warn before their ways: dust boils where a burrower will come up, a flicker crackles behind you before it appears, the ground hisses before a geyser bursts, ravens gather over a raven mask before they fly at you, a choir is heard singing, and a stalker rustles in the grass. (The far forms walk only in the dev menu until their lands arrive.)
+- **Hits you can hear** (coming in 0.13). A struck form rocks away from the blow, and each one sounds of what it is made of: flesh, iron, glass, bone or shell.
 - **Bullet drop.** Past about 25 metres a round falls as it flies. Slow, light rounds (shotgun, pistols) fall most; rifle rounds hold their line longer. At range, aim a little high. Rockets fall too.
 - **The scope.** Behind a scope the sway is bigger. Hold Hasten (Shift) to hold your breath and steady it for a few seconds.
 
-Guns and their parts are changed under **Arms** in your pack. Parts are made at a workbench, and fittings found in the waste rework them to better grades.
+- **Sound** (coming in 0.13). Guns are louder and the flamethrower quieter. Creature cries, thuds and steps are now real recordings.
+
+Guns and their parts are changed under **Arms** in your pack; see [[Arms and Clothing|Arms-and-Clothing]]. Parts are made at a workbench, and fittings found in the waste rework them to better grades.
