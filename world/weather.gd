@@ -41,6 +41,7 @@ var _rain_snd: AudioStreamPlayer
 var _storm_snd: AudioStreamPlayer
 var _hurt_t := 5.0
 var sheltered := false     ## under a roof just now: the weather does not reach
+var inside := 0.0          ## eases to 1 under a roof: the storm's haze thins indoors
 var _roof_t := 0.0
 var _hf: GPUParticlesCollisionHeightField3D
 var _wind_turn := 0.0
@@ -178,6 +179,8 @@ func _process(delta: float) -> void:
 	if _roof_t <= 0.0:
 		_roof_t = 0.5
 		sheltered = k > 0.0 and _roofed(at)
+	# Indoors (a roof overhead, or in a settlement's hall) the storm's haze and dimming ease off
+	inside = move_toward(inside, 1.0 if sheltered else 0.0, delta / 1.5)
 	_hurt_t -= delta
 	if _hurt_t <= 0.0:
 		_hurt_t = 5.0
@@ -189,10 +192,11 @@ func apply_env(env: Environment, night_k: float) -> void:
 	if k <= 0.0:
 		return
 	var spec: Dictionary = KINDS[kind]
-	env.fog_density = lerpf(env.fog_density, maxf(env.fog_density, float(spec.fog)), k)
+	var kk := k * (1.0 - 0.65 * inside)
+	env.fog_density = lerpf(env.fog_density, maxf(env.fog_density, float(spec.fog)), kk)
 	var tint := Color(0.42, 0.36, 0.3) if kind == "ashstorm" else (Color(0.62, 0.66, 0.7) if kind in ["frost", "rain", "gale"] else env.fog_light_color)
-	env.fog_light_color = env.fog_light_color.lerp(tint.lerp(Color(0.03, 0.03, 0.04), night_k), k * 0.7)
-	env.ambient_light_energy *= lerpf(1.0, 0.7 if kind == "ashstorm" else 0.85, k)
+	env.fog_light_color = env.fog_light_color.lerp(tint.lerp(Color(0.03, 0.03, 0.04), night_k), kk * 0.7)
+	env.ambient_light_energy *= lerpf(1.0, 0.7 if kind == "ashstorm" else 0.85, kk)
 
 
 ## Whether the weather now asks something of one standing here.
