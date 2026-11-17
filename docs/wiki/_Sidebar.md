@@ -8,6 +8,7 @@
 **The Ashen Waste**
 - [[How it works|The-Ashen-Waste]]
 - [[Items]]
+- [[Arms and Clothing|Arms-and-Clothing]]
 - [[Making]]
 - [[Building]]
 - [[Creatures]]

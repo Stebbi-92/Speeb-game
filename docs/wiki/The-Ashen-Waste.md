@@ -2,6 +2,8 @@
 
 An open world, about four kilometres across, made fresh from a seed. Each world keeps its own save, and up to eight can walk it together.
 
+The world is laid out as you move: the ground near you is in full detail, the far ground in less (coming in 0.13; this makes towns much smoother). While a world loads, a bar shows how far it has got, with changing hints and pictures of the waste (coming in 0.13).
+
 ## World settings
 
 Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, night pace, and whether you drop your pack when you fall.
@@ -21,6 +23,44 @@ When you fall, you wake knowing a little more: the nearest lair or ruin you had 
 
 Sleep through the night by resting at a fire or a bedroll. In company, everyone must agree to sleep.
 
+## Always a next goal
+
+- **Smoke.** Red smoke rises over dead beacons, and dark smoke over lairs that are waiting. You can see both from far off.
+- **What now.** The top of the journal (**J**) names three goals: the next step on the road, something near you, and a way to grow.
+- **Guiding embers.** Now and then, embers drift toward the goal you are tracking. Turn them off in **Settings**.
+
+## The map
+
+Press **M**. Scroll to zoom, drag to move, right click to mark a spot. Marks are shared with your fellowship and show on the compass.
+
+**Coming in 0.13:** the whole map, sea and isles too, is black until you have been there. A lit beacon shows the land for about 500 metres around it, also for beacons lit in older worlds. Maps from older saves carry over.
+
+## Roaming events
+
+Every five to nine minutes something happens somewhere near you, marked on the compass and in What now:
+
+- **A caravan under attack.** Drive off the attackers.
+- **A fallen star.** Something bright fell out of the sky.
+- **A supply cache.** Get to it before others do.
+- **A box cat swarm.** A screaming pack gathers in the ruins.
+
+Each one pays everyone near when it is done. Leave one alone and it may dig in as a **raid camp**: more foes, a strong one at its heart, and a bigger reward. A raid camp stays for twenty minutes or until you break it.
+
+## Named nights
+
+Some nights have a name. Hold until dawn without falling and the morning pays.
+
+- **The Screaming Night:** box cats run in packs.
+- **The Long Dark:** more forms walk than any night before.
+- **The Hunter's Moon:** greater forms walk among the rest.
+- **A Quiet Night:** few walk. Rest, or build.
+
+The night eases after your fellowship falls, and grows as beacons are lit. Choose how hard nights press with **Night pace** in the world settings.
+
+## Bestiary
+
+The first time each kind of form falls to you, its page opens: what it is and what it fears. See [[Creatures]].
+
 ## Food and rest
 
 Two small bars at the bottom left. Eat to keep **Food** up and rest to keep **Rest** up. When either runs low you heal slower and tire faster. Cooked food (at a cooking station) is far better than raw.
@@ -39,7 +79,11 @@ Each town has houses, roads and an inn. At the inn you can buy a meal, rent a be
 
 ## Gathering, making and building
 
-Gather from trees, rocks, salt flats and heaps of ruin. Make things in your pack under **Make**; some need a workbench or a cooking station nearby. See [[Items]], [[Making]] and [[Building]].
+Gather from trees, rocks, salt flats and heaps of ruin. Make things in your pack under **Make**; some need a workbench or a cooking station nearby. See [[Items]], [[Arms and Clothing|Arms-and-Clothing]], [[Making]] and [[Building]].
+
+Gathering throws chips and the rock or tree shivers with each blow; the last blow is heavier.
+
+Moving things: drag them between a chest and your pack, and choose how much a click moves (all, half, 10 or 1).
 
 A **campfire** makes a base. Inside a base, every chest counts as part of your pack when you make or build, so a well-stocked base saves a lot of walking. Name your chests by opening them: the name shows above the chest.
 

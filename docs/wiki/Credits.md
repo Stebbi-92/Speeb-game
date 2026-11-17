@@ -8,7 +8,7 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
 | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far (`tools/cut_gunshots.py`) |
-| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
+| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks, the "no" sound |
