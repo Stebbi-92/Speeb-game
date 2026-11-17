@@ -6502,6 +6502,28 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: the flamethrower roars while held and falls quiet when let go; its smoke rolls up.
+func debug_flamer() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var wpn: Arms = player.weapon
+	arms.owned.append("flamer")
+	arms.primary = "flamer"
+	rearm()
+	wpn.draw_gun(0)
+	await get_tree().create_timer(0.6).timeout
+	var smoke0 := find_children("*", "CPUParticles3D", false, false).size()
+	for k in 12:
+		wpn._cool = 0.0
+		wpn._try_fire()
+		await get_tree().process_frame
+	var roaring: bool = wpn._flame_snd != null and wpn._flame_snd.playing and (wpn._flame_snd.stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD
+	var parts := find_children("*", "CPUParticles3D", false, false).size() - smoke0
+	await get_tree().create_timer(0.4).timeout
+	print("FLAMER roaring=%s quiet_after=%s particles=%s" % [roaring, not wpn._flame_snd.playing, parts > 12])
+	get_tree().quit()
+
+
 ## Testing aid: with the mouse, a click on a chest slot moves it to the pack, and a drag from the
 ## pack onto the chest moves it back.
 func debug_slotdrag() -> void:

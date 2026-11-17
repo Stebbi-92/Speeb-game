@@ -2263,12 +2263,28 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 		var parts := kind.split(":")
 		var g: Dictionary = ArmsDB.GUNS.get(parts[1], ArmsDB.GUNS.shotgun)
 		var quiet := parts.size() > 2
+		if g.mode == "flame":
+			# Their flamethrower roars where they stand for as long as it keeps coming
+			Arms.flame_jet(self, a + b * 0.9 - Vector3(0, 0.25, 0), b, true)
+			if av and is_instance_valid(av):
+				var fs: AudioStreamPlayer3D = av.get_node_or_null("FlameRoar")
+				if fs == null:
+					fs = AudioStreamPlayer3D.new()
+					fs.name = "FlameRoar"
+					fs.stream = Arms.flame_loop()
+					fs.unit_size = 10
+					fs.bus = Game.bus_of("flame")
+					av.add_child(fs)
+				if not fs.playing:
+					fs.play()
+				fs.set_meta("until", Time.get_ticks_msec() + 350)
+				get_tree().create_timer(0.4, false).timeout.connect(func():
+					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
+						fs.stop())
+			return
 		sfx("supp" if quiet else str(g.sound), -14 if quiet else -6, a)
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
-		if g.mode == "flame":
-			Arms.flame_jet(self, a + b * 0.9 - Vector3(0, 0.25, 0), b)
-			return
 		if g.mode == "rocket":
 			var r := Arms.Rocket.new()
 			r.shown_only = true

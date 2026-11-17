@@ -71,6 +71,10 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | [Marcellus](https://fonts.google.com/specimen/Marcellus) | Astigmatic | SIL Open Font Licence 1.1 |
 | [Source Serif 4](https://fonts.google.com/specimen/Source+Serif+4) | Adobe | SIL Open Font Licence 1.1 |
 
+## Made for the game
+
+- `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
+
 ## Engine
 
 Made with [Godot Engine](https://godotengine.org) (MIT licence).

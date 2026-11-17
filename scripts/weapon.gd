@@ -490,6 +490,11 @@ static func kick_pattern(g: String) -> Array:
 func _process(delta: float) -> void:
 	visible = enabled and not (player.input_locked and player.get_parent().completed)
 	_cool = maxf(0.0, _cool - delta)
+	if _flame_hold > 0.0:
+		_flame_hold -= delta
+		if _flame_hold <= 0.0 and _flame_snd and _flame_snd.playing:
+			_flame_snd.stop()
+			player.get_parent().sfx("whoosh", -14, null, 0.8)   # the last of it, cut off
 	_melee_cool = maxf(0.0, _melee_cool - delta)
 	_switch = maxf(0.0, _switch - delta)
 	_kick = move_toward(_kick, 0.0, delta * 4.0)
@@ -846,7 +851,20 @@ func _flame(s: Dictionary, lvl) -> void:
 	var origin := cam.global_position
 	var fwd := -cam.global_transform.basis.z
 	var tip: Vector3 = _model.to_global(_model.get_meta("tip")) if _model else origin + fwd
-	Arms.flame_jet(lvl, tip, fwd)
+	Arms.flame_jet(lvl, tip, fwd, _string % 3 == 0)
+	# The roar of it, held while the trigger is; and the gun's mouth lit orange
+	if _flame_snd == null:
+		_flame_snd = AudioStreamPlayer.new()
+		_flame_snd.stream = Arms.flame_loop()
+		_flame_snd.bus = Game.bus_of("flame")
+		_flame_snd.volume_db = -6.0
+		add_child(_flame_snd)
+	if not _flame_snd.playing:
+		_flame_snd.play()
+	_flame_hold = 0.16
+	if _flash:
+		_flash.light_color = Color(1.0, 0.55, 0.2)
+		_flash.light_energy = randf_range(2.2, 3.4)
 	if _string % 3 == 0:
 		Net.fx("gun:flamer", origin, fwd)
 	var reach := float(s.range)
@@ -875,15 +893,73 @@ func _flame(s: Dictionary, lvl) -> void:
 			Thrown.burn(lvl, g.position, 1.6, dmg * 1.2, 3.0, true, true)
 
 
+var _flame_snd: AudioStreamPlayer
+var _flame_hold := 0.0
+static var _flame_loop: AudioStreamWAV
+static var _smoke_m: StandardMaterial3D
+
+
+## The flamethrower's roar, made to loop.
+static func flame_loop() -> AudioStreamWAV:
+	if _flame_loop == null:
+		_flame_loop = (load("res://assets/audio/flame_loop.wav") as AudioStreamWAV).duplicate()
+		_flame_loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		_flame_loop.loop_begin = 0
+		_flame_loop.loop_end = _flame_loop.data.size() / 2
+	return _flame_loop
+
+
+## Dark smoke rolling up off a tongue of fire.
+static func flame_smoke(lvl: Node, at: Vector3, dir: Vector3) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.6
+	p.amount = 5
+	p.lifetime = 1.8
+	var q := QuadMesh.new()
+	q.size = Vector2(1.1, 1.1)
+	p.mesh = q
+	if _smoke_m == null:
+		_smoke_m = StandardMaterial3D.new()
+		_smoke_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_smoke_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_smoke_m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_smoke_m.vertex_color_use_as_albedo = true
+		_smoke_m.albedo_texture = Relics._soft_dot()
+	p.material_override = _smoke_m
+	p.local_coords = false
+	p.direction = dir + Vector3(0, 0.6, 0)
+	p.spread = 25.0
+	p.initial_velocity_min = 3.0
+	p.initial_velocity_max = 6.0
+	p.damping_min = 2.0
+	p.damping_max = 3.0
+	p.gravity = Vector3(0, 1.6, 0)
+	var c := Curve.new()
+	c.add_point(Vector2(0, 0.6))
+	c.add_point(Vector2(1, 3.2))
+	p.scale_amount_curve = c
+	var g := Gradient.new()
+	g.set_color(0, Color(0.25, 0.2, 0.17, 0.0))
+	g.add_point(0.2, Color(0.2, 0.17, 0.15, 0.45))
+	g.set_color(g.get_point_count() - 1, Color(0.3, 0.28, 0.26, 0.0))
+	p.color_ramp = g
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lvl.add_child(p)
+	p.global_position = at + dir * 5.0
+	p.emitting = true
+	lvl.get_tree().create_timer(2.2, false).timeout.connect(p.queue_free)
+
+
 ## A tongue of fire, seen by everyone: thrown from `at` along `dir`.
-static func flame_jet(lvl: Node, at: Vector3, dir: Vector3) -> void:
+static func flame_jet(lvl: Node, at: Vector3, dir: Vector3, smoke := false) -> void:
 	if Net.dedicated or lvl == null:
 		return
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 0.85
-	p.amount = 9
-	p.lifetime = 0.5
+	p.amount = 12
+	p.lifetime = 0.55
 	var q := QuadMesh.new()
 	q.size = Vector2(0.5, 0.5)
 	p.mesh = q
@@ -918,6 +994,8 @@ static func flame_jet(lvl: Node, at: Vector3, dir: Vector3) -> void:
 	p.global_position = at
 	p.emitting = true
 	lvl.get_tree().create_timer(0.9, false).timeout.connect(p.queue_free)
+	if smoke:
+		flame_smoke(lvl, at, dir)
 
 
 var hands_full := false   ## carrying something in both hands (a beacon ember): no shooting
@@ -962,7 +1040,7 @@ func _try_fire() -> void:
 	_bloom = minf(1.6, _bloom + float(s.kick) * (0.12 if s.mode in ["auto", "spin"] else 0.45))
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
-	if s.mode != "flame" or _string % 5 == 0:
+	if s.mode != "flame":
 		lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2, null, 0.7 if s.mode == "flame" else 1.0)
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
 	if lvl.has_method("noise"):
@@ -975,6 +1053,7 @@ func _try_fire() -> void:
 		_flame(s, lvl)
 		return
 	if not quiet and not fitted("flash_hider"):
+		_flash.light_color = Color(1.0, 0.8, 0.5)
 		_flash.light_energy = 4.0 if s.mode != "spin" else 2.5
 		_flash_mesh.visible = true
 		_flash_mesh.rotation.z = randf() * TAU
