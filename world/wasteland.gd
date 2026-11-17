@@ -1092,14 +1092,14 @@ func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top:
 			var pitch := rr.randf_range(1.3, 2.3)
 			# Ridge along the longer side
 			var along_x := W >= D
-			pm.size = Vector3(W + 1.0, pitch, D + 1.0) if along_x else Vector3(D + 1.0, pitch, W + 1.0)
+			# A prism's slope spans its x and its ridge runs along its z: the slope over the short side,
+			# the ridge along the long one (turned a quarter when that long side is the house's x)
+			pm.size = Vector3(D + 1.0, pitch, W + 1.0) if along_x else Vector3(W + 1.0, pitch, D + 1.0)
 			roof.mesh = pm
 			roof.material_override = _m.thatch if kind == 0 else _m.darkwood
 			roof.position = Vector3(0, top + pitch * 0.5, 0)
-			if not along_x:
+			if along_x:
 				roof.rotation.y = PI * 0.5
-			# A prism's ridge runs along z; turn it so the ridge runs along the long side
-			roof.rotation.y += PI * 0.5
 			n.add_child(roof)
 		2:
 			builder._part(n, fb, Vector3(W + 0.3, 0.2, D + 0.3), Vector3(0, top + 0.1, 0), _m.stone, false)

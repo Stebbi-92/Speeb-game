@@ -3118,12 +3118,11 @@ func _w_tell(what: String, at: Vector3) -> void:
 	p.emission_sphere_radius = 0.8
 	var qm := QuadMesh.new()
 	qm.size = Vector2(0.35, 0.35)
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	# Soft round puffs that fade near the eye (the waste's weather flecks' own shader), in the tell's colour
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/weather_fleck.gdshader")
 	qm.material = m
+	p.color = c
 	p.mesh = qm
 	var fade := Gradient.new()
 	fade.set_color(0, Color(1, 1, 1, 1))

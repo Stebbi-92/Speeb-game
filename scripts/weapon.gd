@@ -1560,6 +1560,12 @@ func _show_model() -> void:
 	if not _models.has(g):
 		_models[g] = _build(g)
 		_holder.add_child(_models[g])
+		# Only in one's own hands is the red dot drawn over all else (on the glass, past the sight's body);
+		# on another's gun, or one set down, it hides behind what stands before it
+		for q in _models[g].find_children("*", "MeshInstance3D", true, false):
+			if q.has_meta("reticle"):
+				var rt: Array = q.get_meta("reticle")
+				(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
 	_model = _models[g]
 	_model.visible = true
 	_pump = _model.get_meta("pump") if _model.has_meta("pump") else null
@@ -2141,6 +2147,7 @@ func _acc_piece(piece: String) -> Node3D:
 				q.mesh = qm
 				q.position = a.get_center()
 				q.material_override = _reticle_mat(piece, across)
+				q.set_meta("reticle", [piece, across])
 				q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				h.add_child(q)
 		bb = a if first else bb.merge(a)
@@ -2162,8 +2169,8 @@ const RETICLE := {"Sight 1": [0.0026, 0.0], "Sight 2": [0.0024, 0.0], "Sight 3":
 static var _reticles := {}
 
 
-static func _reticle_mat(piece: String, across: float) -> StandardMaterial3D:
-	var key := "%s:%.5f" % [piece, across]
+static func _reticle_mat(piece: String, across: float, over := false) -> StandardMaterial3D:
+	var key := "%s:%.5f:%s" % [piece, across, over]
 	if _reticles.has(key):
 		return _reticles[key]
 	var size := 256
@@ -2186,8 +2193,8 @@ static func _reticle_mat(piece: String, across: float) -> StandardMaterial3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = true   # it is lit on the glass: nothing of the sight's own body covers it
-	m.render_priority = 10
+	m.no_depth_test = over   # in one's own hands it is lit on the glass: nothing of the sight's own body covers it
+	m.render_priority = 10 if over else 0
 	m.albedo_texture = ImageTexture.create_from_image(img)
 	m.albedo_color = Color(2.4, 0.12, 0.06)
 	_reticles[key] = m

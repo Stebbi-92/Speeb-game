@@ -1,3 +1,10 @@
+Brelm alpha 0.13.3: clear view
+
+- Snow, ash and rain are soft round flecks that vanish close to your eye, so none fill the view.
+- The puffs a far form gives before its way are soft and round too.
+- A red dot sight's dot no longer shows through walls and trees on another pilgrim's gun.
+- Town roofs sit the right way: the ridge runs along the long side of the house.
+
 Brelm alpha 0.13.2: joining fix
 
 - Joining a fellowship: the loading screen and its bar stay up while the host's world comes over and is raised, a step at a time, so the game no longer hangs.

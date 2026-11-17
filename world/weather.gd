@@ -86,15 +86,10 @@ func _particles(c: Color, sz: Vector2, n: int, fall: float, life: float) -> GPUP
 	ps.process_material = pm
 	var q := QuadMesh.new()
 	q.size = sz
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y if sz.y > sz.x * 2.0 else BaseMaterial3D.BILLBOARD_ENABLED
-	m.vertex_color_use_as_albedo = true
-	# A flake that drifts past the eye fades away, not filling half the view
-	m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
-	m.distance_fade_min_distance = 0.6
-	m.distance_fade_max_distance = 1.8
+	# Round, soft, and faded out close to the eye (a shader of its own: see weather_fleck.gdshader)
+	var m := ShaderMaterial.new()
+	m.shader = load("res://world/weather_fleck.gdshader")
+	m.set_shader_parameter("streak", sz.y > sz.x * 2.0)
 	q.material = m
 	ps.draw_pass_1 = q
 	ps.emitting = false
