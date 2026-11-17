@@ -1296,11 +1296,23 @@ func _build_beacon(i: int) -> void:
 	a.position = Vector3(0, 2.4, 0)
 	n.add_child(a)
 	personal_interactable(a, "", func(): _beacon_touched(i))
+	# A second place at the bowl's foot: an ember to carry, for a fellowship of two or more
+	var ea := Area3D.new()
+	ea.collision_layer = 16
+	ea.collision_mask = 0
+	var ecs := CollisionShape3D.new()
+	var esh := SphereShape3D.new()
+	esh.radius = 0.8
+	ecs.shape = esh
+	ea.add_child(ecs)
+	ea.position = Vector3(2.2, 0.8, 0)
+	n.add_child(ea)
+	personal_interactable(ea, "", func(): _ember_take(i))
 	# A dead beacon is a goal on the horizon: a thin column of red smoke that stands over the waste
 	var dark := landmark_column(Color(0.75, 0.22, 0.12, 0.16), 220.0, 0.9)
 	dark.position = Vector3(0, 122, 0)
 	n.add_child(dark)
-	beacon_nodes.append({"node": n, "flame": flame, "light": light, "beam": beam, "area": a, "pos": c, "dark": dark})
+	beacon_nodes.append({"node": n, "flame": flame, "light": light, "beam": beam, "area": a, "pos": c, "dark": dark, "ember_area": ea})
 	_beacon_prompt(i)
 
 
@@ -1308,6 +1320,12 @@ func _beacon_prompt(i: int) -> void:
 	if beacon_nodes.size() <= i:
 		return
 	var a: Area3D = beacon_nodes[i].area
+	var ea: Area3D = beacon_nodes[i].get("ember_area")
+	if ea:
+		ea.set_meta("prompt", "Take an ember to a dark beacon (needs an escort)" if i in lit and ember_by == 0 and next_dark_beacon(beacon_nodes[i].pos) >= 0 else "")
+	if ember_by == Net.me() and not i in lit and not vigils.has(i):
+		a.set_meta("prompt", "Kindle the beacon with the ember")
+		return
 	if i in lit:
 		a.set_meta("prompt", "Walk the beacon road" if i in my_kindled() else "Keep a vigil here (its boon is yours)")
 	elif vigils.has(i):
@@ -1332,6 +1350,12 @@ func _beacon_touched(i: int) -> void:
 		ui.open_travel()
 		return
 	if vigils.has(i):
+		return
+	if ember_by == Net.me():
+		if i == 8 and lit.size() < 8:
+			hud.say("The ninth bowl will not take even an ember while any other beacon stands dark.", 5.0)
+			return
+		shared("_rq_ember_kindle", [Net.me(), i])
 		return
 	if i == 8 and lit.size() < 8:
 		hud.say("The ninth bowl is choked with black earth. It will not take a flame while any other beacon stands dark.", 5.0)
@@ -1426,6 +1450,96 @@ func _beacon_payoff(i: int) -> void:
 	hud.title_card("%d of 9" % n, "%s burns again" % WPlaces.BEACONS[i].name)
 	autosave_soon(1.0)
 	char_save_soon()
+
+
+# ------------------------------------------------------------------ the ember run (two or more)
+## One of the fellowship carries an ember from a lit beacon to a dark one: no oil is needed and the
+## vigil is short, but the carrier cannot shoot and walks slower, and the waste comes for the ember.
+## The others are the escort.
+var ember_by := 0          ## the peer carrying an ember, or 0
+var ember_from := -1
+var _ember_light: OmniLight3D
+var _ember_t := 0.0
+const EMBER_VIGIL := 45.0
+
+
+func _ember_take(i: int) -> void:
+	if not i in lit or ember_by != 0:
+		return
+	if avatars.is_empty():
+		hud.notify("An ember needs an escort. Bring someone with you.")
+		return
+	shared("_rq_ember", [Net.me(), i])
+
+
+func _rq_ember(by: int, i: int) -> void:
+	if not Net.authority() or ember_by != 0 or not i in lit:
+		return
+	shared("_w_ember", [by, i])
+
+
+func _w_ember(by: int, i: int) -> void:
+	ember_by = by
+	ember_from = i
+	_ember_t = 0.0
+	var carrier: Node3D = player if by == Net.me() else avatars.get(by)
+	if is_instance_valid(_ember_light):
+		_ember_light.queue_free()
+	if is_instance_valid(carrier):
+		_ember_light = OmniLight3D.new()
+		_ember_light.light_color = Color(1.0, 0.55, 0.2)
+		_ember_light.light_energy = 2.5
+		_ember_light.omni_range = 7.0
+		_ember_light.position = Vector3(0, 1.2, 0)
+		carrier.add_child(_ember_light)
+	if by == Net.me():
+		player.weapon.hands_full = true
+		hud.notify("You carry an ember from %s. You cannot shoot with it in your hands. Get it to a dark beacon; your escort must keep you alive." % WPlaces.BEACONS[i].name)
+	else:
+		hud.notify("%s carries an ember from %s. Keep them alive to the next dark beacon." % [Net.name_of(by), WPlaces.BEACONS[i].name])
+	for k in beacon_nodes.size():
+		_beacon_prompt(k)
+
+
+func _rq_ember_kindle(by: int, i: int) -> void:
+	if not Net.authority() or by != ember_by or i in lit or vigils.has(i):
+		return
+	shared("_w_ember_end", [true])
+	shared("_w_vigil", [i, EMBER_VIGIL])
+
+
+func _w_ember_end(delivered: bool) -> void:
+	if ember_by == Net.me():
+		player.weapon.hands_full = false
+	if not delivered and ember_by != 0:
+		hud.notify("The ember is out. It has to be carried again from a lit beacon.")
+	elif delivered:
+		hud.notify("The ember catches. Hold the beacon while it takes.")
+	ember_by = 0
+	ember_from = -1
+	if is_instance_valid(_ember_light):
+		_ember_light.queue_free()
+	for k in beacon_nodes.size():
+		_beacon_prompt(k)
+
+
+## Host: the waste comes for the ember while it is carried; the carrier falling or leaving puts it out.
+func _ember_tick(delta: float) -> void:
+	if ember_by == 0 or not Net.authority():
+		return
+	var carrier: Node3D = player if ember_by == Net.me() else avatars.get(ember_by)
+	if not is_instance_valid(carrier) or (carrier == player and (downed or _pfail)) or (carrier != player and carrier.downed):
+		shared("_w_ember_end", [false])
+		return
+	_ember_t -= delta
+	if _ember_t <= 0.0:
+		_ember_t = 18.0 if night else 26.0
+		if alive_count() < WCrowd.ALIVE_CAP:
+			var roster: Array = forms_at(carrier.global_position)
+			for k in randi_range(2, 3):
+				var e = _spawn_near(roster[randi() % roster.size()], carrier.global_position, 30.0, 45.0)
+				if e and e.has_method("seek"):
+					e.seek(carrier.global_position, 40.0)
 
 
 const BEACON_THERE := 250.0   ## near enough to a beacon as it catches to share in its credit
@@ -1760,6 +1874,8 @@ func _needs_tick(delta: float) -> void:
 	food = maxf(0.0, food - delta * 100.0 / FOOD_SECONDS * work * float(wn.hunger) * nm)
 	rest = maxf(0.0, rest - delta * 100.0 / REST_SECONDS * float(wn.weary) * nm)
 	var slow := (0.85 if rest <= 0.0 else (0.93 if rest < 20.0 else 1.0)) * float(wn.speed)
+	if ember_by == Net.me():
+		slow *= 0.85   # an ember in both hands
 	player.walk_speed = 3.4 * skills.speed_mult() * slow * dev_fast * alchemy.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult() * slow * dev_fast * alchemy.speed_mult()
 	if dev:
@@ -4219,6 +4335,7 @@ func _sea_tick(delta: float) -> void:
 				kraken.host_tick()
 			if events:
 				events.host_tick(1.0)
+			_ember_tick(1.0)
 			_serpent_t -= 1.0
 			if _serpent_t <= 0.0:
 				_serpent_t = 10.0
@@ -6378,6 +6495,36 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid: an ember is taken from a lit beacon (only with company), its carrier cannot shoot,
+## it kindles a dark beacon with a short vigil, and it goes out if the carrier falls.
+func debug_ember() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	if not 0 in lit:
+		lit.append(0)
+	_ember_take(0)
+	var alone_refused := ember_by == 0
+	var fake := Node3D.new()
+	fake.set("name", "fake")
+	avatars[999] = fake
+	add_child(fake)
+	_ember_take(0)
+	var carrying := ember_by == Net.me() and player.weapon.hands_full
+	var nxt := next_dark_beacon(beacon_nodes[0].pos)
+	_beacon_touched(nxt)
+	var kindling: bool = vigils.has(nxt) and absf(float(vigils[nxt]) - EMBER_VIGIL) < 0.1 and ember_by == 0 and not player.weapon.hands_full
+	vigils.erase(nxt)
+	_ember_take(0)
+	downed = true
+	_ember_tick(1.0)
+	var out := ember_by == 0
+	downed = false
+	avatars.erase(999)
+	fake.queue_free()
+	print("EMBER alone_refused=%s carrying=%s kindling=%s out=%s" % [alone_refused, carrying, kindling, out])
+	get_tree().quit()
 
 
 ## Testing aid: a beacon lit while far away gives half and no boon; a vigil at it later keeps its credit.

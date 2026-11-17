@@ -920,9 +920,12 @@ static func flame_jet(lvl: Node, at: Vector3, dir: Vector3) -> void:
 	lvl.get_tree().create_timer(0.9, false).timeout.connect(p.queue_free)
 
 
+var hands_full := false   ## carrying something in both hands (a beacon ember): no shooting
+
+
 func _try_fire() -> void:
 	var s := spec()
-	if _cool > 0.0:
+	if _cool > 0.0 or hands_full:
 		return
 	if shells <= 0:
 		if reserve <= 0:
