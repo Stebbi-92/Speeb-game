@@ -2026,7 +2026,13 @@ const IRON_SIDE := {}
 ## Guns whose own rear and front sights do not sit on one line along the barrel: [the rear aperture's middle,
 ## the front hood's middle, how far the eye sits behind the rear], measured on the built model. Down the sights the
 ## gun is turned so the two line up, and brought close enough that the front shows through the rear's hole.
-const SIGHT_LINE := {"rocket": [Vector3(0.006, 0.0876, 0.081), Vector3(0.0, 0.078, -0.144), 0.07]}
+const SIGHT_LINE := {
+	"rocket": [Vector3(0.006, 0.0876, 0.081), Vector3(0.0, 0.078, -0.144), 0.07],
+	# The belt gun's battle sight: the notch at the foot of the raised ladder, and the front post's tip
+	"lmg": [Vector3(0.0036, 0.0884, -0.0666), Vector3(0.0036, 0.0957, -0.695), 0.28],
+	# The rifle's tangent sight: the notch's shoulders level with the top of the front post's bead
+	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.3],
+}
 
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
