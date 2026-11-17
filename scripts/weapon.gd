@@ -538,7 +538,7 @@ func _process(delta: float) -> void:
 	# Aiming brings the sights onto the eye's own line
 	var aim_off := Vector3.ZERO
 	var ease_aim := smoothstep(0.0, 1.0, _aim)
-	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(0, -float(_model.get_meta("eye", 0.07)), -0.6), ease_aim)
+	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(float(_model.get_meta("eye_x", 0.0)), -float(_model.get_meta("eye", 0.07)), -0.6), ease_aim)
 	rotation = Vector3(0.02, 0.05, 0) * (1.0 - ease_aim)
 	_holder.position = Vector3(_sway.x, bob - _kick * 0.04 + _sway.y - _switch * 0.5, _kick * 0.12 * (1.0 - _aim * 0.6)) + aim_off
 	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4
@@ -1078,7 +1078,9 @@ func _try_fire() -> void:
 		r.radius = float(s.radius)
 		r.vel = fwd * float(s.speed)
 		lvl.add_child(r)
-		r.global_position = origin + fwd * 0.9 + cam.global_transform.basis.x * 0.15 - cam.global_transform.basis.y * 0.1
+		# Down the sights it leaves along the sight line; from the hip, from the tube on the shoulder
+		var side := cam.global_transform.basis.x * 0.15 * (1.0 - _aim)
+		r.global_position = origin + fwd * 0.9 + side - cam.global_transform.basis.y * lerpf(0.1, 0.05, _aim)
 		return
 	var space := get_world_3d().direct_space_state
 	var spread := 0.0
@@ -1824,6 +1826,7 @@ func _build(g: String, mnts = null) -> Node3D:
 	n.set_meta("tip", tip)
 	if sight == "" and not built_glass(g, fit):
 		eye -= float(IRON_DROP.get(g, 0.0))   # the scanned body's top is a hammer or slide: its own sights sit lower
+		n.set_meta("eye_x", float(IRON_SIDE.get(g, 0.0)))
 	n.set_meta("eye", eye)
 	if Game.gilded:
 		gild(n)
@@ -1963,6 +1966,8 @@ func _acc_name(g: String, m: String) -> String:
 
 ## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
 const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "rocket": 0.014, "minigun": -0.1}
+## How far each gun sits to the side when aimed, so its sights (not its body) are on the eye's line.
+const IRON_SIDE := {"rocket": -0.0045}
 
 
 ## Sets a sight from the pack on its rail on top of the gun; gives back the height of the eye, or -1.
@@ -2381,9 +2386,10 @@ func _build_melee(id: String) -> Node3D:
 
 # ================================================================== things that fly
 
-## A rocket: flies straight, bursts on whatever it meets. Only the shooter's rocket does harm;
-## the copies the fellowship sees are only shown.
+## A rocket: falls slowly as it flies (aim a little high far off), and bursts on whatever it meets.
+## Only the shooter's rocket does harm; the copies the fellowship sees are only shown.
 class Rocket extends Node3D:
+	const DROP := 1.8   ## how fast it falls, m/s each second: about 1.5 m low at 50 m, 6 m at 100 m
 	var vel := Vector3.ZERO
 	var dmg := 0.0
 	var radius := 5.0
@@ -2449,6 +2455,9 @@ class Rocket extends Node3D:
 			queue_free()
 			return
 		global_position = to
+		vel.y -= DROP * delta
+		if vel.length() > 0.01:
+			look_at(global_position + vel, Vector3.UP if absf(vel.normalized().y) < 0.99 else Vector3.RIGHT)
 
 
 ## A round in flight: beyond close range a shot is not instant. It flies straight at its gun's speed,

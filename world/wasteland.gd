@@ -12068,6 +12068,69 @@ func debug_escape() -> void:
 	get_tree().quit()
 
 
+## Testing aid: one Escape closes exactly one layer, whatever is open (the pack, the map, building,
+## the settings over the menu, the menu).
+func _esc_once() -> void:
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.physical_keycode = KEY_ESCAPE
+	esc.pressed = true
+	Input.parse_input_event(esc)
+	await get_tree().process_frame
+	var up := InputEventKey.new()
+	up.keycode = KEY_ESCAPE
+	up.physical_keycode = KEY_ESCAPE
+	Input.parse_input_event(up)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func debug_escape_all() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(1.0).timeout
+	var out := []
+	ui.open_inventory("pack")
+	await get_tree().process_frame
+	await _esc_once()
+	out.append("pack=%s" % [ui._panel == null and not hud.pause_panel.visible])
+	ui.open_map()
+	await get_tree().process_frame
+	await _esc_once()
+	out.append("map=%s" % [ui._panel == null and not hud.pause_panel.visible])
+	builder.toggle()
+	await get_tree().process_frame
+	await _esc_once()
+	out.append("build=%s" % [not builder.active and not hud.pause_panel.visible])
+	await _esc_once()
+	var menu: bool = hud.pause_panel.visible
+	hud.show_options()
+	await get_tree().process_frame
+	await _esc_once()
+	out.append("menu=%s options=%s" % [menu, not hud.options_panel.visible and hud.pause_panel.visible])
+	await _esc_once()
+	out.append("closed=%s" % [not hud.pause_panel.visible and not get_tree().paused])
+	print("ESCAPEALL " + " ".join(out))
+	get_tree().quit()
+
+
+## Testing aid: a rocket falls as it flies, and points along its path.
+func debug_rocketdrop() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var r := Arms.Rocket.new()
+	r.shown_only = true
+	r.vel = Vector3(38, 0, 0)
+	add_child(r)
+	var start := player.global_position + Vector3(0, 300, 0)
+	r.global_position = start
+	await get_tree().create_timer(1.0).timeout
+	var fell: float = start.y - r.global_position.y if is_instance_valid(r) else -1.0
+	var nose: float = (-r.global_transform.basis.z).y if is_instance_valid(r) else 0.0
+	print("ROCKETDROP fell=%.2f nose_down=%s" % [fell, nose < -0.02])
+	get_tree().quit()
+
+
 ## Testing aid: a pilgrim fallen through the ground is set back on top, and never kept below it.
 func debug_stuck() -> void:
 	while not ready_world:
