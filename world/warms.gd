@@ -6,7 +6,7 @@ extends RefCounted
 const START := {
 	"owned": ["shotgun", "pistol"], "blades": ["hatchet"], "thrown": ["frag"], "kits": ["bandages"],
 	"parts": {}, "mounts": {}, "tier": {}, "grade": {}, "glass": true,
-	"primary": "shotgun", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
+	"primary": "shotgun", "primary2": "", "secondary": "pistol", "melee": "hatchet", "grenade": "frag", "gadget": "bandages",
 	"wear": {}, "relics": [],
 }
 
@@ -304,6 +304,10 @@ static func clean(d) -> Dictionary:
 		var g := str(d.get(slot, ""))
 		if g in a.owned and ArmsDB.GUNS[g].slot == slot:
 			a[slot] = g
+	# A second long gun, carried beside the first
+	var g2 := str(d.get("primary2", ""))
+	if g2 in a.owned and ArmsDB.GUNS[g2].slot == "primary" and g2 != a.primary:
+		a.primary2 = g2
 	for key in ["parts", "mounts"]:
 		var src = d.get(key, {})
 		if src is Dictionary:
@@ -367,3 +371,33 @@ static func clean(d) -> Dictionary:
 			if WEAR.has(str(slot)):
 				a.plate[str(slot)] = maxf(0.0, float(pl[slot]))
 	return a
+
+
+## The guns carried on the road, in the order of the bar: the long gun, the second long gun ("" if none),
+## the side arm.
+static func carried(a: Dictionary) -> Array:
+	return [str(a.get("primary", "")), str(a.get("primary2", "")), str(a.get("secondary", ""))]
+
+
+## Takes up gun g into a place: "primary", "primary2" or "secondary". A long gun already in the other
+## long place trades places with what was there.
+static func carry(a: Dictionary, g: String, place: String) -> void:
+	if ArmsDB.GUNS[g].slot == "secondary":
+		a.secondary = g
+		return
+	var other := "primary2" if place == "primary" else "primary"
+	if str(a.get(other, "")) == g:
+		a[other] = str(a.get(place, ""))
+	a[place] = g
+	if str(a.get("primary", "")) == "":
+		a.primary = str(a.get("primary2", ""))
+		a.primary2 = ""
+
+
+## Lays a second long gun down (the first can only be traded, never left empty).
+static func put_away(a: Dictionary, g: String) -> void:
+	if str(a.get("primary2", "")) == g:
+		a.primary2 = ""
+	elif str(a.get("primary", "")) == g and str(a.get("primary2", "")) != "":
+		a.primary = a.primary2
+		a.primary2 = ""

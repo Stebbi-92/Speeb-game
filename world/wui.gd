@@ -1281,12 +1281,21 @@ func _card_grid(min_h := 470.0) -> GridContainer:
 	return grid
 
 
+## Where a survivor may change what they carry: at a workbench, by a lit fire, or in a town. Out on the
+## road you fight with what you brought.
+func can_rearm() -> bool:
+	return at_bench() or w.near_fire(w.player.global_position, 8.0)
+
+
 func _draw_arms() -> void:
 	var a: Dictionary = w.arms
 	var bench: bool = at_bench()
+	var home: bool = can_rearm()
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	top.add_child(_pill("Workbench" if bench else "Making and fitting need a workbench", bench))
+	if not home:
+		top.add_child(_pill("Change what you carry at camp, in a town or at a workbench", false))
 	var wn := WArms.worn(a)
 	if wn.guard > 0.0:
 		top.add_child(_pill("Clothing turns aside %d%% of harm" % int(round(wn.guard * 100.0)), true))
@@ -1316,15 +1325,15 @@ func _draw_arms() -> void:
 			for g in order:
 				var sp: Dictionary = ArmsDB.GUNS[g]
 				var owned: bool = g in a.owned
-				var carried: bool = owned and a[sp.slot] == g
+				var place: int = WArms.carried(a).find(g) if owned else -1
 				var t: int = int(a.tier.get(g, 0))
-				if carried:
-					rows.append([g, sp.name, "Carried  ·  %s" % WArms.TIERS[t], GOLD, {}, "", Callable(), false])
+				if place >= 0:
+					rows.append([g, sp.name, "%s  ·  %s" % [["Carried  ·  long gun 1", "Carried  ·  long gun 2", "Carried  ·  side arm"][place], WArms.TIERS[t]], GOLD, {}, "", Callable(), false])
 				elif owned:
-					rows.append([g, sp.name, "%s  ·  %s" % ["Long gun" if sp.slot == "primary" else "Side arm", WArms.TIERS[t]], DIM, {}, "Carry", func(): a[sp.slot] = g; w.rearm(); _redraw(), true])
+					rows.append([g, sp.name, "%s  ·  %s" % ["Long gun" if sp.slot == "primary" else "Side arm", WArms.TIERS[t]], DIM, {}, "Carry", func(): _carry(g, _free_place(g)), home])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[g])
-					rows.append([g, sp.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[g], func(): a.owned.append(g); a[sp.slot] = g), bench and w.stock_has_all(c)])
+					rows.append([g, sp.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[g], func(): a.owned.append(g); WArms.carry(a, g, _free_place(g))), bench and w.stock_has_all(c)])
 		"blades", "thrown", "kits":
 			var k: Array = []
 			for kk in WArms.KINDS:
@@ -1334,14 +1343,14 @@ func _draw_arms() -> void:
 			for id in tb:
 				if id in a[k[0]]:
 					var on: bool = a[k[1]] == id
-					rows.append([id, tb[id].name, "Carried" if on else "Owned", GOLD if on else DIM, {}, "" if on else "Carry", func(): a[k[1]] = id; w.rearm(); _redraw(), true])
+					rows.append([id, tb[id].name, "Carried" if on else "Owned", GOLD if on else DIM, {}, "" if on else "Carry", func(): a[k[1]] = id; w.rearm(); _redraw(), home])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[id])
 					rows.append([id, tb[id].name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[id], func(): a[k[0]].append(id); a[k[1]] = id), bench and w.stock_has_all(c)])
 		"relics":
 			for id in WArms.RELICS:
 				var it: Dictionary = WArms.RELICS[id]
-				var key := Game.key_text("slot_%d" % (7 if id == "claw" else 8))
+				var key := Game.key_text("slot_%d" % (8 if id == "claw" else 9))
 				if id in a.relics:
 					rows.append([id, it.name, "Carried  ·  key %s" % key, GOLD, {}, "", Callable(), false])
 				else:
@@ -1425,6 +1434,47 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 var _psel := ""      ## the chosen part in the gun view
 
 
+## Takes up gun g into a place ("primary", "primary2" or "secondary").
+func _carry(g: String, place: String) -> void:
+	WArms.carry(w.arms, g, place)
+	w.rearm()
+	_redraw()
+
+
+## Where a gun newly taken up goes: a side arm to its place; a long gun to the empty second place, or
+## else in place of the long gun not in hand.
+func _free_place(g: String) -> String:
+	var a: Dictionary = w.arms
+	if ArmsDB.GUNS[g].slot == "secondary":
+		return "secondary"
+	if str(a.get("primary2", "")) == "":
+		return "primary2"
+	var held: String = w.player.weapon.gun() if w.player and w.player.weapon else ""
+	return "primary" if held == str(a.get("primary2", "")) else "primary2"
+
+
+## Under the gun's name: where it is carried, and the ways to carry it or lay it down.
+func _carry_line(side: VBoxContainer, a: Dictionary, g: String) -> void:
+	var home := can_rearm()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	side.add_child(row)
+	var lg: Array = WArms.carried(a)
+	if ArmsDB.GUNS[g].slot == "secondary":
+		if lg[2] != g:
+			row.add_child(_secondary("Carry as side arm", func(): _carry(g, "secondary"), home, 14))
+	elif g in [lg[0], lg[1]]:
+		if lg[1] != "":
+			row.add_child(_secondary("Lay it down", func(): WArms.put_away(a, g); w.rearm(); _redraw(), home, 14))
+	else:
+		for i in 2:
+			var other: String = lg[i]
+			var label := "Carry as long gun 2" if other == "" else "Carry instead of %s" % ArmsDB.GUNS[other].name
+			row.add_child(_secondary(label, func(): _carry(g, ["primary", "primary2"][i]), home, 14))
+	if not home and row.get_child_count() > 0:
+		side.add_child(_label("Only at camp, in a town or at a workbench.", 13, DIM))
+
+
 ## The gun view: the gun turning slowly as it is now fitted, its measures, every part it can take
 ## by place, and the chosen part with its grade, traits and what reworking it costs.
 func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> void:
@@ -1438,6 +1488,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(tl)
 	side.add_child(head)
+	_carry_line(side, a, g)
 	side.add_child(_practice_line(g))
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 20)

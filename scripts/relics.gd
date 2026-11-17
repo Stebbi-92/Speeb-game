@@ -271,21 +271,25 @@ func _unhandled_input(e: InputEvent) -> void:
 	if not player.armed or player.input_locked or get_tree().paused:
 		return
 	if Game.wasteland:
-		# In the waste the bar is: long gun, side arm, blade, prayer, lantern, milk, claw, censer
-		for i in 8:
+		# In the waste the bar is: long gun, second long gun, side arm, blade, prayer, lantern, milk, claw, censer
+		for i in 9:
 			if e.is_action_pressed("slot_%d" % (i + 1)):
-				if i < 2:
+				if i < 3:
+					var g: String = WArms.carried(Game.arms_now())[i]
+					if g == "":
+						Game.main.hud.notify("No second long gun carried. Choose one at camp, in a town or at a workbench.")
+						return
 					if slot != 0:
 						select(0)
 					if player.weapon:
-						player.weapon.draw_gun(i)
-				elif i == 2:
+						player.weapon.draw_named(g)
+				elif i == 3:
 					if slot != 0:
 						select(0)
 					if player.weapon:
 						player.weapon.draw_blade()
 				else:
-					var r: int = [1, 2, 5, 3, 4][i - 3]
+					var r: int = [1, 2, 5, 3, 4][i - 4]
 					if not Game.has_relic(Game.RELICS[r]) and r in [3, 4]:
 						Game.main.hud.notify("You have no %s. Make one at a workbench." % Game.RELIC_NAMES[Game.RELICS[r]])
 					select(r)

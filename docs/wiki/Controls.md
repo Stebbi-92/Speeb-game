@@ -32,8 +32,9 @@ Every control can be changed in **Settings**. These are the defaults.
 | Relic 4 | 4 |
 | Relic 5 | 5 |
 | Relic 6 | 6 |
-| Claw (the waste) | 7 |
-| Censer (the waste) | 8 |
+| Relic 7 (milk in the waste) | 7 |
+| Claw (the waste) | 8 |
+| Censer (the waste) | 9 |
 | The Book of Emojis | Tab |
 | Fellowship list (together) | L |
 | Pack (the waste) | I |
@@ -67,3 +68,19 @@ A controller works too: the left stick walks, the right stick looks.
 | Menu | Start |
 
 In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a dropped satchel takes everything without opening it. **Enter** makes the chosen thing at the workbench.
+
+## The bar in the Ashen Waste
+
+| Key | What |
+|---|---|
+| 1 | Long gun |
+| 2 | Second long gun (if carried) |
+| 3 | Side arm |
+| 4 | Blade |
+| 5 | Prayer |
+| 6 | Lantern |
+| 7 | Milk |
+| 8 | Claw of Ascent |
+| 9 | Censer |
+
+You choose what you carry in the Arms screen, but only at camp (by a lit fire), in a town or at a workbench. Out on the road you fight with what you brought.

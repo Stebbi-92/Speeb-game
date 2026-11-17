@@ -3624,8 +3624,8 @@ func rearm() -> void:
 		wp.grenades = had[1]
 	if wp.gadget == had[2]:
 		wp.charges = had[3]
-	if wp.gun() != had[4] and wp.guns[1] == had[4]:
-		wp.cur = 1
+	if wp.gun() != had[4] and wp.guns.has(had[4]):
+		wp.cur = wp.guns.find(had[4])
 		wp._show_model()
 	wp._show_melee()
 	wp._ui()
@@ -9302,6 +9302,42 @@ func debug_sprint() -> void:
 	print("SPRINT faster=%s spends=%s" % [run > walk * 1.5, st < 100.0])
 	get_tree().quit()
 
+## Testing aid: two long guns, a side arm and a blade are carried; what is carried changes only at camp,
+## in a town or at a workbench; the bar's keys take up each gun; the second long gun is saved.
+func debug_carry() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	for g in ["sniper", "machine_gun"]:
+		if not g in arms.owned:
+			arms.owned.append(g)
+	var l: Dictionary = lairs[0]
+	player.place(gpos(Vector2(l.pos.x, l.pos.z)) + Vector3(0, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var road: bool = not ui.can_rearm()
+	player.place(gpos(WPlaces.spos("cinderwick")) + Vector3(0, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var town: bool = ui.can_rearm()
+	ui._carry("sniper", "primary2")
+	var wp: Arms = player.weapon
+	var three: bool = wp.guns == ["shotgun", "sniper", "pistol"]
+	var keys := []
+	for i in 3:
+		var ev := InputEventAction.new()
+		ev.action = "slot_%d" % (i + 1)
+		ev.pressed = true
+		player.relics._unhandled_input(ev)
+		wp._switch = 0.0
+		keys.append(wp.gun())
+	ui._carry("machine_gun", "primary")
+	var traded: bool = arms.primary == "machine_gun" and arms.primary2 == "sniper"
+	var kept: bool = WArms.clean(arms.duplicate(true)).primary2 == "sniper"
+	WArms.put_away(arms, "sniper")
+	rearm()
+	print("CARRY road=%s town=%s three=%s keys=%s traded=%s kept=%s down=%d" % [road, town, three, ",".join(keys), traded, kept, wp.guns.size()])
+	get_tree().quit()
+
+
 ## Testing aid: every tab of the pack fits its frame, whatever is chosen.
 func debug_tabsfit() -> void:
 	while not ready_world:
@@ -10121,9 +10157,9 @@ func debug_screen() -> void:
 			arms[ArmsDB.GUNS[g].slot] = g
 			rearm()
 			var w = player.weapon
-			if ArmsDB.GUNS[g].slot == "secondary" and w.cur == 0:
-				w.cur = 1
-				w.equip_loadout()
+			if w.gun() != g and w.guns.has(g):
+				w.cur = w.guns.find(g)
+				w._show_model()
 			inv.add(Items.AMMO[g], 99)
 			w.shells = 0
 			w._start_reload()

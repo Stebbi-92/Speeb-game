@@ -127,6 +127,10 @@ func equip_loadout() -> void:
 		_models[k].queue_free()
 	_models.clear()
 	guns = [str(lo.get("primary", "shotgun")), str(lo.get("secondary", "pistol"))]
+	# In the waste a second long gun may be carried too: long gun, second long gun, side arm
+	var g2 := str(lo.get("primary2", ""))
+	if Game.wasteland and ArmsDB.GUNS.has(g2) and g2 != guns[0]:
+		guns.insert(1, g2)
 	for g in guns:
 		if not ArmsDB.GUNS.has(g):
 			guns = ["shotgun", "pistol"]
@@ -321,6 +325,8 @@ func _unhandled_input(e: InputEvent) -> void:
 
 ## Takes the long gun (0) or the side arm (1) in hand.
 func draw_gun(i: int) -> void:
+	if i < 0 or i >= guns.size():
+		return
 	if blade_out:
 		_sheathe()
 		if cur != i:
@@ -328,7 +334,12 @@ func draw_gun(i: int) -> void:
 			_show_model()
 		return
 	if cur != i:
-		swap()
+		swap(i)
+
+
+## Takes up the carried gun named g, if it is carried.
+func draw_named(g: String) -> void:
+	draw_gun(guns.find(g))
 
 
 ## Takes the blade in hand. Fire swings it; held a moment longer, it swings hard.
@@ -357,14 +368,15 @@ func _sheathe() -> void:
 	_ui()
 
 
-func swap() -> void:
+## To the next gun carried, or to gun i.
+func swap(to := -1) -> void:
 	if _switch > 0.0:
 		return
 	if blade_out:
 		_sheathe()
 		return
 	_reloading = false
-	cur = 1 - cur
+	cur = to if to >= 0 and to < guns.size() else (cur + 1) % guns.size()
 	_switch = 0.35
 	_spin = 0.0
 	_show_model()
