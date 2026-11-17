@@ -6,6 +6,7 @@ Brelm alpha 0.13.3: clear view
 - Town roofs sit the right way: the ridge runs along the long side of the house.
 - Built doors fill their doorway.
 - The pack's tabs work again: a faded revelation card had sat over them and taken their clicks.
+- T uses the best healing you carry (the elixir first if you burn or are in tar).
 - Riding cats are great sphynx cats now, with a Speeb's head, that walk, trot and gallop.
 - Mounts look ahead, and turn their heads toward you only as far as a neck goes.
 - Drifting motes are only in the marsh now.

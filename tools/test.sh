@@ -36,6 +36,7 @@ check armour    debug_armour   "ARMOUR foe plate=120 body=[0-9]+ head=40 pierce=
 check minds     debug_minds    "MINDS calm=calm quiet=calm loud=(search|hunt) band=(search|hunt) saw=hunt hurt=flee back=hunt"
 check glass     debug_glass    "GLASS old=true new=false"
 check cat       debug_cat      "CAT drains=true blocked=true tamed=true riding=true faster=true sprint=true spent=true shared=true followed=true off=true back=true" "CAT neck=true"
+check quickheal debug_quickheal "QUICKHEAL first=true cure=true last=true kept=true key=T"
 check hitbox    debug_hitbox   "HITBOX all=true heads=true"
 check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"

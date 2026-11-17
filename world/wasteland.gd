@@ -2047,6 +2047,30 @@ func _need_warn(_delta: float) -> void:
 		_warned[k[0]] = low
 
 
+## The best healing carried, used at a key: the one that heals most first; burning or in tar,
+## the elixir that ends them.
+func best_heal() -> String:
+	var best := ""
+	var most := 0.0
+	for id in Items.DB:
+		var info: Dictionary = Items.DB[id]
+		if str(info.get("kind", "")) != "medicine" or float(info.get("heal", 0.0)) <= 0.0 or inv.count(id) < 1:
+			continue
+		var h := float(info.heal) + (1000.0 if id == "elixir" and (_burn > 0.0 or _slow > 0.0) else 0.0)
+		if h > most:
+			most = h
+			best = id
+	return best
+
+
+func quick_heal() -> void:
+	var id := best_heal()
+	if id == "":
+		hud.notify("You carry nothing that heals.")
+	elif eat(id):
+		hud.notify("%s used. %d left." % [Items.info(id).name, inv.count(id)])
+
+
 ## Eating fills the belly; the healer's things only close wounds.
 func eat(id: String) -> bool:
 	var info: Dictionary = Items.info(id)
@@ -5428,6 +5452,8 @@ func _cat_tick(delta: float) -> void:
 		var pos = s.get("pos", [])
 		var at := Vector2(player.global_position.x + 4.0, player.global_position.z) if not (pos is Array and pos.size() == 2) else Vector2(float(pos[0]), float(pos[1]))
 		cat.global_position = gpos(at)
+	if Input.is_action_just_pressed("quick_heal") and not player.input_locked and not get_tree().paused:
+		quick_heal()
 	if Input.is_action_just_pressed("whistle") and not player.input_locked and cat:
 		sfx("bell", -14, null, 2.2)
 		cat.call_to(player)
@@ -9626,6 +9652,31 @@ func debug_glass() -> void:
 
 ## Testing aid: a stray is won over with three meals, carries you faster, sprints on its breath,
 ## shares the harm, gets down, and comes back from a save.
+func debug_quickheal() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for id in Items.DB:
+		if str(Items.DB[id].get("kind", "")) == "medicine":
+			inv.take(id, inv.count(id))
+	inv.add("bandage", 2)
+	inv.add("salve", 1)
+	inv.add("elixir", 1)
+	player.health = 10.0
+	quick_heal()
+	var first := inv.count("salve") == 0 and inv.count("elixir") == 1
+	_burn = 3.0
+	player.health = 10.0
+	quick_heal()
+	var cure := inv.count("elixir") == 0 and _burn == 0.0
+	player.health = 10.0
+	quick_heal()
+	var last := inv.count("bandage") == 1
+	player.health = player.max_health
+	quick_heal()
+	var kept := inv.count("bandage") == 1
+	print("QUICKHEAL first=%s cure=%s last=%s kept=%s key=%s" % [first, cure, last, kept, Game.key_text("quick_heal")])
+
+
 func debug_cat() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
