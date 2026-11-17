@@ -16,6 +16,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Bloom Tea** | 10 | 8 | Bitter and clear. A meal: more breath, and it comes back faster. (heals 5, feeds 10) |
 | **Bone Broth** | 10 | 8 | Boiled down from bones and salt. A meal: wounds close much faster. (heals 10, feeds 35) |
 | **Salt-crust Pie** | 10 | 18 | Meat and tuber under a crust of salt. A great meal: much more health, and more breath. (heals 25, feeds 80) |
+| **Wayfarer's Feast** | 10 | 30 | Only a cook can make it. The best meal there is: much more health and breath, and wounds close. (heals 40, feeds 100) |
 
 ## Medicine
 
@@ -24,6 +25,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Bowl of Milk** | 5 | 14 | Speeb's own comfort. Restores much health. (heals 55) |
 | **Bandage** | 10 | 5 | Clean cloth, boiled. Restores health. (heals 35) |
 | **Ash-bloom Salve** | 5 | 14 | Closes what a bandage cannot. Restores much health. (heals 80) |
+| **Restoring Elixir** | 10 | 25 | Only an alchemist can make it. Heals a great deal, and ends burning and tar. (heals 60) |
 
 ## Aid
 
@@ -52,6 +54,8 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Lamp Oil** | 20 | 6 | Drawn from the Well. It burns yellow and smoky. |
 | **Hide** | 20 | 3 | A beast's skin. Cuts into cloth. |
 | **Torch** | 20 | 2 | Pitch-soaked wood. Makes a torch. |
+| **Tempered Steel** | 30 | 12 | Only a smith can make it. The best blades and plate need it. |
+| **Clockwork** | 30 | 12 | Only a tinker can make it. The great guns and the finer fittings need it. |
 | **Red Iron** | 40 | 6 | Caravan iron, rusted red through. Found in the scrap of the Rust Dunes. |
 | **Heartwood** | 40 | 6 | The dark core of a tree of the Dead Forest. It does not rot. |
 | **Salt Crystal** | 40 | 9 | Clear salt from deep in the Salt Flats. |
@@ -65,6 +69,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Shotgun Shells** | 120 | 1 | Paper and brass, packed with shot. For the pump shotgun. |
 | **Pistol Rounds** | 150 | 1 | Short brass rounds. For the pistol, the auto pistol and the revolver. |
 | **Rifle Rounds** | 300 | 1 | For the machine gun, belt gun, sniper rifle and minigun. |
+| **Lamp Fuel** | 400 | 1 | Thinned oil and tar. For the flamethrower. |
 | **Rocket** | 10 | 12 | A finned warhead. For the rocket launcher. |
 
 ## Tools
@@ -73,6 +78,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 |---|---|---|---|
 | **Pick** | 1 | 25 | Stone and salt come away twice as fast. |
 | **Hatchet** | 1 | 20 | Deadwood comes away twice as fast. |
+| **Ash-Radio** | 1 | 40 | Carried, it picks up the waste's broadcasts: who is in trouble out there, and what the night will bring. |
 | **Pry Bar** | 1 | 30 | Opens what was sealed: iron chests and vault doors. |
 
 ## Trinkets
@@ -88,6 +94,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 
 | Item | Stack | Worth | Notes |
 |---|---|---|---|
+| **Drowned Clapper** | 5 | 260 | The tongue of the Kraken-Bell, green with the sea. Hold it to your ear and it rings. |
 | **Matron's Ember** | 5 | 220 | A coal from the Cinder Matron. It has not cooled, and does not burn the hand. |
 | **Choir Tongue** | 5 | 200 | Dried and cracked. Some nights it still hums the note it knew. |
 | **White Shard** | 5 | 240 | A piece of the White Disc. Light passes through it, and comes out colder. |

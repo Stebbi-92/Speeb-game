@@ -6,9 +6,9 @@ Past the coast of the waste lies the Grey Sea, and four isles. Each isle is its 
 
 ## The isles
 
-- **Hrafnsey**: Black sand, green moss and smoking ground. The springs here are hot enough to heal, or to scald. Its ruin is The Saga Stones.
+- **Hrafnsey**: Black sand, green moss and smoking ground. The springs here are hot enough to heal, or to scald. Its ruin is The Saga Stones. Draugar walk here (heavy dead men, best burned), and the Nykur, a grey horse by the water whose bite drags at your legs.
 - **The Sunk Fen**: A drowned forest on a low isle. The water is black and the trees still stand in it. Its ruin is The Drowned Chapel.
-- **Kalaja**: Pale stone hills, old olive trees and grey domes dug into every slope. Someone feared an enemy that never came. Its ruin is The Old Keep.
+- **Kalaja**: Pale stone hills, old olive trees and grey domes dug into every slope. Someone feared an enemy that never came. Its ruin is The Old Keep. The Shtriga hunts here at night (each bite heals her; fire undoes her), and the Kulshedra, a she-dragon that breathes fire. Get behind stone.
 - **Cogwright**: An isle of iron. Pipes and wheels and chimneys, still turning for no one. Its ruin is The Engine Vault.
 
 Each isle has a pier facing the waste, a hut by it, and two wrecks with something left aboard.

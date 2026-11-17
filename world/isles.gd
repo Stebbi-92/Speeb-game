@@ -18,7 +18,7 @@ const THEMES := {
 		"sand": Color(0.1, 0.1, 0.11), "green": Color(0.26, 0.34, 0.2), "rock": Color(0.16, 0.16, 0.17),
 		"text": "Black sand, green moss and smoking ground. The springs here are hot enough to heal, or to scald.",
 		"nodes": [["rock", 6], ["herb", 3], ["salt", 1], ["bone", 1]],
-		"forms": ["knight", "wisp", "wisp", "vigil", "saltbone", "brute", "idol"],
+		"forms": ["knight", "wisp", "vigil", "saltbone", "brute", "idol", "draugr", "draugr", "nykur"],
 	},
 	"fen": {
 		"name": "The Sunk Fen", "base": "marsh", "ruin": ["The Drowned Chapel", "shrine"], "relief": 6.0, "rough": 0.3,
@@ -32,7 +32,7 @@ const THEMES := {
 		"sand": Color(0.74, 0.68, 0.56), "green": Color(0.42, 0.44, 0.28), "rock": Color(0.6, 0.57, 0.5),
 		"text": "Pale stone hills, old olive trees and grey domes dug into every slope. Someone feared an enemy that never came.",
 		"nodes": [["rock", 4], ["tree", 3], ["herb", 2], ["scrap", 2]],
-		"forms": ["unlit_gun", "unlit_mark", "unlit_blade", "saltrifle", "howler", "rusher"],
+		"forms": ["unlit_gun", "unlit_mark", "unlit_blade", "saltrifle", "howler", "rusher", "shtriga", "shtriga", "kulshedra"],
 	},
 	"cog": {
 		"name": "Cogwright", "base": "salt", "ruin": ["The Engine Vault", "vault"], "relief": 16.0, "rough": 0.5,

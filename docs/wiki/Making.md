@@ -27,6 +27,8 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 
 | Makes | From | Note |
 |---|---|---|
+| 1 Wayfarer's Feast | 2 Raw Meat, 2 Ash Tuber, 2 Ash-bloom, 3 Salt |  |
+| 1 Restoring Elixir | 2 Ash-bloom, 1 Salt Crystal, 1 Heartwood |  |
 | 1 Roast Meat | 1 Raw Meat |  |
 | 1 Tuber Stew | 2 Ash Tuber, 1 Raw Meat, 1 Salt |  |
 | 2 Bloom Tea | 2 Ash-bloom |  |
@@ -39,17 +41,22 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 
 | Makes | From | Note |
 |---|---|---|
+| 1 Tempered Steel | 4 Scrap Iron, 1 Red Iron |  |
+| 1 Clockwork | 3 Scrap Iron, 1 Lamp Oil, 1 Salt Crystal |  |
 | 30 Shotgun Shells | 3 Scrap Iron, 8 Salt |  |
 | 40 Pistol Rounds | 3 Scrap Iron, 8 Salt |  |
 | 60 Rifle Rounds | 4 Scrap Iron, 10 Salt |  |
 | 2 Rocket | 6 Scrap Iron, 2 Lamp Oil, 10 Salt |  |
+| 60 Lamp Fuel | 1 Lamp Oil, 1 Tar |  |
 | 1 Pick | 4 Deadwood, 4 Scrap Iron |  |
 | 1 Hatchet | 3 Deadwood, 3 Scrap Iron |  |
 | 1 Pry Bar | 8 Scrap Iron |  |
-| 1 Rare Fittings | 3 Fine Fittings, 4 Scrap Iron | Learned during the main story |
+| 1 Ash-Radio | 6 Scrap Iron, 1 Fine Fittings, 1 Lamp Oil |  |
+| 1 Rare Fittings | 3 Fine Fittings, 4 Scrap Iron, 1 Clockwork | Learned during the main story |
 | 3 Rocket | 4 Scrap Iron, 2 Obsidian, 1 Lamp Oil | Learned during the main story |
-| 1 Storied Fittings | 2 Rare Fittings, 6 Red Iron | Learned during the main story |
+| 1 Storied Fittings | 2 Rare Fittings, 6 Red Iron, 2 Clockwork | Learned during the main story |
 | 2 Fine Fittings | 8 Scrap Iron, 2 Salt Crystal | Learned during the main story |
 | 1 Raft | 16 Deadwood, 4 Cloth |  |
 | 1 Sloop | 30 Deadwood, 6 Heartwood, 10 Cloth, 6 Scrap Iron | Learned during the main story |
+| 1 Longboat | 50 Deadwood, 12 Heartwood, 14 Cloth, 10 Scrap Iron, 2 Salt Crystal | Learned during the main story |
 | 1 Beacon Oil | 2 Lamp Oil, 10 Salt, 4 Ash-bloom | Learned during the main story |

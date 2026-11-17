@@ -6987,6 +6987,39 @@ func debug_gatewalk() -> void:
 
 ## Testing aid: on every isle the ground can be stood on where it is drawn: no holes, no cells
 ## where the solid ground lies far from the drawn one.
+## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
+func debug_folk() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 23.0
+	var seen := {}
+	for il in terrain.isles:
+		var c: Vector2 = il.c
+		var roster: Array = forms_at(Vector3(c.x, terrain.height_at(c.x, c.y), c.y))
+		for k in ["draugr", "nykur", "shtriga", "kulshedra"]:
+			if k in roster:
+				seen[k] = il.key
+	var named := 0
+	var pp := player.global_position
+	for k in ["draugr", "nykur", "shtriga", "kulshedra"]:
+		var e := spawn_at(k, pp + Vector3(30, 1, 30))
+		if e and e.spec.name == LesserSpeeb.VARIANTS[k].name and e.is_alive():
+			named += 1
+		if e:
+			e.queue_free()
+	var sh := spawn_at("shtriga", pp + Vector3(-30, 1, -30))
+	var drinks := false
+	if sh:
+		sh.hp = sh.max_hp * 0.5
+		var before: float = sh.hp
+		sh._afflict(player)
+		drinks = sh.hp >= before + 25.0
+		sh.queue_free()
+	print("FOLK hrafn=%s kala=%s named=%d drinks=%s" % [seen.get("draugr", "") == "hrafn" and seen.get("nykur", "") == "hrafn",
+		seen.get("shtriga", "") == "kala" and seen.get("kulshedra", "") == "kala", named, drinks])
+	get_tree().quit()
+
+
 func debug_isleground() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -8805,9 +8838,16 @@ func debug_power() -> void:
 
 ## Testing aid: a ward is worn in its slot and wards its land; taken off it no longer does; an old
 ## save's gas mask moves from the head to the face.
+## Testing aid: earlier checks share the world, so make room in the pack before a check gives things.
+func _debug_room(n := 4) -> void:
+	for i in range(inv.slots.size() - 1, maxi(-1, inv.slots.size() - 1 - n), -1):
+		inv.take_slot(i)
+
+
 func debug_wear() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room()
 	# Whatever earlier runs left: one veil in the pack, nothing at the neck
 	arms.wear.erase("neck")
 	inv.take("veil", inv.count("veil"))
@@ -10259,6 +10299,7 @@ func debug_vault() -> void:
 	clock = 12.0
 	player.max_health = 100000.0
 	player.health = 100000.0
+	_debug_room()
 	var id := ""
 	var count := 0
 	var b8: Vector2 = WPlaces.bpos(8)

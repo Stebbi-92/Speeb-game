@@ -25,6 +25,8 @@ const FORM_TIER := {
 	# 0.10: the forms of the far lands. Each has a way of its own (see FoeTraits).
 	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "geyser_wight": 3, "canyon_strider": 3,
 	"dust_choir": 3, "grass_stalker": 3, "raven_mask": 4, "rime_walker": 4, "glass_husk": 4, "mound_guard": 4, "herd_ghost": 4,
+	# 0.12: the old tales of the themed isles
+	"nykur": 2, "draugr": 3, "shtriga": 3, "kulshedra": 4,
 }
 
 ## Kin of the common forms, bred hard by their own lands: each moves and fights as its "base" does,
@@ -87,6 +89,15 @@ const VARIANTS := {
 		"tough": {"bullet": 0.7, "shot": 0.7, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
 	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
 		"text": "Something drowned long ago and grown in the tar. It clings."},
+	# 0.12: the old tales of the themed isles. Hrafnsey keeps the north's dead; Kalaja the south's night things.
+	"draugr": {"base": "hollow", "name": "Draugr", "hp": 190.0, "bite": 28.0, "size": 1.4, "speed": 3.6, "tint": Color(0.32, 0.4, 0.45),
+		"weak": {"fire": 1.8, "blunt": 1.4}, "tough": {"bullet": 0.6, "blade": 0.8}, "text": "A dead man of the north who would not lie in his mound. Heavy and slow. Burn him."},
+	"nykur": {"base": "rusher", "name": "Nykur", "hp": 95.0, "bite": 18.0, "size": 1.3, "speed": 7.8, "slow": 3.0, "tint": Color(0.62, 0.64, 0.66),
+		"weak": {"bullet": 1.3}, "tough": {"shot": 0.8}, "text": "A grey horse by the water, its hooves turned backward. Its bite drags at your legs."},
+	"shtriga": {"base": "deacon", "name": "Shtriga", "hp": 120.0, "bite": 20.0, "speed": 5.4, "drain": 1.6, "tint": Color(0.42, 0.3, 0.45),
+		"weak": {"fire": 2.0, "blade": 1.3}, "tough": {"bullet": 0.8}, "text": "A night witch of the keep. She drinks from you, and each sip heals her. Fire undoes her."},
+	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "tint": Color(0.45, 0.18, 0.1),
+		"weak": {"blast": 1.5, "bullet": 1.2}, "tough": {"fire": 0.1, "shot": 0.7}, "text": "The she-dragon of the south. She breathes fire in a fan. Get behind stone."},
 }
 
 
