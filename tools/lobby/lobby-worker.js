@@ -164,7 +164,7 @@ async function latest(request, env, ctx) {
     out.notes = String(rel.body ?? "").slice(0, 4000);
     out.published = clean(rel.published_at, 40);
     out.page = clean(rel.html_url, 200);
-    for (const a of rel.assets ?? []) out.assets[clean(a.name, 80)] = { url: a.browser_download_url, size: a.size };
+    for (const a of rel.assets ?? []) out.assets[clean(a.name, 80)] = { url: a.browser_download_url, size: a.size, digest: typeof a.digest === "string" ? a.digest : "" };
   }
   try {
     const n = await fetch(`https://raw.githubusercontent.com/${repo}/main/NEWS.txt`, { headers: { "user-agent": "brelm-lobby" } });

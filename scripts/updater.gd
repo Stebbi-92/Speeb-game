@@ -135,7 +135,7 @@ func _on_latest(result: int, code: int, _h: PackedStringArray, body: PackedByteA
 				break
 		var assets := {}
 		for a in rel.get("assets", []):
-			assets[str(a.get("name", ""))] = {"url": str(a.get("browser_download_url", "")), "size": int(a.get("size", 0))}
+			assets[str(a.get("name", ""))] = {"url": str(a.get("browser_download_url", "")), "size": int(a.get("size", 0)), "digest": str(a.get("digest", ""))}
 		data = {"version": str(rel.get("tag_name", "")).trim_prefix("v"), "name": str(rel.get("name", "")),
 			"notes": str(rel.get("body", "")), "page": str(rel.get("html_url", "")), "assets": assets, "news": ""}
 	if not (data is Dictionary):
@@ -144,12 +144,37 @@ func _on_latest(result: int, code: int, _h: PackedStringArray, body: PackedByteA
 	var pack: Dictionary = assets.get(pack_name(), {}) if assets.get(pack_name()) is Dictionary else {}
 	latest = {"version": str(data.get("version", "")), "name": str(data.get("name", "")),
 		"notes": str(data.get("notes", "")), "page": str(data.get("page", "")), "news": str(data.get("news", "")),
-		"pack_url": str(pack.get("url", "")), "pack_size": int(pack.get("size", 0))}
+		"pack_url": str(pack.get("url", "")), "pack_size": int(pack.get("size", 0)), "pack_sha": _sha_of(pack.get("digest", ""))}
+	# A pack holds scripts: only one from this game's own releases is ever taken
+	if not str(latest.pack_url).begins_with(PACK_HOME):
+		latest.pack_url = ""
 	available = latest.version != "" and compare(latest.version, current) > 0
 	can_patch = available and latest.pack_url != "" and latest.version != failed   # a pack that would not start here is not offered again
 	if available and staged == latest.version:
 		can_patch = false    # already fetched; it waits for a restart
 	checked.emit()
+
+
+const PACK_HOME := "https://github.com/" + REPO + "/releases/download/"
+
+
+## The SHA-256 GitHub gives a release asset ("sha256:<hex>"), as plain hex; empty if none.
+static func _sha_of(digest) -> String:
+	var d := str(digest) if digest != null else ""
+	return d.trim_prefix("sha256:").to_lower() if d.begins_with("sha256:") else ""
+
+
+## The SHA-256 of a file, read in pieces.
+static func file_sha256(path: String) -> String:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	while f.get_position() < f.get_length():
+		ctx.update(f.get_buffer(1 << 20))
+	f.close()
+	return ctx.finish().hex_encode()
 
 
 ## The release asset this build can run.
@@ -190,6 +215,8 @@ func _on_download(result: int, code: int, _h: PackedStringArray, _body: PackedBy
 	var ok := result == HTTPRequest.RESULT_SUCCESS and code == 200 and size > 0
 	if ok and int(latest.pack_size) > 0 and size != int(latest.pack_size):
 		ok = false
+	if ok and str(latest.get("pack_sha", "")) != "" and file_sha256(part) != str(latest.pack_sha):
+		ok = false   # not the pack that was published
 	if not ok or not _looks_like_pack(part):
 		DirAccess.remove_absolute(part)
 		finished.emit(false, "The download failed. Try again later.")
