@@ -636,8 +636,6 @@ class ScopeView extends Control:
 	var breath := 1.0           ## the held breath left (1 = full); shown as a thin arc below
 
 	func _process(d: float) -> void:
-	if loading and loading.visible:
-		_tick_loading(d)
 		if not visible:
 			return
 		shift = shift.lerp(Vector2.ZERO, minf(1.0, d * 9.0))
@@ -975,6 +973,7 @@ var _load_bar: ColorRect     ## the filled part of the loading bar
 var _load_frame: Control
 var _load_goal := 0.0
 var _load_shown := 0.0
+var _load_since := 0.0
 var _load_tips: Array = []
 
 ## Things worth knowing, shown while a land is raised. Short and plain.
@@ -1062,6 +1061,7 @@ func show_loading(title: String, what := "The land is raised") -> void:
 	_load_t = 0.0
 	_load_goal = 0.0
 	_load_shown = 0.0
+	_load_since = 0.0
 	_load_bar.size.x = 0.0
 	_load_frame.visible = false
 	_load_dots.text = what + "..."
@@ -1081,13 +1081,19 @@ func set_loading(what: String) -> void:
 ## How far the loading has got, 0 to 1. The bar shows only for work that reports it.
 func set_loading_progress(f: float) -> void:
 	_load_frame.visible = true
-	_load_goal = maxf(_load_goal, clampf(f, 0.0, 1.0))
+	var g := clampf(f, 0.0, 1.0)
+	if g > _load_goal:
+		_load_goal = g
+		_load_since = 0.0
 
 
 ## While the loading screen is up: the bar eases toward where the work has got, and a new hint
 ## comes every few seconds, so it is plain the game is still at work.
 func _tick_loading(d: float) -> void:
-	_load_shown = move_toward(_load_shown, _load_goal, d * maxf(0.25, (_load_goal - _load_shown) * 4.0))
+	# A long stage gives no word for a while: the bar creeps on a little meanwhile, so it never sits dead still
+	_load_since += d
+	var aim := maxf(_load_shown, minf(1.0, _load_goal + minf(0.06, _load_since * 0.012)))
+	_load_shown = move_toward(_load_shown, aim, d * maxf(0.012, (aim - _load_shown) * 4.0))
 	_load_bar.size.x = _load_frame.size.x * _load_shown
 	_load_t += d
 	const EVERY := 6.0
@@ -1471,6 +1477,8 @@ func toggle_codex() -> void:
 
 
 func _process(d: float) -> void:
+	if loading and loading.visible:
+		_tick_loading(d)
 	crosshair.visible = Game.main != null and Game.main.in_game() and not get_tree().paused and not ads
 	_place_ticks(d)
 	if _hurt > 0.0:

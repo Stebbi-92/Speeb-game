@@ -198,16 +198,16 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		terrain.add_road(rd[2])
 	for k in WPlaces.SETTLEMENTS:
 		_town_paths(k)
-	await _step("The land is raised", 0.02)
+	await _step("The land is raised", 0.01)
 	terrain.steps = steps
-	terrain.on_progress = func(f: float): _progress(0.02 + 0.19 * f)
+	terrain.on_progress = func(f: float): _progress(0.01 + 0.22 * f)
 	await terrain.generate()
 	for r in ruins:
 		r.pos.y = terrain.height_at(r.pos.x, r.pos.z)
 	for l in lairs:
 		l.pos.y = terrain.height_at(l.pos.x, l.pos.z)
-	await _step("The ground is laid", 0.21)
-	terrain.on_progress = func(f: float): _progress(0.21 + 0.25 * f)
+	await _step("The ground is laid", 0.23)
+	terrain.on_progress = func(f: float): _progress(0.23 + 0.03 * f)
 	await terrain.build(_m.ground)
 	terrain.on_progress = Callable()
 	terrain.steps = false
@@ -219,36 +219,36 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
-	await _step("The sea is poured", 0.46)
+	await _step("The sea is poured", 0.27)
 	sea = WSea.new().setup(self)
 	add_child(sea)
 	for k in WPlaces.SETTLEMENTS:
-		await _step("The towns are built", 0.46 + 0.12 * WPlaces.SETTLEMENTS.keys().find(k) / WPlaces.SETTLEMENTS.size())
+		await _step("The towns are built", 0.27 + 0.15 * WPlaces.SETTLEMENTS.keys().find(k) / WPlaces.SETTLEMENTS.size())
 		var s0 := get_child_count()
 		_build_settlement(k)
 		_batch_since(s0)
-	await _step("The ruins are set", 0.58)
+	await _step("The ruins are set", 0.42)
 	for i in WPlaces.BEACONS.size():
 		_build_beacon(i)
 	var before := get_child_count()
 	for r in ruins:
 		if ruins.find(r) % 6 == 5:
-			await _step("The ruins are set", 0.59 + 0.21 * ruins.find(r) / ruins.size())
+			await _step("The ruins are set", 0.43 + 0.24 * ruins.find(r) / ruins.size())
 		var r0 := get_child_count()
 		_build_ruin(r)
 		_batch_since(r0)
 	for i in range(before, get_child_count()):
 		_fade_far(get_child(i), 700.0)
-	await _step("The lairs are dug", 0.80)
+	await _step("The lairs are dug", 0.67)
 	for l in lairs:
 		_build_lair(l)
-	await _step("Stores are hidden", 0.83)
+	await _step("Stores are hidden", 0.67)
 	_scatter_nodes()
-	await _step("Stores are hidden", 0.87)
+	await _step("Stores are hidden", 0.82)
 	_scatter_isle_nodes()
-	await _step("Stores are hidden", 0.90)
+	await _step("Stores are hidden", 0.84)
 	_scatter_ammo()
-	await _step("The isles wake", 0.92)
+	await _step("The isles wake", 0.85)
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
 	add_child(life)
@@ -256,13 +256,13 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	for nd in nodes:
 		_off_the_road(nd)
 		_fade_far(nd.node, 420.0)
-	await _step("The waste is dressed", 0.93)
+	await _step("The waste is dressed", 0.87)
 	_build_signposts()
-	await _step("The waste is dressed", 0.94)
+	await _step("The waste is dressed", 0.98)
 	_scatter_decor()
-	await _step("The waste is dressed", 0.96)
+	await _step("The waste is dressed", 0.985)
 	WDress.cover(self)
-	await _step("The halls are opened", 0.98)
+	await _step("The halls are opened", 0.995)
 	hall = WHall.new(self)
 	hall.build()
 	deep = WDeep.new(self)
@@ -415,9 +415,16 @@ var _beds := {}   ## the sound of places: night, town and cave, faded in and out
 var _bed_t := 0.0
 
 
+var _ground_laid := false
+
 func _process(delta: float) -> void:
 	if _stars and player:
 		_stars.global_position = player.global_position
+	if terrain and player and not Net.dedicated:
+		# The ground about the eye: all at once the first time, then a little at a time as it moves
+		var cam := get_viewport().get_camera_3d()
+		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
+		_ground_laid = true
 	if player and hud and not Net.dedicated:
 		_stuck_tick(delta)
 		_boss_watch()
