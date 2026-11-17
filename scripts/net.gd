@@ -13,7 +13,7 @@ const DEFAULT_PORT := 24600
 const DISCOVERY_PORT := 24601
 const MAX_PLAYERS := 8        ## the Ashen Waste
 const MAX_TRIALS := 4         ## the trials were made for four
-const PROTOCOL := "brelm-fellowship-4"
+const PROTOCOL := "brelm-fellowship-5"
 const ANNOUNCE_EVERY := 50.0
 ## The internet list of fellowships: a small Cloudflare Worker (see tools/lobby-worker.js).
 ## Leave empty to use only the local network and joining by address; it can also be set in Options.
@@ -524,8 +524,42 @@ func _call_req(s: int, method: String, args: Array) -> void:
 @rpc("authority", "call_local", "reliable")
 func _call(s: int, method: String, args: Array) -> void:
 	var lvl = _here(s)
-	if lvl and lvl.has_method(method):
+	if lvl and lvl.has_method(method) and not _held(lvl, method, args):
 		lvl.callv(method, args)
+
+
+## While a newcomer's world is still arriving, what happens in it waits, and is played after.
+func _held(lvl, method: String, args: Array) -> bool:
+	if lvl.get("snap_wait") == true and method != "_rq_hello":
+		lvl.snap_queue.append([method, args])
+		return true
+	return false
+
+
+## The whole world for one newcomer: packed small, and sent in parts on a lane of its own, so the
+## fellowship's own doings are not held up behind it.
+const SNAP_PART := 32768
+const SNAP_LANE := 2
+
+
+func send_snapshot(id: int, d: Dictionary) -> void:
+	var raw := var_to_bytes(d)
+	var packed := raw.compress(FileAccess.COMPRESSION_ZSTD)
+	var n := maxi(1, ceili(packed.size() / float(SNAP_PART)))
+	if not online or id == me():
+		var lvl = _level()
+		for i in n:
+			lvl._w_snap_part(i, n, raw.size(), packed.slice(i * SNAP_PART, mini((i + 1) * SNAP_PART, packed.size())))
+		return
+	for i in n:
+		_snap_part.rpc_id(id, seq, i, n, raw.size(), packed.slice(i * SNAP_PART, mini((i + 1) * SNAP_PART, packed.size())))
+
+
+@rpc("authority", "call_remote", "reliable", 2)
+func _snap_part(s: int, i: int, n: int, raw: int, part: PackedByteArray) -> void:
+	var lvl = _here(s)
+	if lvl and lvl.has_method("_w_snap_part"):
+		lvl._w_snap_part(i, n, raw, part)
 
 
 ## A method of the land called on one pilgrim only (the host answering a single asker).
@@ -541,7 +575,7 @@ func call_peer(id: int, method: String, args: Array) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _call_one(s: int, method: String, args: Array) -> void:
 	var lvl = _here(s)
-	if lvl and method.begins_with("_") and lvl.has_method(method):
+	if lvl and method.begins_with("_") and lvl.has_method(method) and not _held(lvl, method, args):
 		lvl.callv(method, args)
 
 

@@ -270,6 +270,7 @@ func intro() -> void:
 	else:
 		hud.say("The waste is taking shape around you...", 4.0)
 		player.set_physics_process(false)
+		snap_wait = true
 		shared("_rq_hello", [Net.me()])
 	_load_character()
 	_apply_time(true)
@@ -5449,11 +5450,47 @@ func _rq_hello(by: int) -> void:
 	if not ready_world or world_uid == "":
 		_waiting_hello.append(by)
 		return
-	Net.call_peer(by, "_w_snapshot", [world_data()])
+	Net.send_snapshot(by, world_data())
 	# Who is aboard what, so the newcomer sees them seated
 	for bid in boats:
 		if is_instance_valid(boats[bid]) and not boats[bid].riders.is_empty():
 			Net.call_peer(by, "_w_riders", [bid, boats[bid].riders])
+
+
+var snap_wait := false        ## a newcomer whose world is still arriving
+var snap_queue: Array = []    ## what happened meanwhile, to be played once it has
+var _snap_parts: Array = []
+
+
+func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
+	if i == 0 or _snap_parts.size() != n:
+		_snap_parts = []
+		_snap_parts.resize(n)
+	if i < 0 or i >= n:
+		return
+	_snap_parts[i] = part
+	if hud and n > 4:
+		hud.set_banner("", "The waste is taking shape  %d%%" % int(100.0 * (i + 1) / n))
+	for p in _snap_parts:
+		if p == null:
+			return
+	var all := PackedByteArray()
+	for p in _snap_parts:
+		all.append_array(p)
+	_snap_parts = []
+	if hud and n > 4:
+		hud.set_banner("", "")
+	var d = bytes_to_var(all.decompress(raw, FileAccess.COMPRESSION_ZSTD))
+	if not (d is Dictionary):
+		push_warning("Wasteland: the world sent could not be read")
+		return
+	_w_snapshot(d)
+	snap_wait = false
+	var q := snap_queue
+	snap_queue = []
+	for c in q:
+		if has_method(c[0]):
+			callv(c[0], c[1])
 
 
 func _w_snapshot(d: Dictionary) -> void:
@@ -6221,6 +6258,32 @@ func _world_ready() -> void:
 		get_tree().create_timer(6.0, false).timeout.connect(func():
 			if is_instance_valid(hud):
 				hud.notify("This world was begun under oath: %s." % vows))
+
+
+## Testing aid (host): a big world for a newcomer, sent in parts. Run with debug_snapclient joining.
+func debug_snaphost() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	day = 42
+	for i in 6000:
+		flags["pad_%d" % i] = str(randi()) + "-" + str(randi()) + "-" + str(randi())
+	print("SNAPHOST ready")
+	await get_tree().create_timer(150.0).timeout
+	get_tree().quit()
+
+
+## Testing aid (newcomer): the world arrived whole, and what happened meanwhile was played after.
+func debug_snapclient() -> void:
+	var t := 0
+	while not ready_world and t < 120:
+		await get_tree().create_timer(1.0).timeout
+		t += 1
+	var pads := 0
+	for k in flags:
+		if str(k).begins_with("pad_"):
+			pads += 1
+	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s" % [ready_world, day, pads, snap_wait])
+	get_tree().quit()
 
 
 ## Testing aid: a doorway wall is solid where it is drawn, but its door can be walked through.

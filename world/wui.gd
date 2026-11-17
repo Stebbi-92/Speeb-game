@@ -3757,7 +3757,7 @@ class Compass extends Control:
 	var w
 
 	func _draw() -> void:
-		if w == null or w.player == null:
+		if w == null or w.player == null or not w.ready_world:
 			return
 		var wd := size.x
 		var cx := wd * 0.5
