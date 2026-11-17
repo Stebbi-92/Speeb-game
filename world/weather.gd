@@ -166,15 +166,17 @@ func _process(delta: float) -> void:
 		ps.global_position = at + Vector3(0, 12, 0)
 	if _hf:
 		_hf.global_position = Vector3(snappedf(at.x, 4.0), at.y + 4.0, snappedf(at.z, 4.0))
-	var under: bool = w.hall != null and w.hall.inside(at)
+	# In a hall, or under a roof of one's own (the rain would come through the boards), none falls
+	var in_hall: bool = w.hall != null and w.hall.inside(at)
+	var under: bool = in_hall or (sheltered and inside > 0.5)
 	_rain.emitting = k > 0.3 and kind in ["rain", "gale"] and not under
 	_ash.emitting = k > 0.3 and kind in ["ashstorm", "frost"] and not under
 	_ash.process_material.color = Color(0.45, 0.4, 0.36, 0.7) if kind == "ashstorm" else Color(0.92, 0.94, 0.96, 0.8)
 	_ash.process_material.initial_velocity_min = 2.0 if kind == "ashstorm" else 1.0
 	var wa: float = w.sea.wind_ang if w.sea else 0.0
 	_ash.process_material.direction = Vector3(cos(wa) * 2.0, -1.0, sin(wa) * 2.0) if kind == "ashstorm" else Vector3(0.1, -1, 0)
-	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, (-26.0 if sheltered else -14.0) if kind == "rain" and k > 0.2 and not under else -60.0, delta * 15.0)
-	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, -10.0 if kind in ["gale", "ashstorm"] and k > 0.2 and not under else -60.0, delta * 15.0)
+	_rain_snd.volume_db = move_toward(_rain_snd.volume_db, (-26.0 if sheltered else -14.0) if kind == "rain" and k > 0.2 and not in_hall else -60.0, delta * 15.0)
+	_storm_snd.volume_db = move_toward(_storm_snd.volume_db, (-18.0 if sheltered else -10.0) if kind in ["gale", "ashstorm"] and k > 0.2 and not in_hall else -60.0, delta * 15.0)
 	_roof_t -= delta
 	if _roof_t <= 0.0:
 		_roof_t = 0.5

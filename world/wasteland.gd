@@ -7031,6 +7031,31 @@ func debug_traces() -> void:
 	get_tree().quit()
 
 
+## Testing aid: rain stops falling under a roof (it came through the boards), and starts again outside.
+func debug_roofrain() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := player.global_position
+	var roof := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(8, 0.3, 8)
+	cs.shape = bs
+	roof.add_child(cs)
+	add_child(roof)
+	roof.global_position = at + Vector3(0, 4.0, 0)
+	weather.kind = "rain"
+	weather.k = 1.0
+	set_physics_process(true)
+	await get_tree().create_timer(3.0).timeout
+	var dry_under: bool = not weather._rain.emitting and weather.sheltered
+	roof.queue_free()
+	await get_tree().create_timer(3.0).timeout
+	var wet_out: bool = weather._rain.emitting and not weather.sheltered
+	print("ROOFRAIN under=%s out=%s" % [dry_under, wet_out])
+	get_tree().quit()
+
+
 ## Testing aid: the old-tale forms roam their own isles, and fight as their kin do (the Shtriga drinks).
 func debug_folk() -> void:
 	while not ready_world:
