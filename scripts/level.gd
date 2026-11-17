@@ -2287,6 +2287,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					fs.name = "FlameRoar"
 					fs.stream = Arms.flame_loop()
 					fs.unit_size = 10
+					fs.volume_db = Arms.FLAME_DB + 3.0
 					fs.bus = Game.bus_of("flame")
 					av.add_child(fs)
 				if not fs.playing:
@@ -2296,7 +2297,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
 						fs.stop())
 			return
-		sfx("supp" if quiet else str(g.sound), -14 if quiet else -6, a)
+		sfx("supp" if quiet else str(g.sound), -10 if quiet else Arms.shot_db(str(g.sound)) - 6.0, a)
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
 		if g.mode == "rocket":

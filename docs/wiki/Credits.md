@@ -8,10 +8,10 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
 | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far (`tools/cut_gunshots.py`) |
-| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices, footsteps, town, night and cave sounds (`tools/cut_sounds.py`) |
-| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth |
-| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust |
-| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks |
+| [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
+| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
+| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks, the "no" sound |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
 
 Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). Those are not CC0, and the game does not use them.
@@ -79,6 +79,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 ## Made for the game
 
 - `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
+- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the beacon bell, the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
 
 ## Engine
 

@@ -683,6 +683,11 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func apply_volume() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.001)))
+	if AudioServer.get_bus_effect_count(0) == 0:
+		# A last guard on everything heard together
+		var guard := AudioEffectHardLimiter.new()
+		guard.ceiling_db = -0.3
+		AudioServer.add_bus_effect(0, guard)
 	for k in BUSES:
 		var i := AudioServer.get_bus_index(k)
 		if i < 0:
@@ -690,6 +695,12 @@ func apply_volume() -> void:
 			i = AudioServer.bus_count - 1
 			AudioServer.set_bus_name(i, k)
 			AudioServer.set_bus_send(i, "Master")
+			if k == "Guns":
+				# Shots are played hot so they stand above the world; this catches their crack before it clips
+				var lim := AudioEffectHardLimiter.new()
+				lim.ceiling_db = -0.5
+				lim.release = 0.06
+				AudioServer.add_bus_effect(i, lim)
 		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(float(bus_vol[k]), 0.001)))
 
 

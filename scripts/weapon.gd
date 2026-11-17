@@ -876,7 +876,7 @@ func _flame(s: Dictionary, lvl) -> void:
 		_flame_snd = AudioStreamPlayer.new()
 		_flame_snd.stream = Arms.flame_loop()
 		_flame_snd.bus = Game.bus_of("flame")
-		_flame_snd.volume_db = -6.0
+		_flame_snd.volume_db = FLAME_DB
 		add_child(_flame_snd)
 	if not _flame_snd.playing:
 		_flame_snd.play()
@@ -914,6 +914,15 @@ func _flame(s: Dictionary, lvl) -> void:
 
 var _flame_snd: AudioStreamPlayer
 var _flame_hold := 0.0
+## How loud one's own shot is played: the recordings are sharp cracks, quiet beside a growl, so they go in hot
+## (the Guns line has a limiter). The flamer's roar never stops while held, so it sits well under them.
+const GUN_DB := 6.0
+const FLAME_DB := -15.0
+
+
+## How loud a gun's own shot is played. The launcher's whoosh was made full and loud already.
+static func shot_db(sound: String) -> float:
+	return -2.0 if sound == "rocket" else GUN_DB
 static var _flame_loop: AudioStreamWAV
 static var _smoke_m: StandardMaterial3D
 
@@ -1060,7 +1069,7 @@ func _try_fire() -> void:
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame":
-		lvl.sfx("supp" if quiet else str(s.sound), -10 if quiet else -2, null, 0.7 if s.mode == "flame" else 1.0)
+		lvl.sfx("supp" if quiet else str(s.sound), -6 if quiet else shot_db(str(s.sound)), null, 0.7 if s.mode == "flame" else 1.0)
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
 	if lvl.has_method("noise"):
 		lvl.noise(player.global_position, 20.0 if quiet else (140.0 if gun() in ["sniper", "revolver"] else 110.0))
