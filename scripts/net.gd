@@ -553,7 +553,31 @@ func _call_req(s: int, method: String, args: Array) -> void:
 	var from := multiplayer.get_remote_sender_id()
 	if not players.has(from):
 		return   # not yet one of the fellowship (it has not said hello, or was refused)
+	if not CALL_PREFIXES.any(func(p): return method.begins_with(p)):
+		return   # only the land's shared doings, never its inner workings
+	# A request names who asks ("by"): it is always the one who sent it, whatever it says
+	if args.size() > 0 and args[0] is int and _takes_by(_here(s), method):
+		args[0] = from
 	_call.rpc(s, method, args)
+
+
+## The shared doings a joiner may ask of the land, by the start of their names.
+const CALL_PREFIXES := ["_rq_", "_w_", "_drop", "_sworn", "_part_", "_final", "_broken"]
+static var _by_cache := {}
+
+## Whether a land's method takes the asker's id as its first word.
+func _takes_by(lvl, method: String) -> bool:
+	if lvl == null:
+		return false
+	var key := "%s:%s" % [lvl.get_script().resource_path if lvl.get_script() else "", method]
+	if not _by_cache.has(key):
+		var yes := false
+		for m in lvl.get_method_list():
+			if m.name == method:
+				yes = not m.args.is_empty() and str(m.args[0].name) == "by"
+				break
+		_by_cache[key] = yes
+	return _by_cache[key]
 
 
 @rpc("authority", "call_local", "reliable")
@@ -767,8 +791,8 @@ func hit(id: int, amount: float, dir: Vector3, kind := "", head := false, pierce
 @rpc("any_peer", "call_remote", "reliable")
 func _hit(s: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
 	var lvl = _here(s)
-	if lvl and is_host():
-		lvl.net_hit(multiplayer.get_remote_sender_id(), id, clampf(amount, 0.0, 5000.0), dir, kind, head, pierce)
+	if lvl and is_host() and players.has(multiplayer.get_remote_sender_id()):
+		lvl.net_hit(multiplayer.get_remote_sender_id(), id, clampf(amount, 0.0, 5000.0), dir, kind, head, clampf(pierce, 0.0, 3.0))
 
 
 func bolt(from: Vector3, vel: Vector3, dmg: float) -> void:
