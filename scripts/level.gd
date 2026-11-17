@@ -2922,6 +2922,27 @@ func debug_gunshot() -> void:
 	maker.free()
 
 
+## Test: the shotgun fed shell by shell, held at k= (0 to 1) so a picture catches the shell on its way in.
+func debug_reloadshot() -> void:
+	Game.loadout.primary = "shotgun"
+	player.weapon.equip_loadout()
+	if player.weapon.gun() != "shotgun":
+		player.weapon.swap()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = player.cam.global_rotation + Vector3(-0.6, 0.6, 0)
+	var k := 0.5
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("k="):
+			k = float(a.substr(2))
+	player.weapon.reload_mult = 10000.0
+	player.weapon.shells = 0
+	player.weapon.reserve = 40
+	player.weapon._start_reload()
+	player.weapon._reload_t = player.weapon._reload_len * (1.0 - k)
+
+
 ## Test: looking down the sights of the gun named by gun=, with fit= listing what is on it.
 func debug_aimshot() -> void:
 	combat_frozen = true

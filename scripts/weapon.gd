@@ -56,7 +56,7 @@ var _reload_t := 0.0
 var _reload_len := 1.0   ## how long this reload (or this one shell) takes, for the hands' motion
 var _rl_out := false     ## the old magazine is out (its sound played)
 var _rl_in := false      ## the fresh one is in
-var _shell_mesh: MeshInstance3D
+var _shell_mesh: Node3D
 var _kick := 0.0
 var _spin := 0.0
 var _quiet := 0.0              ## seconds since the last shot, for the reserve's slow return
@@ -614,13 +614,26 @@ func _reload_pose(k: float, delta: float) -> void:
 		_holder.rotation.x += 0.25
 		_holder.position += Vector3(-0.08, 0.1, 0.06) + Vector3(0, sin(k * PI) * 0.01, 0)
 		if _shell_mesh == null:
-			_shell_mesh = MeshInstance3D.new()
-			var c := CylinderMesh.new()
-			c.top_radius = 0.009
-			c.bottom_radius = 0.009
-			c.height = 0.06
-			_shell_mesh.mesh = c
-			_shell_mesh.material_override = _mat(Color(0.7, 0.2, 0.15), 0.2, 0.5)
+			# The pack's own 12 gauge shell (see AmmoLook), crimp first into the tube; a plain one if it is missing
+			_shell_mesh = AmmoLook.round_of("shell")
+			if _shell_mesh != null:
+				# Sized by the whole shell (its brass and its crimped body together) to a 12 gauge's length
+				var bb := AABB()
+				var first := true
+				for mi in _shell_mesh.find_children("*", "MeshInstance3D", true, false):
+					var a: AABB = Arms._chain(mi, _shell_mesh) * (mi as MeshInstance3D).mesh.get_aabb()
+					bb = a if first else bb.merge(a)
+					first = false
+				_shell_mesh.scale = Vector3.ONE * (0.068 / maxf(bb.size.y, 0.001))
+			else:
+				var mi := MeshInstance3D.new()
+				var c := CylinderMesh.new()
+				c.top_radius = 0.009
+				c.bottom_radius = 0.009
+				c.height = 0.06
+				mi.mesh = c
+				mi.material_override = _mat(Color(0.7, 0.2, 0.15), 0.2, 0.5)
+				_shell_mesh = mi
 			_shell_mesh.rotation.x = PI / 2
 		if _shell_mesh.get_parent() != _model:
 			if _shell_mesh.get_parent():
