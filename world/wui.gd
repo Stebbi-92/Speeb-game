@@ -2015,6 +2015,11 @@ func _make_group(r: Dictionary) -> String:
 	return "material"
 
 
+## At a cooking station (and no workbench near), only the station's own list: what is cooked.
+static func station_shows(r: Dictionary, bench: bool, at_pot: bool) -> bool:
+	return bench or not at_pot or r.get("fire", false)
+
+
 func _draw_craft() -> void:
 	var bench: bool = at_bench()
 	var pot: int = w.builder.near_pid(w.player.global_position, "cookpot", 5.0)
@@ -2046,6 +2051,8 @@ func _draw_craft() -> void:
 	for i in Items.RECIPES.size():
 		var r: Dictionary = Items.RECIPES[i]
 		if r.has("needs") and not w.flags.has(r.needs):
+			continue
+		if not station_shows(r, bench, pot >= 0):
 			continue
 		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire) and w.trades.can_make(r)
 		var ok: bool = here and w.stock_has_all(w.skills.cost(r.cost))

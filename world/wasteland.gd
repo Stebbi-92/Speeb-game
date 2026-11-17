@@ -6497,6 +6497,24 @@ func _world_ready() -> void:
 				hud.notify("This world was begun under oath: %s." % vows))
 
 
+## Testing aid: at a cooking station only what is cooked is listed; at a workbench, everything.
+func debug_cooklist() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at_pot := 0
+	var at_bench := 0
+	var odd := 0
+	for r in Items.RECIPES:
+		if WUI.station_shows(r, false, true):
+			at_pot += 1
+			if not r.get("fire", false):
+				odd += 1
+		if WUI.station_shows(r, true, true):
+			at_bench += 1
+	print("COOKLIST pot=%d bench=%d odd=%d all=%d" % [at_pot, at_bench, odd, Items.RECIPES.size()])
+	get_tree().quit()
+
+
 ## Testing aid: an ember is taken from a lit beacon (only with company), its carrier cannot shoot,
 ## it kindles a dark beacon with a short vigil, and it goes out if the carrier falls.
 func debug_ember() -> void:
