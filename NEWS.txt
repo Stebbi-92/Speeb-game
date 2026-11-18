@@ -1,4 +1,4 @@
-Brelm alpha 0.13.3: clear view
+Brelm alpha 0.14.0: walk together
 
 - Snow, ash and rain are soft round flecks that vanish close to your eye, so none fill the view.
 - The puffs a far form gives before its way are soft and round too.

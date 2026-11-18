@@ -2,7 +2,19 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
-## 0.13.1 to 0.13.3 (playtest fixes)
+## 0.14.0 (walk together)
+
+- **Walking together:** players who keep together fall into squads of two to four, and learn from each other's kills. Loot from great ones and road events falls as a satchel for each player. Late joiners come with kit to match the beacons lit. What now names a friend to ask for what only their trade makes. See [Playing Together](Playing-Together).
+- **Boats** have stations: helm, sail, lookout, gun and oars.
+- **Vaults:** the keeper's gate is wound up at two winches. The way into a vault's first room is no longer shut.
+- **Two fronts:** with five or more players, kindling a beacon brings a raid on your nearest camp.
+- **Combat:** poise and broken footing, a perfect guard, gunmen's rounds you can see and dodge, heavy foes that sweep, lunge and grab, mixed packs, champions in the far lands, and ammunition from the fallen. Foes no longer grow with your guns; a worked-up gun is felt. Nights come in rounds with breaks between. See [Combat](Combat).
+- **Ammunition** is priced by what it does, and drops grow with the land's danger.
+- **Gathering** lands with a swing, a sound for what is struck, and the take rising off the node.
+- **Towns** are always safe, and draw faster. Farmsteads and lone barns stand in the waste; each town is laid out its own way.
+- Also everything from the 0.13.3 build that was never released: new bodies for the dead, the Unlit, the great ones, beasts and mounts, real leavings about the waste, and clear weather flecks.
+
+## 0.13.1 to 0.13.2 (playtest fixes)
 
 - **Joining a fellowship:** the loading screen and bar stay up while the host's world comes over and is raised, so the game no longer hangs.
 - **Loading:** pictures of the waste behind the loading screen.
