@@ -3,6 +3,15 @@ Brelm alpha 0.15.0: the living waste
 - Each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down the bands on its roads and break raid camps nearby, and its roads grow safer. Run from them and leave camps standing, and they grow worse day by day.
 - Townsfolk remember who kept their roads: every ten points you earn there is a step of standing, and better prices.
 - Safe roads bring fewer fights near the town; dangerous roads bring more.
+- A town posts a bounty on the raid camp nearest it. Break it for coin and standing.
+- At Safe roads, traders sell more (tempered steel, clockwork, rare fittings and more), and trade caravans run between safe towns. Save one set upon, or rob it, and both towns hear of it.
+- At Dangerous roads, a town bars its gates at night and its traders ask a quarter more. Knock, and the watch opens only to those it knows.
+- At Peaceful roads, the town's watch walks its roads and shoots what comes near.
+- When a town's roads turn dangerous, it sends you a plea, and What now points you to it.
+- Honours: at 5 standing you are a Friend of the town and its inn's beds are free; at 8 it sends a gift; at 12 you are its Warden.
+- A town left dangerous beside a safe neighbour grumbles at you.
+- The map shows each town's roads as a ring of colour.
+- Fixed: a town's ammunition in the trade lists was priced ten times over.
 - A band met on the road and left alone digs in as a raid camp.
 - The seventh night's raid changes as the lands are lit: the Hollow Pilgrimage, then the Unlit War Band, then the Iron Host, each with its own lead.
 - Settlers teach the fellowship a recipe of their trade, and ask for goods: leave them in the base's chest, and they pay at dawn.

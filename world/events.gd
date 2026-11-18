@@ -12,6 +12,7 @@ const KINDS := {
 	"cache": {"name": "A supply cache", "say": "A flare goes up: someone left a cache, and it will not stay hidden long", "color": Color(0.95, 0.4, 0.3, 0.2)},
 	"swarm": {"name": "A box cat swarm", "say": "Screaming from the ruins: box cats are gathering", "color": Color(0.85, 0.85, 0.6, 0.2)},
 	"camp": {"name": "A raid camp", "say": "Left alone, the raiders dug in: a raid camp", "color": Color(0.9, 0.2, 0.15, 0.24)},
+	"convoy": {"name": "A trade caravan", "say": "A trade caravan between two safe towns has been set upon", "color": Color(0.5, 0.9, 0.6, 0.22)},
 }
 const CAMP_LAST := 1200.0   ## a raid camp stays until it is broken, or for twenty minutes
 ## What each gives every pilgrim near when it is done: [item, low, high].
@@ -20,6 +21,7 @@ const GIVES := {
 	"star": [["salt_crystal", 3, 6], ["tempered", 1, 2], ["clockwork", 1, 1]],
 	"cache": [["rifle", 20, 40], ["shells", 8, 16], ["bandage", 2, 3], ["oil", 2, 4]],
 	"swarm": [["salt", 20, 40], ["meat", 2, 4], ["fittings_fine", 1, 1]],
+	"convoy": [["salt", 40, 70], ["coin", 2, 4], ["fittings_fine", 1, 2]],
 	"camp": [["salt", 60, 110], ["rounds", 20, 40], ["fittings_fine", 2, 3], ["tempered", 1, 2], ["bandage", 2, 4]],
 }
 
@@ -50,13 +52,13 @@ func host_tick(delta: float) -> void:
 		e.left -= delta
 		if e.left <= 0.0:
 			w.shared("_w_event_end", [id, false, -1])
-			if e.kind in ["caravan", "swarm"] and _alive(e) > 0:
+			if e.kind in ["caravan", "swarm", "convoy"] and _alive(e) > 0:
 				var tn: String = w.town_near(e.pos, w.SAFETY_REACH + 200.0)
 				if tn != "":
 					w.shared("_w_safety", [tn, -w.SAFETY_FLED, ""])
 				_dig_in(e.pos)
 			continue
-		if e.kind in ["caravan", "swarm", "camp"] and e.has("foes") and e.foes.size() > 0:
+		if e.kind in ["caravan", "swarm", "camp", "convoy"] and e.has("foes") and e.foes.size() > 0:
 			if _alive(e) == 0:
 				w.shared("_w_event_end", [id, true, -1])
 
@@ -96,6 +98,11 @@ func _start_one(near = null) -> void:
 	var from: Vector3 = near if near is Vector3 else (ts[randi() % ts.size()] as Node3D).global_position
 	var kinds := KINDS.keys()
 	kinds.erase("camp")   # a camp only grows out of an event left alone
+	kinds.erase("convoy")
+	# Between two towns whose roads are safe, trade caravans run, and are set upon
+	var route: Array = w.convoy_route(from)
+	if not route.is_empty() and randf() < 0.4:
+		kinds = ["convoy"]
 	if w.night:
 		kinds.erase("star")   # a star is a day's find; the night has enough
 	var kind: String = kinds[randi() % kinds.size()]
@@ -104,6 +111,11 @@ func _start_one(near = null) -> void:
 		var d := randf_range(140.0, 300.0)
 		var x: float = from.x + cos(a) * d
 		var z: float = from.z + sin(a) * d
+		if kind == "convoy":
+			# On the road between the two towns, somewhere along it
+			var q: Vector2 = (route[0] as Vector2).lerp(route[1], randf_range(0.25, 0.75))
+			x = q.x + randf_range(-20.0, 20.0)
+			z = q.y + randf_range(-20.0, 20.0)
 		if w.terrain.is_water(x, z, 1.0) or absf(x) > WPlaces.HALF - 30.0 or absf(z) > WPlaces.HALF - 30.0:
 			continue
 		var p := Vector3(x, w.terrain.height_at(x, z), z)
@@ -117,8 +129,8 @@ func _start_one(near = null) -> void:
 			return
 		e["foes"] = []
 		match kind:
-			"caravan":
-				var roster: Array = w.forms_at(p)
+			"caravan", "convoy":
+				var roster: Array = w.forms_at(p) if kind == "caravan" else ["unlit_gun", "unlit_gun", "unlit_blade", "unlit_mark"]
 				for k in randi_range(4, 7):
 					var f = w._spawn_one(roster[randi() % roster.size()], p, 4.0, 14.0, true)
 					if f:
@@ -159,7 +171,7 @@ func start(id: int, kind: String, p: Vector3) -> void:
 	col.position = Vector3(0, 80, 0)
 	n.add_child(col)
 	match kind:
-		"caravan":
+		"caravan", "convoy":
 			_part(n, w.box(Vector3.ZERO, Vector3(2.0, 1.2, 3.6), w._m.darkwood, true), Vector3(0, 1.0, 0), Vector3(0, 0, 0.25))
 			for s in [-1, 1]:
 				for f in [-1, 1]:
@@ -200,6 +212,12 @@ func start(id: int, kind: String, p: Vector3) -> void:
 			for k2 in 5:
 				var a := TAU * k2 / 5.0
 				_part(n, w.box(Vector3.ZERO, Vector3(0.7, 0.7, 0.7), w._m.cloth, false), Vector3(cos(a) * 3.0, 0.35, sin(a) * 3.0), Vector3(0, a, 0))
+	if kind == "convoy":
+		# One may rob it instead: rich pickings, but both towns hear of it
+		var cid := id
+		var ra: Area3D = w.interact_area(p + Vector3(0, 1.0, 0), 2.6, "Rob the caravan (both towns will hear of it)", func():
+			w.shared("_rq_rob", [Net.me(), cid]), 0.0, false)
+		n.set_meta("area", ra)
 	if kind in ["star", "cache"]:
 		var eid := id
 		var a: Area3D = w.interact_area(p + Vector3(0, 1.0, 0), 2.4, "Take it" if kind == "star" else "Open the cache", func():
@@ -229,10 +247,19 @@ func end(id: int, won: bool, by: int) -> void:
 		if a != null and is_instance_valid(a):
 			a.queue_free()
 		e.node.queue_free()
+	if won and e.kind == "convoy" and by != -2:
+		# Saved: both towns are glad of it
+		for tn in w.convoy_towns(e.pos):
+			w._w_safety(tn, w.SAFETY_BAND, "")
+			if w.player and w.player.global_position.distance_to(e.pos) < 120.0 and not Net.dedicated:
+				var rb := int(w.rep.get(tn, 0))
+				w.rep[tn] = rb + 1
+				w._honour_check(tn, rb)
 	if won and e.kind == "camp":
 		# A raid camp broken: the nearest town's roads are much safer, and its folk know who did it
 		var tn: String = w.town_near(e.pos, w.SAFETY_REACH + 300.0)
 		if tn != "":
+			w._bounty(tn, e.pos, by)
 			w._w_safety(tn, w.SAFETY_CAMP, Net.name_of(by) if by > 0 and Net.online else (Net.my_name() if by == Net.me() or by < 0 else ""))
 	if Net.dedicated or not won:
 		return

@@ -2,6 +2,19 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.15.0 (the living waste)
+
+- **Road safety:** each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down road bands and break nearby raid camps to make them safer; run and leave camps standing and they grow worse. See [The Ashen Waste](The-Ashen-Waste).
+- **Bounties** on the raid camp nearest each town, paid in coin and standing.
+- **Safe towns** sell more, and trade caravans run between them. Save one, or rob it, and both towns hear of it.
+- **Dangerous towns** shut their gates at night (knock if they know you) and charge more.
+- **Peaceful towns** raise a militia that shoots foes near the walls.
+- **Standing:** towns that know you well call you Friend or Warden, give a gift, and let you sleep at the inn for free. Rival towns grumble when you favour one.
+- **The map** shows each town's road safety as a coloured ring.
+- **Seasons** are named at dawn a day before they turn.
+- **The seventh night** brings a great host chosen by how many beacons are lit.
+- **Settlers** want things, pay for them, and teach their trade.
+
 ## 0.14.0 (walk together)
 
 - **Walking together:** players who keep together fall into squads of two to four, and learn from each other's kills. Loot from great ones and road events falls as a satchel for each player. Late joiners come with kit to match the beacons lit. What now names a friend to ask for what only their trade makes. See [Playing Together](Playing-Together).

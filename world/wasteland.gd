@@ -442,6 +442,11 @@ func _process(delta: float) -> void:
 			_landmarks_tick()
 		_cat_tick(delta)
 		_trade_tell_tick(delta)
+		_gate_t -= delta
+		if _gate_t <= 0.0:
+			_gate_t = 1.0
+			_gates_tick(1.0)
+			_militia_tick(1.0)
 		_radio_tick(delta)
 		_power_tick(delta)
 		if hall:
@@ -719,6 +724,24 @@ func _build_settlement(k: String) -> void:
 		p.y = terrain.height_at(p.x, p.z)
 		var hgt := rr.randf_range(3.2, 4.2)
 		cyl(p + Vector3(0, hgt * 0.5 - 0.4, 0), 0.22, hgt, wall, true, 0.14, 6)
+	# The gates themselves: two heavy leaves in each gap, open by day; barred at night when the roads are dangerous
+	var leaves: Array = []
+	for g in [-1.0, 1.0]:
+		var ga: float = PI * 0.5 * g
+		var gp := c + Vector3(cos(ga) * r, 0, sin(ga) * r)
+		gp.y = terrain.height_at(gp.x, gp.z)
+		var gw := 2.0 * r * sin(0.12)
+		var leaf: MeshInstance3D = box(gp + Vector3(0, 1.8, 0), Vector3(gw, 3.6, 0.3), _m.darkwood, true)
+		leaf.rotation.y = -ga + PI * 0.5
+		leaf.visible = false
+		var lb = leaf.get_child(0) if leaf.get_child_count() > 0 else null
+		if lb is CollisionObject3D:
+			lb.collision_layer = 0
+		var gi := leaves.size()
+		var ka := k
+		var knock: Area3D = interact_area(gp + Vector3(cos(ga), 0, sin(ga)) * 1.8 + Vector3(0, 1.0, 0), 2.2, "", func(): _knock(ka, gi), 0.0, false)
+		leaves.append({"leaf": leaf, "body": lb, "knock": knock})
+	gates[k] = leaves
 	# Gate posts with lanterns
 	for g in [-1.0, 1.0]:
 		for side in [-1.0, 1.0]:
@@ -1371,7 +1394,7 @@ func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
 	personal_interactable(talk, "Listen to the talk", func(): inn_talk(k))
 	for x in [-W * 0.5 + 1.0, -W * 0.5 + 3.2]:
 		var bed := _furnish(n, "bed", Vector3(x, 0, -D * 0.5 + 1.2), 0.0)
-		personal_interactable(bed, "Rent a bed (4 salt)", func(): inn_bed())
+		personal_interactable(bed, "Rent a bed (4 salt)", func(): inn_bed(k))
 		inn_beds.append(n.to_global(Vector3(x, 0, -D * 0.5 + 1.2)) if n.is_inside_tree() else n.position)
 
 
@@ -1412,7 +1435,11 @@ func inn_talk(k: String) -> void:
 
 
 ## A night in an inn's bed: the snuggest rest in the waste. You do not wake here if you fall.
-func inn_bed() -> void:
+func inn_bed(k := "") -> void:
+	if k != "" and int(rep.get(k, 0)) >= HONOUR_BED:
+		hud.notify("\"No salt from you, %s. The bed is yours.\"" % honour_title(k))
+		ui.ask_rest("inn")
+		return
 	if inv.count("salt") < 4:
 		hud.notify("A bed costs 4 salt.")
 		return
@@ -5099,6 +5126,7 @@ func _w_dawn(d: int) -> void:
 				e.die(false)
 		_dawn_world()
 	_safety_dawn()
+	_rivals_dawn()
 	_great_warning()
 	quests.on_event("dawn", {})
 	award("dawn")
@@ -9029,6 +9057,73 @@ func debug_safety() -> void:
 	_safety_dawn()
 	var camp_hurts := safety_of(t) <= s3 - SAFETY_DECAY - SAFETY_CAMP_DECAY
 	print("SAFETY up=%s nearest=%s slipped=%s dug=%s camp_hurts=%s word=%s" % [up, nearest, slipped, dug, camp_hurts, safety_word(safety_of(t))])
+	get_tree().quit()
+
+
+## Testing aid: what safe and dangerous roads bring: stock, prices, barred gates and the knock, the
+## plea, a bounty, honours and the town's gift, rivals' grumbling, the watch, and caravans to rob.
+func debug_roads() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	_debug_room(6)
+	var a := "cinderwick"
+	var ks := WPlaces.SETTLEMENTS.keys()
+	ks.sort_custom(func(x, y): return WPlaces.spos(x).distance_to(WPlaces.spos(a)) < WPlaces.spos(y).distance_to(WPlaces.spos(a)))
+	var b: String = ks[1]
+	visited[a] = true
+	safety[a] = 70
+	var stock_safe := stock_at("smith", a).has("tempered")
+	safety[a] = 40
+	var stock_plain := not stock_at("smith", a).has("tempered")
+	safety[a] = 10
+	var dear := price_mult_at(a) > 1.0
+	# Gates barred at night, and the knock
+	night = true
+	rep[a] = 0
+	_gates_tick(1.0)
+	var shut: bool = gates_shut.get(a, false) and (gates[a][0].body as CollisionObject3D).collision_layer == 1
+	_knock(a, 0)
+	_gates_tick(0.1)
+	var stranger_kept: bool = (gates[a][0].body as CollisionObject3D).collision_layer == 1
+	rep[a] = 3
+	_knock(a, 0)
+	_gates_tick(0.1)
+	var known_in: bool = (gates[a][0].body as CollisionObject3D).collision_layer == 0
+	night = false
+	_gates_tick(0.1)
+	var plea: Dictionary = town_plea(gpos(WPlaces.spos(a)) + Vector3(50, 0, 0))
+	# Honours, and the gift once
+	rep[a] = 4
+	flags.erase("honour_gift_" + a)
+	var fr0 := inv.count("fittings_rare")
+	_bounty(a, player.global_position, Net.me())
+	var friend := honour_title(a).begins_with("Friend")
+	rep[a] = 7
+	_bounty(a, player.global_position, Net.me())
+	var gift := inv.count("fittings_rare") == fr0 + 1
+	_bounty(a, player.global_position, Net.me())
+	var once := inv.count("fittings_rare") == fr0 + 1
+	# Rivals: a dangerous town beside a safe one grumbles
+	safety[a] = 10
+	safety[b] = 80
+	rep[a] = 3
+	flags.erase("grumble_" + a)
+	_rivals_dawn()
+	var grumble := int(rep[a]) == 2
+	# The watch walks the roads of a peaceful town
+	safety[b] = 95
+	_militia_tick(1.0)
+	var watch := militia.filter(func(m): return m.town == b).size() == MILITIA_N
+	# A caravan between safe towns, robbed
+	safety[a] = 70
+	safety[b] = 70
+	var mid: Vector2 = (WPlaces.spos(a) + WPlaces.spos(b)) * 0.5
+	var route := convoy_route(gpos(mid)).size() == 2
+	rep[a] = 5
+	var s0 := safety_of(a)
+	_w_robbed(Net.me(), gpos(mid))
+	var robbed: bool = safety_of(a) == s0 - 10 and int(rep[a]) == 2
+	print("ROADS stock=%s plain=%s dear=%s shut=%s stranger=%s known=%s plea=%s friend=%s gift=%s once=%s grumble=%s watch=%s route=%s robbed=%s" % [stock_safe, stock_plain, dear, shut, stranger_kept, known_in, not plea.is_empty(), friend, gift, once, grumble, watch, route, robbed])
 	get_tree().quit()
 
 
@@ -13413,6 +13508,7 @@ func debug_horizonshot() -> void:
 ## something to grow toward. Each is {kind, title, text, at (Vector3 or null)}.
 ## The trades of the others in the fellowship, by name, so What now can say whom to ask.
 var trades_of := {}
+var _gate_t := 1.0
 var _trade_tell_t := 2.0
 
 
@@ -13618,6 +13714,9 @@ const SAFETY_CAMP_DECAY := 8  ## a day, for each raid camp standing near
 const DEED_STEP := 10         ## safety earned for one more step of standing
 var safety := {}              ## town -> 0..100
 var deeds := {}               ## town -> {name: points not yet counted toward standing}
+var gates := {}               ## town -> [{leaf, body, knock}]
+var gates_shut := {}          ## town -> true while barred
+var _gate_open_t := {}        ## "town:i" -> seconds a gate stands open for a known pilgrim
 const SAFETY_WORDS := [[90, "Peaceful"], [60, "Safe"], [25, "Uneasy"], [0, "Dangerous"]]
 
 
@@ -13650,6 +13749,8 @@ func _w_safety(town: String, amount: int, who: String) -> void:
 		return
 	var before := safety_of(town)
 	safety[town] = clampi(before + amount, 0, 100)
+	if before >= 25 and safety_of(town) < 25 and not Net.dedicated and visited.has(town):
+		hud.alert_banner("A plea from %s" % WPlaces.SETTLEMENTS[town].name, "Its roads have gone dangerous. Its gates will be barred at night, and its traders ask more.")
 	if amount <= 0 or who == "":
 		return
 	var dd: Dictionary = deeds.get(town, {})
@@ -13660,9 +13761,11 @@ func _w_safety(town: String, amount: int, who: String) -> void:
 		up += 1
 	deeds[town] = dd
 	if up > 0:
-		rep[town] = int(rep.get(town, 0)) + up
+		var rb := int(rep.get(town, 0))
+		rep[town] = rb + up
 		if who == Net.my_name() and not Net.dedicated:
 			hud.notify("Word reaches %s of what you have done on its roads. Its folk think better of you." % WPlaces.SETTLEMENTS[town].name)
+			_honour_check(town, rb)
 	if not Net.dedicated and safety_word(before) != safety_word(safety_of(town)) and safety_of(town) > before:
 		hud.notify("The roads about %s are %s now." % [WPlaces.SETTLEMENTS[town].name, safety_word(safety_of(town)).to_lower()])
 
@@ -13678,6 +13781,266 @@ func _safety_dawn() -> void:
 				if e.kind == "camp" and Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k)) < SAFETY_REACH + 100.0:
 					drop += SAFETY_CAMP_DECAY
 		safety[k] = maxi(0, safety_of(k) - drop)
+
+
+# ---- what safe and dangerous roads mean
+
+const DANGER_PRICE := 1.25    ## at Dangerous, traders ask more
+const HONOUR_FRIEND := 5      ## standing for a title, and a free bed at the inn
+const HONOUR_BED := 5
+const HONOUR_GIFT := 8        ## standing for the town's gift, once
+const HONOUR_WARDEN := 12
+const BOUNTY_COIN := 6
+const BOUNTY_REP := 2
+
+## What a town calls one who has done well by it, or "".
+func honour_title(k: String) -> String:
+	var st := int(rep.get(k, 0))
+	if not WPlaces.SETTLEMENTS.has(k):
+		return ""
+	if st >= HONOUR_WARDEN:
+		return "Warden of %s" % WPlaces.SETTLEMENTS[k].name
+	if st >= HONOUR_FRIEND:
+		return "Friend of %s" % WPlaces.SETTLEMENTS[k].name
+	return ""
+
+
+## Said when standing in a town crosses a step of honour; the gift is given once.
+func _honour_check(k: String, before: int) -> void:
+	var st := int(rep.get(k, 0))
+	if Net.dedicated or st <= before:
+		return
+	var nm: String = WPlaces.SETTLEMENTS[k].name
+	if before < HONOUR_FRIEND and st >= HONOUR_FRIEND:
+		hud.title_card("Friend of %s" % nm, "Its inn's beds are yours, free")
+	if before < HONOUR_GIFT and st >= HONOUR_GIFT and not flags.has("honour_gift_" + k):
+		flags["honour_gift_" + k] = true
+		give([["fittings_rare", 1], ["coin", 10]])
+		hud.notify("The folk of %s send you a gift for what you have done for them: a rare fitting and ten coin." % nm)
+	if before < HONOUR_WARDEN and st >= HONOUR_WARDEN:
+		hud.title_card("Warden of %s" % nm, "Its roads are yours to keep")
+
+
+## Traders at a town with safe roads have more to sell: things that come only by road from far off.
+const SAFE_STOCK := {
+	"trader": ["salve", "fittings_fine"], "smith": ["tempered", "clockwork", "fittings_rare"],
+	"quartermaster": ["rockets", "fittings_fine"], "healer": ["elixir"], "oilwright": ["tar"],
+}
+
+func stock_at(role: String, k: String) -> Array:
+	var out: Array = Items.STOCK.get(role, []).duplicate()
+	if WPlaces.SETTLEMENTS.has(k) and safety_of(k) >= 60:
+		for id in SAFE_STOCK.get(role, []):
+			if Items.DB.has(id) and not id in out:
+				out.append(id)
+	return out
+
+
+## What a town's traders ask, against the usual, by how safe its roads are.
+func price_mult_at(k: String) -> float:
+	return DANGER_PRICE if WPlaces.SETTLEMENTS.has(k) and safety_of(k) < 25 else 1.0
+
+
+## Everyone, every couple of seconds: gates barred at night where the roads are dangerous.
+func _gates_tick(delta: float) -> void:
+	for key in _gate_open_t.keys():
+		_gate_open_t[key] = float(_gate_open_t[key]) - delta
+		if float(_gate_open_t[key]) <= 0.0:
+			_gate_open_t.erase(key)
+	for k in gates:
+		var shut: bool = night and safety_of(k) < 25
+		gates_shut[k] = shut
+		for i in (gates[k] as Array).size():
+			var g: Dictionary = gates[k][i]
+			var closed: bool = shut and not _gate_open_t.has("%s:%d" % [k, i])
+			if is_instance_valid(g.leaf):
+				g.leaf.visible = closed
+			if g.body is CollisionObject3D and is_instance_valid(g.body):
+				g.body.collision_layer = 1 if closed else 0
+			if is_instance_valid(g.knock):
+				g.knock.set_meta("prompt", "Knock at the gate" if closed else "")
+
+
+## Knocking at a barred gate: the watch opens to one they know (standing 2 or more), not to strangers.
+func _knock(k: String, i: int) -> void:
+	if not gates_shut.get(k, false):
+		return
+	sfx("thud", -4, null, 0.8)
+	if int(rep.get(k, 0)) >= 2:
+		_gate_open_t["%s:%d" % [k, i]] = 8.0
+		hud.notify("\"It's you. Quick, in.\" The bar is lifted.")
+	else:
+		hud.notify("\"Not at night, not with the roads as they are.\" The gate stays shut. Clear the roads, or come back at dawn.")
+
+
+## Rival towns: a town whose roads rot beside a neighbour's safe ones grumbles at those who keep the
+## neighbour and not it, now and then.
+func _rivals_dawn() -> void:
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) > 25:
+			continue
+		var nb := ""
+		var nd := INF
+		for o in WPlaces.SETTLEMENTS:
+			if o != k and WPlaces.spos(o).distance_to(WPlaces.spos(k)) < nd:
+				nd = WPlaces.spos(o).distance_to(WPlaces.spos(k))
+				nb = o
+		if nb == "" or safety_of(nb) < 60 or day - int(flags.get("grumble_" + k, -99)) < 3:
+			continue
+		if int(rep.get(k, 0)) <= 0:
+			continue
+		flags["grumble_" + k] = day
+		rep[k] = int(rep.get(k, 0)) - 1
+		if not Net.dedicated and int(rep.get(nb, 0)) > 0:
+			hud.notify("The folk of %s grumble that you keep the roads of %s and not theirs." % [WPlaces.SETTLEMENTS[k].name, WPlaces.SETTLEMENTS[nb].name])
+
+
+## Two towns with safe roads near this place, between which a trade caravan may run: [a, b] (2D), or [].
+func convoy_route(from: Vector3) -> Array:
+	var safe := []
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) >= 60:
+			safe.append(k)
+	var best := []
+	var bd := 700.0
+	for i in safe.size():
+		for j in range(i + 1, safe.size()):
+			var a: Vector2 = WPlaces.spos(safe[i])
+			var b: Vector2 = WPlaces.spos(safe[j])
+			if a.distance_to(b) > 2200.0:
+				continue
+			var q := Geometry2D.get_closest_point_to_segment(Vector2(from.x, from.z), a, b)
+			var d := q.distance_to(Vector2(from.x, from.z))
+			if d < bd:
+				bd = d
+				best = [a, b]
+	return best
+
+
+## The two towns a caravan at this place runs between: the two nearest.
+func convoy_towns(p: Vector3) -> Array:
+	var ks := WPlaces.SETTLEMENTS.keys()
+	ks.sort_custom(func(a, b): return WPlaces.spos(a).distance_to(Vector2(p.x, p.z)) < WPlaces.spos(b).distance_to(Vector2(p.x, p.z)))
+	return ks.slice(0, 2)
+
+
+## Robbing a trade caravan: its goods, twice over, to the robber; both its towns hear of it.
+func _rq_rob(by: int, id: int) -> void:
+	if not Net.authority() or not events or not events.active.has(id) or events.active[id].kind != "convoy":
+		return
+	var at: Vector3 = events.active[id].pos
+	for f in events.active[id].get("foes", []):
+		if is_instance_valid(f) and f.is_alive():
+			f.die(false)
+	shared("_w_robbed", [by, at])
+	shared("_w_event_end", [id, false, -2])
+
+
+func _w_robbed(by: int, at: Vector3) -> void:
+	for tn in convoy_towns(at):
+		safety[tn] = maxi(0, safety_of(tn) - 10)
+		rep[tn] = maxi(0, int(rep.get(tn, 0)) - 3)
+	if by == Net.me() and not Net.dedicated:
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		give(Items.roll("caravan", 6, r) + [["coin", r.randi_range(6, 12)]])
+		hud.notify("You take what the caravan carried. %s and %s will hear of it." % [WPlaces.SETTLEMENTS[convoy_towns(at)[0]].name, WPlaces.SETTLEMENTS[convoy_towns(at)[1]].name])
+
+
+## The plea of a town whose roads have gone dangerous, for What now, or {}.
+func town_plea(me: Vector3) -> Dictionary:
+	var best := {}
+	var bd := 1500.0
+	for k in WPlaces.SETTLEMENTS:
+		if not visited.has(k) or safety_of(k) >= 25:
+			continue
+		var p := gpos(WPlaces.spos(k))
+		if p.distance_to(me) < bd:
+			bd = p.distance_to(me)
+			best = {"kind": "near", "title": "A plea from %s" % WPlaces.SETTLEMENTS[k].name, "text": "Its roads are dangerous (%d). Slay what prowls near it, and break the camps about it." % safety_of(k), "at": p}
+	return best
+
+
+## A raid camp broken near a town pays its bounty: coin to those who broke it, and standing.
+func _bounty(tn: String, at: Vector3, by: int) -> void:
+	var before := int(rep.get(tn, 0))
+	rep[tn] = before + BOUNTY_REP
+	if Net.dedicated:
+		return
+	if player.global_position.distance_to(at) < 120.0 or by == Net.me():
+		give([["coin", BOUNTY_COIN]])
+		hud.notify("%s's bounty on the raid camp is paid: %d coin, and its folk's thanks." % [WPlaces.SETTLEMENTS[tn].name, BOUNTY_COIN])
+	_honour_check(tn, before)
+
+
+## The bounty a town has posted: the raid camp standing nearest it, or {}.
+func bounty_of(k: String) -> Dictionary:
+	if not events:
+		return {}
+	var best := {}
+	var bd := SAFETY_REACH + 300.0
+	for id in events.active:
+		var e: Dictionary = events.active[id]
+		var d := Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k))
+		if e.kind == "camp" and d < bd:
+			bd = d
+			best = e
+	return best
+
+
+# ---- militia: at Peaceful, the town's watch walks its roads and shoots what comes near
+
+const MILITIA_AT := 90
+const MILITIA_N := 2
+const MILITIA_SHOT := 16.0
+const MILITIA_RANGE := 35.0
+var militia: Array = []       ## everyone: {town, node, t}
+
+func _militia_tick(delta: float) -> void:
+	for m in militia.duplicate():
+		if not is_instance_valid(m.node) or safety_of(m.town) < MILITIA_AT - 10:
+			if is_instance_valid(m.node):
+				m.node.queue_free()
+			militia.erase(m)
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) < MILITIA_AT:
+			continue
+		var have := militia.filter(func(m): return m.town == k).size()
+		for slot in range(have, MILITIA_N):
+			_militia_add(k, slot)
+	# The host's watch shoots
+	_militia_shoot(delta)
+
+
+func _militia_add(k: String, have: int) -> void:
+	var a := float(hash(k + str(have))) / 1000.0
+	var at := gpos(WPlaces.spos(k) + Vector2(cos(a), sin(a)) * 140.0)
+	var f := WTownsfolk.new().setup(self, at, 40.0, hash(k) + have)
+	f.lines = ["The watch of %s. The roads are safe while we walk them." % WPlaces.SETTLEMENTS[k].name, "We shoot what comes near. Mind you don't."]
+	add_child(f)
+	f.global_position = at
+	militia.append({"town": k, "node": f, "t": 0.0})
+
+
+func _militia_shoot(delta: float) -> void:
+	if not Net.authority():
+		return
+	for m in militia:
+		m.t = float(m.t) - delta
+		if float(m.t) > 0.0 or not is_instance_valid(m.node):
+			continue
+		m.t = 1.3
+		var mp: Vector3 = m.node.global_position + Vector3(0, 1.5, 0)
+		for e in enemies:
+			if is_instance_valid(e) and e.is_alive() and not e.puppet and e.global_position.distance_to(mp) < MILITIA_RANGE:
+				var was := [LesserSpeeb.harm_kind, LesserSpeeb.harm_head]
+				LesserSpeeb.harm_kind = "bullet"
+				LesserSpeeb.harm_head = false
+				e.hurt(MILITIA_SHOT, (e.global_position - mp).normalized())
+				LesserSpeeb.harm_kind = was[0]
+				LesserSpeeb.harm_head = was[1]
+				sfx("pistol", -8, mp)
+				break
 
 
 ## The host keeps the bands met on the roads: one put down makes the nearest town's roads safer; one
@@ -13782,6 +14145,10 @@ func what_now() -> Array:
 		if not ev.is_empty() and ev.pos.distance_to(me) < 500.0:   # it will not wait: it comes first
 			nd = ev.pos.distance_to(me)
 			near = {"kind": "near", "title": WEvents.KINDS[ev.kind].name, "text": "Go now: it will not wait long.", "at": ev.pos}
+	var plea := town_plea(me)
+	if not plea.is_empty() and (plea.at as Vector3).distance_to(me) < nd:
+		nd = (plea.at as Vector3).distance_to(me)
+		near = plea
 	for l in lairs:
 		if lair_ready(l) and l.pos.distance_to(me) < minf(nd, 700.0):
 			nd = l.pos.distance_to(me)

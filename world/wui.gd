@@ -2651,6 +2651,17 @@ func _speaker_head(pd: Dictionary) -> void:
 		var r := _label("Its roads: %s (%d)" % [Wasteland.safety_word(sv), sv], 15, DIM)
 		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		cv.add_child(r)
+		var ttl: String = w.honour_title(pd.at)
+		if ttl != "":
+			var tl := _label(ttl, 15, GOLD)
+			tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			cv.add_child(tl)
+		var bty: Dictionary = w.bounty_of(pd.at)
+		if not bty.is_empty():
+			var me3: Vector3 = w.player.global_position
+			var bl := _label("Bounty: the raid camp %d m %s (%d coin)" % [int(me3.distance_to(bty.pos)), WPlaces.dir_word(Vector2(me3.x, me3.z), Vector2(bty.pos.x, bty.pos.z)), w.BOUNTY_COIN], 15, Color(0.95, 0.5, 0.4))
+			bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			cv.add_child(bl)
 	top.add_child(cv)
 	_body.add_child(top)
 	_close_and_rule(top)
@@ -2731,9 +2742,10 @@ const AMMO_PRICE := {"shells": [12, 3], "rounds": [6, 1], "rifle": [6, 1], "fuel
 
 ## The price of one (or of one lot, for ammunition).
 func buy_price(id: String, at: String) -> int:
+	var road: float = w.price_mult_at(at)   # dearer where the roads are dangerous
 	if AMMO_PRICE.has(id):
-		return maxi(1, ceili(AMMO_PRICE[id][0] * (1.0 - _discount(at)) * w.skills.buy_mult()))
-	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult()))
+		return maxi(1, ceili(AMMO_PRICE[id][0] * (1.0 - _discount(at)) * w.skills.buy_mult() * road))
+	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult() * road))
 
 
 ## What one fetches (or one lot, for ammunition).
@@ -2770,14 +2782,14 @@ func _trade() -> void:
 	_body.add_child(split)
 	# What they sell
 	var buy_ids: Array = []
-	for id in Items.STOCK[pd.role]:
+	for id in w.stock_at(pd.role, pd.at):
 		if id == "beacon_oil" and not w.flags.has("oilcraft"):
 			continue
 		buy_ids.append(id)
 	var lb := _list_col(split, "%s sells" % pd.name.split(" ")[0])
 	for id in buy_ids:
 		var n := _lot(id)
-		var cost := buy_price(id, pd.at) * n
+		var cost := buy_price(id, pd.at)   # ammunition is priced by the lot already; all else comes by one
 		lb.add_child(_trade_row(id, "buy", "%d" % cost, w.inv.count("salt") >= cost, n))
 	# What you can sell
 	var ls := _list_col(split, "You can sell")
@@ -2817,7 +2829,7 @@ func _trade() -> void:
 		var id: String = _tsel
 		if _tside == "buy":
 			var lot := _lot(id)
-			var price := buy_price(id, pd.at) * lot
+			var price := buy_price(id, pd.at)
 			var can: int = w.inv.count("salt") / maxi(1, price)
 			side.add_child(_label("%d salt for %d" % [price, lot], 18, GOLD))
 			for k in [1, 5]:
@@ -4028,6 +4040,13 @@ class MapDraw extends Control:
 			var p3: Vector3 = w.gpos(WPlaces.spos(k))
 			if w.visited.has(k) or w.is_revealed(p3):
 				var p := _to(p3)
+				# How safe its roads are, as a soft ring of colour: red, amber, green, pale gold
+				if w.visited.has(k):
+					var sv: int = w.safety_of(k)
+					var tint := Color(0.85, 0.2, 0.15) if sv < 25 else (Color(0.9, 0.6, 0.2) if sv < 60 else (Color(0.35, 0.75, 0.35) if sv < 90 else Color(0.95, 0.85, 0.5)))
+					var rad: float = (_to(p3 + Vector3(w.SAFETY_REACH, 0, 0)) - p).length()
+					draw_circle(p, rad, Color(tint, 0.13))
+					draw_arc(p, rad, 0.0, TAU, 48, Color(tint, 0.5), 1.5)
 				draw_circle(p, 6.0, Color(0.85, 0.6, 0.35))
 				draw_string(font, p + Vector2(9, 5), s.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.95, 0.9, 0.8))
 		for i in WPlaces.BEACONS.size():

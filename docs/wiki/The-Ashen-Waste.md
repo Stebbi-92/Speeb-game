@@ -138,3 +138,17 @@ Every town knows how safe its roads are, from 0 to 100: **Dangerous**, **Uneasy*
 - A band met on the road and left alone for eight minutes digs in as a raid camp, and the town's roads suffer for it.
 - The town's folk remember who kept their roads: every 10 points you earn there is one more step of standing, which brings better prices.
 - Near a town with safe roads, fewer of the things met on the road are fights. Near a dangerous one, more.
+
+### What the roads bring
+
+| Roads | What it means |
+|---|---|
+| **Dangerous** (under 25) | The gates are barred at night (the watch opens to you if your standing is 2 or more), traders ask a quarter more, and the town sends a plea. |
+| **Uneasy** (25 to 59) | As things are. |
+| **Safe** (60 to 89) | Traders sell more: tempered steel, clockwork, rare fittings, rockets, the elixir. Trade caravans run between safe towns; save one when it is set upon (or rob it, and both towns hear of it). |
+| **Peaceful** (90 and up) | The town's watch walks its roads and shoots what comes near. |
+
+- **Bounties:** a town posts a bounty on the raid camp nearest it (shown when you talk to its people). Break it for coin and standing.
+- **Honours:** at 5 standing you are a **Friend** of the town, and its inn's beds are free. At 8 it sends you a gift. At 12 you are its **Warden**.
+- **Rivals:** a town left dangerous beside a safe neighbour grumbles at you, and your standing there slips.
+- **The map** shows each town's roads as a ring of colour: red, amber, green or gold.
