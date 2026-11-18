@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://d141c08rhee2t"
+path="res://.godot/imported/widow_11.png-e39a14f7d1eb563c943066a421d754be.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "5be156c5908538b591f01e83d449579c"
+}
+
+[deps]
+
+source_file="res://assets/models/foes/widow/widow_11.png"
+dest_files=["res://.godot/imported/widow_11.png-e39a14f7d1eb563c943066a421d754be.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

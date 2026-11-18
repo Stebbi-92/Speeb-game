@@ -67,6 +67,11 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Conifer (medium-Poly)"](https://skfb.ly/oTUSZ) | Sereib | Living trees |
 | ["Scots Pine Trees Set"](https://skfb.ly/6sApt) | Maksim Batyrev | Living trees |
 | ["Coniferous Forest Assets Pack"](https://skfb.ly/pBtIF) | Dari | Living and dead trees |
+| ["Infernal Magma Hound - Free Lava Creature Asset"](https://skfb.ly/pHqyD) | Yury Misiyuk | The Cinder Matron (`assets/models/foes/magma_hound`) |
+| ["Dune Sandworm RIGGED + ANIMATED"](https://skfb.ly/oSS7t) | sixonetwo | The Sand Choir (`assets/models/foes/sandworm`) |
+| ["Drugdör The Golem Animated"](https://skfb.ly/6RvzE) | Phons | The Basalt Idol (`assets/models/foes/golem`) |
+| ["Criatura"](https://skfb.ly/6XvPB) | Mardukblake | The Long Watcher (`assets/models/foes/criatura`) |
+| ["Black widow (Animated, downloadable)"](https://skfb.ly/pwQCG) | Andrey | The Tar Mother (`assets/models/foes/widow`) |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |

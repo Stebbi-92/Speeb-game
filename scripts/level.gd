@@ -2845,6 +2845,23 @@ func debug_airshot() -> void:
 	call_streak()
 
 
+## Testing aid: one great one (BOSS=boss_ash) stood still ahead, seen from the side (ROT turns it).
+func debug_bossline() -> void:
+	combat_frozen = true
+	var fwd := -player.global_transform.basis.z
+	var e := LesserSpeeb.new().setup(Game.lesser.keys()[3], OS.get_environment("BOSS"), self)
+	add_child(e)
+	enemies.append(e)
+	e.global_position = player.global_position + fwd * float(OS.get_environment("AWAY") if OS.get_environment("AWAY") != "" else "12") + Vector3(0, float(e.spec.radius), 0)
+	e.look_at(player.global_position + Vector3(0, float(e.spec.radius), 0), Vector3.UP)
+	e.rotate_y(PI + float(OS.get_environment("ROT")))
+	_debug_aim(e.global_position + Vector3(0, 1.0, 0))
+	await get_tree().create_timer(1.0).timeout
+	e.scale = Vector3.ONE
+	if e._scan:
+		e._scan_tick(0.0)
+
+
 func debug_streakshot() -> void:
 	await get_tree().create_timer(2.0).timeout
 	var fwd := -player.global_transform.basis.z

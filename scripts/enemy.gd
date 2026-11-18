@@ -133,6 +133,18 @@ const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/spiderthing/spiderthing.glb", 1.5, 0, 4.0, Vector2(0.55, 0.55)],
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
 	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
+	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its Speeb's head on its neck:
+	# [file, height at size 1, walking clip, walking pace, head (height, forward) as parts of its height,
+	#  {bone: the head bone the face rides, shrink: its own head hidden, idle: standing clip, tint, turn}]
+	"boss_ash": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
+		{"bone": "head_0137", "shrink": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08)}],
+	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
+		{"bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
+	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
+		{"bone": "Head_0", "shrink": true, "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42)}],
+	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI}],
+	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
+		{"head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
 }
 static var _scan_bounds := {}
 
@@ -266,6 +278,7 @@ var _legs: Array = []
 var _leap_cd := 2.0
 var spec: Dictionary
 var variant := ""      ## a kin of the base form, if it is one (see VARIANTS)
+var _sk := ""          ## its own scanned body, if it has one (see SCANS): a great one's, or its kin's
 var _attack_cd := 1.0
 var _flash := 0.0
 var _alive := true
@@ -346,6 +359,7 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 		variant = k
 		k = VARIANTS[k].base
 	kind = k
+	_sk = boss if SCANS.has(boss) else (variant if SCANS.has(variant) else "")
 	code = IDOL_CODES[randi() % IDOL_CODES.size()] if k == "idol" else c
 	level = lvl
 	spec = BOSSES[boss] if boss != "" else KINDS[k]
@@ -385,13 +399,13 @@ func _ready() -> void:
 		head.set_gild(1.0)
 	if kind == "unseen":
 		_build_unseen()
-	if SCANS.has(variant):
+	if _sk != "":
 		_build_scan(cs)
 	elif kind == "spider":
 		_build_spider()
 	if variant == "box_cat":
 		_build_box_cat()
-	elif spec.get("body", "") == "cat" and not SCANS.has(variant):
+	elif spec.get("body", "") == "cat" and _sk == "":
 		_build_cat()
 	if kind == "bloater":
 		_build_sack()
@@ -543,6 +557,8 @@ func _physics_process(delta: float) -> void:
 		_spent -= delta
 		head.rotation.x = 0.5 * minf(1.0, _spent * 2.0)
 	if _charge_t > 0.0 and not level.combat_frozen:
+		if boss != "":
+			_check_wroth()
 		_charge_tick(delta)
 		return
 	var frozen: bool = level.combat_frozen or idle or _stagger > 0.0 or _spent > 0.0 or _busy > 0.0
@@ -860,11 +876,9 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = -float(spec.radius) + _lift - _buried * 1.6 * float(SCANS[variant][1])
+		_scan.position.y = (-float(spec.radius) + _lift) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
-		if _scan_anim:
-			var walk: float = SCANS[variant][3]
-			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
+		_scan_tick(pace)
 		if _dust:
 			_dust.emitting = _buried > 0.3 and pace > 1.0
 	if _box:
@@ -980,11 +994,19 @@ func _build_box_cat() -> void:
 var _scan: Node3D
 var _scan_anim: AnimationPlayer
 
+var _scan_bone := -1
+var _scan_skel: Skeleton3D
+var _scan_walk := ""
+var _scan_idle := ""
+var _scan_gait := ""
+
 func _build_scan(cs: CollisionShape3D) -> void:
-	var sc: Array = SCANS[variant]
+	var sc: Array = SCANS[_sk]
 	if not ResourceLoader.exists(sc[0]):
 		return
-	head.visible = false
+	var opt: Dictionary = sc[5] if sc.size() > 5 else {}
+	var with_head := sc.size() > 5
+	head.visible = with_head
 	for c in get_children():
 		if c is MeshInstance3D:   # the unseen's own bent-light body gives way
 			(c as MeshInstance3D).visible = false
@@ -992,39 +1014,146 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	if not _scan_bounds.has(sc[0]):
 		var bb := AABB()
 		var first := true
-		for mi in m.find_children("*", "MeshInstance3D", true, false):
-			var a: AABB = Arms._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
-			bb = a if first else bb.merge(a)
-			first = false
+		var sks := m.find_children("*", "Skeleton3D", true, false)
+		if opt.get("bone_bounds", false) and not sks.is_empty():
+			# Its skin's stored bounds are not where it stands: measured by skinning its points as they rest
+			bb = _skinned_bounds(m)
+		else:
+			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				var a: AABB = Arms._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+				bb = a if first else bb.merge(a)
+				first = false
 		_scan_bounds[sc[0]] = bb
 	var b: AABB = _scan_bounds[sc[0]]
+	# A great one is grown afterwards (see _grow_into_boss); its shape for collision is set here at full size
+	var g := float(spec.get("grow", 1.0)) if boss != "" else 1.0
 	var tall := float(sc[1]) * float(spec.size)
 	var k := tall / maxf(b.size.y, 0.001)
+	if opt.get("by_long", false):
+		# A long thing (the worm) is sized by its length; its height is what that leaves
+		k = tall / maxf(maxf(b.size.x, b.size.z), 0.001)
+		tall = b.size.y * k
 	var c0 := b.get_center()
 	# A scan faces +Z, as a form does when it walks
-	m.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
+	var turn := Basis(Vector3.UP, float(opt.get("turn", 0.0)))
+	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), turn * Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
 	_scan = Node3D.new()
 	_scan.add_child(m)
-	_scan.position.y = -float(spec.radius)
+	_scan.position.y = -float(spec.radius) / g
 	add_child(_scan)
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var mm := mi as MeshInstance3D
+		mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if opt.has("tint") and mm.mesh:
+			# Tinted to its land: ash, sand, basalt, tar
+			for si in mm.mesh.get_surface_count():
+				var sm := mm.mesh.surface_get_material(si)
+				if sm is StandardMaterial3D:
+					var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+					t.albedo_color = t.albedo_color * (opt.tint as Color)
+					mm.set_surface_override_material(si, t)
 	var aps := m.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		_scan_anim = aps[0]
-		var an: StringName = _scan_anim.get_animation_list()[int(sc[2])]
-		_scan_anim.get_animation(an).loop_mode = Animation.LOOP_LINEAR
-		_scan_anim.play(an)
-		_scan_anim.seek(randf() * _scan_anim.get_animation(an).length, true)
+		var names := _scan_anim.get_animation_list()
+		_scan_walk = str(sc[2]) if sc[2] is String and str(sc[2]) != "" else str(names[int(sc[2]) if sc[2] is int else 0])
+		_scan_idle = str(opt.get("idle", ""))
+		for an in [_scan_walk, _scan_idle]:
+			if an != "" and _scan_anim.has_animation(an):
+				_scan_anim.get_animation(an).loop_mode = Animation.LOOP_LINEAR
+		_scan_gait = ""
+		_scan_play(_scan_walk)
+		_scan_anim.seek(randf() * _scan_anim.get_animation(_scan_walk).length, true)
 	var hp: Vector2 = sc[4]
 	head.position = Vector3(0, tall * hp.x - float(spec.radius), tall * hp.y)
+	if with_head:
+		head.scale = Vector3.ONE * float(opt.get("head_k", 0.6))
+	if opt.has("bone"):
+		var sks := m.find_children("*", "Skeleton3D", true, false)
+		if not sks.is_empty():
+			_scan_skel = sks[0]
+			_scan_bone = _scan_skel.find_bone(str(opt.bone))
+			if _scan_bone >= 0 and opt.get("shrink", false):
+				_scan_skel.set_bone_pose_scale(_scan_bone, Vector3.ONE * 0.05)
+				# Its own head's scale gives way in every clip, so the shrink holds
+				var hpath := "%s:%s" % [str(_scan_anim.get_node(_scan_anim.root_node).get_path_to(_scan_skel)), str(opt.bone)] if _scan_anim else ""
+				if _scan_anim:
+					for an in _scan_anim.get_animation_list():
+						var a := _scan_anim.get_animation(an)
+						for t in range(a.get_track_count() - 1, -1, -1):
+							if a.track_get_type(t) == Animation.TYPE_SCALE_3D and str(a.track_get_path(t)) == hpath:
+								a.remove_track(t)
 	# Struck anywhere up its height, not only about the feet
 	var r := float(spec.radius)
 	var cap := CapsuleShape3D.new()
 	cap.radius = r
-	cap.height = maxf(2.0 * r, tall * (0.75 if hp.y > 0.3 else 1.0))
+	cap.height = maxf(2.0 * r, tall * g * (0.75 if hp.y > 0.3 else 1.0))
 	cs.shape = cap
 	cs.position.y = -r + cap.height * 0.5
+
+
+## The true bounds of a skinned model at rest: each point carried by its bones, as the skin would draw it.
+static func _skinned_bounds(m: Node3D) -> AABB:
+	var bb := AABB()
+	var first := true
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		if mm.mesh == null:
+			continue
+		var sk := mm.get_node_or_null(mm.skeleton) as Skeleton3D
+		var skin := mm.skin
+		var to_m := Arms._chain(mm, m)
+		for si in mm.mesh.get_surface_count():
+			var arr: Array = mm.mesh.surface_get_arrays(si)
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var bones = arr[Mesh.ARRAY_BONES]
+			var wts = arr[Mesh.ARRAY_WEIGHTS]
+			var per := 4 if bones == null or v.is_empty() else (bones as Array).size() / v.size() if bones is Array else (bones as PackedInt32Array).size() / v.size()
+			for i in range(0, v.size(), 3):
+				var p: Vector3 = v[i]
+				var q := to_m * p
+				if sk and skin and bones != null and wts != null:
+					var sum := Vector3.ZERO
+					var wsum := 0.0
+					for j in per:
+						var bi: int = bones[i * per + j]
+						var wj: float = wts[i * per + j]
+						if wj <= 0.0 or bi >= skin.get_bind_count():
+							continue
+						var bone := skin.get_bind_bone(bi)
+						if bone < 0:
+							bone = sk.find_bone(skin.get_bind_name(bi))
+						if bone < 0:
+							continue
+						sum += (sk.get_bone_global_rest(bone) * skin.get_bind_pose(bi) * p) * wj
+						wsum += wj
+					if wsum > 0.0:
+						q = Arms._chain(sk, m) * (sum / wsum)
+				bb = AABB(q, Vector3.ZERO) if first else bb.expand(q)
+				first = false
+	return bb
+
+
+func _scan_play(an: String) -> void:
+	if _scan_anim and an != "" and an != _scan_gait and _scan_anim.has_animation(an):
+		_scan_gait = an
+		_scan_anim.play(an, 0.3)
+
+
+## Its body walks with its pace (or stands, if it has a standing clip), and its Speeb's head rides its neck.
+func _scan_tick(pace: float) -> void:
+	if _scan_anim:
+		var walk: float = SCANS[_sk][3]
+		if _scan_idle != "" and pace < 0.3:
+			_scan_play(_scan_idle)
+			_scan_anim.speed_scale = 1.0
+		else:
+			_scan_play(_scan_walk)
+			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
+	if _scan_skel and _scan_bone >= 0:
+		var opt: Dictionary = SCANS[_sk][5]
+		var at: Vector3 = (_scan_skel.global_transform * _scan_skel.get_bone_global_pose(_scan_bone)).origin
+		head.position = to_local(at) + (opt.get("head_off", Vector3.ZERO) as Vector3) * float(SCANS[_sk][1]) * float(spec.size)
 
 
 func _build_cat() -> void:
@@ -1751,6 +1880,8 @@ func _puppet_tick(delta: float) -> void:
 	head.set_flash(_flash)
 	if _pan_anim:
 		_pan_tick(Vector2(_net_v.x, _net_v.z).length())
+	if _scan:
+		_scan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _fb:
 		var pv := Vector2(_net_v.x, _net_v.z).length()
 		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
@@ -1972,6 +2103,12 @@ func _do_way(w: String, p: Node3D) -> void:
 ## The ways of the great ones, run by the host.
 func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
 	_busy = maxf(0.0, _busy - delta)
+	_check_wroth()
+	_boss_ways(delta, p, dist)
+
+
+## Below half its strength a great one grows wroth: a roar, and its wroth loop of ways (even mid-charge).
+func _check_wroth() -> void:
 	if not _wroth and hp < max_hp * 0.5:
 		_wroth = true
 		level.sfx("great_roar", 8, global_position, 0.8)
@@ -1979,6 +2116,9 @@ func _boss_tick(delta: float, p: Node3D, dist: float) -> void:
 		_combo = []
 		_pat_i = 0
 		_gap = 1.5
+
+
+func _boss_ways(delta: float, p: Node3D, dist: float) -> void:
 	# One way at a time: nothing new while one is shown, run or recovered from
 	if _busy <= 0.0 and _spent <= 0.0 and _charge_t <= 0.0:
 		var pats: Array = PATTERNS.get(boss, [[spec.ways.map(func(x): return [x])]])

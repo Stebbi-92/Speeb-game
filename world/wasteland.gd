@@ -7449,7 +7449,8 @@ func debug_scanfoes() -> void:
 	f = f.normalized()
 	var ok := 0
 	var out := []
-	for k in LesserSpeeb.SCANS:
+	var kin: Array = LesserSpeeb.SCANS.keys().filter(func(x): return LesserSpeeb.VARIANTS.has(x))
+	for k in kin:
 		var at: Vector3 = player.global_position + f * 14.0 + f.cross(Vector3.UP) * (ok - 1) * 4.0
 		at.y = terrain.height_at(at.x, at.z) + 1.0
 		var e := spawn_at(k, at)
@@ -7469,7 +7470,7 @@ func debug_scanfoes() -> void:
 			ok += 1
 		out.append("%s=%.1f" % [k, tall])
 		e.queue_free()
-	print("SCANFOES ok=%d/%d %s" % [ok, LesserSpeeb.SCANS.size(), " ".join(out)])
+	print("SCANFOES ok=%d/%d %s" % [ok, kin.size(), " ".join(out)])
 	get_tree().quit()
 
 
