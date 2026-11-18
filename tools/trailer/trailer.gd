@@ -59,6 +59,9 @@ func _process(delta: float) -> void:
 		w.player.health = w.player.max_health
 		w.player.stamina = 100.0 if w.player.get("stamina") != null else 0.0
 	if _clean_on:
+		for e in w.enemies:   # health bars appear the moment a form is hit
+			if is_instance_valid(e) and e.get("_bar") is MeshInstance3D:
+				e._bar.visible = false
 		_clean_t -= delta
 		if _clean_t <= 0.0:
 			_clean_t = 0.25
