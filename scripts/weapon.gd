@@ -67,6 +67,8 @@ var _melee_cool := 0.0
 var _spec_cache := {}
 var blade_out := false       ## the blade is in hand: fire swings it, a long hold swings hard, aim guards
 var guarding := false
+var guard_age := 99.0   ## how long the guard has been up: raised just as a blow lands, it is a perfect guard
+const PERFECT_GUARD := 0.25
 var _charge := -1.0          ## seconds the fire button has been held with the blade out; -1 when not held
 var _heavy := false          ## the swing under way is a heavy one
 var _swing := 0.0
@@ -241,6 +243,14 @@ func fitted(id: String) -> bool:
 
 
 ## What the work done on this gun adds to each shot.
+## At a boat's swivel the gunner's shots strike harder.
+func station_mult() -> float:
+	var v = player.get("vessel") if player else null
+	if v != null and is_instance_valid(v) and v.has_method("station_of") and v.station_of(Net.me()) == "gun":
+		return WBoat.GUN_MULT
+	return 1.0
+
+
 func tier_mult() -> float:
 	return WArms.tier_mult(Game.tier_of(gun()))
 
@@ -1125,7 +1135,7 @@ func _try_fire() -> void:
 	spread = shot_spread()
 	var hits := {}
 	var crits := {}
-	var dmg_m := damage_mult * tier_mult() * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0)
+	var dmg_m := damage_mult * tier_mult() * (1.3 if Game.blessed("speebsnek") else 1.0) * (0.92 if quiet else 1.0) * station_mult()
 	for i in int(s.pellets):
 		var dir := fwd
 		if spread > 0.0:
@@ -1391,7 +1401,9 @@ const HEAVY_COST := 24.0
 ## The blade in hand: a short press swings, a long hold winds up and swings hard on release.
 ## Aim raises the blade to guard: blows are turned aside for stamina.
 func _blade_tick(delta: float, holding: bool) -> void:
+	var was := guarding
 	guarding = Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
+	guard_age = (0.0 if not was else guard_age + delta) if guarding else 99.0
 	if guarding:
 		_charge = -1.0
 		return
@@ -1456,8 +1468,10 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		lvl.sfx("chop", -1 if heavy else -4, null, randf_range(0.85, 1.1) * (0.8 if heavy else 1.0))
 		player.shake(0.3 if heavy else 0.15)
 		LesserSpeeb.harm_pierce = float(m.get("pierce", 1.0))
+		LesserSpeeb.harm_heavy = heavy
 		Arms.deal(hits, fwd, str(m.get("harm", "blade")))
 		LesserSpeeb.harm_pierce = 1.0
+		LesserSpeeb.harm_heavy = false
 		_practise("blade", hits)
 		_hit_stop(0.09 if heavy else 0.05, hits.keys())
 	elif not r.is_empty():

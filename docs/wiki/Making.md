@@ -12,8 +12,8 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 1 Ash-bloom Salve | 1 Cloth, 3 Ash-bloom |  |
 | 1 Smelling Salts | 3 Salt, 2 Ash-bloom |  |
 | 2 Salted Meat | 2 Bone, 4 Salt |  |
-| 8 Shotgun Shells | 1 Scrap Iron, 3 Salt |  |
-| 10 Pistol Rounds | 1 Scrap Iron, 3 Salt |  |
+| 6 Shotgun Shells | 1 Scrap Iron, 3 Salt |  |
+| 15 Pistol Rounds | 1 Scrap Iron, 3 Salt |  |
 | 3 Salted Meat | 2 Raw Meat, 3 Salt |  |
 | 3 Cloth | 2 Hide |  |
 | 2 Torch | 2 Deadwood, 1 Lamp Oil |  |
@@ -43,9 +43,9 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 |---|---|---|
 | 1 Tempered Steel | 4 Scrap Iron, 1 Red Iron |  |
 | 1 Clockwork | 3 Scrap Iron, 1 Lamp Oil, 1 Salt Crystal |  |
-| 30 Shotgun Shells | 3 Scrap Iron, 8 Salt |  |
-| 40 Pistol Rounds | 3 Scrap Iron, 8 Salt |  |
-| 60 Rifle Rounds | 4 Scrap Iron, 10 Salt |  |
+| 24 Shotgun Shells | 3 Scrap Iron, 8 Salt |  |
+| 60 Pistol Rounds | 3 Scrap Iron, 8 Salt |  |
+| 80 Rifle Rounds | 4 Scrap Iron, 10 Salt |  |
 | 2 Rocket | 6 Scrap Iron, 2 Lamp Oil, 10 Salt |  |
 | 60 Lamp Fuel | 1 Lamp Oil, 1 Tar |  |
 | 1 Pick | 4 Deadwood, 4 Scrap Iron |  |

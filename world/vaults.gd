@@ -81,6 +81,7 @@ func build(id: String) -> void:
 	stone.roughness = 1.0
 	var rooms := plan(id)
 	var gates: Array = []
+	var winches: Array = []
 	var rr := RandomNumberGenerator.new()
 	rr.seed = hash(id) + 78
 	var slab := func(c: Vector3, size: Vector3, m: Material) -> MeshInstance3D:
@@ -107,16 +108,24 @@ func build(id: String) -> void:
 				slab.call(Vector3(0, 5.5, ez), Vector3(4, 4, 1), rock)
 			else:
 				slab.call(Vector3(0, 3.5, ez), Vector3(hw * 2.0 + 2.0, 8, 1), rock)
-		# The corridor on to the next room, and its gate (shut until this room is quiet)
+		# The corridor on to the next room, and its gate (shut until this room is quiet). The stair's
+		# room has no gate: the way into the first room is open.
 		if i < rooms.size() - 1:
 			var cz: float = z + hl + 3.0
 			slab.call(Vector3(0, -0.5, cz), Vector3(4, 1, 6), rock)
 			slab.call(Vector3(0, 4.0, cz), Vector3(6, 1, 6), rock)
 			for sx in [-1.0, 1.0]:
 				slab.call(Vector3(sx * 2.5, 1.75, cz), Vector3(1, 4.5, 6), rock)
-			var gate: MeshInstance3D = slab.call(Vector3(0, 1.75, z + hl + 1.0), Vector3(4, 3.5, 0.3), stone)
-			gate.material_override = _iron()
-			gates.append(gate)
+			if i == 0:
+				gates.append(null)
+			else:
+				var gate: MeshInstance3D = slab.call(Vector3(0, 1.75, z + hl + 1.0), Vector3(4, 3.5, 0.3), stone)
+				gate.material_override = _iron()
+				gates.append(gate)
+		# The keeper's gate is too heavy to rise alone: two winches, one each side, wind it up
+		if i == rooms.size() - 2:
+			for sx in [-1.0, 1.0]:
+				winches.append(_winch(holder, Vector3(sx * (hw - 1.6), 0, z + hl - 1.6)))
 		# What the Order left: pillars, coffins, urns, candles
 		for k in 4:
 			var px := (hw - 2.0) * (1.0 if k % 2 == 0 else -1.0)
@@ -141,12 +150,36 @@ func build(id: String) -> void:
 	up.set_meta("prompt", "Climb out of the vault")
 	var last: Array = rooms[rooms.size() - 1]
 	WDress.kp(holder, "grave", "altar-stone", Vector3(0, 0, last[0] + last[2] - 3.0), PI, 2.8, true)
-	built[id] = {"rooms": rooms, "gates": gates, "holder": holder}
-	# Gates already opened stay open for one coming down late
+	built[id] = {"rooms": rooms, "gates": gates, "holder": holder, "winches": winches}
+	# Gates already opened stay open for one coming down late (gate g follows room g)
 	var opened := int(w.flags.get("vault_open_" + id, 0))
-	for g in mini(opened, gates.size()):
-		(gates[g] as Node3D).queue_free()
-		gates[g] = null
+	for g in range(1, mini(opened + 1, gates.size())):
+		if gates[g] != null:
+			(gates[g] as Node3D).queue_free()
+			gates[g] = null
+
+
+## A winch: an iron drum on two posts, and a crank. Where it stands, in the vault's own space.
+func _winch(holder: Node3D, p: Vector3) -> Vector3:
+	var iron := _iron()
+	for sz in [-0.5, 0.5]:
+		var post: MeshInstance3D = w.box(holder.position + p + Vector3(0, 0.6, sz), Vector3(0.2, 1.2, 0.2), iron, true)
+		post.reparent(holder)
+	var drum := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.32
+	cm.bottom_radius = 0.32
+	cm.height = 0.9
+	drum.mesh = cm
+	drum.material_override = iron
+	drum.position = p + Vector3(0, 1.0, 0)
+	drum.rotation.x = PI / 2
+	drum.name = "WinchDrum"
+	holder.add_child(drum)
+	var crank: MeshInstance3D = w.box(Vector3.ZERO, Vector3(0.08, 0.6, 0.08), iron, false)
+	crank.reparent(drum)
+	crank.position = Vector3(0, 0.55, 0.25)
+	return p
 
 
 func _iron() -> StandardMaterial3D:
@@ -233,6 +266,9 @@ func host_tick(delta: float) -> void:
 				left += 1
 		if left > 0:
 			continue
+		if st.has("wind"):
+			_wind_tick(id, st, down)
+			continue
 		# The room is quiet
 		st.woke = false
 		st.foes = []
@@ -246,9 +282,54 @@ func host_tick(delta: float) -> void:
 				if t == w.player:
 					shares.append(Net.me())
 			w.shared("_w_vault_done", [id, w.day, shares])
+		elif int(st.room) == rooms.size() - 2 and not built[id].winches.is_empty():
+			# The keeper's gate: it waits for the winches
+			st.woke = true
+			st.wind = 0.0
+			w.shared("_w_note", ["The last gate is too heavy to lift. Wind it up at the winches: two together, it goes quickly."])
 		else:
 			w.shared("_w_vault_gate", [id, int(st.room)])
 			st.room = int(st.room) + 1
+
+
+const WIND_ONE := 0.05    ## of the gate a second, with one pilgrim winding (twenty seconds)
+const WIND_TWO := 0.25    ## with both winches manned (four seconds)
+
+## How many of the winches have a pilgrim at them, and the gate rises by that.
+func _wind_tick(id: String, st: Dictionary, down: Array) -> void:
+	var manned := 0
+	for p in built[id].winches:
+		var wp := origin(id) + (p as Vector3)
+		for t in down:
+			if Vector2(t.global_position.x - wp.x, t.global_position.z - wp.z).length() < 1.8:
+				manned += 1
+				break
+	if manned == 0:
+		return
+	st.wind = minf(1.0, float(st.wind) + (WIND_TWO if manned >= 2 else WIND_ONE))
+	if float(st.wind) >= 1.0:
+		st.erase("wind")
+		st.woke = false
+		w.shared("_w_vault_gate", [id, int(st.room)])
+		st.room = int(st.room) + 1
+	else:
+		w.shared("_w_vault_wind", [id, float(st.wind), manned])
+
+
+## The keeper's gate rising as it is wound, and the drums turning.
+func wind_shown(id: String, frac: float, manned: int) -> void:
+	if not built.has(id):
+		return
+	var gates: Array = built[id].gates
+	var g = gates[gates.size() - 1]
+	if g != null and is_instance_valid(g):
+		(g as Node3D).position.y = 1.75 + frac * 3.2
+	for d in (built[id].holder as Node3D).find_children("WinchDrum", "MeshInstance3D", false, false):
+		(d as Node3D).rotate_object_local(Vector3.UP, 0.9)
+	if w.player and inside(id, w.player.global_position):
+		w.sfx("step", -10, w.player.global_position, 0.6)
+		if manned < 2 and int(frac * 20.0) % 5 == 0:
+			w.hud.notify("The gate rises slowly. A second pair of hands at the other winch would speed it.")
 
 
 func _wake(id: String, st: Dictionary, last: bool) -> void:
@@ -280,9 +361,9 @@ func open_gate(id: String, room: int) -> void:
 	w.flags["vault_open_" + id] = maxi(int(w.flags.get("vault_open_" + id, 0)), room)
 	if built.has(id):
 		var gates: Array = built[id].gates
-		if room - 1 < gates.size() and gates[room - 1] != null and is_instance_valid(gates[room - 1]):
-			(gates[room - 1] as Node3D).queue_free()
-			gates[room - 1] = null
+		if room < gates.size() and gates[room] != null and is_instance_valid(gates[room]):
+			(gates[room] as Node3D).queue_free()
+			gates[room] = null
 	if w.player and inside(id, w.player.global_position):
 		w.sfx("crumble", -6, w.player.global_position)
 		w.hud.notify("The room is quiet. A gate grinds open.")

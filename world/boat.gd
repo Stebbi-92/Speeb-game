@@ -19,6 +19,25 @@ const SEATS := {
 		Vector3(0.7, 0.9, -0.6), Vector3(-0.7, 0.9, 1.6), Vector3(0.7, 0.9, 1.6), Vector3(0, 0.9, 3.3)],
 }
 
+## What each seat is for. The helm steers; the sail-hand works the sail and trims it to run faster;
+## the lookout calls what moves on the water; the gunner shoots harder from the swivel; each oar adds
+## to the rowing. One pilgrim can sail a boat alone, but a full crew sails it best.
+const STATIONS := {
+	"raft": ["helm", "paddle"],
+	"sloop": ["helm", "sail", "lookout", "gun"],
+	"longboat": ["helm", "sail", "lookout", "gun", "oar", "oar", "oar", "oar"],
+}
+const STATION_TEXT := {
+	"sail": "You work the sail: [%s] raises it, [%s] lowers it. Trimmed by your hand it runs a quarter faster.",
+	"lookout": "You keep the lookout. You will see what moves on the water long before the others, and call it.",
+	"gun": "You hold the swivel. Your shots strike a third harder from here.",
+	"oar": "You take an oar. Each oar manned makes the rowing faster.",
+	"paddle": "You take the second paddle. Two paddle faster than one.",
+}
+const TRIM := 1.25          ## sail speed with a sail-hand at it
+const GUN_MULT := 1.33      ## the gunner's harm at the swivel
+const OAR_ADD := 0.22       ## rowing speed added by each manned oar (or second paddle)
+
 var id := 0
 var kind := "raft"
 const RAFT := "res://assets/models/boats/raft.glb"
@@ -165,6 +184,35 @@ func seat_pos(pl: Node3D) -> Vector3:
 	return _deck.to_global(seats[clampi(seat, 0, seats.size() - 1)]) + Vector3(0, 0.1, 0)
 
 
+## The station a pilgrim holds aboard ("" if not aboard).
+func station_of(peer: int) -> String:
+	if not riders.has(peer):
+		return ""
+	var st: Array = STATIONS.get(kind, ["helm"])
+	var seat := int(riders[peer])
+	return str(st[seat]) if seat < st.size() else "seat"
+
+
+## How many pilgrims hold this station.
+func manned(station: String) -> int:
+	var n := 0
+	for p in riders:
+		if station_of(int(p)) == station:
+			n += 1
+	return n
+
+
+## The next free seat after this pilgrim's own, round the boat (never the helm), or -1.
+func next_free_after(seat: int) -> int:
+	var taken := riders.values()
+	var n := int(spec.seats)
+	for k in range(1, n):
+		var s := (seat + k) % n
+		if s != 0 and not s in taken:
+			return s
+	return -1
+
+
 func pilot() -> int:
 	for p in riders:
 		if int(riders[p]) == 0:
@@ -194,6 +242,10 @@ func _refresh_prompt() -> void:
 	if hp < float(spec.hp) - 1.0 and not riders.has(Net.me()) and t != "":
 		_body.set_meta("on_hold", func(): w.mend_boat(self))
 		_body.set_meta("hold_prompt", "Mend (4 wood)")
+	elif riders.has(Net.me()) and int(riders[Net.me()]) != 0 and next_free_after(int(riders[Net.me()])) > 0:
+		var to := next_free_after(int(riders[Net.me()]))
+		_body.set_meta("on_hold", func(): w.shared("_rq_station", [id, Net.me(), to]))
+		_body.set_meta("hold_prompt", "Move to the %s" % str(STATIONS[kind][to]))
 	elif riders.has(Net.me()) and _lamp != null:
 		_body.set_meta("on_hold", func(): w.shared("_w_boat_lamp", [id, not lamp_lit]))
 		_body.set_meta("hold_prompt", "Douse the lamp" if lamp_lit else "Light the lamp")
@@ -222,6 +274,10 @@ func _physics_process(delta: float) -> void:
 	var sea: WSea = w.sea
 	if sea == null:
 		return
+	if station_of(Net.me()) == "sail":
+		_work_sail()
+	elif station_of(Net.me()) == "lookout":
+		_look_out(delta)
 	if riders.has(Net.me()) and int(riders[Net.me()]) == 0:
 		_steer(delta)
 		_send_t -= delta
@@ -258,22 +314,24 @@ func _steer(delta: float) -> void:
 	if not pl.input_locked and not w.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var want := 0.0
+	var hand := manned("sail") > 0     # a sail-hand has the sail: the helm only steers
+	var rowing := 1.0 + OAR_ADD * (manned("oar") + manned("paddle"))
 	if float(spec.sail) > 0.0:
-		if Input.is_action_just_pressed("move_forward") and not pl.input_locked:
+		if Input.is_action_just_pressed("move_forward") and not pl.input_locked and not hand:
 			sail = mini(2, sail + 1)
 			w.hud.notify(["The sail is furled.", "Half sail.", "Full sail."][sail])
-		if Input.is_action_just_pressed("move_back") and not pl.input_locked:
+		if Input.is_action_just_pressed("move_back") and not pl.input_locked and not hand:
 			sail = maxi(0, sail - 1)
 			w.hud.notify(["The sail is furled.", "Half sail.", "Full sail."][sail])
 		# Before the wind is fastest; across it, good; into it, barely at all
 		var heading := Vector2(sin(yaw), cos(yaw))
 		var wind_v := Vector2(cos(sea.wind_ang), sin(sea.wind_ang))
 		var catch_k := 0.2 + 0.8 * maxf(0.0, (heading.dot(wind_v) + 0.4) / 1.4)
-		want = float(spec.sail) * sail / 2.0 * catch_k * (0.4 + 0.6 * sea.wind) * w.boat_speed_mult()
+		want = float(spec.sail) * sail / 2.0 * catch_k * (0.4 + 0.6 * sea.wind) * w.boat_speed_mult() * (TRIM if hand else 1.0)
 		if sail == 0:
-			want = -input.y * float(spec.row)
+			want = -input.y * float(spec.row) * rowing
 	else:
-		want = -input.y * float(spec.row) * w.boat_speed_mult()
+		want = -input.y * float(spec.row) * w.boat_speed_mult() * rowing
 	speed = lerpf(speed, want, minf(1.0, delta * (0.6 if float(spec.sail) > 0.0 else 1.5)))
 	yaw -= input.x * float(spec.turn) * delta * clampf(absf(speed) / 3.0 + 0.4, 0.4, 1.2)
 	var f := Vector3(sin(yaw), 0, cos(yaw))
@@ -291,9 +349,63 @@ func _steer(delta: float) -> void:
 	global_position = Vector3(next.x, WIsles.SEA_Y, next.z)
 
 
+## The sail-hand raises and lowers the sail and tells the fellowship (the helm takes it up).
+func _work_sail() -> void:
+	if float(spec.sail) <= 0.0 or w.player.input_locked or w.hud.pause_panel.visible:
+		return
+	var to := sail
+	if Input.is_action_just_pressed("move_forward"):
+		to = mini(2, sail + 1)
+	if Input.is_action_just_pressed("move_back"):
+		to = maxi(0, sail - 1)
+	if to != sail:
+		w.shared("_w_boat_sail", [id, to])
+
+
+func sail_set(to: int) -> void:
+	sail = clampi(to, 0, 2)
+	if riders.has(Net.me()) and station_of(Net.me()) in ["helm", "sail"]:
+		w.hud.notify(["The sail is furled.", "Half sail.", "Full sail."][sail])
+
+
+var _look_t := 0.0
+var _called := {}
+const LOOK_FAR := 280.0    ## how far the lookout sees what moves on the water
+
+## The lookout sees every form near the boat long before the others, and calls it with where it lies.
+func _look_out(delta: float) -> void:
+	_look_t -= delta
+	if _look_t > 0.0:
+		return
+	_look_t = 2.0
+	var f := Vector3(sin(yaw), 0, cos(yaw))
+	for e in w.enemies:
+		if not is_instance_valid(e) or not e.is_alive() or _called.has(e.get_instance_id()):
+			continue
+		var d: Vector3 = e.global_position - global_position
+		d.y = 0
+		if d.length() > LOOK_FAR or d.length() < 25.0:
+			continue
+		_called[e.get_instance_id()] = true
+		w.shared("_w_lookout", [id, e.global_position, str(e.spec.name), bearing(f, d)])
+		return
+
+
+## Where a thing lies from the boat, in a sailor's words.
+static func bearing(f: Vector3, d: Vector3) -> String:
+	var a := rad_to_deg(Vector2(f.x, f.z).angle_to(Vector2(d.x, d.z)))
+	if absf(a) < 30.0:
+		return "dead ahead"
+	if absf(a) > 150.0:
+		return "astern"
+	var side := "starboard" if a > 0.0 else "port"   # facing +z, starboard lies toward -x
+	return ("off the %s bow" if absf(a) < 90.0 else "off the %s quarter") % side
+
+
 ## Where its pilot says it is.
 func net_set(p: Vector3, y: float, sp: float, sl: int) -> void:
 	_net_to = p
 	_net_yaw = y
 	speed = sp
-	sail = sl
+	if manned("sail") == 0 or station_of(Net.me()) != "sail":
+		sail = sl

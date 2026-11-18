@@ -33,6 +33,20 @@ Brelm alpha 0.13.3: clear view
 - Settlements are always safe: nothing outside can shoot you while you are inside.
 - The Ashen Knight carries his own flamberge, and his armour is his plate. The Unlit Breaker swings a real sledgehammer.
 - Gathering lands: a swing, then the blow, with its own sound for wood, stone, iron, leaf and bone. What you take rises off the node, and the last blow fells a tree or breaks a rock apart.
+- Poise: every blow wears a foe's footing, blades and heavy blows most. Broken, it reels and takes more harm.
+- A perfect guard, raised just as a blow lands, costs nothing and leaves the foe reeling.
+- Gunmen fire rounds you can see. Keep moving, or dodge as one comes.
+- Heavy foes sweep, lunge and grab, each with its own warning.
+- Foes come in mixed packs, and champions walk the far lands.
+- Slain foes often leave a few rounds, more in the harder lands. Never healing.
+- Ammunition is balanced to what it does: a bench makes 24 shells, 60 pistol rounds or 80 rifle rounds. Traders sell shells at 12 salt for ten, rounds at 6, and buy them back for less than they cost to make.
+- Walking together: pilgrims who keep together fall into squads of two to four. What one slays, the others near learn from.
+- Loot from great ones and road events falls as a satchel for each player, seen only by its owner.
+- A friend who joins a fellowship already on the road comes with better kit, more for each beacon lit.
+- What now names a friend to ask for what only their trade makes.
+- The vault keeper's gate must be wound up at its two winches: alone it is slow, two together quick. The way into a vault's first room is no longer shut.
+- Boats have stations: helm, sail, lookout, gun and oars. A sail-hand runs the boat faster, the lookout calls what moves on the water, the gunner hits harder, and each oar rows faster. Hold interact on the boat to change station.
+- With five or more, kindling a beacon also brings a raid on your nearest camp: a second front.
 
 Brelm alpha 0.13.2: joining fix
 

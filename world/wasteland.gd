@@ -441,6 +441,7 @@ func _process(delta: float) -> void:
 			_place_sounds()
 			_landmarks_tick()
 		_cat_tick(delta)
+		_trade_tell_tick(delta)
 		_radio_tick(delta)
 		_power_tick(delta)
 		if hall:
@@ -1609,6 +1610,45 @@ func _rq_kindle(_by: int, i: int, vm := 1.0) -> void:
 	if not Net.authority() or i in lit or vigils.has(i):
 		return
 	shared("_w_vigil", [i, (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)])
+	second_front(beacon_nodes[i].pos)
+
+
+const FRONT_AT := 5   ## pilgrims in the fellowship before a vigil opens a second front
+
+## A fellowship of five or more is big enough to split: while the vigil burns, the forms fall on the
+## camp nearest it as well, so some must ride back to hold it. Returns the camp's place, or null.
+func second_front(vigil_at: Vector3, force := false):
+	if not Net.authority() or (Net.pilgrims().size() < FRONT_AT and not force):
+		return null
+	var best := -1
+	var bd := 1500.0
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind != "campfire" or raiding.has(pid):
+			continue
+		var d: float = pc.pos.distance_to(vigil_at)
+		if d > 120.0 and d < bd:
+			bd = d
+			best = pid
+	if best < 0:
+		return null
+	var c: Vector3 = pieces[best].pos
+	raiding[best] = 120.0
+	shared("_w_front", [c])
+	var roster: Array = forms_at(c)
+	for k in WCrowd.scale(self, 6 + mini(nights, 6)):
+		get_tree().create_timer(randf_range(8.0, 40.0), false).timeout.connect(func():
+			if is_instance_valid(self):
+				var e = _spawn_near(roster[randi() % roster.size()], c, BASE_SAFE - 12.0, BASE_SAFE + 6.0, true)
+				if e:
+					e.set_meta("raid", true))
+	return c
+
+
+func _w_front(at: Vector3) -> void:
+	sfx("bell", -2)
+	var d := int(player.global_position.distance_to(at))
+	hud.alert_banner("A second front", "While the beacon burns, your camp %d m away is attacked. Send some back to hold it." % d if d > 40 else "Your camp is attacked. Hold it while the others keep the vigil.")
 
 
 ## The oil is poured and the flame taken; now the night comes for it, and the flame must be kept.
@@ -1745,6 +1785,7 @@ func _rq_ember_kindle(by: int, i: int) -> void:
 		return
 	shared("_w_ember_end", [true])
 	shared("_w_vigil", [i, EMBER_VIGIL])
+	second_front(beacon_nodes[i].pos)
 
 
 func _w_ember_end(delivered: bool) -> void:
@@ -2312,6 +2353,8 @@ func land_warning(bn: String) -> String:
 	return "\n%s Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
 
 
+const CHAMPION_CHANCE := 1.0 / 15.0
+
 ## A foe is as strong as the land it rises in, not as the arms it will face: a better gun is felt.
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
@@ -2322,6 +2365,9 @@ func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 		e.max_hp *= m
 		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
 		e.plate *= land
+		# In the harder lands, one in fifteen or so stands out from its kind
+		if tier_at(p) >= 3 and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE:
+			e.become_champion(LesserSpeeb.CHAMPION.keys()[randi() % LesserSpeeb.CHAMPION.size()])
 	return e
 
 
@@ -2374,6 +2420,10 @@ func afflict(what: String, secs: float) -> void:
 			if _freeze <= 0.0:
 				hud.notify("The cold locks your legs.")
 			_freeze = maxf(_freeze, secs)
+		"held":
+			# Gripped by a heavy one: the legs held, a moment
+			_freeze = maxf(_freeze, secs)
+			player.shake(0.3)
 		"blind":
 			if _blind <= 0.0:
 				hud.notify("Ravens in your face!")
@@ -3790,7 +3840,7 @@ func _w_gift(items: Array, by: int) -> void:
 
 # ------------------------------------------------------------------ satchels: what is dropped, or left by the fallen
 
-func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool) -> void:
+func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -> void:
 	if not Net.authority():
 		return
 	var sid := "s%d" % satchel_next
@@ -3799,15 +3849,41 @@ func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool) -> void:
 	for it in items:
 		bag.add(it[0], it[1])
 	shared("_w_cont", [sid, bag.to_data()])
-	shared("_w_satchel", [sid, p, grave])
+	shared("_w_satchel", [sid, p, grave, owner])
 
 
-func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
+## Loot from a great one or an event falls for each pilgrim of the fellowship, a satchel apiece that
+## only its owner sees, so no one argues over one bag. Alone, or offline, it is one satchel for all.
+## `roll` makes the items afresh for each, so no two bags are the same.
+func drop_for_each(at: Vector3, roll: Callable) -> int:
+	if not Net.authority():
+		return 0
+	var names := []
+	if Net.online:
+		for id in Net.players:
+			var nm := str(Net.players[id].name)
+			if not nm in names:
+				names.append(nm)
+	if names.size() < 2:
+		_rq_satchel(0, at, roll.call(), false)
+		return 1
+	for i in names.size():
+		var off := Vector3(1.4, 0, 0).rotated(Vector3.UP, TAU * i / names.size())
+		_rq_satchel(0, at + off, roll.call(), false, names[i])
+	return names.size()
+
+
+func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "") -> void:
 	if satchels.has(sid):
 		return
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = ground_below(p)
+	if owner != "" and owner != Net.my_name() and not Net.dedicated:
+		# Another pilgrim's share: kept, but not seen or touched here
+		n.visible = false
+		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
+		return
 	var body := StaticBody3D.new()
 	body.collision_layer = 16
 	var cs := CollisionShape3D.new()
@@ -3832,7 +3908,7 @@ func _w_satchel(sid: String, p: Vector3, grave: bool) -> void:
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
 	body.set_meta("on_hold", func(): take_all(sid))
 	body.set_meta("hold_prompt", "Take all")
-	satchels[sid] = {"node": n, "pos": p, "grave": grave}
+	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
 
 
 ## A soft column of light over something left on the ground, and motes rising from it, so a drop is seen
@@ -4124,6 +4200,29 @@ func forms_at(p: Vector3) -> Array:
 	return out if not out.is_empty() else GENTLE_FORMS
 
 
+static func _form_spec(k: String) -> Dictionary:
+	return LesserSpeeb.KINDS.get(k, LesserSpeeb.VARIANTS.get(k, {}))
+
+
+## A mixed pack of what this land breeds: one that leads it (a heavy, a caster or a howler), two to four
+## lesser ones, and now and then one that strikes from afar. Fewer when the land has little to choose from.
+func pack_at(p: Vector3, fodder := -1) -> Array:
+	var roster := forms_at(p)
+	var leads: Array = roster.filter(func(k): var sp := _form_spec(k); return float(sp.get("hp", 0.0)) >= 120.0 or k in ["howler", "idol", "deacon", "warden", "choir", "dust_choir"])
+	var far: Array = roster.filter(func(k): var sp := _form_spec(k); return str(sp.get("role", "")) == "gun" or k in ["spitter", "saltrifle", "unlit_mark"])
+	var low: Array = roster.filter(func(k): return not k in leads and not k in far)
+	if low.is_empty():
+		low = roster
+	var out: Array = []
+	if not leads.is_empty():
+		out.append(leads[randi() % leads.size()])
+	for i in (fodder if fodder >= 0 else randi_range(2, 4)):
+		out.append(low[randi() % low.size()])
+	if not far.is_empty() and randf() < 0.35:
+		out.append(far[randi() % far.size()])
+	return out
+
+
 func _node_kind(p: Vector2, r: RandomNumberGenerator) -> String:
 	var t: Array = BIOME_NODES[terrain.biome_name(p.x, p.y)]
 	var total := 0
@@ -4236,6 +4335,8 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 			cs.position.y = 0.25
 			body.collision_layer = 16
 	body.collision_layer |= 16
+	# All its pieces drawn as a few meshes, one for each look: a pile of rounds is otherwise fifty
+	WBatch.flatten(n)
 	var nk: Dictionary = NODE_KINDS[kind]
 	nodes.append({"id": id, "kind": kind, "pos": p, "node": n, "body": body, "charges": int(nk.charges), "back": 0})
 	personal_interactable(body, nk.prompt, func(): _gather(id), 1.6)
@@ -4804,6 +4905,17 @@ func _world_tick(delta: float) -> void:
 		hall.host_tick(delta)
 	if vaults:
 		vaults.host_tick(delta)
+	_squad_t -= delta
+	if _squad_t <= 0.0 and Net.online:
+		_squad_t = SQUAD_STEP
+		var pos := {}
+		if not Net.dedicated and is_instance_valid(player):
+			pos[Net.me()] = player.global_position
+		for id in avatars:
+			if is_instance_valid(avatars[id]) and Net.players.has(id):
+				pos[id] = avatars[id].global_position
+		if squads_step(pos, SQUAD_STEP):
+			shared("_w_squads", [squads])
 	_quest_t -= delta
 	if _quest_t <= 0.0:
 		_quest_t = 5.0
@@ -5227,9 +5339,20 @@ func _night_wave(k := 1.0) -> Array:
 			if pack > 0:
 				sfx("shriek_%d" % (randi() % 4), 0, from, 2.1)
 			continue
+		# The night's walkers come in mixed packs, each from its own side
+		var picks: Array = []
+		while picks.size() < n:
+			var band := pack_at(t.global_position)
+			if not hard.is_empty() and randf() < 0.35:
+				band[randi() % band.size()] = hard[randi() % hard.size()]
+			picks.append_array(band)
+		picks.resize(n)
+		var side := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 38.0
 		for i in n:
-			var pick: String = hard[randi() % hard.size()] if not hard.is_empty() and randf() < 0.35 else roster[randi() % roster.size()]
-			var e = _spawn_near(pick, t.global_position, 30.0, 48.0)
+			var pick: String = picks[i]
+			if i > 0 and i % 4 == 0:
+				side = side.rotated(Vector3.UP, randf_range(1.2, 2.4))
+			var e = _spawn_near(pick, t.global_position + side, 2.0, 10.0)
 			# The night's walkers come looking for the living; they need not see you yet
 			if e and e.has_method("seek"):
 				e.seek(t.global_position, 40.0)
@@ -5468,11 +5591,44 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 		shared("_w_kraken_down", [day])
 		return
 	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
+	if not squadmates().is_empty():
+		shared("_w_squad_kill", [Net.me(), "kill_elite" if e.kind in ["elite", "saucer"] else "kill", e.global_position])
+	_ammo_drop(e)
 	if randf() < (0.5 if e.kind in ["elite", "saucer"] else 0.12) + skills.drop_bonus():
 		var drop: Array = Items.roll("corpse", 2 if e.kind in ["elite", "saucer"] else 1, _gen)
 		if e.kind in ["elite", "saucer"] and _gen.randf() < 0.3:
 			drop.append(["fittings_fine" if _gen.randf() < 0.75 else "fittings_rare", 1])
 		shared("_rq_satchel", [Net.me(), e.global_position, drop, false])
+	# A champion's pickings: more, and a fitting more often than not
+	if e.has_meta("champion"):
+		var cd: Array = Items.roll("corpse", 3, _gen) + Items.roll("caravan", 1, _gen)
+		if _gen.randf() < 0.6:
+			cd.append(["fittings_fine" if _gen.randf() < 0.7 else "fittings_rare", 1])
+		shared("_rq_satchel", [Net.me(), e.global_position + Vector3(0.6, 0, 0), cd, false])
+
+
+## A slain foe now and then leaves a few rounds where it fell: for one of the guns you carry, more often
+## than not. Never health: that is found and made, not shaken out of the dead.
+const AMMO_DROP := 0.45
+const AMMO_DROP_N := {"shells": [2, 5], "rounds": [4, 10], "rifle": [5, 12], "rockets": [1, 1], "fuel": [10, 20]}
+var ammo_drops := 0   ## (for the tests)
+
+func _ammo_drop(e: LesserSpeeb) -> void:
+	if randf() >= AMMO_DROP * (1.0 + (1.0 if e.has_meta("champion") else 0.0)):
+		return
+	var kinds: Array = []
+	for g in [arms.primary, arms.get("primary2", ""), arms.secondary]:
+		if str(g) != "" and Items.AMMO.has(str(g)):
+			kinds.append(Items.AMMO[str(g)])
+	if kinds.is_empty() or randf() < 0.25:
+		kinds = ["shells", "rounds", "rifle"]
+	var id: String = kinds[randi() % kinds.size()]
+	var r: Array = AMMO_DROP_N.get(id, [2, 6])
+	ammo_drops += 1
+	# Foes of the harder lands take more to bring down, and carry more: a drop is the same share of a kill
+	var k: float = TIER_HP[clampi(tier_at(e.global_position), 1, TIER_HP.size()) - 1]
+	var n := maxi(1, int(round(randi_range(int(r[0]), int(r[1])) * (k if id != "rockets" else 1.0))))
+	shared("_rq_satchel", [Net.me(), e.global_position, [[id, n]], false])
 
 
 const HARM_WORDS := {"shot": "shotgun spread", "bullet": "bullets", "blade": "blades", "blast": "blasts", "fire": "fire", "blunt": "heavy blows"}
@@ -5563,6 +5719,11 @@ func _w_vault_build(id: String) -> void:
 func _w_vault_gate(id: String, room: int) -> void:
 	if vaults:
 		vaults.open_gate(id, room)
+
+
+func _w_vault_wind(id: String, frac: float, manned: int) -> void:
+	if vaults:
+		vaults.wind_shown(id, frac, manned)
 
 
 func _w_vault_done(id: String, d: int, shares: Array) -> void:
@@ -5669,15 +5830,61 @@ func _w_riders(bid: int, r: Dictionary) -> void:
 				how += "[%s] and [%s] paddle." % [Game.key_text("move_forward"), Game.key_text("move_back")]
 			hud.notify(how)
 		else:
-			hud.notify("You sit aboard. Shoot from here; [%s] on the boat to step off." % Game.key_text("interact"))
+			_station_told(b)
+	elif r.has(Net.me()) and was and player.vessel == b:
+		_station_told(b)
 	elif not r.has(Net.me()) and was and player.vessel == b:
 		player.vessel = null
+
+
+var _station_said := ""
+
+## A rider is told what their station does, when they take it or move to another.
+func _station_told(b: WBoat) -> void:
+	var st := b.station_of(Net.me())
+	if st == _station_said:
+		return
+	_station_said = st
+	var t: String = WBoat.STATION_TEXT.get(st, "You sit aboard. Shoot from here.")
+	if st == "sail":
+		t = t % [Game.key_text("move_forward"), Game.key_text("move_back")]
+	hud.notify(t + " Hold [%s] on the boat to change station, press it to step off." % Game.key_text("interact"))
+
+
+## A rider moves to a free station aboard.
+func _rq_station(bid: int, by: int, to: int) -> void:
+	if not Net.authority() or not boats.has(bid):
+		return
+	var b: WBoat = boats[bid]
+	if not b.riders.has(by) or int(b.riders[by]) == 0 or to <= 0 or to >= int(b.spec.seats) or to in b.riders.values():
+		return
+	var r := b.riders.duplicate()
+	r[by] = to
+	shared("_w_riders", [bid, r])
+
+
+func _w_boat_sail(bid: int, to: int) -> void:
+	if boats.has(bid) and is_instance_valid(boats[bid]):
+		boats[bid].sail_set(to)
+
+
+## The lookout's call: everyone aboard hears what it is, where it lies and how far.
+func _w_lookout(bid: int, at: Vector3, what: String, where: String) -> void:
+	if not boats.has(bid) or not is_instance_valid(boats[bid]):
+		return
+	var b: WBoat = boats[bid]
+	if not b.riders.has(Net.me()) or Net.dedicated:
+		return
+	var d := int(at.distance_to(b.global_position))
+	hud.notify("Lookout: %s, %s, %d paces." % [what, where, d])
+	sfx("bell", -14, null, 1.4)
 
 
 ## Off the boat: onto dry ground near it if there is any, or into the water beside it.
 func _leave_boat(b: WBoat) -> void:
 	shared("_rq_leave", [b.id, Net.me()])
 	player.vessel = null
+	_station_said = ""
 	var at := b.global_position
 	var spot := at + Vector3(b.global_transform.basis.x) * 2.5
 	for ring in range(1, 6):
@@ -6366,7 +6573,7 @@ func world_data() -> Dictionary:
 			crate_days[id] = crates[id].day
 	var sat := {}
 	for sid in satchels:
-		sat[sid] = [satchels[sid].pos, satchels[sid].grave]
+		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", ""))]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
@@ -6419,7 +6626,7 @@ func apply_world(d: Dictionary) -> void:
 	for id in d.get("crates", {}):
 		_w_crate_day(id, int(d.crates[id]))
 	for sid in d.get("satchels", {}):
-		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1])
+		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1], str(d.satchels[sid][2]) if d.satchels[sid].size() > 2 else "")
 	satchel_next = int(d.get("satchel_next", 1))
 	var wd = d.get("weather", [])
 	if wd is Array and wd.size() >= 3:
@@ -6582,9 +6789,40 @@ func _load_character() -> void:
 	inv.add("shells", 18)
 	inv.add("rounds", 24)
 	inv.add("milk", 1)
+	drop_in_kit()
 	player.weapon.equip_loadout()
 	player.weapon.shells = player.weapon.capacity()
 	player.weapon._ui()
+
+
+## A pilgrim new to a fellowship that is already far along the road should be of use within minutes,
+## not hours: they come with what the fellowship can spare, more for each beacon it has lit.
+## Returns how many beacons the kit was made for (0: the plain start).
+func drop_in_kit() -> int:
+	var n := mini(lit.size(), 6)
+	if n <= 0:
+		return 0
+	var t := clampi((n + 1) / 2, 1, 2)
+	for g in ["shotgun", "pistol", "hatchet"]:
+		arms.tier[g] = maxi(int(arms.tier.get(g, 0)), t)
+	if not "revolver" in arms.owned:
+		arms.owned.append("revolver")
+	if n >= 2 and not "machete" in arms.blades:
+		arms.blades.append("machete")
+	if n >= 3 and not "machine_gun" in arms.owned:
+		arms.owned.append("machine_gun")
+		arms.primary2 = "machine_gun"
+	inv.add("shells", 12 * n)
+	inv.add("rounds", 20 * n)
+	inv.add("bandage", 2 + n)
+	inv.add("meat", 2 + n)
+	inv.add("scrap", 10 * n)
+	if n >= 2:
+		inv.add("fittings_fine", 1)
+	Game.warms = arms
+	if hud:
+		hud.notify("The fellowship has lit %d %s. You come with what it can spare." % [n, "beacon" if n == 1 else "beacons"])
+	return n
 
 
 ## Keeps the world (if this is the host) and this survivor's own character.
@@ -7501,8 +7739,15 @@ func debug_credit() -> void:
 func debug_sightline() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	# Earlier checks in the same world may have lit beacons and seen lairs: begin from none
+	lit = []
+	revealed.fill(0)
 	var nxt := next_dark_beacon(beacon_nodes[0].pos)
 	var l := lair_seen_from(WPlaces.bpos(nxt))
+	if l.is_empty():
+		print("SIGHTLINE found=false")
+		get_tree().quit()
+		return
 	var before: bool = is_revealed(l.pos)
 	_beacon_payoff(0)
 	print("SIGHTLINE found=%s before=%s marked=%s" % [not l.is_empty(), before, is_revealed(l.pos)])
@@ -7644,6 +7889,77 @@ func debug_roofrain() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var wet_out: bool = weather._rain.emitting and not weather.sheltered
 	print("ROOFRAIN under=%s out=%s" % [dry_under, wet_out])
+	get_tree().quit()
+
+
+## Testing aid: the combat rework. Poise breaks under heavy blows but not under a trickle; a gunman's rounds
+## fly where they can be seen; a champion is gilded and tougher; packs are mixed; heavy foes sweep.
+func debug_rework() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	# Poise
+	var w := spawn_at("warden", player.global_position + f * 12.0 + Vector3(0, 1.0, 0))
+	w.set_meta("raid", true)
+	w.set_physics_process(false)
+	var pm: float = w.poise_max()
+	LesserSpeeb.harm_kind = "bullet"
+	w.hurt(pm * 0.3, f)
+	var held: bool = w._broken <= 0.0
+	LesserSpeeb.harm_kind = "blade"
+	LesserSpeeb.harm_heavy = true
+	w.hurt(pm * 0.3, f)
+	LesserSpeeb.harm_heavy = false
+	var broke: bool = w._broken > 0.0
+	var h0: float = w.hp
+	LesserSpeeb.harm_kind = ""
+	w.hurt(10.0, f)
+	var open: bool = h0 - w.hp > 12.0
+	LesserSpeeb.harm_kind = ""
+	w.die(false)
+	# Champion
+	var c := spawn_at("rusher", player.global_position + f * 14.0 + Vector3(0, 1.0, 0))
+	c.set_meta("raid", true)
+	c.set_physics_process(false)
+	var hp1: float = c.max_hp
+	c.become_champion("warded")
+	var gilded: bool = c.max_hp > hp1 * 1.9 and str(c._name_l.text).begins_with("Warded")
+	var ch0: float = c.hp
+	LesserSpeeb.harm_kind = "bullet"
+	c.hurt(10.0, f)
+	LesserSpeeb.harm_kind = ""
+	var warded: bool = absf((ch0 - c.hp) - 5.0) < 0.5
+	c.die(false)
+	# Packs
+	var pk := pack_at(player.global_position + f * 400.0)
+	# Rounds
+	var g := spawn_at("unlit_gun", player.global_position + f * 16.0 + Vector3(0, 1.0, 0))
+	g.set_meta("raid", true)
+	var rounds := 0
+	for i in 8 * 60:
+		await get_tree().physics_frame
+		for n in get_children():
+			if n is LesserSpeeb.Bolt and n.look == "round":
+				rounds += 1
+		if rounds > 0:
+			break
+	g.die(false)
+	# A heavy one's sweep reaches all round it
+	var k := spawn_at("knight", player.global_position + f * 2.0 + Vector3(0, 1.0, 0))
+	k.set_meta("raid", true)
+	await get_tree().create_timer(0.5).timeout
+	var ph := player.health
+	k._attack_cd = 9.0
+	k._begin_move("sweep", 1.3, f, 1.3 + k.spec.radius)
+	await get_tree().create_timer(2.5).timeout
+	var swept := player.health < ph
+	k.die(false)
+	print("REWORK poise_held=%s broke=%s open=%s champion=%s warded=%s pack=%d rounds=%s swept=%s" % [held, broke, open, gilded, warded, pk.size(), rounds > 0, swept])
 	get_tree().quit()
 
 
@@ -8429,8 +8745,9 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 			l.glow.light_energy = 0.2
 	if Net.authority():
 		# A great one always leaves fittings: rare ones, and now and then storied
-		var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
-		_rq_satchel(1, at, Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]], false)
+		drop_for_each(at, func():
+			var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
+			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]])
 		autosave_soon(2.0)
 	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
 		award("kill_boss")
@@ -8441,6 +8758,177 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		player.health = player.max_health
 		hud.set_health(1.0, true)
 		autosave_soon(4.0)
+
+
+## Testing aid: shares of loot that belong to another pilgrim are kept but not seen, and stay theirs through a save.
+func debug_ownloot() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(3, 0, 0)
+	var before := satchels.size()
+	var n := drop_for_each(at, func(): return [["bone", 2]])
+	_rq_satchel(0, at + Vector3(0, 0, 3), [["bone", 1]], false, "Someone Else")
+	_rq_satchel(0, at + Vector3(0, 0, -3), [["bone", 1]], false, Net.my_name())
+	await get_tree().process_frame
+	var theirs := ""
+	var mine := ""
+	for sid in satchels:
+		if str(satchels[sid].get("owner", "")) == "Someone Else":
+			theirs = sid
+		elif str(satchels[sid].get("owner", "")) == Net.my_name():
+			mine = sid
+	var hidden: bool = theirs != "" and not satchels[theirs].node.visible
+	var seen: bool = mine != "" and satchels[mine].node.visible
+	var kept: bool = theirs != "" and str(world_data().satchels[theirs][2]) == "Someone Else"
+	print("OWNLOOT alone=%d made=%d hidden=%s seen=%s kept=%s" % [n, satchels.size() - before, hidden, seen, kept])
+	get_tree().quit()
+
+
+## Testing aid: a new pilgrim in a world with beacons lit starts with better kit; in a fresh world, the plain start.
+func debug_dropin() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var was := lit.duplicate()
+	lit = []
+	arms.owned.erase("machine_gun")
+	arms.primary2 = ""
+	arms.blades.erase("machete")
+	var none := drop_in_kit()
+	lit = ["a", "b", "c", "d"]
+	var shells0 := inv.count("shells")
+	var four := drop_in_kit()
+	print("DROPIN plain=%d four=%d tier=%d revolver=%s mg=%s machete=%s shells=%d" % [none, four, int(arms.tier.get("shotgun", 0)),
+		"revolver" in arms.owned, arms.primary2 == "machine_gun", "machete" in arms.blades, inv.count("shells") - shells0])
+	lit = was
+	get_tree().quit()
+
+
+## Testing aid: a friend's trade, once told, shows in What now as someone to ask; not once they leave.
+func debug_tradeask() -> void:
+	await get_tree().create_timer(1.0).timeout
+	trades.trade = "cook"
+	inv.take("tempered", inv.count("tempered"))
+	inv.take("clockwork", inv.count("clockwork"))
+	skills.boon_offer = []
+	skills.points = 0
+	var plain := trade_ask().is_empty()
+	Net.players[77] = {"name": "Dana", "slot": 1}
+	Net.players[1] = {"name": Net.my_name(), "slot": 0}
+	_w_trade_of(77, "Dana", "smith")
+	var g: Dictionary = what_now()[2]
+	var asked := str(g.title) == "Ask Dana for tempered steel"
+	inv.add("tempered", 1)
+	var had := trade_ask().is_empty()
+	inv.take("tempered", 1)
+	Net.players.erase(77)
+	var gone := trade_ask().is_empty()
+	print("TRADEASK plain=%s asked=%s had=%s gone=%s title=%s" % [plain, asked, had, gone, g.title])
+	get_tree().quit()
+
+
+## Testing aid: a second front falls on the camp nearest a vigil, not on one beside it, and only for five or more.
+func debug_front() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var b: Vector3 = beacon_nodes[0].pos
+	var nc := ground_below(b + Vector3(30, 20, 0))
+	var fc := ground_below(b + Vector3(130, 40, 0))
+	# Camps earlier checks left about the beacon would be nearer: take them away
+	for pid in pieces.keys():
+		if pieces[pid].kind == "campfire" and pieces[pid].pos.distance_to(b) < 400.0:
+			_w_piece_gone(pid)
+	_w_piece(piece_next, "campfire", nc, 0.0, 100.0)
+	_w_piece(piece_next, "campfire", fc, 0.0, 100.0)
+	var few = second_front(b)
+	var at = second_front(b, true)
+	var right: bool = at != null and (at as Vector3).distance_to(fc) < 20.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	player.place(fc + Vector3(3, 1, 0), 0.0)
+	await get_tree().create_timer(42.0).timeout
+	var raiders := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("raid") and e.global_position.distance_to(fc) < 80.0).size()
+	print("FRONT few=%s right=%s raiders=%s" % [few == null, right, raiders > 0])
+	get_tree().quit()
+
+
+## Testing aid: a boat's seats are stations; a sail-hand trims, oars add, the gunner shoots harder,
+## a rider can move to a free station, and the lookout's bearings read right.
+func debug_boatcrew() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var me := Net.me()
+	_w_boat(97, "sloop", player.global_position + Vector3(8, 0, 0), 0.0, 420.0)
+	var b: WBoat = boats[97]
+	b.set_riders({me: 0, 77: 1, 78: 2, 79: 3})
+	var names := []
+	for pid in [me, 77, 78, 79]:
+		names.append(b.station_of(pid))
+	var trim := b.manned("sail") == 1
+	_w_boat(98, "longboat", player.global_position + Vector3(-12, 0, 0), 0.0, 640.0)
+	var lb: WBoat = boats[98]
+	lb.set_riders({me: 0, 71: 4, 72: 5, 73: 6, 74: 7})
+	var oars := lb.manned("oar") == 4
+	b.set_riders({me: 3, 77: 0})
+	player.vessel = b
+	var gun := is_equal_approx(player.weapon.station_mult(), WBoat.GUN_MULT)
+	_rq_station(97, me, b.next_free_after(3))
+	await get_tree().process_frame
+	var moved := b.station_of(me) == "sail"
+	player.vessel = null
+	var bearing := WBoat.bearing(Vector3(0, 0, 1), Vector3(-1, 0, 0.3)) == "off the starboard bow" and WBoat.bearing(Vector3(0, 0, 1), Vector3(0, 0, -5)) == "astern"
+	print("BOATCREW stations=%s trim=%s oars=%s gun=%s moved=%s bearing=%s" % [",".join(names), trim, oars, gun, moved, bearing])
+	get_tree().quit()
+
+
+## Testing aid: two who keep together fall into a squad; a third and fourth join; a fifth cannot;
+## one who strays leaves after a while, and a squad left with one is none.
+func debug_squads() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var o := Vector3(5000, 0, 5000)
+	var pos := {1: o, 2: o + Vector3(5, 0, 0)}
+	for k in 14:
+		squads_step(pos, 2.0)
+	var early := squads.is_empty()
+	squads_step(pos, 2.0)
+	squads_step(pos, 2.0)
+	var pair: bool = squads.get(1, 0) != 0 and squads.get(1) == squads.get(2)
+	pos[3] = o + Vector3(0, 0, 6)
+	pos[4] = o + Vector3(0, 0, -6)
+	pos[5] = o + Vector3(6, 0, 6)
+	for k in 17:
+		squads_step(pos, 2.0)
+	var four := _squad_size(int(squads.get(1, 0))) == 4
+	var fifth := not squads.has(5)
+	pos[2] = o + Vector3(900, 0, 0)
+	for k in 91:
+		squads_step(pos, 2.0)
+	var left := not squads.has(2)
+	pos.erase(3)
+	pos.erase(4)
+	pos.erase(5)
+	squads_step(pos, 2.0)
+	var none := not squads.has(1)
+	print("SQUADS early=%s pair=%s four=%s fifth=%s left=%s none=%s" % [early, pair, four, fifth, left, none])
+	get_tree().quit()
+
+
+## Testing aid: ammunition bought costs more than making it, sold fetches less than making it, and
+## a drop in the harder lands carries more.
+func debug_ammoprice() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var ok_buy := true
+	var ok_sell := true
+	var scrap_v: float = ui.buy_price("scrap", "")
+	for r in Items.RECIPES:
+		if not r.bench or not r.id in ["shells", "rounds", "rifle"]:
+			continue
+		var make: float = (float(r.cost.get("salt", 0)) + float(r.cost.get("scrap", 0)) * scrap_v) / float(r.n) * 10.0
+		var buy: float = ui.buy_price(r.id, "")
+		var sell: float = ui.sell_price(r.id)
+		ok_buy = ok_buy and buy > make
+		ok_sell = ok_sell and sell * float(r.n) / 10.0 < float(r.cost.get("salt", 0)) + float(r.cost.get("scrap", 0)) * 2.0
+	# Shells cost most of the three by the ten
+	var dearest: bool = ui.buy_price("shells", "") > ui.buy_price("rounds", "")
+	print("AMMOPRICE buy_over_make=%s sell_under_make=%s shells_dearest=%s" % [ok_buy, ok_sell, dearest])
+	get_tree().quit()
 
 
 func debug_boss() -> void:
@@ -8771,21 +9259,23 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 		kind = "unlit"
 	match kind:
 		"camp":
-			shared("_rq_satchel", [0, at + Vector3(1.5, 0, 0), Items.roll("camp", 3, rr), false])
+			drop_for_each(at + Vector3(1.5, 0, 0), func(): return Items.roll("camp", 3, rr))
 		"fallen":
-			shared("_rq_satchel", [0, at, Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr), false])
+			drop_for_each(at, func(): return Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr))
 		"pack":
-			for k in WCrowd.scale_near(self, seen_from, 3 + rr.randi() % 3):
-				_spawn_near(["rusher", "spider", "howler", "lurker"][rr.randi() % 4], at, 2.0, 8.0, true)
+			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 2 + rr.randi() % 3))
+			for k in band:
+				_spawn_near(k, at, 2.0, 8.0, true)
 		"attack":
-			shared("_rq_satchel", [0, at, Items.roll("caravan", 3, rr), false])
-			for k in WCrowd.scale_near(self, seen_from, 2 + rr.randi() % 3):
-				_spawn_near(["rusher", "spitter", "brute", "bloater"][rr.randi() % 4], at, 4.0, 10.0, true)
+			drop_for_each(at, func(): return Items.roll("caravan", 3, rr))
+			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 1 + rr.randi() % 3))
+			for k in band:
+				_spawn_near(k, at, 4.0, 10.0, true)
 		"cairn":
-			shared("_rq_satchel", [0, at, Items.roll("vault", 3, rr), false])
+			drop_for_each(at, func(): return Items.roll("vault", 3, rr))
 		"unlit":
 			# A band of the Unlit at their fire: gunmen and blades, and now and then a breaker
-			shared("_rq_satchel", [0, at + Vector3(1.5, 0, 0), Items.roll("camp", 2, rr) + Items.roll("caravan", 2, rr), false])
+			drop_for_each(at + Vector3(1.5, 0, 0), func(): return Items.roll("camp", 2, rr) + Items.roll("caravan", 2, rr))
 			var band := ["unlit_gun", "unlit_gun", "unlit_blade"]
 			if rr.randf() < 0.5:
 				band.append("unlit_blade")
@@ -8997,6 +9487,99 @@ func debug_townplans() -> void:
 
 
 ## Picture aid: each town from high above, to see how it is laid out.
+## Testing aid: what stands to be drawn near a town, by what holds it (no renderer needed).
+var _tops := {}
+func debug_townparts() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var k: String = OS.get_environment("TOWNS") if OS.get_environment("TOWNS") != "" else "cinderwick"
+	var c := gpos(WPlaces.spos(k))
+	var r: float = WPlaces.SETTLEMENTS[k].radius
+	var eye := c + Vector3(0, 2, r * 0.8)
+	player.place(eye, 0.0)
+	for i in 120:
+		await get_tree().process_frame
+	var by := {}
+	var shadow := 0
+	var total := 0
+	for g in find_children("*", "GeometryInstance3D", true, false):
+		var gi := g as GeometryInstance3D
+		if not gi.is_visible_in_tree():
+			continue
+		var d := gi.global_position.distance_to(eye)
+		if gi.visibility_range_end > 0.0 and d > gi.visibility_range_end + gi.visibility_range_end_margin:
+			continue
+		if d > 400.0 and not gi is MultiMeshInstance3D:
+			continue
+		var surf := 1
+		if gi is MeshInstance3D and (gi as MeshInstance3D).mesh:
+			surf = (gi as MeshInstance3D).mesh.get_surface_count()
+		var top: Node = gi
+		while top.get_parent() and top.get_parent() != self:
+			top = top.get_parent()
+		var key := "%s:%s" % [top.get_class(), str(top.name).rstrip("0123456789@")]
+		if OS.get_environment("DEEP") != "":
+			var mname := str((gi as MeshInstance3D).mesh.resource_name) if gi is MeshInstance3D and (gi as MeshInstance3D).mesh else gi.get_class()
+			var par := str(gi.get_parent().name).rstrip("0123456789@")
+			key = "%s / %s / %s" % [key, par, mname.left(30)]
+		if gi.get_script() != null or top.get_script() != null:
+			key += "*" + str((top.get_script() as Script).resource_path.get_file() if top.get_script() else "")
+		if OS.get_environment("DEEP") == "2" and key.ends_with("/ ") and randf() < 0.03:
+			var chain := ""
+			var q: Node = gi
+			while q and q != self:
+				chain = "%s(%s)<" % [str(q.name), q.get_class()] + chain
+				q = q.get_parent()
+			print("PARTS eg %s mesh=%s meta=%s" % [chain, (gi as MeshInstance3D).mesh.get_class() if gi is MeshInstance3D and (gi as MeshInstance3D).mesh else "-", top.get_meta_list()])
+		by[key] = int(by.get(key, 0)) + surf
+		if OS.get_environment("DEEP") == "3" and key.ends_with("/ "):
+			var tk := "%s|%s" % [str(top.name), str(gi.get_parent().name)]
+			_tops[tk] = int(_tops.get(tk, 0)) + 1
+		total += surf
+		if gi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			shadow += surf
+	var keys := by.keys()
+	keys.sort_custom(func(a, b): return by[a] > by[b])
+	for kk in keys.slice(0, 30):
+		print("PARTS %6d %s" % [by[kk], kk])
+	print("PARTS total=%d shadow=%d" % [total, shadow])
+	var tks := _tops.keys()
+	tks.sort_custom(func(a, b): return _tops[a] > _tops[b])
+	for tk in tks.slice(0, 25):
+		var nm: String = str(tk).split("|")[0]
+		var tn: Node = get_node_or_null(NodePath(nm))
+		var info := ""
+		if tn:
+			info = "pos=%s metas=%s kids=%d script=%s" % [tn.get("global_position"), tn.get_meta_list(), tn.get_child_count(), tn.get_child(0).get_class() if tn.get_child_count() > 0 else "-"]
+		print("TOP %d %s %s" % [_tops[tk], tk, info])
+	get_tree().quit()
+
+
+## Testing aid: draw calls and objects drawn, standing in each town looking across it at eye height.
+func debug_towndraw() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var tot := 0
+	var ks: Array = Array(OS.get_environment("TOWNS").split(",")) if OS.get_environment("TOWNS") != "" else WPlaces.SETTLEMENTS.keys()
+	for k in ks:
+		var c := gpos(WPlaces.spos(k))
+		var r: float = WPlaces.SETTLEMENTS[k].radius
+		player.place(c + Vector3(0, 2, r * 0.8), 0.0)
+		for i in 60:
+			await get_tree().process_frame
+		var dc := 0
+		var ob := 0
+		for i in 10:
+			await get_tree().process_frame
+			dc += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+			ob += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+		print("TOWNDRAW %s draws=%d objects=%d" % [k, dc / 10, ob / 10])
+		tot += dc / 10
+	print("TOWNDRAW mean=%d" % (tot / maxi(1, ks.size())))
+	get_tree().quit()
+
+
 func debug_townsky() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -9332,7 +9915,7 @@ func debug_combat() -> void:
 	e._attack_cd = 0.0
 	while e._wind <= 0.0 and e.is_alive():
 		await get_tree().physics_frame
-	e.hurt(e.max_hp * 0.35, Vector3(0, 0, -1))
+	e.hurt(e.max_hp * 0.45, Vector3(0, 0, -1))
 	print("COMBAT staggered=%s wind_cancelled=%s" % [e._stagger > 0.0, e._wind <= 0.0])
 	var wp: Array = e.weak_point()
 	var o: Vector3 = wp[0] + Vector3(0, 0, 5)
@@ -9508,6 +10091,7 @@ func debug_foes() -> void:
 	for i in 6 * 60:
 		await get_tree().physics_frame
 		player.weapon.guarding = true
+		player.weapon.guard_age = 0.0   # raised just now, each time: a perfect guard
 		player.stamina = 100.0
 		if b._stagger > 0.5:
 			parried = true
@@ -9815,6 +10399,19 @@ func _debug_home() -> void:
 
 
 ## Testing aid: earlier checks share the world, so make room in the pack before a check gives things.
+## Testing aid: stand on open ground, out of any town, camp or beacon's keeping, where forms may come.
+func _debug_open() -> void:
+	var c := player.global_position
+	for ring in range(0, 12):
+		for j in 8:
+			var q := c + Vector3(cos(TAU * j / 8.0), 0, sin(TAU * j / 8.0)) * ring * 60.0
+			q = Vector3(q.x, terrain.height_at(q.x, q.z), q.z)
+			if terrain.is_water(q.x, q.z, -0.2) or safe_at(q) or settlement_at(q, 120.0) != "" or base_at(q, 80.0) >= 0:
+				continue
+			player.place(q + Vector3(0, 0.5, 0), 0.0)
+			return
+
+
 func _debug_room(n := 4) -> void:
 	for i in range(inv.slots.size() - 1, maxi(-1, inv.slots.size() - 1 - n), -1):
 		inv.take_slot(i)
@@ -10093,6 +10690,7 @@ func debug_glass() -> void:
 func debug_quickheal() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_room(6)
 	for id in Items.DB:
 		if str(Items.DB[id].get("kind", "")) == "medicine":
 			inv.take(id, inv.count(id))
@@ -10796,15 +11394,10 @@ func debug_hitbox() -> void:
 		for i in 40:
 			await get_tree().physics_frame
 		var base: Vector3 = e.global_position
-		var lo := 1e9
-		var hi := -1e9
-		for mi in e._fb.find_children("*", "MeshInstance3D", true, false):
-			var mm := mi as MeshInstance3D
-			if mm == e._fb.head_node:
-				continue
-			var ab: AABB = mm.global_transform * (mm.custom_aabb if mm.custom_aabb.has_volume() else mm.get_aabb())
-			lo = minf(lo, ab.position.y)
-			hi = maxf(hi, ab.end.y)
+		# From its feet to the top of what it shows (a skinned part's room box, turned into the world, is
+		# far larger than the body and is no measure of it)
+		var lo: float = e._fb.global_position.y
+		var hi: float = lo + e._fb.top() * e._fb.global_basis.get_scale().y
 		var line := ""
 		var space := get_world_3d().direct_space_state
 		for frac in [0.2, 0.5, 0.85]:
@@ -11426,13 +12019,20 @@ func debug_vault() -> void:
 	var rooms: int = vaults.built[id].rooms.size() if vaults.built.has(id) else 0
 	var coins := inv.count("coin")
 	var gates := 0
+	var wound := false
 	for i in 240:
 		await get_tree().create_timer(0.5).timeout
 		var st: Dictionary = vaults.state.get(id, {})
 		if vaults.built.has(id) and not st.is_empty():
 			# Walk on to the next room once its gate is open
 			var rm: Array = vaults.built[id].rooms[mini(int(st.room), rooms - 1)]
-			if player.global_position.distance_to(vaults.at(id, 0, 1.0, rm[0])) > 4.0:
+			if st.has("wind"):
+				# Alone at one winch: the keeper's gate rises, slowly
+				wound = true
+				var wp: Vector3 = vaults.origin(id) + vaults.built[id].winches[0]
+				if player.global_position.distance_to(wp + Vector3(0, 1.0, 0)) > 1.5:
+					player.place(wp + Vector3(0.8, 1.0, 0), 0.0)
+			elif player.global_position.distance_to(vaults.at(id, 0, 1.0, rm[0])) > 4.0:
 				player.place(vaults.at(id, 0, 1.0, rm[0]), 0.0)
 			gates = int(flags.get("vault_open_" + id, gates))
 		for e in enemies.duplicate():
@@ -11447,7 +12047,7 @@ func debug_vault() -> void:
 	vaults.go_down(id)
 	await get_tree().create_timer(0.5).timeout
 	var sleeps := not hall.inside(player.global_position)
-	print("VAULT count=%d down=%s rooms=%d gates=%d cleared=%s share=%s up=%s sleeps=%s" % [count, down, rooms, gates, cleared, share, up, sleeps])
+	print("VAULT count=%d down=%s rooms=%d gates=%d cleared=%s share=%s up=%s sleeps=%s wound=%s" % [count, down, rooms, gates, cleared, share, up, sleeps, wound])
 	get_tree().quit()
 
 
@@ -12535,6 +13135,8 @@ func debug_ammo() -> void:
 func debug_boxcat() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
+	_debug_open()
+	await get_tree().create_timer(0.5).timeout
 	var cats: Array = []
 	for i in 6:
 		var c = _spawn_near("box_cat", player.global_position + Vector3(0, 0, -20), 1.0, 4.0, true)
@@ -12679,6 +13281,182 @@ func debug_horizonshot() -> void:
 
 ## Three goals, always: the next step on the beacon road, the nearest thing worth doing, and
 ## something to grow toward. Each is {kind, title, text, at (Vector3 or null)}.
+## The trades of the others in the fellowship, by name, so What now can say whom to ask.
+var trades_of := {}
+var _trade_tell_t := 2.0
+
+
+## Every so often each pilgrim tells the others their trade, so one who joins late learns them too.
+func _trade_tell_tick(delta: float) -> void:
+	if not Net.online:
+		return
+	_trade_tell_t -= delta
+	if _trade_tell_t <= 0.0:
+		_trade_tell_t = 20.0
+		shared("_w_trade_of", [Net.me(), Net.my_name(), trades.trade])
+
+
+func _w_trade_of(by: int, who: String, trade: String) -> void:
+	if by == Net.me():
+		return
+	var nm := Net.name_of(by) if Net.players.has(by) else who
+	if WTrades.TRADES.has(trade):
+		trades_of[nm] = trade
+	else:
+		trades_of.erase(nm)
+
+
+## What a friend's trade could give this pilgrim, as a What now goal, or {} if no one has it to give.
+## Those who are no longer in the fellowship are not asked.
+func trade_ask() -> Dictionary:
+	var here := []
+	for id in Net.players:
+		here.append(str(Net.players[id].name))
+	var asks := [
+		["smith", "tempered", "The best blades and plate need it."],
+		["tinker", "clockwork", "The great guns and the finer fittings need it."],
+		["cook", "feast", "The best meal there is."],
+		["alchemist", "elixir", "It heals, and ends burning and tar."],
+	]
+	for a in asks:
+		if trades.is_(a[0]) or inv.count(a[1]) > 0:
+			continue
+		for nm in trades_of:
+			if trades_of[nm] == a[0] and nm in here:
+				var item := str(Items.info(a[1]).get("name", a[1]))
+				return {"kind": "grow", "title": "Ask %s for %s" % [nm, item.to_lower()],
+					"text": "%s is your %s. %s" % [nm, WTrades.TRADES[a[0]].name.to_lower(), a[2]], "at": null}
+	return {}
+
+
+# ------------------------------------------------------------------ squads
+
+## A fellowship of many walks as squads of two to four. Pilgrims who keep together for half a minute
+## fall into a squad; one who strays far from the rest of theirs for three minutes leaves it. Squadmates
+## learn from each other's kills, and are shown first in the fellowship's list. The host decides.
+const SQUAD_MAX := 4
+const SQUAD_NEAR := 40.0      ## paces: walking together
+const SQUAD_FORM := 30.0      ## seconds together before two fall in
+const SQUAD_FAR := 150.0      ## paces: apart
+const SQUAD_LEAVE := 180.0    ## seconds apart before one leaves
+const SQUAD_STEP := 2.0
+const SQUAD_SHARE := 0.5      ## of a kill's learning that reaches each squadmate near it
+var squads := {}              ## peer -> squad number
+var _squad_t := SQUAD_STEP
+var _together := {}           ## host: "a:b" -> seconds near each other
+var _apart := {}              ## host: peer -> seconds far from every squadmate
+var _squad_next := 1
+
+
+## One step of the host's reckoning, from where each pilgrim stands. Returns true if any squad changed.
+func squads_step(pos: Dictionary, dt: float) -> bool:
+	var changed := false
+	for p in squads.keys():
+		if not pos.has(p):
+			squads.erase(p)
+			changed = true
+	var ids := pos.keys()
+	ids.sort()
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			var a = ids[i]
+			var b = ids[j]
+			var k := "%s:%s" % [a, b]
+			if (pos[a] as Vector3).distance_to(pos[b]) < SQUAD_NEAR:
+				_together[k] = float(_together.get(k, 0.0)) + dt
+			else:
+				_together.erase(k)
+				continue
+			if float(_together[k]) < SQUAD_FORM:
+				continue
+			var sa := int(squads.get(a, 0))
+			var sb := int(squads.get(b, 0))
+			if sa != 0 and sa == sb:
+				continue
+			if sa == 0 and sb == 0:
+				squads[a] = _squad_next
+				squads[b] = _squad_next
+				_squad_next += 1
+				changed = true
+			elif sa == 0 and _squad_size(sb) < SQUAD_MAX:
+				squads[a] = sb
+				changed = true
+			elif sb == 0 and _squad_size(sa) < SQUAD_MAX:
+				squads[b] = sa
+				changed = true
+	# Strays leave
+	for p in squads.keys():
+		var near_any := false
+		for q in squads:
+			if q != p and squads[q] == squads[p] and (pos[p] as Vector3).distance_to(pos[q]) < SQUAD_FAR:
+				near_any = true
+				break
+		if near_any:
+			_apart.erase(p)
+			continue
+		_apart[p] = float(_apart.get(p, 0.0)) + dt
+		if float(_apart[p]) >= SQUAD_LEAVE:
+			squads.erase(p)
+			_apart.erase(p)
+			changed = true
+	# A squad of one is no squad
+	for p in squads.keys():
+		if _squad_size(int(squads[p])) < 2:
+			squads.erase(p)
+			changed = true
+	return changed
+
+
+func _squad_size(sq: int) -> int:
+	var n := 0
+	for p in squads:
+		if int(squads[p]) == sq:
+			n += 1
+	return n
+
+
+## The others in this pilgrim's squad.
+func squadmates(peer := -1) -> Array:
+	if peer < 0:
+		peer = Net.me()
+	var sq := int(squads.get(peer, 0))
+	if sq == 0:
+		return []
+	var out := []
+	for p in squads:
+		if p != peer and int(squads[p]) == sq:
+			out.append(p)
+	return out
+
+
+func _w_squads(s: Dictionary) -> void:
+	var before := squadmates()
+	squads = s
+	var now := squadmates()
+	if Net.dedicated or now == before:
+		return
+	var names := now.map(func(p): return Net.name_of(p))
+	if now.is_empty():
+		hud.notify("You walk alone now.")
+	elif before.is_empty():
+		hud.notify("You walk with %s now. What one of you slays, the others learn from." % " and ".join(names))
+	else:
+		hud.notify("Your squad: %s." % ", ".join(names))
+
+
+## A squadmate's kill: those of the squad within reach learn from it too.
+func _w_squad_kill(by: int, kind: String, at: Vector3) -> void:
+	if by == Net.me() or Net.dedicated or not by in squadmates():
+		return
+	if is_instance_valid(player) and player.global_position.distance_to(at) < SQUAD_FAR:
+		award(kind, SQUAD_SHARE)
+
+
+## Shown after a name in the fellowship's list.
+func squad_tag(id: int) -> String:
+	return "squad" if id in squadmates() else ""
+
+
 func what_now() -> Array:
 	var out: Array = []
 	var me := player.global_position
@@ -12735,6 +13513,8 @@ func what_now() -> Array:
 	var grow: Dictionary
 	if not skills.boon_offer.is_empty():
 		grow = {"kind": "grow", "title": "A beacon boon waits", "text": "Touch any lit beacon to choose it.", "at": null}
+	elif not trade_ask().is_empty():
+		grow = trade_ask()
 	elif skills.points > 0:
 		grow = {"kind": "grow", "title": "%d skill point%s to spend" % [skills.points, "" if skills.points == 1 else "s"], "text": "Press %s to learn something." % Game.key_text("skills"), "at": null}
 	else:

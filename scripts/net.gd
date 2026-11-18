@@ -782,28 +782,28 @@ func _foe_died(s: int, id: int, slain: bool, killer: int) -> void:
 		lvl.net_foe_died(id, slain, killer)
 
 
-func hit(id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
-	_hit.rpc_id(1, seq, id, amount, dir, kind, head, pierce)
+func hit(id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0, heavy := false) -> void:
+	_hit.rpc_id(1, seq, id, amount, dir, kind, head, pierce, heavy)
 
 
 ## A pilgrim's blow on a form, with what kind of harm it was, so the host weighs plate, guard,
 ## weakness and stagger just as it would for its own.
 @rpc("any_peer", "call_remote", "reliable")
-func _hit(s: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
+func _hit(s: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0, heavy := false) -> void:
 	var lvl = _here(s)
 	if lvl and is_host() and players.has(multiplayer.get_remote_sender_id()):
-		lvl.net_hit(multiplayer.get_remote_sender_id(), id, clampf(amount, 0.0, 5000.0), dir, kind, head, clampf(pierce, 0.0, 3.0))
+		lvl.net_hit(multiplayer.get_remote_sender_id(), id, clampf(amount, 0.0, 5000.0), dir, kind, head, clampf(pierce, 0.0, 3.0), heavy)
 
 
-func bolt(from: Vector3, vel: Vector3, dmg: float) -> void:
-	_bolt.rpc(seq, from, vel, dmg)
+func bolt(from: Vector3, vel: Vector3, dmg: float, look := "") -> void:
+	_bolt.rpc(seq, from, vel, dmg, look)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _bolt(s: int, from: Vector3, vel: Vector3, dmg: float) -> void:
+func _bolt(s: int, from: Vector3, vel: Vector3, dmg: float, look: String) -> void:
 	var lvl = _here(s)
 	if lvl:
-		lvl.net_bolt(from, vel, dmg)
+		lvl.net_bolt(from, vel, dmg, look)
 
 
 func trial_state(objective: String, meter: String, value: float, done: bool) -> void:

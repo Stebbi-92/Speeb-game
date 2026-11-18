@@ -85,3 +85,75 @@ static func _collect(n: Node, found: Array, keep: Dictionary) -> void:
 		return
 	for c in n.get_children():
 		_collect(c, found, keep)
+
+
+## Joins the still meshes within one thing (a node of wood or stone, a pile of rounds) into one mesh
+## for each look, kept under it, so the thing still moves, shrinks and hides as one. Gives back how
+## many pieces were joined.
+static func flatten(n: Node3D) -> int:
+	var found: Array = []
+	_collect_within(n, n, found)
+	if found.size() < 2:
+		return 0
+	var groups := {}
+	for m in found:
+		var mi := m as MeshInstance3D
+		for s in mi.mesh.get_surface_count():
+			var mat: Material = mi.material_override
+			if mat == null:
+				mat = mi.get_surface_override_material(s)
+			if mat == null:
+				mat = mi.mesh.surface_get_material(s)
+			var key := [mat, mi.material_overlay]
+			if not groups.has(key):
+				groups[key] = {"mat": mat, "over": mi.material_overlay, "parts": [], "shadow": false, "reach": 0.0}
+			var g: Dictionary = groups[key]
+			g.parts.append([mi, s])
+			g.shadow = g.shadow or mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			g.reach = maxf(g.reach, mi.visibility_range_end) if mi.visibility_range_end > 0.0 and g.reach >= 0.0 else -1.0
+	for key in groups:
+		var g: Dictionary = groups[key]
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for part in g.parts:
+			st.append_from((part[0] as MeshInstance3D).mesh, part[1], WTrees._chain(part[0], n))
+		var am: ArrayMesh = st.commit()
+		if am == null or am.get_surface_count() == 0:
+			continue
+		var out := MeshInstance3D.new()
+		out.mesh = am
+		out.material_override = g.mat
+		out.material_overlay = g.over
+		out.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if g.shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if float(g.reach) > 0.0:
+			out.visibility_range_end = g.reach
+		n.add_child(out)
+	# Deepest first: a piece's own pieces are gone before it is
+	for i in range(found.size() - 1, -1, -1):
+		if is_instance_valid(found[i]):
+			(found[i] as Node).free()
+	return found.size()
+
+
+static func _collect_within(n: Node, top: Node, found: Array) -> void:
+	if n != top and n.get_script() != null:
+		return
+	if n is MeshInstance3D:
+		var m := n as MeshInstance3D
+		if not m.visible:
+			return
+		# A piece may hold more pieces (a round with its bullet set in it): all are joined, so long as
+		# nothing else hangs beneath
+		for c in m.get_children():
+			if not c is MeshInstance3D:
+				return
+		if m.mesh != null and not (m.mesh is ImmediateMesh) and m.skin == null \
+				and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY and m.transparency == 0.0:
+			found.append(m)
+		for c in m.get_children():
+			_collect_within(c, top, found)
+		return
+	if n != top and n is Node3D and not (n as Node3D).visible:
+		return
+	for c in n.get_children():
+		_collect_within(c, top, found)

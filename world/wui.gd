@@ -2715,14 +2715,26 @@ func _discount(at: String) -> float:
 	return minf(0.3, int(w.rep.get(at, 0)) / 3 * 0.1)
 
 
+## Ammunition is priced by the lot (see _lot), to match what it does: a shell, eight pellets, is worth
+## several rounds. Bought, it costs about half again what making it at a bench costs; sold, it fetches
+## less than making it, so making ammunition to sell is never worth it. [buy, sell] salt per lot.
+const AMMO_PRICE := {"shells": [12, 3], "rounds": [6, 1], "rifle": [6, 1], "fuel": [4, 1]}
+
+
+## The price of one (or of one lot, for ammunition).
 func buy_price(id: String, at: String) -> int:
+	if AMMO_PRICE.has(id):
+		return maxi(1, ceili(AMMO_PRICE[id][0] * (1.0 - _discount(at)) * w.skills.buy_mult()))
 	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult()))
 
 
+## What one fetches (or one lot, for ammunition).
 func sell_price(id: String) -> int:
 	var info: Dictionary = Items.info(id)
 	if info.kind == "quest" or id == "salt":
 		return 0
+	if AMMO_PRICE.has(id):
+		return maxi(1, int(AMMO_PRICE[id][1] * w.skills.sell_mult()))
 	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
 
 
@@ -2766,6 +2778,8 @@ func _trade() -> void:
 		if s == null or seen.has(s.id) or sell_price(s.id) <= 0:
 			continue
 		seen[s.id] = true
+		if w.inv.count(s.id) < _lot(s.id):
+			continue
 		ls.add_child(_trade_row(s.id, "sell", "%d" % sell_price(s.id), true, w.inv.count(s.id)))
 	if seen.is_empty():
 		ls.add_child(_label("Nothing they would take.", 16, DIM))
@@ -2807,17 +2821,18 @@ func _trade() -> void:
 				side.add_child(_action("Buy %d  (%d salt)" % [can * lot, can * price], func(): _buy(id, lot * can, price * can)))
 		else:
 			var each := sell_price(id)
-			var have: int = w.inv.count(id)
-			side.add_child(_label("%d salt each" % each, 18, GOLD))
-			side.add_child(_action("Sell one", func(): _sell(id, 1)))
-			if have > 1:
-				side.add_child(_action("Sell all %d  (+%d salt)" % [have, have * each], func(): _sell(id, have)))
+			var lot := _lot(id)
+			var have: int = w.inv.count(id) / lot * lot
+			side.add_child(_label(("%d salt each" % each) if lot == 1 else ("%d salt for %d" % [each, lot]), 18, GOLD))
+			side.add_child(_action("Sell one" if lot == 1 else "Sell %d" % lot, func(): _sell(id, lot)))
+			if have > lot:
+				side.add_child(_action("Sell all %d  (+%d salt)" % [have, have / lot * each], func(): _sell(id, have)))
 	_body.add_child(_btn("Back", func(): _talk(pd.greet), 20))
 
 
-## Rounds come by the ten.
+## Rounds come by the ten, fuel by the twenty.
 func _lot(id: String) -> int:
-	return 10 if id in ["shells", "rounds", "rifle"] else 1
+	return 20 if id == "fuel" else (10 if id in ["shells", "rounds", "rifle"] else 1)
 
 
 func _list_col(parent: Control, title: String) -> VBoxContainer:
@@ -2906,10 +2921,12 @@ func _buy(id: String, n: int, cost: int) -> void:
 
 
 func _sell(id: String, n := 1) -> void:
+	var lot := _lot(id)
+	n = n / lot * lot
 	var got: int = w.inv.take(id, n)
 	if got < 1:
 		return
-	w.give([["salt", sell_price(id) * got]])
+	w.give([["salt", sell_price(id) * (got / lot)]])
 	w.sfx("shell", -8)
 	_trade()
 

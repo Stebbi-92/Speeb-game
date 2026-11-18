@@ -2228,11 +2228,17 @@ func _net_tick(delta: float) -> void:
 					rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id), "you"])
 				elif avatars.has(id) and is_instance_valid(avatars[id]):
 					var a = avatars[id]
-					rows.append([Net.name_of(id), a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position))])
+					var tag := squad_tag(id)
+					rows.append([Net.name_of(id), a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position)) + ("  squad" if tag != "" else "")])
 				else:
 					rows.append([Net.name_of(id), 1.0, false, Net.color_of(id), ""])
 		hud.set_fellowship(rows)
 		_watch_roster()
+
+
+## A word shown beside a companion in the fellowship's list (the waste marks squadmates).
+func squad_tag(_id: int) -> String:
+	return ""
 
 
 ## Says on screen when someone joins or leaves the fellowship.
@@ -2558,12 +2564,13 @@ func net_foe_died(id: int, slain: bool, killer: int) -> void:
 		e.die(slain)
 
 
-func net_hit(by: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0) -> void:
+func net_hit(by: int, id: int, amount: float, dir: Vector3, kind := "", head := false, pierce := 1.0, heavy := false) -> void:
 	var e = foes.get(id)
 	if e == null or not is_instance_valid(e) or not e.is_alive():
 		return
 	e.last_hitter = by
-	var was := [LesserSpeeb.harm_kind, LesserSpeeb.harm_head, LesserSpeeb.harm_pierce]
+	var was := [LesserSpeeb.harm_kind, LesserSpeeb.harm_head, LesserSpeeb.harm_pierce, LesserSpeeb.harm_heavy]
+	LesserSpeeb.harm_heavy = heavy
 	LesserSpeeb.harm_kind = kind
 	LesserSpeeb.harm_head = head
 	LesserSpeeb.harm_pierce = pierce
@@ -2571,15 +2578,19 @@ func net_hit(by: int, id: int, amount: float, dir: Vector3, kind := "", head := 
 	LesserSpeeb.harm_kind = was[0]
 	LesserSpeeb.harm_head = was[1]
 	LesserSpeeb.harm_pierce = was[2]
+	LesserSpeeb.harm_heavy = was[3]
 	if e.is_alive():
 		e.last_hitter = Net.me()
 
 
-func net_bolt(from: Vector3, vel: Vector3, dmg: float) -> void:
+func net_bolt(from: Vector3, vel: Vector3, dmg: float, look := "") -> void:
 	var b := LesserSpeeb.Bolt.new()
 	b.level = self
 	b.velocity = vel
 	b.damage = dmg
+	b.look = look
+	if look == "round":
+		b.life = 3.0
 	add_child(b)
 	b.global_position = from
 

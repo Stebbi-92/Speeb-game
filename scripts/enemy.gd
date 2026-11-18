@@ -221,6 +221,20 @@ const KINDS := {
 static var harm_kind := ""
 static var harm_head := false    ## the blow is a head shot: it goes over any plate
 static var harm_pierce := 1.0    ## the load's bite on plate: above 1 goes through, below 1 is stopped more
+static var harm_heavy := false   ## the blow is a heavy, wound-up one: it breaks a foe's footing twice as fast
+
+## Poise: how much a foe can take before its footing breaks. Every blow wears it (blades more, heavy and
+## blunt blows twice as much, a close shotgun blast a little more); left alone two seconds it comes back.
+## Broken, the foe reels a moment and takes more harm: so a big foe is opened by heavy blows and teamwork,
+## not by a stream of small ones.
+const POISE_FRAC := 0.4
+const POISE_FRAC_HEAVY := 0.6
+const POISE_BACK := 2.0
+const BROKEN_SECS := 1.5
+const BROKEN_HARM := 1.3
+var poise := -1.0
+var _poise_t := 0.0
+var _broken := 0.0
 static var _smoke: Texture2D
 static var _blot: Texture2D
 static var blood_shown := 0   ## for the tests
@@ -322,7 +336,6 @@ var net_id := 0
 var _wind := 0.0          ## a bite gathering: seconds until it lands. Step out of reach and it misses
 var _wind_total := 0.0
 var _stagger := 0.0       ## reeling from heavy harm: it neither moves on you nor bites
-var _dmg_win := 0.0       ## harm taken lately, which drains away; enough at once staggers it
 ## What a foe of the waste has in mind: "calm" (keeps to its place), "search" (goes to look where
 ## something was heard or last seen), "hunt" (knows where you are) or "flee" (hurt, and running).
 ## Lesser forms and great ones always hunt; so do raiders sent against a base.
@@ -552,7 +565,11 @@ func _physics_process(delta: float) -> void:
 	head.rotation.y = lerp_angle(head.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * turn))
 	head.rotation.x = -asin(clampf(dir.y, -0.6, 0.6)) * 0.6
 	var want := Vector3.ZERO
-	_dmg_win = maxf(0.0, _dmg_win - max_hp * 0.25 * delta)
+	if _broken > 0.0:
+		_broken -= delta
+	_poise_t += delta
+	if _poise_t > POISE_BACK and poise >= 0.0:
+		poise = poise_max()
 	if _stagger > 0.0:
 		_stagger -= delta
 		head.rotation.z = sin(_t * 18.0) * 0.25 * minf(1.0, _stagger * 2.0)
@@ -1626,7 +1643,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 		bleed(from_dir, amount)
 	if puppet:
 		# The blow is sent to the host, who alone decides whether the form is undone
-		Net.hit(net_id, raw, from_dir, harm_kind, harm_head, harm_pierce)
+		Net.hit(net_id, raw, from_dir, harm_kind, harm_head, harm_pierce, harm_heavy)
 		_flash = 1.0 if full else 0.3
 		return full and not plated
 	if not full:
@@ -1643,6 +1660,10 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 			level.sfx("hit_metal", -4, global_position + Vector3(0, 0.6, 0))
 	if _spent > 0.0:
 		amount *= 1.6
+	if _broken > 0.0:
+		amount *= BROKEN_HARM
+	if champion == "warded" and harm_kind in ["bullet", "shot"] and not harm_head:
+		amount *= 0.5   # a ward turns shots to the body: aim for the head, or close in with a blade
 	if mind != "hunt" and mind != "flee":
 		var by: Node3D = level.nearest_target(global_position)
 		_alarm(by.global_position if by else global_position)
@@ -1654,21 +1675,109 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	_knock += from_dir.normalized() * minf(amount, 80.0) * (0.0 if boss != "" else (0.03 if steady and not heavy_blow else (0.08 if kind == "elite" else 0.2)))
 	if steady:
 		_shot_slow = 0.6
-	# Enough harm at once, or a blade to something not too great, and it reels: its bite is broken off
-	_dmg_win += amount
-	if boss == "" and full and _stagger <= 0.0 and not kind in ["saucer", "unseen"] and \
-			(_dmg_win > max_hp * (WRules.stagger_at() if Game.wasteland else 0.3) or (harm_kind in ["blade", "blunt"] and spec.hp < 150.0)):
-		_stagger = 0.9 if kind != "elite" else 0.6
-		_dmg_win = 0.0
-		if _wind > 0.0:
-			_wind = 0.0
-			_show_wind(-1.0)
-		if not steady or heavy_blow:
-			_knock += from_dir.normalized() * 3.0
+	# Its footing wears with every blow; when it breaks, it reels, its blow is broken off, and it is open
+	if boss == "" and not kind in ["saucer", "unseen"] and _broken <= 0.0:
+		if poise < 0.0:
+			poise = poise_max()
+		var wear := amount
+		if harm_kind == "blade":
+			wear *= 1.5
+		if harm_kind == "blunt" or harm_heavy or harm_kind == "blast":
+			wear *= 2.0
+		if harm_kind == "shot":
+			var near_t: Node3D = level.nearest_target(global_position)
+			if near_t and near_t.global_position.distance_to(global_position) < 6.0:
+				wear *= 1.3
+		poise -= wear
+		_poise_t = 0.0
+		if poise <= 0.0:
+			_break_poise(from_dir, steady and not heavy_blow)
 	hp_frac = hp / max_hp
 	if hp <= 0.0:
 		die(true)
 	return full
+
+
+## How much its footing can take: a share of its health (more for the heavy), as the world's foe skill sets.
+func poise_max() -> float:
+	var heavy: bool = kind in ["idol", "brute", "elite"] or float(spec.get("hp", 0.0)) >= 150.0
+	var k := (WRules.stagger_at() / 0.3) if Game.wasteland else 1.0
+	return max_hp * (POISE_FRAC_HEAVY if heavy else POISE_FRAC) * k
+
+
+static var poise_breaks := 0   ## (for the tests)
+
+## Its footing gives: it reels, its gathering blow is lost, and for a moment it takes more harm.
+func _break_poise(from_dir: Vector3, steady: bool) -> void:
+	poise_breaks += 1
+	_broken = BROKEN_SECS
+	_stagger = BROKEN_SECS
+	poise = poise_max()
+	if _wind > 0.0:
+		_wind = 0.0
+		_show_wind(-1.0)
+	if not steady:
+		_knock += from_dir.normalized() * 3.0
+	level.sfx("thud", -4, global_position, 0.7)
+
+
+## Champions: in the harder lands, now and then a foe stands out from its kind with one way of its own,
+## twice the health, and better pickings. Its name is gilded and its kind's colour is laid over it.
+const CHAMPION := {
+	"swift": {"name": "Swift", "tint": Color(0.95, 0.9, 0.55)},
+	"plated": {"name": "Plated", "tint": Color(0.6, 0.62, 0.66)},
+	"burning": {"name": "Burning", "tint": Color(1.0, 0.45, 0.12)},
+	"splitting": {"name": "Splitting", "tint": Color(0.5, 0.85, 0.4)},
+	"warded": {"name": "Warded", "tint": Color(0.45, 0.65, 1.0)},
+}
+var champion := ""
+
+
+func become_champion(tr: String) -> void:
+	if champion != "" or not CHAMPION.has(tr):
+		return
+	champion = tr
+	set_meta("champion", tr)
+	spec = spec.duplicate(true)
+	if not puppet:
+		max_hp *= 2.0
+		hp = max_hp
+	match tr:
+		"swift":
+			spec.speed = float(spec.speed) * 1.4
+		"plated":
+			if not puppet:
+				plate += 40.0 + max_hp * 0.25
+			if _fb and not kind in ["knight", "unlit_brute"]:
+				_fb.wear_plate(true)
+		"burning":
+			spec["burn"] = 3.0
+			var l := OmniLight3D.new()
+			l.light_color = Color(1.0, 0.5, 0.2)
+			l.light_energy = 1.0
+			l.omni_range = 3.5
+			l.position.y = 1.0
+			add_child(l)
+	_tint(CHAMPION[tr].tint)
+	if _name_l:
+		_name_l.text = "%s %s" % [CHAMPION[tr].name, str(spec.get("name", ""))]
+		_name_l.modulate = Color(1.0, 0.82, 0.35, _name_l.modulate.a)
+
+
+## A champion's own way, at its death: a splitting one breaks into two lesser of its kind.
+func _champion_die() -> void:
+	if champion != "splitting" or puppet or has_meta("shard"):
+		return
+	var lvl = level
+	var k: String = variant if variant != "" else kind
+	var at := global_position
+	lvl.get_tree().create_timer(0.2, false).timeout.connect(func():
+		for i in 2:
+			var o = lvl.spawn_at(k, at + Vector3(randf_range(-2, 2), 0.3, randf_range(-2, 2)))
+			if o:
+				o.set_meta("shard", true)
+				o.max_hp *= 0.5
+				o.hp = o.max_hp)
 
 
 func is_alive() -> bool:
@@ -1762,6 +1871,8 @@ func die(slain: bool) -> void:
 		_burst_fire()
 	if spec.has("trait"):
 		FoeTraits.on_die(self, slain)
+	if slain and champion != "":
+		_champion_die()
 	collision_layer = 0
 	level.sfx("dissolve", -4, global_position)
 	if slain:
@@ -1850,7 +1961,9 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 			_show_wind(-1.0)
 			_attack_cd = cd
 			_knock += dir * 4.0
-			if dist < reach + 0.7:
+			if dist < reach + 0.7 and _perfect_guard(p):
+				_parried(dir)
+			elif dist < reach + 0.7:
 				level.sfx("bite", -2, global_position)
 				if randf() < 0.5:
 					_cry("growl_%d" % (randi() % 3), 0)
@@ -1865,6 +1978,32 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 		_wind_total = float(WINDUP.get(kind, 0.35)) / sqrt(Game.difficulty_scale("speed")) * (WRules.windup() if Game.wasteland else 1.0)
 		_wind = _wind_total
 		_cry("growl_%d" % (randi() % 3), -4)
+
+
+## A guard raised just as the blow lands (a quarter of a second): the blow is turned for nothing, and the
+## foe reels open. A guard held up long before only blunts the blow, for stamina (see damage_player).
+func _perfect_guard(p: Node3D) -> bool:
+	if p != level.player or level.player.weapon == null or not level.player.weapon.guarding:
+		return false
+	if float(level.player.weapon.get("guard_age")) > Arms.PERFECT_GUARD:
+		return false
+	var pf := -level.player.global_transform.basis.z
+	var to := global_position - level.player.global_position
+	to.y = 0.0
+	return pf.dot(to.normalized()) > 0.3
+
+
+static var parries := 0   ## (for the tests)
+
+func _parried(dir: Vector3) -> void:
+	parries += 1
+	level.sfx("parry", 0, global_position)
+	_stagger = 1.3
+	_wind = 0.0
+	_show_wind(-1.0)
+	level.player.shake(0.2)
+	level.hud.hitmarker(false, true)
+	_knock = -dir * 3.0
 
 
 ## The swelling and glow of a gathering bite (k from 0 to 1), or back to rest (k below 0).
@@ -1908,7 +2047,7 @@ func weak_point() -> Array:
 
 
 func net_state() -> Array:
-	return [net_id, boss if boss != "" else (variant if variant != "" else kind), code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0, hidden]
+	return [net_id, boss if boss != "" else (variant if variant != "" else kind), code, global_position, rotation.y, head.rotation.y, head.rotation.x, _flash, hp / max_hp, _wind > 0.0, _stagger > 0.0, hidden, champion]
 
 
 func net_apply(st: Array) -> void:
@@ -1923,6 +2062,8 @@ func net_apply(st: Array) -> void:
 	if st.size() > 10:
 		_wind = 0.3 if st[9] else 0.0
 		_stagger = 0.3 if st[10] else 0.0
+	if st.size() > 12 and str(st[12]) != "" and champion == "":
+		become_champion(str(st[12]))
 	if st.size() > 11 and bool(st[11]) != hidden:
 		set_hidden(bool(st[11]))
 		if not hidden:
@@ -2392,15 +2533,38 @@ class Bolt extends Area3D:
 	var damage := 13.0
 	var level: Level
 	var life := 4.0
+	var look := ""   ## "" a spat bolt; "round" a gunman's round: a quick bright streak you can step out of
+	static var _round_mesh: CapsuleMesh
+	static var _round_mat: StandardMaterial3D
 
 	func _ready() -> void:
 		collision_layer = 0
 		collision_mask = 1
 		var cs := CollisionShape3D.new()
 		var s := SphereShape3D.new()
-		s.radius = 0.22
+		s.radius = 0.22 if look != "round" else 0.16
 		cs.shape = s
 		add_child(cs)
+		if look == "round":
+			if _round_mesh == null:
+				_round_mesh = CapsuleMesh.new()
+				_round_mesh.radius = 0.035
+				_round_mesh.height = 0.9
+				_round_mat = StandardMaterial3D.new()
+				_round_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				_round_mat.albedo_color = Color(1.0, 0.82, 0.4)
+				_round_mat.emission_enabled = true
+				_round_mat.emission = Color(1.0, 0.7, 0.3)
+			var rm := MeshInstance3D.new()
+			rm.mesh = _round_mesh
+			rm.material_override = _round_mat
+			rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			rm.rotation.x = PI * 0.5   # lying along its flight
+			add_child(rm)
+			if velocity.length() > 0.1:
+				look_at_from_position(position, position + velocity, Vector3.UP if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT)
+			body_entered.connect(_hit)
+			return
 		# One mesh and one look shared by every bolt, and only a few carry a light: a swarm spitting
 		# at once would otherwise light the night with dozens of lamps
 		if _mesh == null:
@@ -2436,8 +2600,11 @@ class Bolt extends Area3D:
 			queue_free()
 
 	func _hit(b: Node) -> void:
+		# A pilgrim stepping aside as it comes lets it fly past, however far it was fired from
+		if b is Player and (b as Player).dodge_t > 0.0:
+			return
 		if b is Player and not level.sheltered(b.global_position):
-			level.damage_player(damage * level.foe_harm(), global_position)
+			level.damage_player(damage * level.foe_harm(), global_position - velocity.normalized() * 2.0)
 		queue_free()
 
 
@@ -2705,37 +2872,125 @@ func _foe_strike(delta: float, p: Node3D, dist: float, dir: Vector3, reach: floa
 	if _wind > 0.0:
 		_wind -= delta
 		if _wind <= 0.0:
-			_attack_cd = 2.2 if kind in ["unlit_brute", "knight", "colossus"] else 1.3
-			if dist < reach + 0.7:
-				var turned := false
-				if p == level.player and level.player.weapon and level.player.weapon.guarding:
-					var pf := -level.player.global_transform.basis.z
-					var to := global_position - level.player.global_position
-					to.y = 0.0
-					turned = pf.dot(to.normalized()) > 0.4
-				if turned:
-					# Parried: the blade is turned, the foe reels, and the pilgrim's stamina pays a little
-					level.sfx("parry", 0, global_position)
-					_stagger = 1.3
-					_wind = 0.0
-					level.player.spend(8.0)
-					level.player.shake(0.2)
-					level.hud.hitmarker(false, true)
-					_knock = -dir * 3.0
-				else:
-					level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
-					level.hurt_target(p, spec.bite * FoeTraits.bite_mult(self), global_position)
-					_afflict(p)
-					FoeTraits.on_bite(self, p)
-			else:
-				level.sfx("swing", -6, global_position, 0.9)
+			_attack_cd = 2.2 if kind in HEAVY_MOVERS else 1.3
+			match _move:
+				"sweep":
+					_land_sweep(reach)
+				"lunge":
+					_land_lunge(p, dir, reach)
+				"grab":
+					_land_grab(p, dist, dir, reach)
+				_:
+					_land_strike(p, dist, dir, reach)
+			_move = ""
 		return
-	if dist < reach + 0.4 and _attack_cd <= 0.0 and _stagger <= 0.0:
-		_wind_total = float(WINDUP.get(kind, 0.5)) / sqrt(Game.difficulty_scale("speed")) * (WRules.windup() if Game.wasteland else 1.0)
-		_wind = _wind_total
-		_guard = false
-		_fb.act("attack-melee-right", 0.55 / maxf(_wind_total, 0.2))
-		level.sfx("swing", -10, global_position, 0.8)
+	if _attack_cd > 0.0 or _stagger > 0.0:
+		return
+	var heavy: bool = kind in HEAVY_MOVERS
+	# A heavy one far enough off may lunge the gap; close in, it may sweep all round it or grab
+	if heavy and dist > reach + 2.0 and dist < 9.0 and randf() < delta * 0.6:
+		_begin_move("lunge", 0.9, dir)
+		return
+	if dist < reach + 0.4:
+		var roll := randf()
+		if heavy and roll < 0.25:
+			_begin_move("sweep", 1.3, dir, reach)
+		elif heavy and roll < 0.45:
+			_begin_move("grab", 0.85, dir)
+		else:
+			_begin_move("", 1.0, dir)
+
+
+## The heavy foes (and the knight, lich and walking dead) have three ways besides the plain blow, each
+## with its own tell: a sweep (a ring on the ground round it), a lunge (a lane on the ground toward you),
+## and a grab (it raises both arms and roars). Step out of the ring, off the lane, or away.
+const HEAVY_MOVERS := ["unlit_brute", "knight", "warden", "colossus", "deacon", "hollow", "drowned"]
+var _move := ""
+static var moves_seen := {}   ## (for the tests)
+
+
+func _begin_move(m: String, k: float, dir: Vector3, reach := 0.0) -> void:
+	_move = m
+	moves_seen[m] = int(moves_seen.get(m, 0)) + 1
+	_wind_total = float(WINDUP.get(kind, 0.5)) * k / sqrt(Game.difficulty_scale("speed")) * (WRules.windup() if Game.wasteland else 1.0)
+	_wind = _wind_total
+	_guard = false
+	match m:
+		"sweep":
+			level.shared("_w_warn", [global_position, reach + 1.5, _wind_total, 0])
+			_fb.act("attack-melee-right", 0.4 / maxf(_wind_total, 0.2))
+			level.sfx("swing", -6, global_position, 0.6)
+		"lunge":
+			var lane := 8.0
+			level.shared("_w_warn", [global_position + dir * lane * 0.5, lane * 0.5, _wind_total, 1, atan2(dir.x, dir.z), spec.radius + 0.8])
+			_cry("growl_%d" % (randi() % 3), -2)
+		"grab":
+			_fb.act("holding-both", 1.0)
+			_cry("troll" if kind in ["hollow", "drowned", "colossus"] else "growl_%d" % (randi() % 3), -2)
+			_flash = 1.0
+		_:
+			_fb.act("attack-melee-right", 0.55 / maxf(_wind_total, 0.2))
+			level.sfx("swing", -10, global_position, 0.8)
+
+
+func _land_strike(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
+	if dist < reach + 0.7:
+		if _perfect_guard(p):
+			_parried(dir)
+		else:
+			level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
+			level.hurt_target(p, spec.bite * FoeTraits.bite_mult(self), global_position)
+			_afflict(p)
+			FoeTraits.on_bite(self, p)
+	else:
+		level.sfx("swing", -6, global_position, 0.9)
+
+
+## All round it, everyone within the ring: less than a full blow, and it cannot be parried, only left.
+func _land_sweep(reach: float) -> void:
+	level.sfx("swing", -2, global_position, 0.55)
+	level.shared("_w_slam_fx", [global_position, reach + 1.5])
+	for t in level.targets():
+		var off: Vector3 = t.global_position - global_position
+		if Vector2(off.x, off.z).length() < reach + 1.5 and absf(off.y) < 3.0:
+			level.hurt_target(t, spec.bite * 0.8, global_position)
+
+
+## Across the gap in a rush along the lane it showed: a hard blow at the end of it.
+func _land_lunge(p: Node3D, dir: Vector3, reach: float) -> void:
+	level.sfx("whoosh", -2, global_position, 0.8)
+	var to: Vector3 = p.global_position - global_position
+	to.y = 0.0
+	var go := minf(to.length() - reach * 0.6, 8.0)
+	if go > 0.0:
+		var tw := create_tween()
+		tw.tween_property(self, "global_position", global_position + dir * go, 0.25).set_ease(Tween.EASE_OUT)
+	get_tree().create_timer(0.27, false).timeout.connect(func():
+		if not _alive or not is_instance_valid(p):
+			return
+		var d := global_position.distance_to(p.global_position)
+		if d < reach + 1.0:
+			if _perfect_guard(p):
+				_parried(dir)
+			else:
+				level.sfx("chop", -2, global_position)
+				level.hurt_target(p, spec.bite * 1.3, global_position))
+
+
+## Close in, both arms: held fast a moment (the legs locked), and hurt less than a blow.
+func _land_grab(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
+	if dist >= reach + 0.5:
+		level.sfx("swing", -6, global_position, 0.7)
+		return
+	if _perfect_guard(p):
+		_parried(dir)
+		return
+	if p == level.player and level.player.dodge_t > 0.0:
+		return
+	level.sfx("bite", -2, global_position, 0.8)
+	level.hurt_target(p, spec.bite * 0.6, global_position)
+	if not level.sheltered(p.global_position):
+		FoeTraits._afflict_target(self, p, "held", 1.2)
 
 
 ## What a blow leaves behind: fire, tar on the legs, or the foe's own wounds closing.
@@ -2784,12 +3039,21 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var moving := 0.0
 	if p is CharacterBody3D:
 		moving = Vector2(p.velocity.x, p.velocity.z).length()
-	var miss := clampf((0.2 + dist * 0.012 + moving * 0.04) * float(spec.get("aimed", 1.0)), 0.1, 0.8)
-	var hit := randf() > miss
-	if not hit:
-		at += Vector3(randf_range(-1.5, 1.5), randf_range(-0.8, 1.2), randf_range(-1.5, 1.5))
+	# A real round, seen in flight: it goes where the gunman aimed, so moving, or stepping aside as it
+	# comes, is how it is beaten. A marksman's flies faster and truer.
+	var aimed := float(spec.get("aimed", 1.0))
+	var spread := (0.25 + dist * 0.006) * aimed
+	at += Vector3(randf_range(-spread, spread), randf_range(-spread * 0.6, spread * 0.6), randf_range(-spread, spread))
 	_fb.act("holding-both-shoot")
 	level.sfx("mg", -4, from, 0.85)
-	level.shared("_w_tracer", [from, at])
-	if hit:
-		level.hurt_target(p, spec.bite, from)
+	var speed := 40.0 / clampf(aimed, 0.5, 1.2)
+	var b := Bolt.new()
+	b.level = level
+	b.look = "round"
+	b.damage = float(spec.bite)
+	b.life = 3.0
+	b.velocity = (at - from).normalized() * speed
+	level.add_child(b)
+	b.global_position = from
+	if Net.online:
+		Net.bolt(from, b.velocity, b.damage, "round")
