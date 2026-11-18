@@ -264,6 +264,8 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	await _step("The waste is dressed", 0.985)
 	WDress.cover(self)
 	WTrees.woods(self)
+	WShells.outskirts(self)
+	WShells.lone_barns(self)
 	await _step("The halls are opened", 0.995)
 	hall = WHall.new(self)
 	hall.build()
@@ -8769,7 +8771,12 @@ func debug_townplans() -> void:
 		shapes[town_style(k)] = shapes.get(town_style(k), 0) + 1
 		if houses < 6:
 			print("TOWNPLANS few houses at ", k, " ", houses)
-	print("TOWNPLANS towns=%d styles=%d" % [WPlaces.SETTLEMENTS.size(), shapes.size()])
+	var outs: int = get_meta("shells_out", 0)
+	var barns: int = get_meta("shells_barns", 0)
+	var kinds := 0
+	for pk in WShells.PACKS:
+		kinds += WShells.kinds(pk).size()
+	print("TOWNPLANS towns=%d styles=%d shells=%d barns=%d kinds=%d" % [WPlaces.SETTLEMENTS.size(), shapes.size(), outs, barns, kinds])
 	get_tree().quit()
 
 
@@ -8782,12 +8789,25 @@ func debug_townsky() -> void:
 	add_child(cam)
 	cam.far = 600.0
 	var ks: Array = Array(OS.get_environment("TOWNS").split(",")) if OS.get_environment("TOWNS") != "" else ["cinderwick", "lanternwell", "kiln"]
+	if OS.get_environment("BARN") != "":
+		var bp: Vector2 = get_meta("barn_spots")[int(OS.get_environment("BARN"))]
+		var bc := gpos(bp)
+		player.place(bc + Vector3(0, 2, 30), 0.0)
+		for i in 40:
+			await get_tree().process_frame
+		cam.global_position = bc + Vector3(14, 6, 22)
+		cam.look_at(bc + Vector3(0, 3, 0), Vector3.UP)
+		cam.make_current()
+		for i in 30:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("/tmp/claude-0/sky_barn.png")
+		ks = []
 	for k in ks:
 		var c := gpos(WPlaces.spos(k))
 		player.place(c + Vector3(0, 2, 0), 0.0)
 		for i in 40:
 			await get_tree().process_frame
-		cam.global_position = c + Vector3(0, 78, 30)
+		cam.global_position = c + Vector3(0, 70, 95)
 		cam.look_at(c, Vector3.UP)
 		cam.make_current()
 		for i in 30:

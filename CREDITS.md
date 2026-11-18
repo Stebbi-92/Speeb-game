@@ -79,6 +79,12 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
 | ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
+| ["Abandoned Barn"](https://skfb.ly/oJFBW) | Arsen Ismailov | Barns standing alone in the waste (`assets/models/buildings`) |
+| ["Russian Izba - Low-Poly 3D Game Asset"](https://skfb.ly/pQt9Y) | SergeyLubivui | Farmhouses outside the towns' walls |
+| ["Belarusian village"](https://skfb.ly/oRrpD) | Liminal Bifrost | Farmhouses and barns outside the towns' walls |
+| ["Asset medieval log building"](https://skfb.ly/onOB7) | KIFIR | Log houses outside the towns' walls |
+| ["Western Bar - Mobile Game-Ready"](https://skfb.ly/6VCwp) | Ali haghshenas | A roadhouse outside the dune towns |
+| ["Western House - Mobile Game ready"](https://skfb.ly/6R7QG) | Ali haghshenas | Frame houses outside the dune and salt towns |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |

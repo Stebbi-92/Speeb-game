@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bi1f0vdk2lpm7"
+path="res://.godot/imported/abandoned_barn_2.jpg-f175e476186591bb79a6fde042c8551a.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "493593f925d53e60c59fd4c70d995998"
+}
+
+[deps]
+
+source_file="res://assets/models/buildings/abandoned_barn_2.jpg"
+dest_files=["res://.godot/imported/abandoned_barn_2.jpg-f175e476186591bb79a6fde042c8551a.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
