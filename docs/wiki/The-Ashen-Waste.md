@@ -128,3 +128,13 @@ Make an **ash-radio** at a workbench (or buy one from a smith) and carry it. Eve
 ## Playtest log
 
 Each sitting in the waste writes a short log on your own computer, in the game's user folder under `playtest/`. It notes each goal reached (a beacon lit, a ruin found, a quest step done, a night lived through), the time since the last goal, and when you fell. Nothing is sent anywhere. Share a log when you report how a session felt.
+
+## Safe roads
+
+Every town knows how safe its roads are, from 0 to 100: **Dangerous**, **Uneasy**, **Safe** or **Peaceful**. You see it when you talk to its people.
+
+- Within about 500 m of a town, each foe you slay makes its roads a little safer (more for big foes and champions). Putting down a band met on the road adds 5, and breaking a raid camp nearby adds 15.
+- Each day the roads slip back by 3, and by 8 more for every raid camp standing near.
+- A band met on the road and left alone for eight minutes digs in as a raid camp, and the town's roads suffer for it.
+- The town's folk remember who kept their roads: every 10 points you earn there is one more step of standing, which brings better prices.
+- Near a town with safe roads, fewer of the things met on the road are fights. Near a dangerous one, more.

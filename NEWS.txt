@@ -1,3 +1,13 @@
+Brelm alpha 0.15.0: the living waste
+
+- Each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down the bands on its roads and break raid camps nearby, and its roads grow safer. Run from them and leave camps standing, and they grow worse day by day.
+- Townsfolk remember who kept their roads: every ten points you earn there is a step of standing, and better prices.
+- Safe roads bring fewer fights near the town; dangerous roads bring more.
+- A band met on the road and left alone digs in as a raid camp.
+- The seventh night's raid changes as the lands are lit: the Hollow Pilgrimage, then the Unlit War Band, then the Iron Host, each with its own lead.
+- Settlers teach the fellowship a recipe of their trade, and ask for goods: leave them in the base's chest, and they pay at dawn.
+- The day before a season turns, you are told what it brings.
+
 Brelm alpha 0.14.0: walk together
 
 - Snow, ash and rain are soft round flecks that vanish close to your eye, so none fill the view.

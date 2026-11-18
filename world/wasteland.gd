@@ -3240,7 +3240,7 @@ func _great_warning() -> void:
 		0:
 			hud.alert_banner("The seventh night", "The great raid comes at dusk. Hold your camp, or find a wall.")
 		1:
-			hud.notify("The great raid comes tomorrow night. Mend your walls and lay in shells.")
+			hud.notify("The great raid comes tomorrow night: %s. Mend your walls and lay in shells." % GREAT_HOSTS[great_host()].name.to_lower())
 		2:
 			hud.notify("Two nights to the great raid. The forms are gathering.")
 
@@ -3266,20 +3266,30 @@ func _great_raid() -> void:
 			spots.append(c)
 	if spots.is_empty():
 		return
-	great = {"spawned": 0, "spots": spots}
+	var host := great_host()
+	great = {"spawned": 0, "spots": spots, "host": host}
 	for c in spots:
-		shared("_w_great", [c])
+		shared("_w_great", [c, host])
 	var per := WCrowd.scale(self, 8 + mini(nights / 2, 8))
 	for wave in 3:
 		get_tree().create_timer(wave * 100.0 + 1.0, false).timeout.connect(func():
 			if not is_instance_valid(self) or not night:
 				return
 			for c in spots:
+				# Half of each wave is the night's own host, the rest the land's forms; the last wave brings its lead
 				var roster: Array = forms_at(c)
+				var band: Array = GREAT_HOSTS[host].band
+				if wave == 2:
+					for lead in GREAT_HOSTS[host].leads:
+						var le = _spawn_near(lead, c, 40.0, 55.0, true)
+						if le:
+							le.set_meta("raid", true)
+							le.set_meta("great", true)
+							great.spawned = int(great.get("spawned", 0)) + 1
 				for k in per + wave * 2:
 					get_tree().create_timer(randf_range(0.0, 25.0), false).timeout.connect(func():
 						if is_instance_valid(self) and night:
-							var kind: String = "elite" if randf() < 0.06 + wave * 0.04 else roster[randi() % roster.size()]
+							var kind: String = "elite" if randf() < 0.06 + wave * 0.04 else (band[randi() % band.size()] if randf() < 0.5 else roster[randi() % roster.size()])
 							var e = _spawn_near(kind, c, 38.0, 55.0, true)
 							if e:
 								e.set_meta("raid", true)
@@ -3287,12 +3297,33 @@ func _great_raid() -> void:
 								great.spawned = int(great.get("spawned", 0)) + 1))
 
 
-func _w_great(at: Vector3) -> void:
+## The seventh night's host changes as the lands are lit: the dead come first, then the Unlit march
+## to put the beacons out again, and at last the old iron of the deep lands.
+const GREAT_HOSTS := {
+	"pilgrims": {"name": "The Hollow Pilgrimage", "band": ["hollow", "hollow", "vigil", "saltbone"], "leads": ["warden"],
+		"text": "The dead walk on your camp, a Gravewarden behind them."},
+	"unlit": {"name": "The Unlit War Band", "band": ["unlit_gun", "unlit_gun", "unlit_blade", "unlit_mark", "unlit_flame"], "leads": ["unlit_brute", "unlit_brute"],
+		"text": "The Unlit march to put out what you have lit. Mind their marksmen, and their breakers."},
+	"iron": {"name": "The Iron Host", "band": ["deacon", "drowned", "unlit_blade", "hollow"], "leads": ["knight", "colossus"],
+		"text": "Old iron comes out of the deep lands: knights, and a colossus."},
+}
+
+## Which host comes on the seventh night, by how many beacons burn.
+func great_host() -> String:
+	if lit.size() >= 6:
+		return "iron"
+	if lit.size() >= 3:
+		return "unlit"
+	return "pilgrims"
+
+
+func _w_great(at: Vector3, host := "pilgrims") -> void:
 	sfx("bell", 0)
 	for k in 3:
 		get_tree().create_timer(0.8 * (k + 1), false).timeout.connect(func(): sfx("bell", -3, null, 0.75))
 	var d := int(player.global_position.distance_to(at))
-	hud.alert_banner("The great raid", ("They are coming for your camp, %d m away." % d) if d > 40 else "Three waves. Hold until dawn.")
+	var gh: Dictionary = GREAT_HOSTS.get(host, GREAT_HOSTS.pilgrims)
+	hud.alert_banner(gh.name, ("They are coming for your camp, %d m away. " % d if d > 40 else "Three waves. Hold until dawn. ") + gh.text)
 
 
 ## Dawn after the seventh night: if the raid was beaten back, the fellowship shares what it carried.
@@ -4905,6 +4936,10 @@ func _world_tick(delta: float) -> void:
 		hall.host_tick(delta)
 	if vaults:
 		vaults.host_tick(delta)
+	_band_t -= delta
+	if _band_t <= 0.0:
+		_band_t = 10.0
+		_bands_tick()
 	_squad_t -= delta
 	if _squad_t <= 0.0 and Net.online:
 		_squad_t = SQUAD_STEP
@@ -5054,6 +5089,8 @@ func _w_dawn(d: int) -> void:
 		var se: Dictionary = WWeather.SEASONS[WWeather.season_of(d)]
 		hud.title_card("", se.name)
 		hud.notify(se.text)
+	elif season_ahead(d) != "":
+		hud.notify(season_ahead(d))
 	if Net.authority():
 		_director_dawn()
 		_great_dawn()
@@ -5061,10 +5098,18 @@ func _w_dawn(d: int) -> void:
 			if is_instance_valid(e) and e.is_alive():
 				e.die(false)
 		_dawn_world()
+	_safety_dawn()
 	_great_warning()
 	quests.on_event("dawn", {})
 	award("dawn")
 	save_all()
+
+
+## Said at dawn on the last day of a season: what the next one brings, so there is a day to prepare.
+func season_ahead(d: int) -> String:
+	if WWeather.season_of(d + 1) == WWeather.season_of(d):
+		return ""
+	return str(WWeather.SEASONS[WWeather.season_of(d + 1)].get("ahead", ""))
 
 
 func _nth_night(n: int) -> String:
@@ -5128,8 +5173,24 @@ func _w_spirit(peer: int, id: String, on: bool) -> void:
 
 func _w_settler(s: Dictionary) -> void:
 	settlers.add(s)
+	# Each trade brings its know-how: the fellowship learns a recipe the first time one of its kind settles
+	var book: String = WSettlers.TEACHES.get(str(s.job), "")
+	var taught := book != "" and not flags.has(book)
+	if taught:
+		flags[book] = true
 	if not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
 		hud.notify("A wanderer, %s, has come to stay at your fire. A %s." % [s.name, WSettlers.JOBS[s.job].name])
+		if taught:
+			hud.notify("%s teaches you what is in %s." % [s.name, Items.iname(book)])
+
+
+func _w_settler_paid(id: int, pay: String, n: int, next: Array) -> void:
+	for s in settlers.list:
+		if int(s.id) == id:
+			if pay != "" and not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
+				hud.notify("%s took what they asked for and left %d %s in the chest." % [s.name, n, Items.iname(pay).to_lower()])
+			s.want = next
+			return
 
 
 func _w_settler_gone(id: int, why: String) -> void:
@@ -5591,6 +5652,9 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 		shared("_w_kraken_down", [day])
 		return
 	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
+	var near_town := town_near(e.global_position, SAFETY_REACH)
+	if near_town != "":
+		shared("_w_safety", [near_town, SAFETY_ELITE if e.kind in ["elite", "saucer"] or e.has_meta("champion") or e.max_hp >= 150.0 else SAFETY_KILL, Net.my_name()])
 	if not squadmates().is_empty():
 		shared("_w_squad_kill", [Net.me(), "kill_elite" if e.kind in ["elite", "saucer"] else "kill", e.global_position])
 	_ammo_drop(e)
@@ -6575,7 +6639,7 @@ func world_data() -> Dictionary:
 	for sid in satchels:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", ""))]
 	return {
-		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
+		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
@@ -6601,6 +6665,8 @@ func apply_world(d: Dictionary) -> void:
 	lit = d.get("lit", [])
 	flags = d.get("flags", {})
 	rep = d.get("rep", {})
+	safety = d.get("safety", {}) if d.get("safety") is Dictionary else {}
+	deeds = d.get("deeds", {}) if d.get("deeds") is Dictionary else {}
 	for id in d.get("mined", {}):
 		var m: Array = d.mined[id]
 		_w_node(int(id), int(m[0]), int(m[1]))
@@ -8931,6 +8997,41 @@ func debug_ammoprice() -> void:
 	get_tree().quit()
 
 
+## Testing aid: deeds near a town make its roads safer and raise standing there; days of neglect and a
+## camp standing near lower it; a band left alone digs in and costs the town.
+func debug_safety() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t := "cinderwick"
+	safety.erase(t)
+	deeds.erase(t)
+	var start := safety_of(t)
+	var rep0 := int(rep.get(t, 0))
+	for k in 12:
+		_w_safety(t, SAFETY_KILL, Net.my_name())
+	var up: bool = safety_of(t) == start + 12 and int(rep.get(t, 0)) == rep0 + 1
+	var nearest: bool = town_near(gpos(WPlaces.spos(t) + Vector2(100, 0)), SAFETY_REACH) == t
+	var s1 := safety_of(t)
+	_safety_dawn()
+	var slipped := safety_of(t) == s1 - SAFETY_DECAY
+	# A band left alone, far from anyone, digs in and costs the town
+	var at := gpos(WPlaces.spos(t) + Vector2(260, 0))
+	var f = spawn_at("rusher", at + Vector3(0, 1.5, 0))
+	_track_band(at, [f])
+	var s2 := safety_of(t)
+	var camps0 := events.active.values().filter(func(x): return x.kind == "camp").size()
+	player.place(at + Vector3(600, 2, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	_bands_tick(BAND_DIG + 1.0)
+	await get_tree().process_frame
+	var dug: bool = events.active.values().filter(func(x): return x.kind == "camp").size() == camps0 + 1 and safety_of(t) == s2 - SAFETY_FLED
+	var s3 := safety_of(t)
+	_safety_dawn()
+	var camp_hurts := safety_of(t) <= s3 - SAFETY_DECAY - SAFETY_CAMP_DECAY
+	print("SAFETY up=%s nearest=%s slipped=%s dug=%s camp_hurts=%s word=%s" % [up, nearest, slipped, dug, camp_hurts, safety_word(safety_of(t))])
+	get_tree().quit()
+
+
 func debug_boss() -> void:
 	await get_tree().create_timer(1.0).timeout
 	print("BOSS lairs: ", lairs.map(func(l): return [l.id, Vector2i(int(l.pos.x), int(l.pos.z))]))
@@ -9244,6 +9345,14 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 	rr.randomize()
 	# About a third of what lies ahead on the road is a fight, and none while the fellowship catches its breath
 	var roll := rr.randf() * (0.66 if breather > 0.0 else 1.0)
+	# Near a town whose roads are kept safe, fewer of them are fights; near a dangerous one, more
+	var tn := town_near(at, SAFETY_REACH + 200.0)
+	if tn != "" and roll >= 0.66:
+		var sf := safety_of(tn)
+		if sf >= 60 and rr.randf() < 0.5:
+			roll = rr.randf() * 0.66
+		elif sf < 25 and rr.randf() < 0.3:
+			roll = 0.88 + rr.randf() * 0.12
 	var kind := "camp"
 	if roll < 0.26:
 		kind = "camp"
@@ -9264,13 +9373,17 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 			drop_for_each(at, func(): return Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr))
 		"pack":
 			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 2 + rr.randi() % 3))
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 2.0, 8.0, true)
+				made.append(_spawn_near(k, at, 2.0, 8.0, true))
+			_track_band(at, made)
 		"attack":
 			drop_for_each(at, func(): return Items.roll("caravan", 3, rr))
 			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 1 + rr.randi() % 3))
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 4.0, 10.0, true)
+				made.append(_spawn_near(k, at, 4.0, 10.0, true))
+			_track_band(at, made)
 		"cairn":
 			drop_for_each(at, func(): return Items.roll("vault", 3, rr))
 		"unlit":
@@ -9285,8 +9398,10 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 				band.append("unlit_flame")
 			if rr.randf() < 0.3 or maxf(absf(at.x), absf(at.z)) > 900.0:
 				band.append("unlit_brute")
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 2.0, 6.0, true)
+				made.append(_spawn_near(k, at, 2.0, 6.0, true))
+			_track_band(at, made)
 	shared("_w_road_sign", [at, kind, Vector2(seen_from.x, seen_from.z)])
 
 
@@ -12605,17 +12720,25 @@ func debug_settlers() -> void:
 	# Make sure one brings goods, then a dawn of work
 	for st in settlers.list:
 		st.job = "keeper"   # only the one below brings salt (another may have been a salter too)
+		st.want = ["tar", 999]   # and none takes salt for a want
 	settlers.list[0].job = "salter"
 	var cid: String = settlers.chests_at(fire)[0]
 	var before := _cont_count(cid, "salt")
 	settlers.host_dawn(0.0)
 	var brought := _cont_count(cid, "salt") - before
+	# A want left in the chest is taken at dawn and paid for
+	var taught := WSettlers.TEACHES.values().any(func(b): return flags.has(b))
+	settlers.list[0].want = ["wood", 5]
+	settlers._put([cid], "wood", 5)
+	var wood0 := _cont_count(cid, "wood")
+	settlers.host_dawn(0.0)
+	var paid: bool = _cont_count(cid, "wood") == wood0 - 5 and settlers.list[0].want != ["wood", 5]
 	var kept: Array = world_data().settlers
 	settlers.from_data(JSON.parse_string(JSON.stringify(kept)))
 	var reloaded := settlers.list.size() == n and settlers._nodes.size() == n
 	pieces[fire].fuel = world_hours() - 1.0
 	settlers.host_dawn(0.0)
-	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty()])
+	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s taught=%s paid=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty(), taught, paid])
 	get_tree().quit()
 
 
@@ -12802,6 +12925,13 @@ func debug_great() -> void:
 	var warn2 := nights_to_great()
 	nights = 6
 	print("GREAT seventh=%s warn=%d tonight=%d" % [great_night(7) and not great_night(6), warn2, nights_to_great()])
+	var was_lit := lit.duplicate()
+	var hosts := []
+	for n in [0, 4, 7]:
+		lit = range(n)
+		hosts.append(great_host())
+	lit = was_lit
+	print("GREAT hosts=%s" % ",".join(hosts))
 	clock = 22.0
 	night = true
 	player.place(gpos(WPlaces.spos("cinderwick") + Vector2(300, 0)), 0.0)
@@ -13457,6 +13587,156 @@ func squad_tag(id: int) -> String:
 	return "squad" if id in squadmates() else ""
 
 
+## What a settler at the base this pilgrim stands in asks for, or "".
+func settler_ask() -> String:
+	var b := base_at(player.global_position, 20.0, true) if is_instance_valid(player) else -1
+	if b < 0:
+		return ""
+	for s in settlers.list:
+		if int(s.fire) == b:
+			var t := WSettlers.want_text(s)
+			if t != "":
+				return t
+	return ""
+
+
+# ------------------------------------------------------------------ the roads about each town
+
+## Each town knows how safe its roads are, from 0 to 100. Foes slain near it, bands put down and raid
+## camps broken make it safer; days pass and it slips back, faster while a raid camp stands near. Its
+## folk remember who did it: every ten points a pilgrim earns there is one more step of standing (better
+## prices, and they greet you warmly). Safe roads bring fewer fights near the town; dangerous ones, more.
+const SAFETY_START := 40
+const SAFETY_REACH := 500.0   ## paces from a town's heart that count as its roads
+const SAFETY_KILL := 1
+const SAFETY_ELITE := 3
+const SAFETY_BAND := 5
+const SAFETY_CAMP := 15
+const SAFETY_DECAY := 3       ## a day: roads not kept slip back
+const SAFETY_FLED := 6        ## a band left alone digs in
+const SAFETY_CAMP_DECAY := 8  ## a day, for each raid camp standing near
+const DEED_STEP := 10         ## safety earned for one more step of standing
+var safety := {}              ## town -> 0..100
+var deeds := {}               ## town -> {name: points not yet counted toward standing}
+const SAFETY_WORDS := [[90, "Peaceful"], [60, "Safe"], [25, "Uneasy"], [0, "Dangerous"]]
+
+
+func safety_of(town: String) -> int:
+	return int(safety.get(town, SAFETY_START))
+
+
+static func safety_word(v: int) -> String:
+	for sw in SAFETY_WORDS:
+		if v >= int(sw[0]):
+			return str(sw[1])
+	return "Dangerous"
+
+
+## The town whose roads this place is on, or "".
+func town_near(p: Vector3, reach: float) -> String:
+	var best := ""
+	var bd := reach
+	for k in WPlaces.SETTLEMENTS:
+		var d := Vector2(p.x, p.z).distance_to(WPlaces.spos(k))
+		if d < bd:
+			bd = d
+			best = k
+	return best
+
+
+## A deed on a town's roads: safer roads, and the folk remember who.
+func _w_safety(town: String, amount: int, who: String) -> void:
+	if not WPlaces.SETTLEMENTS.has(town):
+		return
+	var before := safety_of(town)
+	safety[town] = clampi(before + amount, 0, 100)
+	if amount <= 0 or who == "":
+		return
+	var dd: Dictionary = deeds.get(town, {})
+	dd[who] = int(dd.get(who, 0)) + amount
+	var up := 0
+	while int(dd[who]) >= DEED_STEP:
+		dd[who] = int(dd[who]) - DEED_STEP
+		up += 1
+	deeds[town] = dd
+	if up > 0:
+		rep[town] = int(rep.get(town, 0)) + up
+		if who == Net.my_name() and not Net.dedicated:
+			hud.notify("Word reaches %s of what you have done on its roads. Its folk think better of you." % WPlaces.SETTLEMENTS[town].name)
+	if not Net.dedicated and safety_word(before) != safety_word(safety_of(town)) and safety_of(town) > before:
+		hud.notify("The roads about %s are %s now." % [WPlaces.SETTLEMENTS[town].name, safety_word(safety_of(town)).to_lower()])
+
+
+## Each dawn the roads slip back a little, and more where raid camps stand near: keeping a town safe
+## means going out and clearing its roads.
+func _safety_dawn() -> void:
+	for k in WPlaces.SETTLEMENTS:
+		var drop := SAFETY_DECAY
+		if events:
+			for id in events.active:
+				var e: Dictionary = events.active[id]
+				if e.kind == "camp" and Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k)) < SAFETY_REACH + 100.0:
+					drop += SAFETY_CAMP_DECAY
+		safety[k] = maxi(0, safety_of(k) - drop)
+
+
+## The host keeps the bands met on the roads: one put down makes the nearest town's roads safer; one
+## left alone for eight minutes, with no one near, digs in as a raid camp.
+const BAND_DIG := 480.0
+var road_bands: Array = []    ## host: {pos, foes, age}
+var _band_t := 10.0
+
+func _track_band(at: Vector3, made: Array) -> void:
+	if not Net.authority():
+		return
+	var foes := made.filter(func(f): return f != null and is_instance_valid(f))
+	if foes.is_empty():
+		return
+	var b := {"pos": at, "foes": foes, "age": 0.0, "slain": 0}
+	road_bands.append(b)
+	# Whether each one leaves the world put down (no health left) or only faded away far from everyone
+	for f in foes:
+		f.tree_exiting.connect(func():
+			if f.hp <= 0.0:
+				b.slain = int(b.slain) + 1)
+
+
+func _bands_tick(step := 10.0) -> void:
+	for b in road_bands.duplicate():
+		b.age = float(b.age) + step
+		var alive := (b.foes as Array).filter(func(f): return is_instance_valid(f) and f.is_alive())
+		var watched := false
+		for t in targets():
+			if t.global_position.distance_to(b.pos) < 150.0:
+				watched = true
+		# All gone: put down if any of them was slain; otherwise they only faded, far from everyone
+		if alive.is_empty() and int(b.slain) > 0:
+			road_bands.erase(b)
+			var tn := town_near(b.pos, SAFETY_REACH)
+			if tn != "":
+				# Credited to whoever is nearest: they put it down
+				var who := ""
+				var wd := 400.0
+				for id in Net.players if Net.online else [Net.me()]:
+					var at = player.global_position if id == Net.me() and not Net.dedicated else (avatars[id].global_position if avatars.has(id) and is_instance_valid(avatars[id]) else null)
+					if at != null and (at as Vector3).distance_to(b.pos) < wd:
+						wd = (at as Vector3).distance_to(b.pos)
+						who = Net.name_of(id) if Net.online else Net.my_name()
+				shared("_w_safety", [tn, SAFETY_BAND, who])
+			continue
+		if watched or (float(b.age) < BAND_DIG and not alive.is_empty()):
+			continue
+		road_bands.erase(b)
+		for f in alive:
+			f.die(false)
+		# Left alone (or run from), the band digs in, and the town's roads are the worse for it
+		var tn2 := town_near(b.pos, SAFETY_REACH + 200.0)
+		if tn2 != "":
+			shared("_w_safety", [tn2, -SAFETY_FLED, ""])
+		if events:
+			events._dig_in(b.pos)
+
+
 func what_now() -> Array:
 	var out: Array = []
 	var me := player.global_position
@@ -13515,6 +13795,8 @@ func what_now() -> Array:
 		grow = {"kind": "grow", "title": "A beacon boon waits", "text": "Touch any lit beacon to choose it.", "at": null}
 	elif not trade_ask().is_empty():
 		grow = trade_ask()
+	elif settler_ask() != "":
+		grow = {"kind": "grow", "title": "A settler asks", "text": settler_ask(), "at": null}
 	elif skills.points > 0:
 		grow = {"kind": "grow", "title": "%d skill point%s to spend" % [skills.points, "" if skills.points == 1 else "s"], "text": "Press %s to learn something." % Game.key_text("skills"), "at": null}
 	else:

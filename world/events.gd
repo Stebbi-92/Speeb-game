@@ -51,6 +51,9 @@ func host_tick(delta: float) -> void:
 		if e.left <= 0.0:
 			w.shared("_w_event_end", [id, false, -1])
 			if e.kind in ["caravan", "swarm"] and _alive(e) > 0:
+				var tn: String = w.town_near(e.pos, w.SAFETY_REACH + 200.0)
+				if tn != "":
+					w.shared("_w_safety", [tn, -w.SAFETY_FLED, ""])
 				_dig_in(e.pos)
 			continue
 		if e.kind in ["caravan", "swarm", "camp"] and e.has("foes") and e.foes.size() > 0:
@@ -226,6 +229,11 @@ func end(id: int, won: bool, by: int) -> void:
 		if a != null and is_instance_valid(a):
 			a.queue_free()
 		e.node.queue_free()
+	if won and e.kind == "camp":
+		# A raid camp broken: the nearest town's roads are much safer, and its folk know who did it
+		var tn: String = w.town_near(e.pos, w.SAFETY_REACH + 300.0)
+		if tn != "":
+			w._w_safety(tn, w.SAFETY_CAMP, Net.name_of(by) if by > 0 and Net.online else (Net.my_name() if by == Net.me() or by < 0 else ""))
 	if Net.dedicated or not won:
 		return
 	var near: bool = w.player.global_position.distance_to(e.pos) < 90.0 or by == Net.me()

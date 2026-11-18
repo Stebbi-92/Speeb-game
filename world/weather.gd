@@ -8,13 +8,17 @@ const SEASON_DAYS := 5
 ## name, [dusk, dawn], weather odds {kind: weight}, a few words when it comes
 const SEASONS := [
 	{"name": "The Thaw", "dusk": 20.0, "dawn": 5.0, "odds": {"clear": 5, "rain": 4, "gale": 1},
-		"text": "The Thaw. Rain comes in off the sea, and the ash turns to mud."},
+		"text": "The Thaw. Rain comes in off the sea, and the ash turns to mud.",
+		"ahead": "The air is softer tonight. The Thaw comes tomorrow: rain, and longer days."},
 	{"name": "High Ember", "dusk": 21.0, "dawn": 4.5, "odds": {"clear": 6, "ashstorm": 2, "gale": 1},
-		"text": "High Ember. Long days and short nights; the dunes are hotter, and the ash blows."},
+		"text": "High Ember. Long days and short nights; the dunes are hotter, and the ash blows.",
+		"ahead": "The wind is warm and dry. High Ember comes tomorrow: short nights, and the dunes burn."},
 	{"name": "Ashfall", "dusk": 19.5, "dawn": 5.5, "odds": {"clear": 3, "ashstorm": 4, "rain": 2, "gale": 2},
-		"text": "Ashfall. The great storms come. Cover your face and keep to shelter."},
+		"text": "Ashfall. The great storms come. Cover your face and keep to shelter.",
+		"ahead": "The sky is brown at the edges. Ashfall comes tomorrow: lay in veils, and keep near shelter."},
 	{"name": "Salt Frost", "dusk": 18.0, "dawn": 7.0, "odds": {"clear": 3, "frost": 5, "gale": 2},
-		"text": "Salt Frost. Long nights, and a cold that kills. Dress warm, and keep a fire."},
+		"text": "Salt Frost. Long nights, and a cold that kills. Dress warm, and keep a fire.",
+		"ahead": "There is rime on the salt this morning. Salt Frost comes tomorrow: dress warm, and stock the fire."},
 ]
 const KINDS := {
 	"clear": {"name": "Clear", "fog": 0.0, "swell": 0.4, "wind": 0.4},

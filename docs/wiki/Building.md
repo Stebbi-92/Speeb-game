@@ -55,3 +55,11 @@ While building, the pack key (**I**) opens the pieces to pick from. Rain and sno
 |---|---|---|---|
 | **Spike Barricade** | 4 Deadwood | 220 | Hurts what walks into it. |
 | **Palisade** | 8 Deadwood | 650 | Sharpened logs on a floor's edge. Tougher than a wall. |
+
+## Settlers
+
+A snug base (a lit fire, walls, a roof, a light) with a spare bed draws a wanderer at dawn now and then, up to three a fire. Each keeps to a trade and leaves what it brings in the base's chest each dawn.
+
+- The first of each trade to settle teaches the fellowship a recipe: the woodcutter the Shipwright's Folio, the salt-digger the Salter's Receipts, the scavenger the Gunwright's Ledger, the hunter the Herbwife's Notes, and the fire-keeper the Lamplighter's Primer.
+- Each asks for something now and then (What now says what, when you stand at the base). Leave it in the base's chest: at dawn it is taken, and they leave something good in its place.
+- Let the fire die and they go.

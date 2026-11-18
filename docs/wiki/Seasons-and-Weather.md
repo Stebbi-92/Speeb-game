@@ -24,6 +24,16 @@ An ash storm chokes anyone whose face is not covered. Salt frost bites at night 
 
 Every seventh night the great raid comes, in three waves, for the camp you keep or for you. You are warned two nights ahead. Beat it back, and the forms leave what they carried.
 
+Who comes changes as the beacons are lit:
+
+| Beacons lit | The host | Its lead |
+|---|---|---|
+| 0 to 2 | The Hollow Pilgrimage: the Hollowed, Lost Vigils, Salt-Bones | a Gravewarden |
+| 3 to 5 | The Unlit War Band: gunmen, blades, marksmen, firebrands | two Unlit Breakers |
+| 6 or more | The Iron Host: Pale Deacons, Tar-Drowned, blades, the Hollowed | an Ashen Knight and a Hollow Colossus |
+
+The day before a season turns, you are told what it brings.
+
 ## Trophy powers
 
 Build a Trophy Shrine at your camp. Lay a great one's trophy on it once; from then on, kneel at any shrine to take up its power for half an hour. One power at a time.

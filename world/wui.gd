@@ -2639,11 +2639,19 @@ func _speaker_head(pd: Dictionary) -> void:
 	nv.add_child(_label(pd.title, 17, DIM))
 	top.add_child(nv)
 	var st := int(w.rep.get(pd.at, 0))
+	var sv: int = w.safety_of(pd.at) if WPlaces.SETTLEMENTS.has(pd.at) else -1
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 0)
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if st > 0:
 		var c := _label("Standing in %s: %d" % [WPlaces.SETTLEMENTS[pd.at].name, st], 16, GOLD)
-		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		top.add_child(c)
+		cv.add_child(c)
+	if sv >= 0:
+		var r := _label("Its roads: %s (%d)" % [Wasteland.safety_word(sv), sv], 15, DIM)
+		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cv.add_child(r)
+	top.add_child(cv)
 	_body.add_child(top)
 	_close_and_rule(top)
 
