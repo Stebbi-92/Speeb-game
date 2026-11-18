@@ -21,6 +21,8 @@ var _eye_h := -1.0
 var _shot := {}
 var _hidden: Array = []
 var _track := Vector3.INF
+var _aim_err := 1.0   ## how far the eye is off the form it follows, in radians
+var _has_target := false
 
 
 func _init(path: String) -> void:
@@ -259,7 +261,7 @@ func _shoot(s: Dictionary) -> void:
 		pl.cam.fov = float(s.get("fov", 75.0))
 		wpn.enabled = true
 		wpn.visible = true
-		_arm(wpn, str(s.get("gun", "")))
+		_arm(wpn, str(s.get("gun", "")), str(s.get("sight", "")))
 	else:
 		cam.make_current()
 		cam.fov = float(s.get("fov", 55.0))
@@ -289,6 +291,11 @@ func _shoot(s: Dictionary) -> void:
 		e.rotation.y = atan2(fpnt.x - tgt.x, fpnt.z - tgt.z) + PI   # the bodies are built facing +z
 		if e.get("_bar_t") != null:
 			e._bar_t = 0.0
+		if f.has("hp"):
+			e.hp = float(f.hp)
+			e.max_hp = float(f.hp)
+		if f.has("aim_y"):
+			e.set_meta("aim_y", float(f.aim_y))
 		if f.get("still", false):
 			e.set_physics_process(false)
 		forms.append(e)
@@ -377,17 +384,28 @@ func _tracked(eye: Vector3, rest: Vector3) -> Vector3:
 			bd = to.length()
 			best = e
 	var want := rest
+	_has_target = best != null
 	if best:
-		want = best.global_position + Vector3(0, 0.7 * float(_shot.get("aim_up", 1.0)), 0)
+		var ay := float(best.get_meta("aim_y")) if best.has_meta("aim_y") else float(_shot.get("aim_y", 0.9))
+		want = best.global_position + Vector3(0, ay, 0)
 	if _track == Vector3.INF:
 		_track = want
-	_track = _track.lerp(want, minf(1.0, _dt() * float(_shot.get("track_speed", 5.0))))
+	_track = _track.lerp(want, minf(1.0, _dt() * float(_shot.get("track_speed", 8.0))))
+	_aim_err = (_track - eye).normalized().angle_to((want - eye).normalized())
 	return _track
 
 
 ## Takes up the gun the shot asks for, full.
-func _arm(wpn, g: String) -> void:
+func _arm(wpn, g: String, sight := "") -> void:
 	if g != "" and ArmsDB.GUNS.has(g):
+		# The sight the shot asks for, fitted as the arms bench would
+		var a: Dictionary = Game.arms_now()
+		if not a.get("mounts") is Dictionary:
+			a["mounts"] = {}
+		a.mounts[g] = [sight] if sight != "" else []
+		if wpn._models.has(g):
+			wpn._models[g].queue_free()
+			wpn._models.erase(g)
 		if not g in wpn.guns:
 			wpn.guns[0] = g
 		if not wpn._st.has(g):
@@ -409,6 +427,9 @@ func _guns(wpn, s: Dictionary, t: float) -> void:
 		if t >= float(win[0]) and t < float(win[1]):
 			if wpn.shells <= 1:
 				wpn.refill()
+			# Following a form, fire only once the sights are on it, so every shot lands
+			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.03)):
+				continue
 			wpn._try_fire()
 
 
