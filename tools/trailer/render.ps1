@@ -45,7 +45,7 @@ $raw = "$Root\out\raw.avi"
 Remove-Item $raw -ErrorAction SilentlyContinue
 $userDir = Join-Path $env:APPDATA "BrelmTrailer"
 Remove-Item "$userDir\trailer_cuts.json" -ErrorAction SilentlyContinue
-$gargs = @("--path", $Game, "--resolution", $Res, "--write-movie", $raw, "--", "level=12", "trailer=$Shots")
+$gargs = @("--path", $Game, "--resolution", $Res, "--fixed-fps", "60", "--write-movie", $raw, "--", "level=12", "trailer=$Shots")
 if ($Only -ne "") { $gargs += "only=$Only" }
 Write-Host "Filming... (the game window shows each shot slowly; leave it be)"
 $t0 = Get-Date

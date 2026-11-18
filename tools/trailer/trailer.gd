@@ -19,6 +19,7 @@ var _clean_t := 0.0
 var _only := ""
 var _eye_h := -1.0
 var _shot := {}
+var _hidden: Array = []
 
 
 func _init(path: String) -> void:
@@ -70,7 +71,10 @@ func _run() -> void:
 	w = main.level
 	while not w.ready_world:
 		await get_tree().create_timer(1.0).timeout
-	print("TRAILER world ready seed=%d frame=%d" % [w.world_seed, _now()])
+	await get_tree().process_frame
+	if Engine.get_write_movie_path() != "":
+		fps = roundf(1.0 / get_process_delta_time())
+	print("TRAILER world ready seed=%d frame=%d fps=%d" % [w.world_seed, _now(), int(fps)])
 	w.combat_frozen = true
 	_hold_hp = true
 	if w.hud and w.hud.get("root"):
@@ -191,6 +195,11 @@ func _set_hour(h: float) -> void:
 func _shoot(s: Dictionary) -> void:
 	var name := str(s.get("name", "shot"))
 	_shot = s
+	if s.get("columns", false):
+		for c in _hidden:
+			if is_instance_valid(c):
+				c.layers = 1
+		_hidden.clear()
 	var a := _anchor(s)
 	var dur := float(s.get("dur", 6.0))
 	var fp := str(s.get("mode", "cine")) == "fp"
@@ -387,8 +396,9 @@ func _clean(n: Node) -> void:
 	for c in n.get_children():
 		if c is Label3D:
 			c.visible = false
-		elif c is MeshInstance3D and c.mesh is CylinderMesh and (((c.mesh as CylinderMesh).height >= 150.0 and (c.mesh as CylinderMesh).height < 250.0) or (not (c.mesh as CylinderMesh).cap_top and (c.mesh as CylinderMesh).radial_segments == 10)) and not _shot.get("columns", false):
-			c.visible = false   # the map's guide columns
+		elif c is MeshInstance3D and c.layers != 0 and c.mesh is CylinderMesh and (((c.mesh as CylinderMesh).height >= 150.0 and (c.mesh as CylinderMesh).height < 250.0) or (not (c.mesh as CylinderMesh).cap_top and (c.mesh as CylinderMesh).radial_segments == 10)) and not _shot.get("columns", false):
+			_hidden.append(c)
+			c.layers = 0   # the map's guide columns (the game sets their visibility itself, so hide them from the camera instead)
 		if c.get("_bar") is MeshInstance3D:
 			c._bar.visible = false
 		_clean(c)
