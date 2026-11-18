@@ -50,6 +50,10 @@ func _ready() -> void:
 		elif a.begins_with("pos="):
 			_debug_pos = a.substr(4).split_floats(",")
 	for a in args:
+		# Filming aid: flies the camera through a list of shots (tools/trailer/README.md)
+		if a.begins_with("trailer=") and ResourceLoader.exists("res://tools/trailer/trailer.gd"):
+			add_child(load("res://tools/trailer/trailer.gd").new(a.substr(8)))
+	for a in args:
 		if a.begins_with("call="):
 			_debug_call(a.substr(5))
 		if a.begins_with("shots="):
