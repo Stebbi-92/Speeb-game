@@ -7647,6 +7647,23 @@ func debug_roofrain() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the empty-field test sets the ground, the arms and three forms, and sends three more when they fall.
+func debug_field() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	dev.god = true
+	dev.field_test()
+	await get_tree().create_timer(1.0).timeout
+	var first: int = dev._field_foes.size()
+	var armed: bool = player.weapon.gun() == "shotgun" and arms.melee == "hatchet"
+	var open: bool = not safe_at(player.global_position) and land_at(player.global_position) == "ash"
+	for e in dev._field_foes.duplicate():
+		e.die(false)
+	await get_tree().create_timer(0.5).timeout
+	print("FIELD first=%d armed=%s open=%s kills=%d again=%d" % [first, armed, open, dev.field_kills, dev._field_foes.size()])
+	get_tree().quit()
+
+
 ## Testing aid: a blow at a node throws chips (more on the last), and they clear away after.
 func debug_chips() -> void:
 	while not ready_world:

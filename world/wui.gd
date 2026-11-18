@@ -3379,6 +3379,7 @@ func _draw_dev() -> void:
 	if host:
 		_dev_grid("Foes", [
 			["Kill all near", func(): _dev_do(func(): w.hud.notify("%d fell." % d.kill_near()))],
+			["Empty-field test (5 min)", func(): _dev_do(func(): d.field_test(), true)],
 			["Danger 1 foes", func(): _dev_do(func(): d.spawn_tier(1), true)],
 			["Danger 2 foes", func(): _dev_do(func(): d.spawn_tier(2), true)],
 			["Danger 3 foes", func(): _dev_do(func(): d.spawn_tier(3), true)],

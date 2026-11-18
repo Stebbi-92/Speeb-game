@@ -103,6 +103,7 @@ check fog       debug_fog      "FOG isle_dark=true little=true beacon=true carri
 check traces    debug_traces   "TRACES count=16 dry=16 paid=25 kept=4"
 check roofrain  debug_roofrain "ROOFRAIN under=true out=true"
 check chips     debug_chips    "CHIPS first=6 last=14 left=0 heard=crumble,thud floats=2 fell=1 gone=true"
+check field     debug_field    "FIELD first=3 armed=true open=true kills=3 again=3"
 check bestiary  debug_bestiary "BESTIARY page=true fire=true once=true kept=true"
 check hostleave debug_hostleave "HOSTLEAVE took=[0-9]+ quick=true offline=true"
 check rocketdrop debug_rocketdrop "ROCKETDROP fell=0\.[6-9][0-9] nose_down=true"

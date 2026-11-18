@@ -31,6 +31,8 @@ func host() -> bool:
 func tick() -> void:
 	if meter:
 		_tick_meter()
+	if field_until > 0:
+		_tick_field()
 	if not god or w.player == null:
 		return
 	w.player.health = w.player.max_health
@@ -263,3 +265,74 @@ func spawn_tier(t: int) -> int:
 		if w._spawn_near(k, w.player.global_position, 10.0, 16.0, true):
 			n += 1
 	return n
+
+
+## The empty-field test (gameplay bible, section 10): open ground at noon, a tree close by, a shotgun and
+## the hatchet, and three forms of the near lands. When the three fall, three more come, for five minutes.
+## If those five minutes are not fun, that comes before anything else.
+const FIELD_SECS := 300
+var field_until := 0        ## when the test ends (ticks, ms), or 0
+var field_at := Vector3.ZERO
+var field_kills := 0
+var _field_foes: Array = []
+
+
+func field_test() -> void:
+	if not host():
+		return
+	var best := Vector3.INF
+	var p: Vector3 = w.player.global_position
+	for nd in w.nodes:
+		if nd.kind != "tree" or int(nd.charges) <= 0:
+			continue
+		var np: Vector3 = nd.pos
+		if w.land_at(np) != "ash" or w.safe_at(np) or w.settlement_at(np, 120.0) != "" or w.tier_at(np) != 1:
+			continue
+		if best == Vector3.INF or np.distance_to(p) < best.distance_to(p):
+			best = np
+	if best == Vector3.INF:
+		w.hud.notify("No open ground with a tree near enough.")
+		return
+	kill_near()
+	go(best + Vector3(5.0, 0, 0))
+	set_hour(12.0)
+	var a: Dictionary = w.arms
+	if not "shotgun" in a.owned:
+		a.owned.append("shotgun")
+	WArms.carry(a, "shotgun", "primary")
+	a.melee = "hatchet"
+	w.rearm()
+	w.inv.add("shells", 120)
+	field_at = best
+	field_kills = 0
+	_field_foes.clear()
+	field_until = Time.get_ticks_msec() + FIELD_SECS * 1000
+	w.hud.notify("The empty field: five minutes, one gun, one blade, a tree and three forms. Is it fun?")
+	WPlaylog.note("Empty-field test begun")
+
+
+func _tick_field() -> void:
+	var left := _field_foes.filter(func(e): return is_instance_valid(e) and e.is_alive())
+	field_kills += _field_foes.size() - left.size()
+	_field_foes = left
+	if Time.get_ticks_msec() >= field_until:
+		field_until = 0
+		for e in _field_foes:
+			e.die(false)
+		_field_foes.clear()
+		var msg := "Five minutes in the empty field: %d forms felled." % field_kills
+		w.hud.notify(msg + " Was it fun? Note it in the playtest log.")
+		WPlaylog.note("Empty-field test ended: %d felled" % field_kills)
+		return
+	if _field_foes.is_empty() and w.player.global_position.distance_to(field_at) < 80.0:
+		for i in 8:
+			if _field_foes.size() >= 3:
+				break
+			var k: String = ["rusher", "rusher", "spider", "spitter", "swarm"][randi() % 5]
+			var e = w._spawn_near(k, field_at, 12.0, 24.0, true)
+			if e:
+				e.set_meta("raid", true)   # not unmade by the ground's own rules while the test runs
+				if e.has_method("seek"):
+					e.seek(w.player.global_position, 40.0)
+				_field_foes.append(e)
+
