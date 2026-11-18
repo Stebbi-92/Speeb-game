@@ -127,6 +127,7 @@ check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=t
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"
 check treebody   debug_treebody "TREEBODY bodies=[0-9]+ shapes=[0-9]+ solid=true"
 check doorwalk   debug_doorwalk "DOORWALK tried=8 inside=[7-8]"
+check townplans debug_townplans "TOWNPLANS towns=9 styles=7"
 check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=5"
 check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"

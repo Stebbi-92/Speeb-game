@@ -1,0 +1,502 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 1959,
+      "bufferView": 0,
+      "byteOffset": 0
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 594,
+      "bufferView": 0,
+      "byteOffset": 3920
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 1014,
+      "bufferView": 0,
+      "byteOffset": 5108
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 1620,
+      "bufferView": 0,
+      "byteOffset": 7136
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 4230,
+      "bufferView": 0,
+      "byteOffset": 10376
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 765,
+      "max": [
+        0.23902001976966858,
+        0.0499800443649292,
+        0.4547504484653473
+      ],
+      "min": [
+        -0.5309795141220093,
+        -0.006867647171020508,
+        -0.006987258791923523
+      ],
+      "bufferView": 1,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 765,
+      "bufferView": 1,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 765,
+      "bufferView": 1,
+      "byteOffset": 24
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 129,
+      "max": [
+        0.21804064512252808,
+        0.059616610407829285,
+        0.002632174640893936
+      ],
+      "min": [
+        -0.21804064512252808,
+        -0.002062629908323288,
+        -0.003393358550965786
+      ],
+      "bufferView": 2,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 129,
+      "bufferView": 2,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 129,
+      "bufferView": 2,
+      "byteOffset": 24
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 358,
+      "max": [
+        0.20776356756687164,
+        0.008554084226489067,
+        0.01017305999994278
+      ],
+      "min": [
+        -0.20776356756687164,
+        -0.10190776735544205,
+        -0.008944799192249775
+      ],
+      "bufferView": 3,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 358,
+      "bufferView": 3,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 358,
+      "bufferView": 3,
+      "byteOffset": 24
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 347,
+      "max": [
+        0.3041503429412842,
+        0.23409703373908997,
+        0.30862098932266235
+      ],
+      "min": [
+        -0.4100392758846283,
+        0.023332038894295692,
+        -0.1881302297115326
+      ],
+      "bufferView": 4,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 347,
+      "bufferView": 4,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 347,
+      "bufferView": 4,
+      "byteOffset": 24
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 1491,
+      "max": [
+        0.4022199809551239,
+        0.25792616605758667,
+        0.21899999678134918
+      ],
+      "min": [
+        -0.40234997868537903,
+        -0.000014290213584899902,
+        -0.2290036678314209
+      ],
+      "bufferView": 5,
+      "byteOffset": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5126,
+      "count": 1491,
+      "bufferView": 5,
+      "byteOffset": 12
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 1491,
+      "bufferView": 5,
+      "byteOffset": 24
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 18836,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 18836,
+      "byteLength": 24480,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 43316,
+      "byteLength": 4128,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 47444,
+      "byteLength": 11456,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 58900,
+      "byteLength": 11104,
+      "byteStride": 32,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 70004,
+      "byteLength": 47712,
+      "byteStride": 32,
+      "target": 34962
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 1,
+      "sampler": 0
+    },
+    {
+      "source": 0,
+      "sampler": 0
+    },
+    {
+      "source": 2,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "old_military_crate_nor_gl",
+      "mimeType": "image/jpeg",
+      "uri": "normal_1.jpg"
+    },
+    {
+      "name": "old_military_crate_diff",
+      "mimeType": "image/jpeg",
+      "uri": "baseColor_1.jpg"
+    },
+    {
+      "name": "old_military_crate_metal-old_military_crate_rough",
+      "mimeType": "image/jpeg",
+      "uri": "metallicRoughness_1.jpg"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "old_military_crate.bin",
+      "byteLength": 117716
+    }
+  ],
+  "materials": [
+    {
+      "name": "military_crate_m_01",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Mesh.005",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 5,
+            "NORMAL": 6,
+            "TEXCOORD_0": 7
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    },
+    {
+      "name": "NurbsPath",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 8,
+            "NORMAL": 9,
+            "TEXCOORD_0": 10
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 1
+        }
+      ]
+    },
+    {
+      "name": "Cube.006",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 11,
+            "NORMAL": 12,
+            "TEXCOORD_0": 13
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 2
+        }
+      ]
+    },
+    {
+      "name": "Cloth_MFlat.002",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 14,
+            "NORMAL": 15,
+            "TEXCOORD_0": 16
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 3
+        }
+      ]
+    },
+    {
+      "name": "Mesh.015",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 17,
+            "NORMAL": 18,
+            "TEXCOORD_0": 19
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "old_military_crate_lid_a",
+      "translation": [
+        -0.35402026772499084,
+        0.2509384751319885,
+        -0.22201603651046753
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "old_military_crate_loop_a",
+      "translation": [
+        -0.5,
+        0.20923833549022675,
+        0.22309820353984833
+      ],
+      "mesh": 1
+    },
+    {
+      "name": "old_military_crate_latch_a",
+      "translation": [
+        -0.5,
+        0.2271214872598648,
+        0.22715239226818085
+      ],
+      "mesh": 2
+    },
+    {
+      "name": "old_military_crate_cloth_a",
+      "translation": [
+        -0.5,
+        0.02412991225719452,
+        0
+      ],
+      "mesh": 3
+    },
+    {
+      "name": "old_military_crate_a",
+      "translation": [
+        -0.5,
+        0,
+        0
+      ],
+      "mesh": 4
+    },
+    {
+      "name": "old_military_crate_lid_b",
+      "translation": [
+        0.6459797620773315,
+        0.2509384751319885,
+        -0.22201603651046753
+      ],
+      "rotation": [
+        0.9955394864082336,
+        0,
+        0,
+        0.09434600174427032
+      ],
+      "mesh": 0
+    },
+    {
+      "name": "old_military_crate_loop_b",
+      "translation": [
+        0.5,
+        0.20923833549022675,
+        0.22309820353984833
+      ],
+      "rotation": [
+        0.9830907583236694,
+        0,
+        0,
+        0.183118999004364
+      ],
+      "mesh": 1
+    },
+    {
+      "name": "old_military_crate_latch_b",
+      "translation": [
+        0.5,
+        0.2271214872598648,
+        0.22715239226818085
+      ],
+      "mesh": 2
+    },
+    {
+      "name": "old_military_crate_cloth_b",
+      "translation": [
+        0.5,
+        0.02412991225719452,
+        0
+      ],
+      "mesh": 3
+    },
+    {
+      "name": "old_military_crate_b",
+      "translation": [
+        0.5,
+        0,
+        0
+      ],
+      "mesh": 4
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    }
+  ],
+  "scene": 0
+}

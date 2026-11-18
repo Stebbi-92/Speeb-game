@@ -9,6 +9,8 @@ Brelm alpha 0.13.3: clear view
 - T uses the best healing you carry (the elixir first if you burn or are in tar).
 - The great ones have bodies of their own, each with its Speeb's head: a hound of embers, a sand worm, a stone golem, a long bone beast and a tar-black widow.
 - The dead and the Unlit have true bodies: a rotting walker, a black knight, a horned lich, a sheet ghost, a bare skeleton and a soldier in black.
+- What lies about the waste is real now: rusted barrels, ammo crates, sacks, jerrycans, tyres, stumps, roots and boulders in place of the toy-like pieces.
+- No two towns are laid out alike: some crowd to one side with a fenced yard on the other, some stand in squared rows or along a crooked lane, some in two knots. Their walls run in and out.
 - Living trees stand in clumps through the dead forest and on the isles. You cannot walk through their trunks.
 - Air support in the trials flies real aircraft: a gunship, a ground-attack jet and fighters.
 - The lesser forms have real cat bodies now, that stand, walk and stalk.

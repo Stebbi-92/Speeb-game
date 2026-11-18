@@ -711,7 +711,8 @@ func _build_settlement(k: String) -> void:
 		var a := TAU * i / n
 		if absf(wrapf(a - PI * 0.5, -PI, PI)) < 0.12 or absf(wrapf(a + PI * 0.5, -PI, PI)) < 0.12:
 			continue
-		var p := c + Vector3(cos(a) * r, 0, sin(a) * r)
+		var wr := town_wall_r(k, a)
+		var p := c + Vector3(cos(a) * wr, 0, sin(a) * wr)
 		p.y = terrain.height_at(p.x, p.z)
 		var hgt := rr.randf_range(3.2, 4.2)
 		cyl(p + Vector3(0, hgt * 0.5 - 0.4, 0), 0.22, hgt, wall, true, 0.14, 6)
@@ -836,11 +837,43 @@ var _rumoured := {}           ## ruins already told of at an inn, this session
 ## Where a town's buildings stand, the same every time. Each town has its own way of being laid out:
 ## a ring about the fire, a street between the gates, or houses clustered as they were put up.
 ## Each: {kind, off, yaw, w, d} (w, d in cells for houses and the inn; a few metres for the rest).
-const TOWN_STYLES := ["ring", "street", "cluster"]
+## No two towns are laid out alike: each has its own way, its own lean to one side, and its own wall.
+## ring: about the fire. street: two rows from gate to gate. cluster: put up as they came.
+## crescent: crowded to one side, a yard left open on the other. terrace: rows set square to a line of
+## its own, not to the fire. lane: houses along a crooked lane from gate to gate. quarters: two knots of
+## houses with open ground between.
+const TOWN_STYLES := ["ring", "street", "cluster", "crescent", "terrace", "lane", "quarters"]
+const TOWN_STYLE_OF := {"cinderwick": "cluster", "lanternwell": "crescent", "hesk": "street", "kiln": "terrace",
+	"mourners": "ring", "gallowmere": "lane", "saltreach": "terrace", "emberhollow": "quarters", "lastlight": "crescent",
+	"maud": "cluster", "tobin": "lane", "wren": "quarters"}
 
 
 func town_style(k: String) -> String:
-	return TOWN_STYLES[absi(hash(k + "style")) % TOWN_STYLES.size()]
+	return TOWN_STYLE_OF.get(k, TOWN_STYLES[absi(hash(k + "style")) % TOWN_STYLES.size()])
+
+
+## Which way a town leans: the bearing its houses crowd toward (or its terrace is squared to).
+func town_lean(k: String) -> float:
+	var rr := RandomNumberGenerator.new()
+	rr.seed = hash(k + "lean")
+	# Kept off the gate road, so the crowded side is to one hand of it
+	return (PI if rr.randf() < 0.5 else 0.0) + rr.randf_range(-0.9, 0.9)
+
+
+## How far out a town's wall stands at bearing a: no wall is a true ring. It runs in and out as the
+## ground and the builders had it, full out only at its two gates.
+func town_wall_r(k: String, a: float) -> float:
+	var r: float = WPlaces.SETTLEMENTS[k].radius
+	var h := absi(hash(k + "wall"))
+	var p1 := float(h % 628) / 100.0
+	var p2 := float((h / 628) % 628) / 100.0
+	var p3 := float((h / 394384) % 628) / 100.0
+	var bump := 0.5 + 0.25 * sin(a * 2.0 + p1) + 0.15 * sin(a * 3.0 + p2) + 0.1 * sin(a * 5.0 + p3)
+	var lean := town_lean(k)
+	bump = clampf(bump + 0.25 * cos(a - (lean + PI)), 0.0, 1.0)   # the open side is pulled in least
+	var to_gate := minf(absf(wrapf(a - PI * 0.5, -PI, PI)), absf(wrapf(a + PI * 0.5, -PI, PI)))
+	var g := smoothstep(0.12, 0.5, to_gate)
+	return r * (1.0 - 0.2 * (1.0 - bump) * g)
 
 
 func _town_plan(k: String) -> Array:
@@ -858,7 +891,7 @@ func _town_plan(k: String) -> Array:
 	# Whether a footprint of radius fr fits at off: inside the wall, off the gate road and the hearth,
 	# clear of the people who stand there and of what is built already
 	var fits := func(off: Vector2, fr: float) -> bool:
-		if off.length() + fr > r - 2.5 or off.length() - fr < 5.5:
+		if off.length() + fr > town_wall_r(k, atan2(off.y, off.x)) - 2.5 or off.length() - fr < 5.5:
 			return false
 		if absf(off.x) < fr + 2.2 and absf(off.y) > r * 0.45:
 			return false   # the gate road, north to south
@@ -875,22 +908,61 @@ func _town_plan(k: String) -> Array:
 		return atan2(-off.x, -off.y)
 	# The inn first, toward the middle
 	var inn_fr: float = foot.call(3 * G, 2 * G)
-	for a in [0.0, PI, 0.5, PI - 0.5, -0.5, PI + 0.5, 1.0, PI - 1.0]:
-		var off := Vector2(cos(a), sin(a)) * r * 0.5
+	# The inn first, toward the middle, on the side the town leans to (or across from it)
+	var inn_a := town_lean(k) + (0.0 if style in ["crescent", "quarters", "lane"] else rr.randf_range(-1.2, 1.2))
+	var inn_d := r * rr.randf_range(0.42, 0.55)
+	for a0 in [0.0, 0.5, -0.5, 1.0, -1.0, PI, PI - 0.5, PI + 0.5, 1.5, -1.5]:
+		var a: float = inn_a + a0
+		var off := Vector2(cos(a), sin(a)) * inn_d
 		if fits.call(off, inn_fr - 1.0):
 			out.append({"kind": "inn", "off": off, "yaw": face_c.call(off), "w": 3, "d": 2, "fr": inn_fr - 1.0})
 			break
 	# Then the houses, of a few sizes
 	var want := 8 + rr.randi() % 4
+	if style in ["crescent", "quarters"]:
+		want -= 1   # room left for the yard
+	elif style == "terrace":
+		want += 1
 	var tries := 0
-	while tries < 400 and out.size() < want + 1:
+	while tries < 600 and out.size() < want + 1:
 		tries += 1
 		var w: int = [2, 2, 2, 3][rr.randi() % 4]
 		var d: int = [2, 2, 3][rr.randi() % 3]
 		var fr: float = foot.call(w * G, d * G) - 0.6
 		var off := Vector2.ZERO
 		var yaw := 0.0
+		var lean := town_lean(k)
 		match style:
+			"crescent":
+				# Crowded on one side; the other left open for a yard
+				var a := lean + rr.randf_range(-1.8, 1.8)
+				off = Vector2(cos(a), sin(a)) * r * rr.randf_range(0.3, 0.78)
+				yaw = face_c.call(off) + rr.randf_range(-0.25, 0.25)
+			"terrace":
+				# Rows on a line of the town's own, each house square to it, back to back across a lane
+				var ax := Vector2(cos(lean), sin(lean))
+				var nx := Vector2(-ax.y, ax.x)
+				var row := rr.randi_range(-2, 2)
+				var col := rr.randi_range(-3, 3)
+				off = ax * (col * (G * 2.0 + 2.5) + (row % 2) * 2.0) + nx * (row * (G * 2.0 + 3.5))
+				yaw = atan2(nx.x, nx.y) + (PI if row % 2 == 0 else 0.0)
+			"lane":
+				# Along a crooked lane from the south gate to the north, bent to one side and back
+				var t := rr.randf_range(-0.82, 0.82)
+				var bend := (1.0 if lean < PI * 0.5 or lean > PI * 1.5 else -1.0) * r * 0.32
+				var lane := Vector2(sin(t * PI) * bend, t * r)
+				var tng := Vector2(cos(t * PI) * bend * PI / r, 1.0).normalized()
+				var nrm := Vector2(-tng.y, tng.x) * (-1.0 if rr.randf() < 0.5 else 1.0)
+				if absf(t) < 0.2:
+					continue   # the square about the fire
+				off = lane + nrm * rr.randf_range(6.5, 9.5)
+				yaw = atan2(-nrm.x, -nrm.y) + rr.randf_range(-0.08, 0.08)
+			"quarters":
+				# Two knots of houses, open ground between
+				var q := lean + (0.0 if rr.randf() < 0.6 else 2.3)
+				var mid := Vector2(cos(q), sin(q)) * r * 0.52
+				off = mid + Vector2(rr.randf_range(-1, 1), rr.randf_range(-1, 1)) * r * 0.32
+				yaw = atan2(-(off - mid).x, -(off - mid).y) + rr.randf_range(-0.4, 0.4) if (off - mid).length() > 2.0 else rr.randf() * TAU
 			"ring":
 				var a := rr.randf() * TAU
 				off = Vector2(cos(a), sin(a)) * r * rr.randf_range(0.58, 0.7)
@@ -911,17 +983,40 @@ func _town_plan(k: String) -> Array:
 		if not fits.call(off, fr):
 			continue
 		out.append({"kind": "house", "off": off, "yaw": yaw, "w": w, "d": d, "fr": fr})
+	# A town too tight for its way still has its homes: the rest put up wherever they fit
+	var homes := out.filter(func(o): return o.kind == "house").size()
+	tries = 0
+	while homes < 7 and tries < 400:
+		tries += 1
+		var w: int = [2, 2, 3][rr.randi() % 3]
+		var d: int = 2
+		var fr: float = foot.call(w * G, d * G) - 0.6
+		var a := rr.randf() * TAU
+		var off := Vector2(cos(a), sin(a)) * r * rr.randf_range(0.3, 0.75)
+		if fits.call(off, fr):
+			out.append({"kind": "house", "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.5, 0.5), "w": w, "d": d, "fr": fr})
+			homes += 1
 	# And what a town has besides: a smithy, a well, market stalls, a watchtower by the wall
 	var extras := [["smithy", 3.2], ["well", 1.6], ["stall", 1.8], ["stall", 1.8], ["tower", 1.8]]
 	if s.get("far", false):
 		extras = [["well", 1.6], ["stall", 1.8], ["tower", 1.8]]
+	# A yard on the open side: a pen, a patch of ground worked for what will grow, the town's stores
+	if style in ["crescent", "quarters", "terrace"]:
+		var ya := town_lean(k) + PI + (1.15 if style == "quarters" else 0.0)
+		for t in 8:
+			var off := Vector2(cos(ya), sin(ya)) * r * (0.5 - t * 0.03)
+			if fits.call(off, 4.0):
+				out.append({"kind": "yard", "off": off, "yaw": face_c.call(off), "w": 1, "d": 1, "fr": 4.0})
+				break
+			ya += 0.25 * (1.0 if t % 2 == 0 else -1.0) * (t + 1)
 	for ex in extras:
 		for t in 60:
 			var a := rr.randf() * TAU
 			var dist: float = r * (rr.randf_range(0.82, 0.88) if ex[0] == "tower" else rr.randf_range(0.25, 0.6))
 			var off := Vector2(cos(a), sin(a)) * dist
-			if ex[0] == "tower" and off.length() + float(ex[1]) > r - 1.0:
-				off = off.normalized() * (r - float(ex[1]) - 1.2)
+			var wr := town_wall_r(k, a)
+			if ex[0] == "tower":
+				off = off.normalized() * minf(off.length(), wr - float(ex[1]) - 1.2)
 			var ok := true
 			if ex[0] == "tower":
 				for o in out:
@@ -941,7 +1036,17 @@ func _town_plan(k: String) -> Array:
 func _town_paths(k: String) -> void:
 	var c := WPlaces.spos(k)
 	var r: float = WPlaces.SETTLEMENTS[k].radius
-	terrain.add_road(PackedVector2Array([c + Vector2(0, -r - 4.0), c, c + Vector2(0, r + 4.0)]), 3.2)
+	if town_style(k) == "lane":
+		# The crooked lane, gate to gate
+		var bend := (1.0 if town_lean(k) < PI * 0.5 or town_lean(k) > PI * 1.5 else -1.0) * r * 0.32
+		var pts := PackedVector2Array([c + Vector2(0, -r - 4.0)])
+		for i in 11:
+			var t := -0.9 + i * 0.18
+			pts.append(c + Vector2(sin(t * PI) * bend, t * r))
+		pts.append(c + Vector2(0, r + 4.0))
+		terrain.add_road(pts, 3.2)
+	else:
+		terrain.add_road(PackedVector2Array([c + Vector2(0, -r - 4.0), c, c + Vector2(0, r + 4.0)]), 3.2)
 	for b in _town_plan(k):
 		if not b.kind in ["house", "inn"]:
 			continue
@@ -1144,7 +1249,7 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			n.add_child(fl)
 			builder._part(n, fb, Vector3(0.35, 0.6, 0.35), Vector3(0.4, 0.3, 0.4), _m.darkwood, false)
 			builder._part(n, fb, Vector3(0.7, 0.22, 0.3), Vector3(0.4, 0.71, 0.4), _m.iron, false)
-			WDress.kp(n, "pirate", "barrel", Vector3(-1.7, 0, 1.2), rr.randf(), 0.6, true)
+			WDress.kp(n, "scan", "barrel_03", Vector3(-1.7, 0, 1.2), rr.randf(), 1.0, true)
 			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0, 1.0), 0.2, 2.4)
 			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0.6, 1.0), -0.1, 2.4)
 			WDress.kp(n, "pirate", "cannon-ball", Vector3(-1.2, 0, -0.4), 0.0, 0.5)
@@ -1196,6 +1301,28 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			lt.omni_range = 8.0
 			lt.position = Vector3(0, 6.0, 0)
 			n.add_child(lt)
+		"yard":
+			# The open side of the town: a rail fence about worked ground, its gap toward the fire, and stores
+			var half := 3.6
+			for i in 9:
+				var t := -half + i * half * 2.0 / 8.0
+				for post in [Vector2(t, -half), Vector2(-half, t), Vector2(half, t)]:
+					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(post.x, 0.5, post.y), _m.darkwood, false)
+				if absf(t) > 1.2:
+					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(t, 0.5, half), _m.darkwood, false)
+			for h in [0.45, 0.9]:
+				builder._part(n, fb, Vector3(half * 2.0, 0.08, 0.06), Vector3(0, h, -half), _m.wood, false)
+				for side in [-1.0, 1.0]:
+					builder._part(n, fb, Vector3(0.06, 0.08, half * 2.0), Vector3(side * half, h, 0), _m.wood, false)
+					builder._part(n, fb, Vector3(half - 1.2, 0.08, 0.06), Vector3(side * (half + 1.2) * 0.5, h, half), _m.wood, false)
+			for row in 5:
+				var furrow := box(Vector3.ZERO, Vector3(half * 1.6, 0.12, 0.45), _m.darkwood, false)
+				_add(n, furrow, Vector3(0, 0.02, -2.4 + row * 1.0))
+			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.0, 0, -1.5), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.3, 0, -0.8), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "wooden_bucket_01", Vector3(-half - 0.8, 0, 1.0), 0.0, 1.0)
+			WDress.kp(n, "scan", "barrel_03", Vector3(-half - 1.0, 0, -1.6), rr.randf() * TAU, 1.0, true)
+			WDress.kp(n, "scan", "old_military_crate", Vector3(-half - 1.1, 0, -0.4), rr.randf() * TAU, 1.2, true)
 	_fade_far(n, 260.0)
 
 
@@ -8595,6 +8722,81 @@ func debug_beastshot() -> void:
 	clock = 19.5
 
 
+## Picture aid: the land's scanned leavings in two rows before the eye.
+func debug_propshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 11.0
+	var f := -player.global_transform.basis.z
+	f.y = 0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var keys := ["barrel_03", "old_military_crate", "cement_bag", "metal_jerrycan", "old_tyre", "barrel_stove", "wooden_crate_02", "wooden_bucket_01",
+		"tree_stump_01", "root_cluster_01", "namaqualand_boulder_02", "namaqualand_boulder_05", "dry_branches_medium_01", "rusted_wheel_rim_02", "wicker_basket_01", "wooden_lantern_01"]
+	var n := Node3D.new()
+	add_child(n)
+	n.global_position = player.global_position
+	for i in keys.size():
+		var row := i / 8
+		var off := f * (5.0 + row * 4.5) + side * ((i % 8) - 3.5) * 1.6 * (1.0 + row * 0.6)
+		var at := n.global_position + off
+		WDress.kp(n, "scan", keys[i], Vector3(off.x, terrain.height_at(at.x, at.z) - n.global_position.y, off.z), 0.4, 1.0 if row == 0 else 0.8)
+	_debug_aim(n.global_position + f * 7.0 + Vector3(0, -0.3, 0))
+	for k in 30:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png("/tmp/claude-0/props.png")
+	print("PROPS placed ", n.get_child_count())
+	get_tree().quit()
+
+
+## Testing aid: every town's plan and wall, for drawing; and that each keeps its houses and is unlike the others.
+func debug_townplans() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var shapes := {}
+	for k in WPlaces.SETTLEMENTS:
+		var plan := _town_plan(k)
+		var houses := 0
+		var wall := []
+		for i in 48:
+			wall.append(snappedf(town_wall_r(k, TAU * i / 48.0), 0.1))
+		var parts := []
+		for b in plan:
+			if b.kind == "house":
+				houses += 1
+			parts.append([b.kind, snappedf(b.off.x, 0.1), snappedf(b.off.y, 0.1), snappedf(float(b.yaw), 0.01), b.w, b.d])
+		print("TOWNPLAN ", JSON.stringify({"k": k, "style": town_style(k), "r": WPlaces.SETTLEMENTS[k].radius, "wall": wall, "parts": parts}))
+		shapes[town_style(k)] = shapes.get(town_style(k), 0) + 1
+		if houses < 6:
+			print("TOWNPLANS few houses at ", k, " ", houses)
+	print("TOWNPLANS towns=%d styles=%d" % [WPlaces.SETTLEMENTS.size(), shapes.size()])
+	get_tree().quit()
+
+
+## Picture aid: each town from high above, to see how it is laid out.
+func debug_townsky() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var cam := Camera3D.new()
+	add_child(cam)
+	cam.far = 600.0
+	var ks: Array = Array(OS.get_environment("TOWNS").split(",")) if OS.get_environment("TOWNS") != "" else ["cinderwick", "lanternwell", "kiln"]
+	for k in ks:
+		var c := gpos(WPlaces.spos(k))
+		player.place(c + Vector3(0, 2, 0), 0.0)
+		for i in 40:
+			await get_tree().process_frame
+		cam.global_position = c + Vector3(0, 78, 30)
+		cam.look_at(c, Vector3.UP)
+		cam.make_current()
+		for i in 30:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("/tmp/claude-0/sky_%s.png" % k)
+		print("TOWNSKY ", k, " ", town_style(k))
+	get_tree().quit()
+
+
 func debug_townshot() -> void:
 	await get_tree().create_timer(1.0).timeout
 	var c := gpos(WPlaces.spos("cinderwick"))
@@ -10647,26 +10849,27 @@ func debug_inn() -> void:
 	# A ray across a house from its front, at chest height: it meets the wall, unless through the doorway
 	var c := gpos(WPlaces.spos("cinderwick"))
 	var plan := _town_plan("cinderwick")
-	var hb: Dictionary = {}
-	for b in plan:
-		if b.kind == "house":
-			hb = b
-	var hc := c + Vector3(hb.off.x, 0, hb.off.y)
-	var bas := Basis(Vector3.UP, float(hb.yaw))
-	var front := bas * Vector3(0, 0, 1)
-	var side := bas * Vector3(1, 0, 0)
-	var G := WBuilder.GRID
-	var W := float(hb.w) * G
-	var door_x := -W * 0.5 + (int(hb.w) / 2 + 0.5) * G
-	var wall_x := -W * 0.5 + 0.5 * G
+	var walls := false
 	var space := get_world_3d().direct_space_state
-	var y := terrain.height_at(hc.x, hc.z) + 1.2
-	var hc2 := Vector3(hc.x, y, hc.z)
-	var door_r := PhysicsRayQueryParameters3D.create(hc2 + front * 8.0 + side * door_x, hc2 + side * door_x, 1)
-	var wall_r := PhysicsRayQueryParameters3D.create(hc2 + Vector3(0, 1.5, 0) + front * 8.0 + side * wall_x, hc2 + Vector3(0, 1.5, 0) + side * wall_x, 1)
-	var dh := space.intersect_ray(door_r)
-	var wh := space.intersect_ray(wall_r)
-	var walls := dh.is_empty() and not wh.is_empty()
+	var G := WBuilder.GRID
+	# A house's open door lets a ray through and its wall does not (any house whose front is clear)
+	for hb in plan:
+		if hb.kind != "house" or walls:
+			continue
+		var hc := c + Vector3(hb.off.x, 0, hb.off.y)
+		var bas := Basis(Vector3.UP, float(hb.yaw))
+		var front := bas * Vector3(0, 0, 1)
+		var side := bas * Vector3(1, 0, 0)
+		var W := float(hb.w) * G
+		var door_x := -W * 0.5 + (int(hb.w) / 2 + 0.5) * G
+		var wall_x := -W * 0.5 + 0.5 * G
+		var y := terrain.height_at(hc.x, hc.z) + 1.2
+		var hc2 := Vector3(hc.x, y, hc.z)
+		var door_r := PhysicsRayQueryParameters3D.create(hc2 + front * 8.0 + side * door_x, hc2 + side * door_x, 1)
+		var wall_r := PhysicsRayQueryParameters3D.create(hc2 + Vector3(0, 1.5, 0) + front * 8.0 + side * wall_x, hc2 + Vector3(0, 1.5, 0) + side * wall_x, 1)
+		var dh := space.intersect_ray(door_r)
+		var wh := space.intersect_ray(wall_r)
+		walls = dh.is_empty() and not wh.is_empty()
 	print("INN towns=%s meal=%s talk=%s snug=%s walls=%s" % [all_inns, meal, talk, snug, walls])
 	get_tree().quit()
 
@@ -11559,6 +11762,7 @@ func debug_settlers() -> void:
 	add_wood(fire)
 	var snug := comfort(pieces[fire].pos)
 	var room := settlers.room_at(fire)
+	seed(2026)   # who comes at dawn is chance: the same chance every run
 	settlers.host_dawn(1.0)
 	settlers.host_dawn(1.0)
 	settlers.host_dawn(1.0)

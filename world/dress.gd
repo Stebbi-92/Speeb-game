@@ -27,30 +27,32 @@ static func ground(w, n: Node3D, off: Vector3) -> Vector3:
 # ------------------------------------------------------------------ the lands
 
 ## What each land leaves lying about its ruins and camps: [kit, model, smallest, largest, solid].
-## The "scan" kit is the photographed trees and stones (Poly Haven, CC0); the rest are Kenney's kits.
+## The "scan" kit is the photographed trees, stones and leavings (Poly Haven, CC0); the rest are Kenney's kits.
 const LAND_PROPS := {
-	"ash": [["scan", "dead_tree_trunk_02", 0.6, 0.9, true], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["grave", "debris", 2.5, 3.5, false],
-		["scan", "rock_07", 5.0, 8.0, true], ["grave", "fire-basket", 2.2, 2.6, false], ["scan", "dead_quiver_trunk", 1.2, 1.8, true]],
-	"dunes": [["scan", "moon_rock_02", 3.0, 5.0, true], ["town", "cart", 2.0, 2.4, true], ["food", "bag", 1.6, 2.2, false],
-		["pirate", "bottle-large", 0.7, 0.9, false], ["town", "wheel", 2.0, 2.4, false], ["castle", "siege-ram-demolished", 1.6, 2.0, true]],
-	"salt": [["scan", "rock_07", 6.0, 10.0, true], ["pirate", "crate-bottles", 0.8, 0.9, true], ["food", "bag-flat", 1.8, 2.4, false],
-		["pirate", "barrel", 0.6, 0.7, true], ["pirate", "cannon-ball", 0.5, 0.7, false]],
-	"forest": [["scan", "dead_tree_trunk_02", 0.7, 1.0, true], ["scan", "dead_quiver_trunk", 2.0, 3.2, true], ["grave", "hay-bale", 1.6, 2.0, true],
-		["food", "mushroom", 6.0, 10.0, false], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["scan", "dead_quiver_trunk", 1.6, 2.6, true]],
+	"ash": [["scan", "dead_tree_trunk_02", 0.6, 0.9, true], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["scan", "old_tyre", 1.0, 1.3, false],
+		["scan", "rock_07", 5.0, 8.0, true], ["scan", "barrel_stove", 1.0, 1.1, true], ["scan", "rusted_wheel_rim_02", 1.4, 1.8, false], ["scan", "namaqualand_boulder_05", 1.2, 2.0, true], ["grave", "fire-basket", 2.2, 2.6, false], ["scan", "dead_quiver_trunk", 1.2, 1.8, true]],
+	"dunes": [["scan", "moon_rock_02", 3.0, 5.0, true], ["town", "cart", 2.0, 2.4, true], ["scan", "cement_bag", 1.1, 1.4, false],
+		["scan", "metal_jerrycan", 1.0, 1.2, false], ["scan", "can_rusted", 1.0, 1.3, false], ["scan", "old_tyre", 1.0, 1.2, false], ["town", "wheel", 2.0, 2.4, false], ["castle", "siege-ram-demolished", 1.6, 2.0, true]],
+	"salt": [["scan", "rock_07", 6.0, 10.0, true], ["scan", "old_military_crate", 1.1, 1.3, true], ["scan", "cement_bag", 1.1, 1.4, false],
+		["scan", "barrel_03", 0.95, 1.1, true], ["pirate", "cannon-ball", 0.5, 0.7, false]],
+	"forest": [["scan", "dead_tree_trunk_02", 0.7, 1.0, true], ["scan", "dead_quiver_trunk", 2.0, 3.2, true], ["scan", "tree_stump_01", 1.0, 1.4, true],
+		["scan", "dry_branches_medium_01", 1.4, 2.0, false], ["scan", "root_cluster_01", 0.8, 1.2, true], ["scan", "dead_quiver_branch_01", 2.5, 3.5, false], ["scan", "dead_quiver_trunk", 1.6, 2.6, true]],
 	"basalt": [["scan", "namaqualand_boulder_03", 0.5, 0.9, true], ["castle", "wall-half", 2.4, 3.0, true], ["grave", "column-large", 2.4, 3.0, true],
-		["castle", "siege-catapult-demolished", 2.0, 2.4, true], ["castle", "siege-ballista-demolished", 1.8, 2.2, true]],
+		["castle", "siege-catapult-demolished", 2.0, 2.4, true], ["castle", "siege-ballista-demolished", 1.8, 2.2, true],
+		["scan", "namaqualand_boulder_02", 1.5, 3.0, true]],
 	"marsh": [["grave", "gravestone-broken", 2.2, 2.8, false], ["grave", "coffin-old", 2.0, 2.4, false], ["grave", "cross-wood", 2.0, 2.6, false],
-		["grave", "iron-fence-damaged", 2.2, 2.6, false], ["grave", "lantern-candle", 1.8, 2.2, false], ["scan", "dead_tree_trunk_02", 0.6, 0.9, false]],
+		["grave", "iron-fence-damaged", 2.2, 2.6, false], ["grave", "lantern-candle", 1.8, 2.2, false], ["scan", "dead_tree_trunk_02", 0.6, 0.9, false],
+		["scan", "root_cluster_01", 0.7, 1.0, true], ["scan", "wicker_basket_01", 1.6, 2.0, false]],
 }
 
 ## What grows or lies across each land, far and wide, drawn in batches: [kit, model, count, smallest, largest].
 const LAND_COVER := {
-	"ash": [["scan", "dead_quiver_trunk", 220, 1.8, 3.2], ["scan", "dead_quiver_branch_01", 200, 2.2, 3.6], ["scan", "rock_07", 160, 3.0, 7.0]],
-	"dunes": [["scan", "moon_rock_02", 140, 3.0, 8.0], ["scan", "rock_07", 100, 2.5, 6.0], ["pirate", "patch-sand", 0, 1.0, 1.0]],
+	"ash": [["scan", "dead_quiver_trunk", 220, 1.8, 3.2], ["scan", "dead_quiver_branch_01", 200, 2.2, 3.6], ["scan", "rock_07", 160, 3.0, 7.0], ["scan", "namaqualand_boulder_05", 80, 1.5, 3.5]],
+	"dunes": [["scan", "moon_rock_02", 140, 3.0, 8.0], ["scan", "rock_07", 100, 2.5, 6.0], ["pirate", "patch-sand", 0, 1.0, 1.0], ["scan", "namaqualand_boulder_05", 60, 1.5, 4.0]],
 	"salt": [["scan", "rock_07", 240, 4.0, 12.0], ["scan", "moon_rock_02", 200, 5.0, 11.0]],
-	"forest": [["scan", "dead_quiver_trunk", 600, 2.2, 3.8], ["scan", "dead_quiver_branch_01", 220, 2.5, 4.0], ["scan", "dead_tree_trunk_02", 120, 0.7, 1.1]],
-	"basalt": [["scan", "moon_rock_02", 280, 8.0, 16.0], ["scan", "rock_07", 240, 6.0, 12.0]],
-	"marsh": [["grave", "pine-fall-crooked", 0, 1.0, 1.0], ["scan", "dead_quiver_trunk", 220, 1.4, 2.6], ["scan", "dead_tree_trunk_02", 120, 0.6, 1.0], ["grave", "gravestone-broken", 60, 2.0, 2.6]],
+	"forest": [["scan", "dead_quiver_trunk", 600, 2.2, 3.8], ["scan", "dead_quiver_branch_01", 220, 2.5, 4.0], ["scan", "dead_tree_trunk_02", 120, 0.7, 1.1], ["scan", "tree_stump_01", 90, 0.9, 1.4], ["scan", "root_cluster_01", 40, 0.7, 1.2]],
+	"basalt": [["scan", "moon_rock_02", 280, 8.0, 16.0], ["scan", "rock_07", 240, 6.0, 12.0], ["scan", "namaqualand_boulder_02", 120, 2.0, 5.0]],
+	"marsh": [["grave", "pine-fall-crooked", 0, 1.0, 1.0], ["scan", "dead_quiver_trunk", 220, 1.4, 2.6], ["scan", "dead_tree_trunk_02", 120, 0.6, 1.0], ["grave", "gravestone-broken", 60, 2.0, 2.6], ["scan", "root_cluster_01", 50, 0.7, 1.1]],
 }
 
 
@@ -179,7 +181,7 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 			kp(n, "town", "wheel", ground(w, n, Vector3(1.0, 0.0, 3.2)), rr.randf() * TAU, 2.2, false, Vector3(PI * 0.5, 0, 0))
 			for k in 3:
 				var off := Vector3(rr.randf_range(-4, 4), 0, rr.randf_range(2.5, 5.0) * (1.0 if k % 2 == 0 else -1.0))
-				var pick: Array = [["pirate", "barrel", 0.6], ["pirate", "crate", 0.7], ["food", "bag", 1.8]][k]
+				var pick: Array = [["scan", "barrel_03", 1.0], ["scan", "old_military_crate", 1.2], ["scan", "cement_bag", 1.3]][k]
 				kp(n, pick[0], pick[1], ground(w, n, off), rr.randf() * TAU, pick[2], false, Vector3(0, 0, rr.randf_range(0.0, 1.5)))
 			kp(n, "grave", "character-skeleton", ground(w, n, Vector3(1.5, 0.05, -3.5)), rr.randf() * TAU, 2.0)
 		"shrine":
@@ -201,7 +203,7 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 			for k in 7:
 				var a := rr.randf() * TAU
 				var off := Vector3(cos(a), 0, sin(a)) * rr.randf_range(4.5, 8.5)
-				kp(n, "castle", "rocks-small" if k % 2 == 0 else "rocks-large", ground(w, n, off), rr.randf() * TAU, rr.randf_range(0.9, 1.6), k % 3 == 0)
+				kp(n, "scan", "namaqualand_boulder_05" if k % 2 == 0 else "namaqualand_boulder_02", ground(w, n, off), rr.randf() * TAU, rr.randf_range(0.8, 1.5), k % 3 == 0)
 			kp(n, "castle", "wall-half", ground(w, n, Vector3(5.5, 0, -1.5)), rr.randf() * TAU, 3.0, true, Vector3(0, 0, 0.12))
 		"camp":
 			# Tents about a cold fire, the camp's things left as they were
@@ -218,9 +220,10 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 			kp(n, "grave", "fire-basket", ground(w, n, Vector3.ZERO), 0.0, 2.6)
 			kp(n, "food", "pot", ground(w, n, Vector3(0.9, 0, 0.3)), rr.randf() * TAU, 1.5)
 			kp(n, "grave", "bench-damaged", ground(w, n, Vector3(0, 0, -2.0)), 0.0, 2.2, true)
-			kp(n, "grave", "hay-bale-bundled", ground(w, n, Vector3(2.2, 0, 1.6)), rr.randf() * TAU, 1.8, true)
-			kp(n, "pirate", "barrel", ground(w, n, Vector3(-2.4, 0, 1.4)), rr.randf() * TAU, 0.6, true)
-			kp(n, "food", "bag-flat", ground(w, n, Vector3(-1.4, 0, 2.4)), rr.randf() * TAU, 2.0)
+			kp(n, "scan", "wooden_crate_02", ground(w, n, Vector3(2.2, 0, 1.6)), rr.randf() * TAU, 1.0, true)
+			kp(n, "scan", "barrel_03", ground(w, n, Vector3(-2.4, 0, 1.4)), rr.randf() * TAU, 1.0, true)
+			kp(n, "scan", "cement_bag", ground(w, n, Vector3(-1.4, 0, 2.4)), rr.randf() * TAU, 1.2)
+			kp(n, "scan", "wooden_bucket_01", ground(w, n, Vector3(1.3, 0, -0.9)), rr.randf() * TAU, 1.0)
 		"vault":
 			# A tomb of the Order sunk in the ground, its door to the front
 			# Its walls are solid but its door is open, and it has a roof of dark slate again
@@ -284,24 +287,24 @@ static func crate(n: Node3D, sealed: bool) -> void:
 
 ## Each town's own things: [kit, model, scale, solid], first for its square, then along its wall.
 const TOWN_LOOK := {
-	"cinderwick": {"square": [["food", "bag-flat", 2.2, false], ["food", "bag-flat", 2.2, false], ["grave", "shovel-dirt", 2.2, false], ["town", "cart", 2.2, true], ["food", "bag", 1.8, false]],
-		"wall": [["food", "bag-flat", 2.2, false], ["pirate", "crate", 0.8, true], ["pirate", "barrel", 0.65, true], ["grave", "hay-bale", 1.8, true]]},
-	"lanternwell": {"square": [["town", "lantern", 2.0, true], ["town", "lantern", 2.0, true], ["food", "barrel", 1.4, true], ["food", "bottle-oil", 2.4, false], ["food", "bottle-oil", 2.4, false]],
-		"wall": [["pirate", "barrel", 0.65, true], ["food", "barrel", 1.4, true], ["town", "lantern", 2.0, true], ["grave", "lightpost-single", 2.6, true]]},
+	"cinderwick": {"square": [["scan", "cement_bag", 1.3, false], ["scan", "cement_bag", 1.3, false], ["grave", "shovel-dirt", 2.2, false], ["town", "cart", 2.2, true], ["food", "bag", 1.8, false]],
+		"wall": [["scan", "cement_bag", 1.3, false], ["scan", "old_military_crate", 1.3, true], ["scan", "barrel_03", 1.05, true], ["scan", "wooden_crate_02", 1.2, true]]},
+	"lanternwell": {"square": [["town", "lantern", 2.0, true], ["town", "lantern", 2.0, true], ["food", "barrel", 1.4, true], ["food", "bottle-oil", 2.4, false], ["scan", "metal_jerrycan", 1.5, false]],
+		"wall": [["scan", "barrel_03", 1.05, true], ["food", "barrel", 1.4, true], ["town", "lantern", 2.0, true], ["grave", "lightpost-single", 2.6, true]]},
 	"hesk": {"square": [["town", "stall-red", 2.4, true], ["town", "stall-green", 2.4, true], ["town", "cart-high", 2.2, true], ["town", "banner-red", 2.6, false], ["town", "stall-bench", 2.4, false]],
-		"wall": [["pirate", "crate", 0.8, true], ["town", "cart", 2.2, true], ["pirate", "crate-bottles", 0.8, true], ["food", "barrel", 1.4, true]]},
+		"wall": [["scan", "old_military_crate", 1.3, true], ["town", "cart", 2.2, true], ["pirate", "crate-bottles", 0.8, true], ["food", "barrel", 1.4, true]]},
 	"kiln": {"square": [["food", "pot", 2.2, false], ["food", "bowl", 2.0, false], ["food", "plate", 1.6, false], ["grave", "fire-basket", 3.0, false], ["pirate", "cannon-ball", 0.6, false]],
-		"wall": [["castle", "rocks-small", 1.4, true], ["castle", "tree-log", 2.6, true], ["food", "pot", 2.2, false], ["pirate", "crate", 0.8, true]]},
+		"wall": [["scan", "namaqualand_boulder_05", 1.6, true], ["scan", "tree_stump_01", 1.2, true], ["food", "pot", 2.2, false], ["scan", "old_military_crate", 1.3, true]]},
 	"mourners": {"square": [["grave", "candle-multiple", 2.4, false], ["grave", "altar-wood", 2.4, true], ["grave", "urn-round", 2.6, false], ["grave", "lantern-candle", 2.0, false]],
 		"wall": [["grave", "gravestone-round", 2.4, false], ["grave", "gravestone-cross", 2.4, false], ["grave", "cross-wood", 2.4, false], ["grave", "coffin-old", 2.2, false], ["grave", "gravestone-wide", 2.2, false]]},
 	"gallowmere": {"square": [["pirate", "boat-row-small", 0.9, true], ["food", "fish", 2.4, false], ["pirate", "tool-paddle", 0.8, false], ["food", "barrel", 1.4, true]],
-		"wall": [["pirate", "crate", 0.8, true], ["pirate", "barrel", 0.65, true], ["pirate", "crate-bottles", 0.8, true], ["grave", "lantern-candle", 2.0, false]]},
-	"saltreach": {"square": [["food", "bag", 2.0, false], ["food", "bag-flat", 2.2, false], ["pirate", "crate-bottles", 0.8, true], ["pirate", "flag-pirate-high", 0.9, false]],
-		"wall": [["food", "bag-flat", 2.2, false], ["pirate", "barrel", 0.65, true], ["pirate", "crate", 0.8, true], ["grave", "rocks-tall", 1.6, true]]},
+		"wall": [["scan", "old_military_crate", 1.3, true], ["scan", "barrel_03", 1.05, true], ["scan", "wicker_basket_01", 2.0, false], ["scan", "wooden_lantern_01", 1.6, false]]},
+	"saltreach": {"square": [["food", "bag", 2.0, false], ["scan", "cement_bag", 1.3, false], ["pirate", "crate-bottles", 0.8, true], ["pirate", "flag-pirate-high", 0.9, false]],
+		"wall": [["scan", "cement_bag", 1.3, false], ["scan", "barrel_03", 1.05, true], ["scan", "old_military_crate", 1.3, true], ["scan", "namaqualand_boulder_02", 1.0, true]]},
 	"emberhollow": {"square": [["grave", "fire-basket", 3.0, false], ["grave", "fire-basket", 3.0, false], ["town", "cart", 2.2, true], ["grave", "shovel-dirt", 2.2, false]],
-		"wall": [["castle", "rocks-large", 1.4, true], ["castle", "tree-log", 2.6, true], ["grave", "debris", 3.0, false], ["pirate", "barrel", 0.65, true]]},
+		"wall": [["scan", "namaqualand_boulder_02", 1.2, true], ["scan", "tree_stump_01", 1.2, true], ["scan", "barrel_stove", 1.1, true], ["scan", "barrel_03", 1.05, true]]},
 	"lastlight": {"square": [["grave", "lightpost-single", 2.8, true], ["grave", "lightpost-single", 2.8, true], ["castle", "flag-banner-long", 2.0, false], ["town", "fountain-round", 1.6, true]],
-		"wall": [["castle", "wall-half", 2.2, true], ["castle", "rocks-small", 1.2, true], ["castle", "stairs-stone", 2.4, true], ["pirate", "barrel", 0.65, true]]},
+		"wall": [["castle", "wall-half", 2.2, true], ["scan", "namaqualand_boulder_05", 1.4, true], ["castle", "stairs-stone", 2.4, true], ["scan", "barrel_03", 1.05, true]]},
 }
 
 
@@ -337,6 +340,10 @@ static func town(w, k: String, c: Vector3, r: float, plan: Array, folk: Array) -
 				break
 			var a := rr.randf() * TAU
 			var off := Vector2(cos(a), sin(a)) * rr.randf_range(ring[1], ring[2])
+			if ring[0] == "wall":
+				# Along the wall wherever it runs, in or out
+				var wr: float = w.town_wall_r(k, a)
+				off = Vector2(cos(a), sin(a)) * rr.randf_range(wr - 2.4, wr - 1.5)
 			var it: Array = list[put % list.size()]
 			var fr := 1.2 if it[3] else 0.7
 			if not clear.call(off, fr):
@@ -375,10 +382,10 @@ static func town(w, k: String, c: Vector3, r: float, plan: Array, folk: Array) -
 ## What a house keeps in its yard, from its town's own things.
 static func yard(n: Node3D, k: String, at: Vector3, rr: RandomNumberGenerator) -> void:
 	var look: Dictionary = TOWN_LOOK.get(k, TOWN_LOOK.cinderwick)
-	var list: Array = look.wall + [["pirate", "barrel", 0.65, true], ["pirate", "crate", 0.8, true]]
+	var list: Array = look.wall + [["scan", "barrel_03", 1.05, true], ["scan", "old_military_crate", 1.3, true]]
 	var it: Array = list[rr.randi() % list.size()]
 	if it[1] in ["cart", "cart-high", "boat-row-small", "wall-half", "stairs-stone", "lightpost-single", "rocks-large"]:
-		it = ["pirate", "barrel", 0.65, true]
+		it = ["scan", "barrel_03", 1.05, true]
 	kp(n, it[0], it[1], at, rr.randf() * TAU, it[2], it[3])
 
 
