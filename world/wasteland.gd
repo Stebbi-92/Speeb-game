@@ -10363,7 +10363,10 @@ func debug_hitbox() -> void:
 		var lo := 1e9
 		var hi := -1e9
 		for mi in e._fb.find_children("*", "MeshInstance3D", true, false):
-			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			var mm := mi as MeshInstance3D
+			if mm == e._fb.head_node:
+				continue
+			var ab: AABB = mm.global_transform * (mm.custom_aabb if mm.custom_aabb.has_volume() else mm.get_aabb())
 			lo = minf(lo, ab.position.y)
 			hi = maxf(hi, ab.end.y)
 		var line := ""
@@ -10376,9 +10379,16 @@ func debug_hitbox() -> void:
 			line += "X" if struck else "."
 			all = all and struck
 			if frac == 0.85 and k != "vigil":
+				# A shot at the head, wherever the body's pose holds it, strikes the foe and finds the head
 				var wp: Array = e.weak_point()
-				var head_hit := not wp.is_empty() and Arms._ray_near(o, f, wp[0], wp[1])
+				var head_hit := not wp.is_empty() and (wp[0] as Vector3).y > lerpf(lo, hi, 0.45)
+				if head_hit:
+					var ho := Vector3(base.x, (wp[0] as Vector3).y, base.z) - f * 3.0
+					var hr := space.intersect_ray(PhysicsRayQueryParameters3D.create(ho, ho + f * 6.0, 2))
+					head_hit = not hr.is_empty() and hr.collider == e and Arms._ray_near(ho, f, wp[0], wp[1])
 				heads = heads and head_hit
+				if not head_hit:
+					print("HIT %s head missed: rel=%s r=%s" % [k, (wp[0] as Vector3) - base if not wp.is_empty() else Vector3.ZERO, wp[1] if not wp.is_empty() else 0.0])
 		var hp0: float = e.hp
 		e.hurt(10.0, f)
 		all = all and e.hp < hp0

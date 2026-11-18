@@ -72,6 +72,12 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Drugdör The Golem Animated"](https://skfb.ly/6RvzE) | Phons | The Basalt Idol (`assets/models/foes/golem`) |
 | ["Criatura"](https://skfb.ly/6XvPB) | Mardukblake | The Long Watcher (`assets/models/foes/criatura`) |
 | ["Black widow (Animated, downloadable)"](https://skfb.ly/pwQCG) | Andrey | The Tar Mother (`assets/models/foes/widow`) |
+| ["Zombie"](https://skfb.ly/6zG9q) | DJMaesen | The Hollowed, the Drowned and the Hollow Colossus (`assets/models/foes/folk`) |
+| ["Black Knight Walking"](https://skfb.ly/oXUQo) | HreshkoIvan | The Gravewarden and the Ashen Knight |
+| ["Lich"](https://skfb.ly/oxPOn) | Spinnee | The Pale Deacon |
+| ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
+| ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
+| ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |
