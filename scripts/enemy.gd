@@ -447,10 +447,9 @@ func _ready() -> void:
 	elif spec.hp >= 30.0:
 		_make_bar()
 	if _fb:
-		if _name_l:
-			_name_l.position.y = float(spec.head_y) + 0.8 * spec.size
-		if _bar:
-			_bar.position.y = float(spec.head_y) + 0.6 * spec.size
+		_lift_tags()
+		# Its gear is fitted a moment later, so it is measured once more then
+		get_tree().create_timer(0.5, false).timeout.connect(_lift_tags)
 	if spec.has("tint"):
 		_tint(spec.tint)
 	_remember_head()
@@ -1425,6 +1424,17 @@ func _tint(c: Color) -> void:
 		if g is Label3D or g is CPUParticles3D or g is GPUParticles3D:
 			continue
 		(g as GeometryInstance3D).material_overlay = m
+
+
+## Its name and bar float clear above the top of its body (horns, hood and raised arms too), never inside it.
+func _lift_tags() -> void:
+	if not is_instance_valid(_fb):
+		return
+	var top := _fb.position.y + _fb.top() * _fb.scale.y
+	if _name_l:
+		_name_l.position.y = top + 0.42
+	if _bar:
+		_bar.position.y = top + 0.2
 
 
 func _make_name() -> void:

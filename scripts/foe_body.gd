@@ -244,7 +244,23 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 	return b
 
 
-## What hangs on a bone is sized in the body's own units, whatever the bones' scale: done once it is in the world.
+## How high the body reaches above its feet, in its own space: the top of every part it shows.
+func top() -> float:
+	var y := 0.0
+	for g in find_children("*", "GeometryInstance3D", true, false):
+		var gi := g as GeometryInstance3D
+		if gi == head_node or not gi.visible or gi is Label3D or gi is GPUParticles3D or gi is CPUParticles3D:
+			continue
+		# Skinned parts carry their true, posed bounds; the file's own are those of the bind pose
+		var bb := gi.custom_aabb if gi.custom_aabb.size != Vector3.ZERO else gi.get_aabb()
+		if bb.size == Vector3.ZERO:
+			continue
+		var tr := WTrees._chain(gi, self)
+		for i in 8:
+			y = maxf(y, (tr * bb.get_endpoint(i)).y)
+	return y
+
+
 func _fit_now() -> void:
 	var mine := global_basis.get_scale().x
 	for f in _fit:
@@ -382,6 +398,25 @@ func wear_plate(heavy: bool) -> void:
 		mi.position = b[1]
 		mi.material_override = iron
 		_plate.add_child(mi)
+	# The bones of the new bodies lie every which way: the plate stands upright with the body,
+	# as wide as its chest, centred on the chest bone
+	if has_meta("torso"):
+		_plate_k = top() * 0.21 / 0.72
+		iron.albedo_color = Color(0.3, 0.28, 0.26)
+		_stand_plate()
+
+
+var _plate_k := 0.0   ## the plate's size against the body, when it hangs on a new body's chest bone
+
+
+## Keeps the plate upright with the body as the chest bone moves under it.
+func _stand_plate() -> void:
+	if _plate_k <= 0.0 or not is_instance_valid(_plate) or not _plate.is_inside_tree():
+		return
+	var bone := _plate.get_parent().get_parent() as Node3D
+	var gb := global_basis
+	_plate.global_basis = gb.orthonormalized().scaled(Vector3.ONE * _plate_k * gb.get_scale().x)
+	_plate.global_position = bone.global_position - gb * Vector3(0, 0.95 * _plate_k + 0.1, 0)
 
 
 ## The plate falls away in pieces.
@@ -389,10 +424,11 @@ func break_plate() -> void:
 	if _plate == null:
 		return
 	for mi in _plate.get_children():
-		var at: Vector3 = (mi as Node3D).global_position
+		var gt: Transform3D = (mi as Node3D).global_transform
+		var at := gt.origin
 		_plate.remove_child(mi)
 		get_tree().current_scene.add_child(mi)
-		mi.global_position = at
+		mi.global_transform = gt
 		var tw := mi.create_tween()
 		tw.tween_property(mi, "global_position", at + Vector3(randf_range(-0.6, 0.6), -at.y + at.y - 0.9, randf_range(-0.6, 0.6)), 0.35)
 		tw.tween_interval(3.0)
@@ -434,6 +470,7 @@ func _process(delta: float) -> void:
 	_once = maxf(0.0, _once - delta)
 	if not _fit.is_empty():
 		_fit_now()
+	_stand_plate()
 	if _float:
 		# A ghost without bones drifts: a slow sway and rise
 		_t += delta
