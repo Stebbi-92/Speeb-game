@@ -26,19 +26,19 @@ G_FIGHT = "eq=brightness=-0.02:contrast=1.1:saturation=0.8:gamma=0.97"
 # (clip or None for black, in-point s, length s, grade, [(line, t_in, t_out, size, y)], game-audio gain, fade in, fade out)
 EDIT = [
     (None, 0, 4.0, None, [("Speeb sees.", 0.8, 3.4, 52, 0.47)], 0, 0, 0),                                   # 0 open
-    ("s01_dawn_ash", 0.8, 5.0, G_WARM, [("The Ashen Waste.", 1.4, 4.5, 44, 0.80)], 0.3, 1.2, 0.3),       # 1 lands
-    ("s03_rust_dunes", 1.0, 4.0, G_DUSK, [], 0.3, 0.3, 0.3),
-    ("s04_salt_frost", 1.5, 3.0, G_DAY, [], 0.3, 0.3, 0.3),
-    ("s02_dead_forest", 1.0, 4.0, G_DUSK, [], 0.3, 0.3, 0.3),
-    ("s06_cinderwick_dusk", 1.0, 5.0, G_DUSK, [("A few towns still keep a fire.", 1.0, 4.5, 40, 0.80)], 0.4, 0.3, 0.4),
+    ("s01_dawn_ash", 0.8, 5.0, G_WARM, [("The Ashen Waste.", 1.4, 4.5, 44, 0.80)], 0.7, 1.2, 0.3),       # 1 lands
+    ("s03_rust_dunes", 1.0, 4.0, G_DUSK, [], 0.7, 0.3, 0.3),
+    ("s04_salt_frost", 1.5, 3.0, G_DAY, [], 0.7, 0.3, 0.3),
+    ("s02_dead_forest", 1.0, 4.0, G_DUSK, [], 0.7, 0.3, 0.3),
+    ("s06_cinderwick_dusk", 1.0, 5.0, G_DUSK, [("A few towns still keep a fire.", 1.0, 4.5, 40, 0.80)], 0.7, 0.3, 0.4),
     ("s08_fp_shotgun", 1.6, 4.0, G_FIGHT, [], 0.9, 0.0, 0.0),                                             # 7 first fight
     ("s10_fp_rifle", 0.8, 4.5, G_FIGHT, [], 0.9, 0.0, 0.0),
     ("s11_night_horde", 0.8, 5.0, G_NIGHT, [("They wear his face.", 0.5, 4.6, 40, 0.76), ("They are not him.", 2.0, 4.6, 40, 0.82)], 0.7, 0.0, 0.0),
     ("s12_fp_flamer", 1.0, 2.5, G_NIGHT, [], 0.9, 0.0, 0.0),
-    ("s13_rocket", 1.0, 3.0, G_FIGHT, [], 1.0, 0.0, 0.4),
+    ("s13_rocket", 0.6, 1.8, G_FIGHT, [], 1.0, 0.0, 0.0),
     (None, 0, 1.0, None, [], 0, 0, 0),                                                                      # 12 breath
-    ("s14_beacon_kindle", 0.5, 8.0, G_NIGHT, [("Nine beacons stand dead.", 0.4, 3.3, 40, 0.80), ("Light them, one by one.", 4.4, 7.6, 40, 0.80)], 0.9, 0.8, 0.0),  # 13 beacon
-    ("s15_cinderwick_night", 1.0, 4.0, G_NIGHT, [("Walk it together. Up to eight.", 0.4, 3.4, 40, 0.80)], 0.5, 0.0, 1.0),  # 14 town
+    ("s14_beacon_kindle", 1.4, 7.5, G_NIGHT, [("Nine beacons stand dead.", 0.4, 3.1, 40, 0.80), ("Light them, one by one.", 4.0, 7.2, 40, 0.80)], 0.9, 0.8, 0.0),  # 13 beacon
+    ("s15_cinderwick_night", 1.0, 4.5, G_NIGHT, [("Walk it together. Up to eight.", 0.3, 3.7, 42, 0.80)], 0.5, 0.0, 0.7),  # 14 town
     (None, 0, 5.5, "title", [], 0, 0, 0),                                                                   # 16 title
     (None, 0, 4.5, None, [("Alpha out now", 0.6, 4.0, 34, 0.45), ("speeb.org/game", 1.1, 4.0, 52, 0.53)], 0, 0, 0),  # 17 end
 ]
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     final = os.environ.get("BRELM_OUT", f"{WORK}/brelm-gameplay-trailer-{H}p.mp4")
     if os.path.exists(score) and not PREVIEW:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f"{WORK}/picture.mov", "-i", score, "-filter_complex",
-                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.89[a]",
+                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.79[a]",
                         "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p",
                         "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", final], check=True)
         if H > 1080:
