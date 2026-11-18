@@ -79,6 +79,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
 | ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
+| ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
+| ["Prowler Dragon Variant Rig"](https://skfb.ly/o8IRS) | DM-913 | Kulshedra, the she-dragon (`assets/models/foes/drake`) |
 | ["Abandoned Barn"](https://skfb.ly/oJFBW) | Arsen Ismailov | Barns standing alone in the waste (`assets/models/buildings`) |
 | ["Russian Izba - Low-Poly 3D Game Asset"](https://skfb.ly/pQt9Y) | SergeyLubivui | Farmhouses outside the towns' walls |
 | ["Belarusian village"](https://skfb.ly/oRrpD) | Liminal Bifrost | Farmhouses and barns outside the towns' walls |

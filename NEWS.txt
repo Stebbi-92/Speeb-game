@@ -12,6 +12,7 @@ Brelm alpha 0.13.3: clear view
 - What lies about the waste is real now: rusted barrels, ammo crates, sacks, jerrycans, tyres, stumps, roots and boulders in place of the toy-like pieces.
 - No two towns are laid out alike: some crowd to one side with a fenced yard on the other, some stand in squared rows or along a crooked lane, some in two knots. Their walls run in and out.
 - Farmsteads stand outside the towns' walls, and lone barns out in the waste, seen from far off.
+- The drifting forms fly on bat wings. Kulshedra, the she-dragon of Kalaja, has a dragon's body.
 - Living trees stand in clumps through the dead forest and on the isles. You cannot walk through their trunks.
 - Air support in the trials flies real aircraft: a gunship, a ground-attack jet and fighters.
 - The lesser forms have real cat bodies now, that stand, walk and stalk.

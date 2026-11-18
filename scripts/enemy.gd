@@ -145,6 +145,9 @@ const SCANS := {
 	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
 		{"head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
+	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
+		{"bone": "Head_65", "shrink": true, "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
 }
 static var _scan_bounds := {}
 
@@ -407,6 +410,8 @@ func _ready() -> void:
 		_build_box_cat()
 	elif spec.get("body", "") == "cat" and _sk == "":
 		_build_cat()
+	elif kind in WINGED and _sk == "":
+		_build_wings()
 	if kind == "bloater":
 		_build_sack()
 	if variant == "bellwound":
@@ -1280,6 +1285,53 @@ static func _cut_panther(an: Animation, head_path: String) -> AnimationLibrary:
 				x += step
 		lib.add_animation(cut, out)
 	return lib
+
+
+## The drifting heads fly on a bat's wings ("Bat animated character" by GoldGryphon, CC-BY 4.0): the bat's own
+## head is shrunk away and the lesser's head sits where it was, the wings beating behind it.
+const WINGED := ["spitter", "swarm", "mite"]
+const BAT := "res://assets/models/foes/bat/bat.glb"
+const BAT_HEAD := "mixamorig_Head_06"
+const BAT_AT := Vector3(-0.009, -0.45, -1.5)   ## where the bat's head is, in its own units
+const BAT_SPAN := 12.0                           ## its wingspan, in its own units
+var _wings: Node3D
+
+func _build_wings() -> void:
+	if not ResourceLoader.exists(BAT):
+		return
+	var m: Node3D = (load(BAT) as PackedScene).instantiate()
+	# Wings a little more than twice the head's breadth; the bat's head where the lesser's is, facing as it faces
+	var k := 2.4 / BAT_SPAN
+	m.scale = Vector3.ONE * k
+	m.rotation.y = PI
+	m.position = Basis(Vector3.UP, PI) * (-BAT_AT * k) + Vector3(0, -0.05, 0)
+	head.add_child(m)
+	_wings = m
+	var sk: Skeleton3D = m.find_children("*", "Skeleton3D", true, false)[0]
+	var ap: AnimationPlayer = m.find_children("*", "AnimationPlayer", true, false)[0]
+	var hi := sk.find_bone(BAT_HEAD)
+	for lib in ap.get_animation_library_list():
+		for an in ap.get_animation_library(lib).get_animation_list():
+			var a: Animation = ap.get_animation_library(lib).get_animation(an)
+			for t in range(a.get_track_count() - 1, -1, -1):
+				if a.track_get_type(t) == Animation.TYPE_SCALE_3D and str(a.track_get_path(t)).ends_with(":" + BAT_HEAD):
+					a.remove_track(t)
+			a.loop_mode = Animation.LOOP_LINEAR
+	sk.set_bone_pose_scale(hi, Vector3.ONE * 0.02)
+	var coat: Color = head.coat if head.coat != Color() else head.fur.darkened(0.6)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mm: MeshInstance3D = mi
+		var sm: Material = mm.mesh.surface_get_material(0) if mm.mesh else null
+		if sm is StandardMaterial3D:
+			var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+			t.albedo_color = Color(1, 1, 1).lerp(coat.lightened(0.15), 0.5) * 1.4
+			t.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mm.material_override = t
+	var names := ap.get_animation_list()
+	if not names.is_empty():
+		ap.play(names[0])
+		ap.speed_scale = randf_range(1.6, 2.2) / maxf(float(spec.size), 0.5)
+		ap.seek(randf() * 1.0, true)
 
 
 func _panther_body(s: float, coat: Color) -> Node3D:
