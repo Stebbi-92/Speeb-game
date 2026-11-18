@@ -3209,7 +3209,7 @@ func _map_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		var at: Vector2 = e.position
 		var before := (at - _map_off) / _map_zoom
-		_map_zoom = clampf(_map_zoom * (1.25 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 1.0, 6.0)
+		_map_zoom = clampf(_map_zoom * (1.25 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 1.0, 12.0)
 		_map_off = at - before * _map_zoom
 		_map_layout()
 		accept_event()
@@ -3949,6 +3949,10 @@ class Compass extends Control:
 		var cx := wd * 0.5
 		var fwd: Vector3 = -w.player.global_transform.basis.z
 		var heading := atan2(fwd.x, -fwd.z)
+		if w.lost:
+			# Lost on the Pale Steppe: the needle wanders
+			var tt := Time.get_ticks_msec() * 0.001
+			heading += sin(tt * 0.37) * 1.1 + sin(tt * 1.3) * 0.25
 		draw_rect(Rect2(0, 18, wd, 1), Color(1, 1, 1, 0.18))
 		var font := ThemeDB.fallback_font
 		for k in 8:
@@ -4096,6 +4100,14 @@ class MapDraw extends Control:
 			var dist := int(Vector2(m[0].x - w.player.global_position.x, m[0].z - w.player.global_position.z).length())
 			draw_string(font, mp + Vector2(13, -6), "%d m" % dist, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.95, 0.92, 0.85, 0.9))
 		var me := _to(w.player.global_position)
+		if w.lost:
+			# The map cannot find you: only somewhere on the grass
+			var lr := (_to(w.player.global_position + Vector3(400, 0, 0)) - me).length()
+			var off := Vector2(sin(w.day * 1.7), cos(w.day * 2.3)) * lr * 0.5
+			draw_circle(me + off, lr, Color(1, 1, 1, 0.08))
+			draw_arc(me + off, lr, 0.0, TAU, 40, Color(1, 1, 1, 0.35), 1.5)
+			draw_string(font, me + off + Vector2(-30, 4), "Lost", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.7))
+			return
 		var f: Vector3 = -w.player.global_transform.basis.z
 		var dir := Vector2(f.x, f.z).normalized()
 		var side := Vector2(-dir.y, dir.x)

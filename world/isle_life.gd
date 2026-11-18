@@ -405,7 +405,7 @@ func _kala(il: Dictionary, rr: RandomNumberGenerator) -> void:
 
 
 ## Living trees in clumps over each isle: thick on the fen and the keep's hills, few on the stone and the salt.
-const ISLE_TREES := {"fen": 60, "kala": 40, "hrafn": 18, "cog": 10}
+const ISLE_TREES := {"fen": 60, "kala": 40, "hrafn": 18, "cog": 10, "quiet": 6, "domes": 50, "frost": 40, "sun": 6, "steppe": 48}
 
 func _woods(il: Dictionary, rr: RandomNumberGenerator) -> void:
 	var feet: Array = []

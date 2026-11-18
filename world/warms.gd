@@ -39,6 +39,9 @@ const WEAR := {
 	"fur_hood": {"name": "Fur Hood", "slot": "head", "warm": 1.0, "guard": 0.03, "cost": {"hide": 3, "cloth": 1}, "look": {"head": 1}, "needs": "book_furrier", "text": "Lined with fur. Warm."},
 	"hide_gloves": {"name": "Hide Gloves", "slot": "hands", "warm": 0.5, "guard": 0.02, "gather": 1.15, "cost": {"hide": 3, "cloth": 1}, "look": {"hands": 1}, "text": "Tough hands. You gather a little more."},
 	"tar_boots": {"name": "Tar Boots", "slot": "feet", "guard": 0.03, "ward": "marsh", "cost": {"heartwood": 4, "red_iron": 2, "hide": 3}, "text": "Wear them in the Tar Marsh. The tar no longer holds your feet."},
+	"sheepskin": {"name": "Frostfolk Sheepskin", "slot": "cloak", "warm": 2.0, "guard": 0.04, "ward": "frost", "cost": {"hide": 6, "cloth": 2, "bone": 2}, "look": {"cloak": 2}, "text": "Wear it on the Frostmark. The cold no longer bites."},
+	"water_gourd": {"name": "Water Gourd", "slot": "neck", "ward": "sun", "cost": {"hide": 3, "salt": 6, "herb": 2}, "look": {"neck": 1}, "text": "Wear it on the Sunward Reach. You no longer go thirsty by day."},
+	"bone_compass": {"name": "Rider's Bone Compass", "slot": "hands", "ward": "steppe", "cost": {"bone": 6, "scrap": 3, "salt_crystal": 1}, "look": {"hands": 1}, "text": "Carry it on the Pale Steppe. It points true, and you are never lost."},
 	"wraps": {"name": "Foot Wraps", "slot": "feet", "guard": 0.01, "speed": 1.03, "cost": {"cloth": 2}, "text": "Better than bare feet on hot ash."},
 	"boots": {"name": "Hobnail Boots", "slot": "feet", "warm": 0.5, "guard": 0.04, "speed": 1.05, "cost": {"cloth": 2, "bone": 2, "scrap": 3}, "text": "Sure footing. You walk faster."},
 }

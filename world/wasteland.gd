@@ -14,7 +14,7 @@ const FIRE_KINDS := ["campfire", "cookpot", "torch", "stove"]
 const WOOD_HOURS := 24.0     ## one piece of wood keeps a fire for a whole day
 const FUEL_MAX := 240.0      ## a fire holds ten days of wood at most
 const FUEL_START := 72.0     ## a new fire is laid with three days' wood
-const REVEAL_N := 320
+const REVEAL_N := 660
 const REVEAL_HALF := WIsles.MAP_HALF   ## the fog lies over the whole map, the sea and its isles too: 20 m to a cell
 const BEACON_SIGHT := 520.0            ## a lit beacon shows the land about it on the map, this far
 
@@ -220,6 +220,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
+	_plan_far_ruins()
 	await _step("The sea is poured", 0.27)
 	sea = WSea.new().setup(self)
 	add_child(sea)
@@ -538,6 +539,37 @@ func _plan_ruins() -> void:
 				continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[fr.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
 		far += 1
+
+
+## The far isles and the Far Shores: nameless ruins over the whole of each, about one every 300 m,
+## so there is always something to walk to (gameplay bible, rule 4). Their own dice and ids.
+const FAR_RUINS := {"quiet": 8, "domes": 9, "frost": 40, "sun": 40, "steppe": 42}
+
+func _plan_far_ruins() -> void:
+	var kinds := ["wreck", "shrine", "tower", "camp", "stones", "camp", "shrine"]
+	for il in terrain.isles:
+		if not FAR_RUINS.has(il.key):
+			continue
+		var r := RandomNumberGenerator.new()
+		r.seed = world_seed + 8808 + hash(str(il.key))
+		var want: int = FAR_RUINS[il.key]
+		var made := 0
+		for tries in want * 40:
+			if made >= want:
+				break
+			var a := r.randf() * TAU
+			var q: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.82
+			var y: float = terrain.height_at(q.x, q.y)
+			if y < WIsles.SEA_Y + 1.5 or terrain.normal_at(q.x, q.y).y < 0.86:
+				continue
+			if not _clear_of_places(q, 110.0, 190.0 if float(il.r) > 800.0 else 120.0):
+				continue
+			var wd: Array = WIsles.THEMES[il.key].words
+			var nm: String = str(wd[0][r.randi() % wd[0].size()]) + " " + str(wd[1][r.randi() % wd[1].size()])
+			if ruins.any(func(o): return o.name == nm):
+				continue
+			ruins.append({"id": "fs_%s_%d" % [il.key, made], "name": nm, "kind": kinds[r.randi() % kinds.size()], "pos": Vector3(q.x, y, q.y), "guard_day": 0, "far": il.key})
+			made += 1
 
 
 ## Shader warm-up: under the opening fade, the first fire, blast, burst and muzzle flash are drawn once
@@ -1711,11 +1743,50 @@ func _w_vigil_end(i: int, ok: bool) -> void:
 		if Net.authority():
 			_clear_near(b.pos, WPlaces.BEACON_SAFE)
 		_beacon_payoff(i)
+		if lit.size() >= TURN_AT and not flags.has("turned"):
+			get_tree().create_timer(9.0, false).timeout.connect(_the_turn)
 	else:
 		b.flame.visible = false
 		b.light.light_energy = 0.0
 		hud.notify("The flame at %s guttered out. The oil is spent." % WPlaces.BEACONS[i].name)
 	_beacon_prompt(i)
+
+
+# ------------------------------------------------------------------ the turn
+
+## The fifth beacon is the turn of the game (Terraria's Hardmode): the sea opens. The whirlpool of the
+## Kraken-Bell stands on the horizon, the far isles show through the fog, the seventh night comes up out
+## of the water, and the waste's own forms grow bolder (champions in every land past the first ring).
+const TURN_AT := 5
+var _turn_col: MeshInstance3D = null
+
+func turned() -> bool:
+	return flags.has("turned")
+
+
+func _the_turn() -> void:
+	if not is_instance_valid(self) or turned():
+		return
+	flags["turned"] = true
+	sfx("choir", 0)
+	hud.alert_banner("The sea opens", "Five fires burn, and the dark has turned to face the sea. The whirlpool and the far isles show on the horizon. From now on the seventh night comes up out of the water.")
+	_turn_marks()
+	autosave_soon(1.0)
+
+
+## What the turn shows: the whirlpool's spray on the horizon, and the far sea on the map.
+func _turn_marks() -> void:
+	if not turned() or Net.dedicated:
+		return
+	if kraken and kraken.spot != Vector3.INF:
+		reveal_place(Vector2(kraken.spot.x, kraken.spot.z), 120.0)
+		if _turn_col == null:
+			_turn_col = landmark_column(Color(0.55, 0.62, 0.66, 0.18), 240.0, 1.8)
+			add_child(_turn_col)
+			_turn_col.global_position = kraken.spot + Vector3(0, 110.0, 0)
+	for il in terrain.isles:
+		if WIsles.THEMES.has(il.key) and bool(WIsles.THEMES[il.key].get("far", false)):
+			reveal_place(il.c, float(il.r) * 0.6)
 
 
 ## What a kindled beacon gives every pilgrim: a gift from its bowl, a boon to choose, and the way
@@ -2321,6 +2392,9 @@ const LAND_WARD := {
 	"salt": ["goggles", "The glare burns you by day."],
 	"marsh": ["tar_boots", "The tar holds your feet."],
 	"basalt": ["ember_cloak", "The stone's heat burns you."],
+	"frost": ["sheepskin", "The cold bites: it eats at your health."],
+	"sun": ["water_gourd", "Thirst: by day your water runs out, and your health with it."],
+	"steppe": ["bone_compass", "You are lost: the compass wanders, and the map cannot find you."],
 }
 ## What each land yields besides the common stuff: [node kind, item, chance]
 const LAND_STUFF := {
@@ -2366,6 +2440,11 @@ func gentle_at(p: Vector3) -> bool:
 func land_at(p: Vector3) -> String:
 	if terrain and terrain.is_water(p.x, p.z, 0.8):
 		return "sea"   # no land's hardship out on the water
+	if terrain and maxf(absf(p.x), absf(p.z)) > WTerrain.N * WTerrain.CELL * 0.5:
+		# A Far Shore is a land of its own, with its own hardship
+		var il := terrain.isle_at(p.x, p.z, 1.2)
+		if not il.is_empty() and WIsles.THEMES[il.key].has("land"):
+			return str(WIsles.THEMES[il.key].land)
 	return terrain.biome_name(p.x, p.z) if terrain else "ash"
 
 
@@ -2392,16 +2471,19 @@ func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 		e.max_hp *= m
 		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
 		e.plate *= land
-		# In the harder lands, one in fifteen or so stands out from its kind
-		if tier_at(p) >= 3 and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE:
+		# In the harder lands (every land past the first ring, after the turn), one in fifteen or so stands out
+		if tier_at(p) >= (2 if turned() else 3) and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE:
 			e.become_champion(LesserSpeeb.CHAMPION.keys()[randi() % LesserSpeeb.CHAMPION.size()])
 	return e
 
 
 ## The hardship of the land underfoot, for one without its ward.
+var lost := false   ## on the Pale Steppe without a compass: the map cannot find you, the compass wanders
+
 func _land_tick(delta: float) -> void:
 	var bn := land_at(player.global_position)
-	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn == "salt" and night):
+	lost = bn == "steppe" and not warded(bn)
+	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn in ["salt", "sun"] and night):
 		if ui:
 			# The weather may still ask something, out in the open
 			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" and not weather.sheltered else ""
@@ -2412,13 +2494,15 @@ func _land_tick(delta: float) -> void:
 	match bn:
 		"dunes":
 			player.stamina_mult *= 0.5
-		"forest", "salt", "basalt":
-			if bn == "salt" and night:
+		"forest", "salt", "basalt", "frost", "sun":
+			if bn in ["salt", "sun"] and night:
 				return
 			_land_t -= delta
 			if _land_t <= 0.0:
 				_land_t = 5.0
-				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0}[bn] as float
+				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0, "frost": 4.0, "sun": 3.0}[bn] as float
+				if bn == "frost" and near_fire(player.global_position):
+					return   # a fire keeps the cold off
 				player.health = maxf(1.0, player.health - loss)
 				hud.set_health(player.health / player.max_health, true)
 				_regen_wait = maxf(_regen_wait, 4.0)
@@ -3325,20 +3409,24 @@ func _great_raid() -> void:
 
 
 ## The seventh night's host changes as the lands are lit: the dead come first, then the Unlit march
-## to put the beacons out again, and at last the old iron of the deep lands.
+## to put the beacons out again, then (after the turn) the sea itself, and at last the old iron of the deep lands.
 const GREAT_HOSTS := {
 	"pilgrims": {"name": "The Hollow Pilgrimage", "band": ["hollow", "hollow", "vigil", "saltbone"], "leads": ["warden"],
 		"text": "The dead walk on your camp, a Gravewarden behind them."},
 	"unlit": {"name": "The Unlit War Band", "band": ["unlit_gun", "unlit_gun", "unlit_blade", "unlit_mark", "unlit_flame"], "leads": ["unlit_brute", "unlit_brute"],
 		"text": "The Unlit march to put out what you have lit. Mind their marksmen, and their breakers."},
+	"tide": {"name": "The Drowned Tide", "band": ["drowned", "drowned", "kelp_drowner", "nykur", "lurker"], "leads": ["draugr", "draugr", "tar_giant"],
+		"text": "The sea comes up the shore after you: the drowned, the kelp-wound and the grey horses of the water."},
 	"iron": {"name": "The Iron Host", "band": ["deacon", "drowned", "unlit_blade", "hollow"], "leads": ["knight", "colossus"],
 		"text": "Old iron comes out of the deep lands: knights, and a colossus."},
 }
 
 ## Which host comes on the seventh night, by how many beacons burn.
 func great_host() -> String:
-	if lit.size() >= 6:
+	if lit.size() >= 7:
 		return "iron"
+	if lit.size() >= 5:
+		return "tide"   # the turn: once five burn, the seventh night comes up out of the sea
 	if lit.size() >= 3:
 		return "unlit"
 	return "pilgrims"
@@ -4178,8 +4266,9 @@ func _scatter_isle_nodes() -> void:
 		r.seed = world_seed + 6060 + hash(il.key)
 		var heart: Vector2 = terrain.isle_heart(il)
 		var made := 0
-		for tries in 600:
-			if made >= 70:
+		var want := int(70.0 * clampf(pow(float(il.r) / 300.0, 2.0), 1.0, 4.0))   # the far shores are wide, but each node costs
+		for tries in want * 9:
+			if made >= want:
 				break
 			var a := r.randf() * TAU
 			var p2: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.85
@@ -5543,10 +5632,10 @@ func _day_watch() -> void:
 			if int(r.guard_day) != day and p.distance_to(r.pos) < 55.0:
 				r.guard_day = day
 				var n := WCrowd.scale_near(self, r.pos, 2 + randi() % 3)
-				if r.has("isle"):
-					# An isle's heart is kept more fiercely, by its own kind
+				if r.has("isle") or r.has("far"):
+					# An isle's heart is kept more fiercely, by its own kind (and the far ruins by theirs)
 					var roster: Array = forms_at(r.pos)
-					for k in n + 2:
+					for k in n + (2 if r.has("isle") else 0):
 						_spawn_near(roster[randi() % roster.size()], r.pos, 8.0, 18.0, true)
 					continue
 				var tr := tier_at(r.pos)
@@ -6521,9 +6610,9 @@ func _visit_check() -> void:
 					sfx("jingle_find", -8)
 					hud.title_card("", il.name)
 					award("settlement")
-				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn)])
+				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn) if LAND_WARD.has(bn) else ""])
 			else:
-				hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], tier_at(player.global_position), BIOME_TEXT[bn], "" if gentle_at(player.global_position) else land_warning(bn)])
+				hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES.get(bn, region), tier_at(player.global_position), BIOME_TEXT.get(bn, ""), "" if gentle_at(player.global_position) else land_warning(bn)])
 		_region = region
 	if bn != _biome:
 		_biome = bn
@@ -6811,6 +6900,8 @@ func apply_char(d: Dictionary) -> void:
 		var raw := Marshalls.base64_to_raw(rv)
 		if raw.size() == revealed.size():
 			revealed = raw
+		elif raw.size() == 320 * 320:
+			_reveal_from(raw, 320, 3200.0)   # drawn before the far sea was added
 		elif raw.size() == 256 * 256:
 			_reveal_from(raw, 256, WPlaces.HALF)   # drawn before the fog lay over the sea too
 		elif raw.size() == 128 * 128:
@@ -7443,6 +7534,7 @@ func _cont_count(cid: String, item: String) -> int:
 func _world_ready() -> void:
 	_warm_up()
 	reveal_lit()
+	_turn_marks()
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -8282,6 +8374,7 @@ func debug_isleground() -> void:
 					worst = "%s hole at %d,%d" % [il.name, int(x), int(z)]
 				elif absf(hit.position.y - y) > 1.5 and hit.collider.has_meta("ground"):
 					off += 1
+					worst = "%s off by %.1f" % [il.name, hit.position.y - y]
 	print("ISLEGROUND tried=%d holes=%d off=%d %s" % [tried, holes, off, worst])
 	get_tree().quit()
 
@@ -11940,6 +12033,101 @@ func debug_fixes() -> void:
 	get_tree().quit()
 
 
+## Test: the far sea (0.16). Five far places stand clear of each other and of the near isles, each
+## dry in the middle; every far shore has its own hardship, and something worth walking to lies
+## within 150 m of nearly every dry spot (the gameplay bible's "something every 200 to 300 m").
+func debug_farsea() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var far: Array = terrain.isles.filter(func(il): return WIsles.far(il))
+	var clear := true
+	for a in terrain.isles:
+		for b in terrain.isles:
+			if a != b and Vector2(a.c).distance_to(b.c) < float(a.r) + float(b.r) + 200.0:
+				clear = false
+	var dry := 0
+	var lands := []
+	var worst := 1.0
+	for il in far:
+		var hc: Vector2 = terrain.isle_heart(il)
+		if not terrain.is_water(hc.x, hc.y):
+			dry += 1
+		lands.append(land_at(gpos(hc)))
+		# How full it is: dry spots with a ruin, a heart, a lair or a town within 150 m
+		var pois: Array = []
+		for ru in ruins:
+			if Vector2(ru.pos.x, ru.pos.z).distance_to(il.c) < float(il.r) * 1.2:
+				pois.append(Vector2(ru.pos.x, ru.pos.z))
+		for l in lairs:
+			pois.append(Vector2(l.pos.x, l.pos.z))
+		var r := RandomNumberGenerator.new()
+		r.seed = 77
+		var n := 0
+		var near := 0
+		for k in 400:
+			var a := r.randf() * TAU
+			var q: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.8
+			if terrain.height_at(q.x, q.y) < WIsles.SEA_Y + 1.0:
+				continue
+			n += 1
+			if pois.any(func(pp): return pp.distance_to(q) < 150.0):
+				near += 1
+		var share := float(near) / maxf(1.0, float(n))
+		worst = minf(worst, share)
+		print("FARSEA %s at %d r=%d pois=%d full=%.2f" % [il.key, int(Vector2(il.c).length()), int(il.r), pois.size(), share])
+	if OS.get_environment("FARMAP") != "":
+		terrain.map_image(1024).save_png(OS.get_environment("FARMAP"))
+	print("FARSEA far=%d clear=%s dry=%d lands=%s" % [far.size(), clear, dry, ",".join(lands)])
+	print("FARSEA full=%s" % (worst >= 0.6))
+	get_tree().quit()
+
+
+## Test: the turn (the fifth beacon) and the Far Shores' hardships. The turn marks the world once,
+## shows the whirlpool, and the seventh night comes from the sea. On the Frostmark the cold bites
+## until the sheepskin is worn; on the Pale Steppe a pilgrim is lost until the compass is carried.
+func debug_turn() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var was_lit: Array = lit.duplicate()
+	lit = range(5)
+	flags.erase("turned")
+	var before := turned()
+	_the_turn()
+	var col := _turn_col != null or kraken.spot == Vector3.INF
+	var host := great_host()
+	lit = was_lit
+	print("TURN before=%s after=%s col=%s host=%s" % [before, turned(), col, host])
+	var home := player.global_position
+	var out := {}
+	for il in terrain.isles:
+		if not WIsles.THEMES[il.key].has("land"):
+			continue
+		var land: String = WIsles.THEMES[il.key].land
+		var hc: Vector2 = terrain.isle_heart(il)
+		player.place(gpos(hc + Vector2(60, 0)) + Vector3(0, 0.5, 0), 0.0)
+		await get_tree().create_timer(1.0).timeout
+		var at := land_at(player.global_position)
+		arms.wear.erase("cloak")
+		arms.wear.erase("hands")
+		var h0 := player.health
+		await get_tree().create_timer(6.0).timeout
+		var bites := player.health < h0
+		var was_lost := lost
+		arms.wear[WARMS_SLOT.get(land, "cloak")] = LAND_WARD[land][0]
+		h0 = player.health
+		await get_tree().create_timer(6.0).timeout
+		out[land] = [at == land, bites if land == "frost" else was_lost if land == "steppe" else true, player.health >= h0 and not lost]
+		arms.wear.erase(WARMS_SLOT.get(land, "cloak"))
+	player.place(home, 0.0)
+	print("TURN lands frost=%s steppe=%s" % [out.get("frost", []), out.get("steppe", [])])
+	get_tree().quit()
+
+const WARMS_SLOT := {"frost": "cloak", "sun": "neck", "steppe": "hands"}
+
+
 ## Testing aid: the Grey Sea and its isles are there, the sea holds a swimmer up and tires them,
 ## and nothing rises out of open water.
 func debug_sea() -> void:
@@ -13022,7 +13210,7 @@ func debug_great() -> void:
 	print("GREAT seventh=%s warn=%d tonight=%d" % [great_night(7) and not great_night(6), warn2, nights_to_great()])
 	var was_lit := lit.duplicate()
 	var hosts := []
-	for n in [0, 4, 7]:
+	for n in [0, 4, 5, 7]:
 		lit = range(n)
 		hosts.append(great_host())
 	lit = was_lit
