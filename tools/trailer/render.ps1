@@ -7,7 +7,8 @@ param(
     [string]$Game = "",
     [string]$Only = "",
     [string]$Res = "2560x1440",
-    [string]$Shots = "res://tools/trailer/shots.json"
+    [string]$Shots = "res://tools/trailer/shots.json",
+    [switch]$Fullscreen
 )
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
@@ -50,6 +51,7 @@ $userDir = Join-Path $env:APPDATA "BrelmTrailer"
 Remove-Item "$userDir\trailer_cuts.json" -ErrorAction SilentlyContinue
 $gargs = @("--path", $Game, "--resolution", $Res, "--fixed-fps", "60", "--write-movie", $raw, "--", "level=12", "trailer=$Shots")
 if ($Only -ne "") { $gargs += "only=$Only" }
+if ($Fullscreen) { $gargs = @("--fullscreen") + $gargs }   # nothing can move or shrink the window mid-film
 Write-Host "Filming... (the game window shows each shot slowly; leave it be)"
 $ErrorActionPreference = "Continue"   # Godot writes warnings to stderr
 $t0 = Get-Date
