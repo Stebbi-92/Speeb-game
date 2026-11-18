@@ -87,6 +87,63 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D = null) -> Me
 	return mi
 
 
+## Real bodies (CC-BY 4.0, see CREDITS.md): [file, size in metres, measured "long" or "tall"], at the kind's own size.
+const MODELS := {
+	"hare": ["res://assets/models/beasts/rabbit_rigged.glb", 0.62, "long"],
+	"goat": ["res://assets/models/beasts/goat.glb", 1.3, "tall"],
+	"tusker": ["res://assets/models/beasts/wild_boar.glb", 1.7, "long"],
+}
+static var _bounds := {}
+var _anim: AnimationPlayer
+var _bob := 0.0
+
+
+## A real body where there is one: sized, set on its feet, a little greyed by the waste, its gait by its pace.
+func _build_real() -> bool:
+	if not MODELS.has(kind) or not ResourceLoader.exists(MODELS[kind][0]):
+		return false
+	var spec_m: Array = MODELS[kind]
+	var m: Node3D = (load(spec_m[0]) as PackedScene).instantiate()
+	if not _bounds.has(kind):
+		var skinned := not m.find_children("*", "Skeleton3D", true, false).is_empty()
+		var bb := AABB()
+		if skinned:
+			bb = LesserSpeeb._skinned_bounds(m)
+		else:
+			var first := true
+			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				var a: AABB = WTrees._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+				bb = a if first else bb.merge(a)
+				first = false
+		_bounds[kind] = bb
+	var b: AABB = _bounds[kind]
+	var want: float = float(spec_m[1]) * (float(spec.size) / float({"hare": 0.45, "goat": 0.9, "tusker": 1.0}[kind]))
+	var k := want / maxf(b.size.z if spec_m[2] == "long" else b.size.y, 0.001)
+	var c := b.get_center()
+	m.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-c.x * k, -b.position.y * k, -c.z * k))
+	_body.add_child(m)
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if mm.mesh == null:
+			continue
+		for si in mm.mesh.get_surface_count():
+			var sm := mm.mesh.surface_get_material(si)
+			if sm is StandardMaterial3D:
+				var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+				t.albedo_color = t.albedo_color * Color(1, 1, 1).lerp(Color(spec.color).lightened(0.35), 0.35)
+				mm.set_surface_override_material(si, t)
+	var aps := m.find_children("*", "AnimationPlayer", true, false)
+	if not aps.is_empty():
+		_anim = aps[0]
+		var names := _anim.get_animation_list()
+		if not names.is_empty():
+			_anim.get_animation(names[0]).loop_mode = Animation.LOOP_LINEAR
+			_anim.play(names[0])
+			_anim.seek(randf(), true)
+	return true
+
+
 ## Plain shapes: a body, a head, legs, and what marks the kind.
 func _build() -> void:
 	var s: float = spec.size
@@ -94,6 +151,8 @@ func _build() -> void:
 	var dark := _mat(Color(spec.color).darkened(0.5))
 	_body = Node3D.new()
 	add_child(_body)
+	if _build_real():
+		return
 	match kind:
 		"hare":
 			_box(Vector3(0.32, 0.3, 0.55), Vector3(0, 0.32, 0), fur)
@@ -192,6 +251,14 @@ func _physics_process(delta: float) -> void:
 		moving = _think(delta)
 	# Legs stride with the pace
 	_step += delta * clampf(moving, 0.0, 10.0) * 2.2
+	if _anim:
+		# Its own gait, quick as it runs; all but still when it stands
+		_anim.speed_scale = clampf(moving / maxf(float(spec.walk), 0.5), 0.05, 3.0)
+	elif MODELS.has(kind) and _body.get_child_count() == 1:
+		# A body without bones bobs with its stride
+		_bob += delta * clampf(moving, 0.0, 10.0) * 3.0
+		_body.position.y = absf(sin(_bob)) * clampf(moving * 0.02, 0.0, 0.08)
+		_body.rotation.x = sin(_bob * 2.0) * clampf(moving * 0.01, 0.0, 0.05)
 	for i in _legs.size():
 		var lg: MeshInstance3D = _legs[i]
 		lg.rotation.x = sin(_step + (PI if i % 2 == 0 else 0.0) + (PI * 0.5 if i >= 2 else 0.0)) * clampf(moving * 0.12, 0.0, 0.7)

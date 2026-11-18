@@ -79,6 +79,10 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
 | ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
+| ["Rabbit Rigged"](https://skfb.ly/6V6FS) | FourthGreen | The Ash Hare (`assets/models/beasts`) |
+| ["Goat"](https://skfb.ly/6YXHz) | sambasivarao | The Dune Goat |
+| ["Wild Boar"](https://skfb.ly/6nyQK) | jbnotjeebe | The Ash Tusker |
+| ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
 | ["Prowler Dragon Variant Rig"](https://skfb.ly/o8IRS) | DM-913 | Kulshedra, the she-dragon (`assets/models/foes/drake`) |
 | ["Abandoned Barn"](https://skfb.ly/oJFBW) | Arsen Ismailov | Barns standing alone in the waste (`assets/models/buildings`) |

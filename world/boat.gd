@@ -21,6 +21,7 @@ const SEATS := {
 
 var id := 0
 var kind := "raft"
+const RAFT := "res://assets/models/boats/raft.glb"
 var spec: Dictionary
 var hp := 100.0
 var w   ## the wasteland
@@ -55,7 +56,30 @@ func _ready() -> void:
 	_net_yaw = yaw
 	_deck = Node3D.new()
 	add_child(_deck)
-	if kind == "raft":
+	if kind == "raft" and ResourceLoader.exists(RAFT):
+		# "Wooden Raft - Low Poly" by Le Moustick (CC-BY 4.0), its mast and sail left ashore: this raft is paddled
+		var m: Node3D = (load(RAFT) as PackedScene).instantiate()
+		for n in m.find_children("*", "", true, false):
+			if n.name.begins_with("Mast") or n.name.begins_with("Sail"):
+				n.get_parent().remove_child(n)
+				n.queue_free()
+		var bb := AABB()
+		var first := true
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = WTrees._chain(mi, m) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		var long := maxf(bb.size.x, bb.size.z)
+		var k := 3.8 / maxf(long, 0.001)
+		var turn := 0.0 if bb.size.z >= bb.size.x else PI * 0.5
+		var c := bb.get_center()
+		m.transform = Transform3D(Basis(Vector3.UP, turn).scaled(Vector3.ONE * k), Basis(Vector3.UP, turn) * Vector3(-c.x * k, -bb.end.y * k + 0.45, -c.z * k))
+		_deck.add_child(m)
+		var oar = w.box(Vector3.ZERO, Vector3(0.1, 0.1, 2.4), w._m.darkwood, false)
+		oar.reparent(_deck, false)
+		oar.position = Vector3(1.5, 0.5, -0.6)
+		oar.rotation.y = 0.2
+	elif kind == "raft":
 		for i in 6:
 			var lg = w.cyl(Vector3.ZERO, 0.24, 3.6, w._m.wood, false, -1.0, 8)
 			lg.reparent(_deck, false)

@@ -8705,7 +8705,8 @@ func debug_hunt() -> void:
 
 
 func debug_beastshot() -> void:
-	await get_tree().create_timer(2.0).timeout
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
 	_beast_t = 9999.0
 	var f := -player.global_transform.basis.z
 	var side := f.cross(Vector3.UP)
@@ -8721,7 +8722,13 @@ func debug_beastshot() -> void:
 		i += 1
 	var c := base + side * 5.5
 	builder._rq_build(1, "cookpot", Vector3(c.x, terrain.height_at(c.x, c.z), c.z), 0.0)
-	clock = 19.5
+	clock = 12.0 if OS.get_environment("SHOT_OUT") != "" else 19.5
+	if OS.get_environment("SHOT_OUT") != "":
+		_debug_aim(base + Vector3(0, 0.4, 0))
+		for k in 40:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT"))
+		get_tree().quit()
 
 
 ## Picture aid: the land's scanned leavings in two rows before the eye.
