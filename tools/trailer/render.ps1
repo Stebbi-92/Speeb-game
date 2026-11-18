@@ -67,7 +67,7 @@ foreach ($c in $cuts.cuts) {
     $len = [string](([double]$c.end - [double]$c.start) / $fps)
     $out = "$Root\clips\$($c.name).mp4"
     Write-Host "Cutting $($c.name) ($len s)"
-    & $ffmpeg -v error -y -ss $ss -i $raw -t $len -c:v libx264 -preset slow -crf 14 -pix_fmt yuv420p -c:a aac -b:a 256k -movflags +faststart $out
+    & $ffmpeg -v error -y -ss $ss -i $raw -t $len -vf "scale=$($Res.Replace('x',':')):force_original_aspect_ratio=increase,crop=$($Res.Replace('x',':')),setsar=1" -c:v libx264 -preset slow -crf 14 -pix_fmt yuv420p -c:a aac -b:a 256k -movflags +faststart $out
     & $ffmpeg -v error -y -i $out -vf "fps=1.5,scale=640:-1,tile=3x3" -frames:v 1 "$Root\clips\$($c.name)_sheet.jpg"
 }
 Copy-Item $cutsPath "$Root\clips\cuts.json" -Force

@@ -225,7 +225,9 @@ func _shoot(s: Dictionary) -> void:
 	w.weather.set_kind(str(s.get("weather", "clear")), 99999.0, float(s.get("wind", 0.6)))
 	w.weather.k = 1.0 if str(s.get("weather", "clear")) != "clear" else 0.0
 	for i in w.beacon_nodes.size():
-		var on: bool = i in s.get("lit", [])
+		var on := false
+		for x in s.get("lit", []):
+			on = on or int(x) == i   # JSON numbers come as floats
 		if on and not i in w.lit:
 			w.lit.append(i)
 		elif not on and i in w.lit:
@@ -281,7 +283,7 @@ func _shoot(s: Dictionary) -> void:
 		e._buried = 0.0
 		var face = f.get("face", "cam")
 		var tgt: Vector3 = path[0] if str(face) == "cam" else _pt(a, face)
-		e.rotation.y = atan2(fpnt.x - tgt.x, fpnt.z - tgt.z)
+		e.rotation.y = atan2(fpnt.x - tgt.x, fpnt.z - tgt.z) + PI   # the bodies are built facing +z
 		if e.get("_bar_t") != null:
 			e._bar_t = 0.0
 		if f.get("still", false):

@@ -6,29 +6,29 @@
    "name": "s01_dawn_ash",
    "at": "biome:ash",
    "search": 900,
-   "clock": 7.0,
-   "hours_per_sec": 0.05,
+   "clock": 17.2,
+   "hours_per_sec": 0.03,
    "dur": 7,
    "fov": 50,
    "ease": "linear",
    "path": [
     {
      "ang": 200,
-     "dist": 120,
-     "up": 22
+     "dist": 150,
+     "up": 55
     },
     {
      "ang": 188,
-     "dist": 90,
-     "up": 16
+     "dist": 115,
+     "up": 45
     }
    ],
    "look": [
     0,
-    4,
-    -60
+    0,
+    -40
    ],
-   "fog": 0.35
+   "fog": 0.5
   },
   {
    "name": "s02_dead_forest",
@@ -98,8 +98,8 @@
   {
    "name": "s04_salt_frost",
    "at": "biome:salt",
-   "clock": 10.5,
-   "weather": "frost",
+   "clock": 16.8,
+   "weather": "clear",
    "dur": 5,
    "fov": 50,
    "path": [
@@ -118,7 +118,8 @@
     0,
     1,
     -40
-   ]
+   ],
+   "fog": 0.6
   },
   {
    "name": "s05_ashstorm_walk",
@@ -159,7 +160,14 @@
      -49
     ]
    ],
-   "preroll": 5
+   "preroll": 5,
+   "aim": [
+    [
+     0,
+     6
+    ]
+   ],
+   "fog": 1.0
   },
   {
    "name": "s06_cinderwick_dusk",
@@ -169,19 +177,19 @@
    "fov": 50,
    "path": [
     {
-     "ang": 170,
+     "ang": 200,
      "dist": 80,
-     "up": 16
+     "up": 14
     },
     {
-     "ang": 185,
+     "ang": 215,
      "dist": 48,
-     "up": 7
+     "up": 6
     }
    ],
    "look": [
     0,
-    3,
+    1,
     0
    ]
   },
@@ -190,10 +198,10 @@
    "at": "biome:ash",
    "search": 400,
    "shift": [
-    -40,
-    20
+    -90,
+    60
    ],
-   "clock": 17.3,
+   "clock": 17.6,
    "dur": 5,
    "fov": 45,
    "path": [
@@ -328,7 +336,7 @@
   {
    "name": "s09_marsh",
    "at": "biome:marsh",
-   "clock": 18.3,
+   "clock": 17.4,
    "dur": 6,
    "fov": 50,
    "path": [
@@ -347,7 +355,8 @@
     0,
     1,
     0
-   ]
+   ],
+   "fog": 0.6
   },
   {
    "name": "s10_fp_rifle",
@@ -422,22 +431,22 @@
    "at": "biome:ash",
    "search": 400,
    "shift": [
-    120,
-    40
+    200,
+    -60
    ],
-   "clock": 22.5,
+   "clock": 20.3,
    "live": true,
    "dur": 7,
    "fov": 50,
    "path": [
     [
      0,
-     1.2,
+     1.6,
      0
     ],
     [
      0,
-     1.0,
+     1.4,
      4
     ]
    ],
@@ -500,7 +509,8 @@
       -55
      ]
     }
-   ]
+   ],
+   "fog": 0.4
   },
   {
    "name": "s12_fp_flamer",
@@ -512,7 +522,7 @@
    "mode": "fp",
    "gun": "flamer",
    "live": true,
-   "clock": 21.8,
+   "clock": 20.4,
    "dur": 5,
    "fov": 75,
    "path": [
@@ -538,7 +548,7 @@
      "p": [
       -2,
       0,
-      -11
+      -14
      ]
     },
     {
@@ -546,23 +556,15 @@
      "p": [
       2,
       0,
-      -13
+      -16
      ]
     },
     {
-     "kind": "swarm",
+     "kind": "spider",
      "p": [
       0,
       0,
-      -9
-     ]
-    },
-    {
-     "kind": "swarm",
-     "p": [
-      1,
-      0,
-      -10
+      -19
      ]
     }
    ],
@@ -575,11 +577,12 @@
    "preroll": 5,
    "track": true,
    "form_settle": 0.2,
-   "aim_up": 0.4
+   "aim_up": 0.4,
+   "fog": 0.4
   },
   {
    "name": "s13_rocket",
-   "at": "biome:basalt",
+   "at": "biome:ash",
    "mode": "fp",
    "gun": "rocket",
    "live": true,
@@ -609,15 +612,15 @@
      "p": [
       -2,
       0,
-      -30
+      -32
      ]
     },
     {
      "kind": "rusher",
      "p": [
-      2,
+      2.5,
       0,
-      -28
+      -30
      ]
     },
     {
@@ -625,25 +628,30 @@
      "p": [
       0,
       0,
-      -33
+      -35
      ]
     }
    ],
    "aim": [
     [
      0.4,
-     2.2
+     2.6
     ]
    ],
    "fire": [
     [
-     1.6,
-     1.8
+     2.0,
+     2.2
     ]
    ],
    "preroll": 5,
    "track": true,
-   "form_settle": 0.2
+   "form_settle": 0.2,
+   "search": 900,
+   "shift": [
+    -150,
+    -100
+   ]
   },
   {
    "name": "s14_beacon_kindle",
@@ -680,7 +688,8 @@
     "beacon": 0,
     "t": 1.5,
     "grow": 3.5
-   }
+   },
+   "fog": 0.6
   },
   {
    "name": "s15_cinderwick_night",
@@ -719,33 +728,35 @@
     0,
     1,
     2,
-    3
+    3,
+    4
    ],
    "ease": "out",
    "path": [
     {
      "ang": 180,
      "dist": 40,
-     "up": 3
+     "up": 4
     },
     {
      "ang": 180,
-     "dist": 60,
-     "up": 60
+     "dist": 70,
+     "up": 45
     }
    ],
    "look": [
     [
      0,
-     8,
+     10,
      0
     ],
     [
      0,
-     30,
-     -200
+     20,
+     -300
     ]
-   ]
+   ],
+   "fog": 0.35
   }
  ]
 }
