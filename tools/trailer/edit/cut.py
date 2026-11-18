@@ -92,7 +92,7 @@ def seg(i, e):
     inputs, fl = [], []
     if clip:
         inputs += ["-ss", str(tin), "-t", str(dur), "-i", f"{CLIPS}/{clip}.mp4"]
-        v = f"[0:v]fps={FPS},scale={W}:{H}:flags=lanczos,{grade},vignette=angle=0.55,noise=alls=4:allf=t"
+        v = f"[0:v]fps={FPS},scale={W}:{H}:flags=lanczos,{grade},vignette=angle=0.55,noise=alls=2:allf=t"
     else:
         inputs += ["-f", "lavfi", "-t", str(dur), "-i", f"color=c=black:s={W}x{H}:r={FPS}"]
         v = "[0:v]null"
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     if os.path.exists(score) and not PREVIEW:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f"{WORK}/picture.mov", "-i", score, "-filter_complex",
                         "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.79[a]",
-                        "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p",
+                        "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p",
                         "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", final], check=True)
         if H > 1080:
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", final, "-vf", "scale=1920:1080:flags=lanczos", "-c:v", "libx264",
