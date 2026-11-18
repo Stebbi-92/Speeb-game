@@ -8,7 +8,7 @@ The world is laid out as you move: the ground near you is in full detail, the fa
 
 Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, night pace, and whether you drop your pack when you fall.
 
-**Night pace** sets how hard the nights press. Steady brings smaller waves with longer breaks and fewer named nights. Chaos brings bigger, quicker waves, and most nights are named.
+**Night pace** sets how hard the nights press. Steady brings smaller rounds with longer breaks and fewer named nights. Chaos brings bigger rounds with shorter breaks, and most nights are named.
 
 **Vows** are sworn only when a world begins, and kept for its whole life. Each makes the road harder and pays for it:
 - **Vow of Glass:** you take half again as much harm, but every weapon learns twice as fast.
@@ -17,7 +17,11 @@ Each world has its own settings, chosen next to **Begin** and changed by the hos
 
 ## Days and nights
 
-A day passes in about forty minutes. By day the waste is quiet. At night the creatures rise, and each night is a little worse than the last. Light keeps them off: no creature rises within 40 paces of a burning campfire, or 15 of a torch, or inside a settlement's walls.
+A day passes in about forty minutes. By day the waste is quiet: a stray or a pair now and then (every three or four minutes), and on the road about one thing in three ahead of you is a fight; the rest are camps, the fallen and cairns. After a fight you get a breather: nothing new comes for 90 seconds after the last creature near you falls (two minutes in the near lands).
+
+At night the creatures rise in **rounds**. The next round comes 30 to 45 seconds after the last is cleared (or after 90 seconds, so stragglers can't hold it off). There are up to six rounds a night, each a little bigger, and the one before dawn is the largest. Night creatures have a quarter more health and strike a fifth harder, and more of them are heavies and shooters. Each night is a little worse than the last.
+
+Light keeps them off: no creature rises within 40 paces of a burning campfire, or 15 of a torch. **Settlements are always safe**: nothing rises inside them or near their walls, nothing follows you in, and nothing outside can shoot you while you're inside.
 
 When you fall, you wake knowing a little more: the nearest lair or ruin you had not found is marked on your map.
 

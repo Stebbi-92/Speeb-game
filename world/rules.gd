@@ -12,7 +12,7 @@ const ALL := [
 	["needs", "Hunger and tiredness", ["Off", "Gentle", "Normal"], 2, "How fast food and rest run down."],
 	["air", "Air support", ["Off", "On"], 1, "Calling the sky down after a run of kills."],
 	["ammo", "Ammunition", ["Counted", "Unlimited"], 0, "Unlimited: guns never spend their reserve."],
-	["pace", "Night pace", ["Steady", "Normal", "Chaos"], 1, "Steady: smaller waves with longer breaks, and fewer named nights. Chaos: bigger, quicker waves, and most nights are named."],
+	["pace", "Night pace", ["Steady", "Normal", "Chaos"], 1, "Nights come in rounds, with a breath between. Steady: smaller rounds, longer breaks, fewer named nights. Chaos: bigger rounds, shorter breaks, most nights named."],
 	["death", "On falling", ["Drop your pack", "Keep your pack"], 0, "What happens to what you carried when you fall."],
 	# Vows: sworn when a world begins and kept for its life. Each makes the road harder, and pays for it.
 	["vow_glass", "Vow of Glass", ["Not sworn", "Sworn"], 0, "You take half again as much harm. Every weapon learns twice as fast."],

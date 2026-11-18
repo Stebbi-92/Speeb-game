@@ -8,7 +8,7 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 
 | Creature | Health | Bite | Weak to | Hard against | How to fight it |
 |---|---|---|---|---|---|
-| **Ash Stalker** | 52 | 15 | shotgun spread |  | Runs you down and springs at the last. |
+| **Ash Stalker** | 60 | 15 | shotgun spread |  | Runs you down and springs at the last. |
 | **Bile Choir** | 38 | none | bullets | shotgun spread | Keeps its distance and spits. Pick it off. |
 | **Gilt Idol** | 90 | 26 | blasts, blades | shotgun spread | Its golden face turns shot. Strike from the side, or with a blade or a blast. |
 | **Cinder Mote** | 12 | 7 | shotgun spread, fire |  | Small, quick and many. A spread of shot clears them. |

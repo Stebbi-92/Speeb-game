@@ -7,7 +7,7 @@ extends RefCounted
 const MAX := 8
 const PER_FOE := 0.35       ## more forms sent, for each pilgrim past the first
 const PER_HP := 0.07        ## each form a little harder to bring down, for each pilgrim past the first
-const PER_BOSS := 0.5       ## a great one's strength, for each pilgrim past the first
+const PER_BOSS := 0.35      ## a great one's strength, for each pilgrim past the first
 const ALIVE_CAP := 90       ## never more forms than this awake at once, however many walk
 
 static var fake := 0        ## the dev menu's pretend fellowship, for trying a crowd alone (0 = off)

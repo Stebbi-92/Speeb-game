@@ -10,10 +10,10 @@ extends RefCounted
 ## "reload" is "shell" (one at a time, can be cut short) or "mag" (all at once).
 
 const GUNS := {
-	"shotgun": {"name": "Pump Shotgun", "slot": "primary", "mode": "pump", "dmg": 11.0, "pellets": 8, "spread": 0.075, "range": 45.0,
+	"shotgun": {"name": "Pump Shotgun", "slot": "primary", "mode": "pump", "dmg": 12.0, "pellets": 8, "spread": 0.075, "range": 45.0,
 		"mag": 6, "rate": 0.7, "reload": "shell", "reload_t": 0.45, "sound": "shotgun", "kick": 1.0, "falloff": 25.0, "unlock": 1,
 		"mounts": ["red_dot", "suppressor", "foregrip", "ext_mag"], "text": "Eight pellets and a pump between each. It forgives a poor aim, close in."},
-	"machine_gun": {"name": "Machine Gun", "slot": "primary", "mode": "auto", "dmg": 15.0, "pellets": 1, "spread": 0.02, "range": 140.0,
+	"machine_gun": {"name": "Machine Gun", "slot": "primary", "mode": "auto", "dmg": 17.0, "pellets": 1, "spread": 0.02, "range": 140.0,
 		"mag": 30, "rate": 0.095, "reload": "mag", "reload_t": 2.1, "sound": "rifle", "kick": 0.22, "falloff": 70.0, "unlock": 3,
 		"mounts": ["red_dot", "scope", "suppressor", "foregrip", "ext_mag"], "text": "A steady stream that climbs as you hold it. Short bursts keep it true."},
 	"lmg": {"name": "Belt Gun", "slot": "primary", "mode": "auto", "dmg": 21.0, "pellets": 1, "spread": 0.03, "range": 160.0,
@@ -31,7 +31,7 @@ const GUNS := {
 	"flamer": {"name": "Flamethrower", "slot": "primary", "mode": "flame", "dmg": 7.0, "pellets": 1, "spread": 0.0, "range": 10.0,
 		"mag": 100, "rate": 0.07, "reload": "mag", "reload_t": 3.2, "sound": "jet", "kick": 0.0, "falloff": 0.0, "unlock": 14, "cone": 0.88,
 		"mounts": [], "text": "A tank of lamp fuel and a lit tongue. Short reach, and everything in front of it burns."},
-	"pistol": {"name": "Pistol", "slot": "secondary", "mode": "semi", "dmg": 21.0, "pellets": 1, "spread": 0.012, "range": 90.0,
+	"pistol": {"name": "Pistol", "slot": "secondary", "mode": "semi", "dmg": 18.0, "pellets": 1, "spread": 0.012, "range": 90.0,
 		"mag": 12, "rate": 0.16, "reload": "mag", "reload_t": 1.3, "sound": "pistol45", "kick": 0.35, "falloff": 45.0, "unlock": 1,
 		"mounts": ["red_dot", "suppressor", "ext_mag"], "text": "Quick to draw and quick to load. Something to reach for when the long gun runs dry."},
 	"pistol9": {"name": "Auto Pistol", "slot": "secondary", "mode": "auto", "dmg": 13.0, "pellets": 1, "spread": 0.022, "range": 70.0,
@@ -46,11 +46,11 @@ const GUNS := {
 ## to a foe that is not facing you.
 const MELEE := {
 	"knife": {"name": "Knife", "dmg": 26.0, "rate": 0.24, "reach": 2.2, "arc": 0.75, "back": 2.5, "unlock": 2, "text": "Short and quick. Cruel from behind."},
-	"hatchet": {"name": "Hatchet", "dmg": 55.0, "rate": 0.6, "reach": 2.6, "unlock": 1, "text": "A short haft and a broad head."},
+	"hatchet": {"name": "Hatchet", "dmg": 42.0, "rate": 0.6, "reach": 2.6, "unlock": 1, "text": "A short haft and a broad head."},
 	"machete": {"name": "Machete", "dmg": 40.0, "rate": 0.38, "reach": 2.8, "arc": 0.5, "unlock": 4, "text": "Lighter and quicker, for the swarm."},
 	"sword": {"name": "Sword", "dmg": 66.0, "rate": 0.48, "reach": 3.0, "arc": 0.55, "unlock": 6, "text": "Old iron with a true edge. Quick enough, and long."},
 	"sledge": {"name": "Sledge", "dmg": 100.0, "rate": 1.1, "reach": 2.9, "pierce": 2.0, "unlock": 9, "harm": "blunt", "text": "Slow, and it breaks whatever it meets. Plate does not stop it."},
-	"glaive": {"name": "Obsidian Glaive", "dmg": 150.0, "rate": 0.85, "reach": 3.6, "arc": 0.45, "pierce": 1.5, "unlock": 16, "text": "Black glass on a long haft. The longest reach, and it bites through plate."},
+	"glaive": {"name": "Obsidian Glaive", "dmg": 120.0, "rate": 0.85, "reach": 3.6, "arc": 0.45, "pierce": 1.5, "unlock": 16, "text": "Black glass on a long haft. The longest reach, and it bites through plate."},
 	"battle_axe": {"name": "Battle Axe", "dmg": 125.0, "rate": 0.95, "reach": 3.2, "arc": 0.3, "unlock": 11, "text": "A long haft and a bearded head. It sweeps all before it."},
 }
 

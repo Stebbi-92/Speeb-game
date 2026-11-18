@@ -1391,7 +1391,7 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		var t: int = int(a.tier.get(id, 0))
 		side.add_child(_label(sp.name, 23, PALE))
 		side.add_child(_label(WArms.TIERS[t], 15, GOLD))
-		var dmg := float(sp.dmg) * (1.0 + 0.12 * t)
+		var dmg := float(sp.dmg) * WArms.tier_mult(t)
 		_stat(side, "Harm", "%d%s" % [int(round(dmg)), " × %d" % int(sp.pellets) if int(sp.pellets) > 1 else ""], clampf(dmg * float(sp.pellets) / 150.0, 0.05, 1.0))
 		_stat(side, "Shots a second", "%.1f" % (1.0 / float(sp.rate)), clampf((1.0 / float(sp.rate)) / 12.0, 0.05, 1.0))
 		_stat(side, "Reach", "%d m" % int(sp.range), clampf(float(sp.range) / 400.0, 0.05, 1.0))
@@ -1410,10 +1410,18 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 	if info.is_empty():
 		return
 	side.add_child(_label(info.name, 23, PALE))
+	var bt: int = int(a.tier.get(id, 0))
 	if ArmsDB.MELEE.has(id):
+		side.add_child(_label(WArms.TIERS[bt], 15, GOLD))
 		side.add_child(_practice_line("blade"))
 	if info.has("dmg"):
-		_stat(side, "Harm", str(int(info.dmg)), clampf(float(info.dmg) / 150.0, 0.05, 1.0))
+		var hd := float(info.dmg) * (WArms.tier_mult(bt) if ArmsDB.MELEE.has(id) else 1.0)
+		_stat(side, "Harm", str(int(round(hd))), clampf(hd / 150.0, 0.05, 1.0))
+	# A blade one owns can be worked up at a bench like a gun
+	if ArmsDB.MELEE.has(id) and id in a.blades and bt < 3:
+		var tc: Dictionary = _acost(WArms.tier_cost(bt + 1, id))
+		side.add_child(_secondary("Work on it: %s" % WArms.TIERS[bt + 1], func(): _arms_pay(WArms.tier_cost(bt + 1, id), func(): a.tier[id] = bt + 1), bench and w.stock_has_all(tc)))
+		side.add_child(_cost_line(tc))
 	if info.has("guard"):
 		_stat(side, "Turns aside", "%d%%" % int(round(float(info.guard) * 100.0)), clampf(float(info.guard) / 0.25, 0.05, 1.0))
 	if info.has("plate"):
@@ -1498,7 +1506,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	left.add_theme_constant_override("separation", 4)
 	left.custom_minimum_size.x = 250
 	cols.add_child(left)
-	var dmg := float(sp.dmg) * (1.0 + 0.12 * t)
+	var dmg := float(sp.dmg) * WArms.tier_mult(t)
 	_stat(left, "Harm", "%d%s" % [int(round(dmg)), " × %d" % int(sp.pellets) if int(sp.pellets) > 1 else ""], clampf(dmg * float(sp.pellets) / 150.0, 0.05, 1.0))
 	_stat(left, "Shots a second", "%.1f" % (1.0 / float(sp.rate)), clampf((1.0 / float(sp.rate)) / 12.0, 0.05, 1.0))
 	_stat(left, "Reach", "%d m" % int(sp.range), clampf(float(sp.range) / 400.0, 0.05, 1.0))
@@ -1506,8 +1514,8 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	_stat(left, "Aim speed", "%d%%" % int(round(float(sp.aim) * 100.0)), clampf(float(sp.aim) / 1.6, 0.05, 1.0))
 	_stat(left, "Holds", str(Arms.mag_of(g)), clampf(Arms.mag_of(g) / 60.0, 0.05, 1.0))
 	if t < 3:
-		var c: Dictionary = _acost(WArms.tier_cost(t + 1))
-		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
+		var c: Dictionary = _acost(WArms.tier_cost(t + 1, g))
+		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1, g), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
 		left.add_child(wb)
 		left.add_child(_cost_line(c))
 	# Every part it can take, by place on the gun

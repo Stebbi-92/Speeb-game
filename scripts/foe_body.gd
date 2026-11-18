@@ -20,7 +20,7 @@ const LOOKS := {
 	"drowned": ["character-zombie.glb", "tar.png", 3.3, ""],
 	"colossus": ["character-zombie.glb", "colossus.png", 5.4, ""],
 	"wisp": ["character-ghost.glb", "ember.png", 2.6, "glow"],
-	"knight": ["character-keeper.glb", "knight.png", 3.3, "maul"],
+	"knight": ["character-keeper.glb", "knight.png", 3.3, "own"],   ## the knight keeps the flamberge it was made with
 	"saltrifle": ["character-skeleton.glb", "saltrifle.png", 3.2, "rifle"],
 }
 
@@ -141,13 +141,22 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
 		for d in DROP:
+			if look[3] == "own" and d == "Flamberge":
+				continue
 			if mm.mesh and d in mm.mesh.resource_name:
 				mm.get_parent().remove_child(mm)
 				mm.free()
 				break
 	if not _bounds.has(path):
-		var bb := LesserSpeeb._skinned_bounds(m)
-		_bounds[path] = bb
+		# Measured without what it holds, so a raised blade does not shrink the body
+		var held: Array = []
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).mesh and "Flamberge" in (mi as MeshInstance3D).mesh.resource_name:
+				held.append([mi, mi.get_parent()])
+				mi.get_parent().remove_child(mi)
+		_bounds[path] = LesserSpeeb._skinned_bounds(m)
+		for h in held:
+			(h[1] as Node).add_child(h[0])
 	var bb: AABB = _bounds[path]
 	# As tall as the figure it replaces stood, so each kind keeps its size and its reach
 	var kp := DIR + str(look[0])
@@ -251,6 +260,8 @@ func top() -> float:
 		var gi := g as GeometryInstance3D
 		if gi == head_node or not gi.visible or gi is Label3D or gi is GPUParticles3D or gi is CPUParticles3D:
 			continue
+		if gi is MeshInstance3D and (gi as MeshInstance3D).mesh and "Flamberge" in (gi as MeshInstance3D).mesh.resource_name:
+			continue   # a raised blade is not the top of the body
 		# Skinned parts carry their true, posed bounds; the file's own are those of the bind pose
 		var bb := gi.custom_aabb if gi.custom_aabb.size != Vector3.ZERO else gi.get_aabb()
 		if bb.size == Vector3.ZERO:
@@ -359,18 +370,16 @@ func _blade(length: float, c: Color) -> void:
 
 
 func _maul() -> void:
-	_blade(0.7, Color(0.3, 0.28, 0.26))
 	if hand == null:
 		return
-	var head := MeshInstance3D.new()
-	var bx := BoxMesh.new()
-	bx.size = Vector3(0.4, 0.4, 0.6)
-	head.mesh = bx
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.32, 0.3, 0.28)
-	head.material_override = m
-	head.position = Vector3(0, -0.9, 1.3)
-	hand.add_child(head)
+	# The scanned sledgehammer the pilgrims carry, grown to a breaker's two-handed maul
+	var sl := Arms.scanned("sledgehammer_01", Vector3(0, 90, 0), -0.25, 2.1)
+	if sl == null:
+		_blade(0.7, Color(0.3, 0.28, 0.26))
+		return
+	sl.position = Vector3(0, -0.9, 0.1)
+	sl.rotation.x = PI * 0.5
+	hand.add_child(sl)
 
 
 ## Rough iron plates strapped over the chest (and the shoulders, for a heavy one).

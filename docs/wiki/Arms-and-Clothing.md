@@ -54,7 +54,7 @@ Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases 
 
 ## Blades
 
-Press the blade key to take it in hand. Tap fire to swing, hold and let go for a heavy blow, hold aim to guard. You start with the Hatchet.
+Press the blade key to take it in hand. Tap fire to swing, hold and let go for a heavy blow, hold aim to guard. You start with the Hatchet. Blades, like guns, can be worked up at a workbench (+15% harm a step).
 
 | Blade | Cost | Notes |
 |---|---|---|

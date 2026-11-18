@@ -21,6 +21,18 @@ Brelm alpha 0.13.3: clear view
 - Mounts look ahead, and turn their heads toward you only as far as a neck goes.
 - Drifting motes are only in the marsh now.
 - Pictures of the waste behind the loading screen.
+- Names float above the foes, never inside their bodies, and plate sits on their chests.
+- Foes no longer grow stronger when your guns do. They are as strong as their land: a worked-up gun is felt.
+- Guns and blades are worked up in steps of +15%. Blades can be worked up now too. Better arms cost more to work.
+- Pistol 18, Shotgun pellets 12, Machine Gun 17, Hatchet 42, Obsidian Glaive 120. Ash Stalkers take a little more.
+- Each lit beacon adds 10 most health, up to +60.
+- Great ones grow less with each extra player.
+- In a fellowship, a blade blow freezes the struck foe for a blink and jolts your view.
+- After a fight by day you get a breather. Strays come less often, and fewer road events are fights.
+- Nights come in rounds, with a breath between, the largest before dawn. Night foes are tougher.
+- Settlements are always safe: nothing outside can shoot you while you are inside.
+- The Ashen Knight carries his own flamberge, and his armour is his plate. The Unlit Breaker swings a real sledgehammer.
+- Gathering lands: a swing, then the blow, with its own sound for wood, stone, iron, leaf and bone. What you take rises off the node, and the last blow fells a tree or breaks a rock apart.
 
 Brelm alpha 0.13.2: joining fix
 

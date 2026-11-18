@@ -2154,6 +2154,9 @@ func _needs_tick(delta: float) -> void:
 	alchemy.tick(delta)
 	_land_tick(delta)
 	_afflict_tick(delta)
+	if lit.size() != _lit_seen:
+		_lit_seen = lit.size()
+		_apply_skills()
 	if food <= 0.0:
 		_starve_t -= delta
 		if _starve_t <= 0.0:
@@ -2241,8 +2244,8 @@ func eat(id: String) -> bool:
 ## Each land is harder than the one before, and has a hardship that only gear made from the land
 ## before it keeps out (Valheim's lands). The Ash Plains are where everyone starts.
 const LAND_TIER := {"ash": 1, "dunes": 2, "forest": 2, "salt": 3, "marsh": 3, "basalt": 4}
-const TIER_HP := [1.0, 1.35, 1.8, 2.4]       ## a foe's health in a land of each danger
-const TIER_HARM := [1.0, 1.25, 1.55, 1.9]    ## and the harm it does
+const TIER_HP := [1.0, 1.5, 2.2, 3.0]       ## a foe's health in a land of each danger
+const TIER_HARM := [1.0, 1.3, 1.6, 1.9]    ## and the harm it does
 ## land: [ward carried against it, the hardship in a few words]
 const LAND_WARD := {
 	"dunes": ["veil", "The heat: your breath comes back slowly."],
@@ -2309,28 +2312,16 @@ func land_warning(bn: String) -> String:
 	return "\n%s Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name]
 
 
-## How far the fellowship's arms have come: upgraded guns, fitted parts and experience. The forms
-## grow to meet it, so the near lands stay worth fearing once a gun is improved.
-func foe_power() -> float:
-	var best := 0
-	var tiers = Game.warms.get("tier", {}) if Game.warms is Dictionary else {}
-	if tiers is Dictionary:
-		for g in tiers:
-			best = maxi(best, int(tiers[g]))
-	var fitted := 0
-	if arms and arms.primary != "" and arms.parts.has(arms.primary):
-		fitted = (arms.parts[arms.primary] as Array).size()
-	var lv: int = skills.level if skills else 1
-	return clampf(1.0 + 0.15 * best + 0.04 * mini(fitted, 5) + 0.02 * (lv - 1), 1.0, 2.2)
-
-
-## A foe is as strong as the land it rises in, and as the arms it will face.
+## A foe is as strong as the land it rises in, not as the arms it will face: a better gun is felt.
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var m: float = TIER_HP[tier_at(p) - 1] * foe_power() * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
+		var land: float = TIER_HP[tier_at(p) - 1]
+		var m: float = land * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
 		e.hp *= m
 		e.max_hp *= m
+		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
+		e.plate *= land
 	return e
 
 
@@ -3100,6 +3091,15 @@ func _keep_safe() -> void:
 		var p: Vector3 = e.global_position
 		if settlement_at(p, TOWN_SAFE - 6.0) != "" or base_at(p, -4.0) >= 0:
 			e.die(false)
+
+
+## Within a settlement's watch no foe may harm anyone, nor hunt them from outside its walls.
+func sheltered(p: Vector3) -> bool:
+	return settlement_at(p, TOWN_SAFE) != ""
+
+
+func foe_harm() -> float:
+	return NIGHT_HARM if night else 1.0
 
 
 ## Rarely, a camp is found in the night. The fellowship is told with a bell and a banner.
@@ -4250,11 +4250,32 @@ func _gather(id: int) -> void:
 		hud.notify("Get down from your cat to gather.")
 		return
 	shared("_rq_gather", [Net.me(), id])
-	var nk: Dictionary = NODE_KINDS[nd.kind]
 	var last: bool = int(nd.charges) <= 1
-	sfx("crumble" if nd.kind in ["rock", "salt"] else "carve", -2 if last else -6, nd.pos, randf_range(0.9, 1.15) * (0.8 if last else 1.0))
-	player.shake(0.22 if last else 0.12)
-	_gather_fx(nd, last)
+	# The swing, then the blow lands a beat later: struck wood, stone, iron or leaf each sound of themselves
+	sfx("swing", -10, null, randf_range(0.95, 1.1))
+	if player.cam:
+		var cam := player.cam
+		var tw := create_tween()
+		tw.tween_property(cam, "rotation:x", cam.rotation.x - 0.035, 0.08).set_ease(Tween.EASE_OUT)
+		tw.tween_property(cam, "rotation:x", cam.rotation.x, 0.16).set_ease(Tween.EASE_IN_OUT)
+	get_tree().create_timer(0.1, false).timeout.connect(func():
+		if not is_instance_valid(self):
+			return
+		_gather_sound(str(nd.kind), nd.pos, last)
+		player.shake(0.24 if last else 0.13)
+		_gather_fx(nd, last))
+
+
+## What a blow at each kind of node sounds like (and the last blow, heavier and lower).
+const GATHER_SOUNDS := {"tree": [["chop", -3.0], ["carve", -9.0]], "rock": [["crumble", -3.0], ["thud", -8.0]], "salt": [["crumble", -4.0], ["hit_metal", -16.0]],
+	"scrap": [["hit_metal", -6.0], ["thud", -12.0]], "ammo": [["hit_metal", -8.0], ["cloth", -10.0]], "herb": [["cloth", -6.0]], "bone": [["crumble", -6.0], ["thud", -12.0]]}
+var gather_heard: Array = []   ## the sounds of the last blow (for the tests)
+
+func _gather_sound(kind: String, at: Vector3, last: bool) -> void:
+	gather_heard.clear()
+	for snd in GATHER_SOUNDS.get(kind, [["carve", -6.0]]):
+		gather_heard.append(snd[0])
+		sfx(snd[0], float(snd[1]) + (3.0 if last else 0.0), at, randf_range(0.9, 1.1) * (0.82 if last else 1.0) * (1.35 if kind == "bone" else 1.0))
 
 
 const CHIP_COLOURS := {"tree": Color(0.55, 0.4, 0.26), "rock": Color(0.5, 0.48, 0.45), "salt": Color(0.92, 0.92, 0.9),
@@ -4363,15 +4384,85 @@ func _w_gathered(id: int, out: Array) -> void:
 			if it[0] != "coin":
 				it[1] = maxi(1, int(ceil(int(it[1]) * gm)))
 	_w_give(out)
+	_gather_float(nodes[id], out)
 	award("gather")
 	quests.on_event("gathered", {})
 
 
+## What was taken rises off the node for a moment: "+4 Wood".
+var gather_floats := 0   ## (for the tests)
+func _gather_float(nd: Dictionary, out: Array) -> void:
+	if Net.dedicated or out.is_empty() or not nd.node is Node3D or not is_instance_valid(nd.node):
+		return
+	var parts: Array = []
+	for it in out:
+		parts.append("+%d %s" % [int(it[1]), Items.iname(str(it[0]))])
+	var l := Label3D.new()
+	l.text = "  ".join(parts)
+	l.font = load("res://assets/fonts/Marcellus-Regular.ttf")
+	l.font_size = 30
+	l.pixel_size = 0.004
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.modulate = Color(1.0, 0.9, 0.7)
+	l.outline_size = 6
+	l.outline_modulate = Color(0, 0, 0, 0.8)
+	add_child(l)
+	gather_floats += 1
+	var at: Vector3 = (nd.node as Node3D).global_position + Vector3(0, 1.8 if nd.kind == "tree" else 1.0, 0)
+	l.global_position = at
+	var tw := l.create_tween()
+	tw.tween_property(l, "global_position", at + Vector3(0, 0.7, 0), 1.3).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 1.3).set_delay(0.5)
+	tw.parallel().tween_property(l, "outline_modulate:a", 0.0, 1.3).set_delay(0.5)
+	tw.tween_callback(l.queue_free)
+
+
+## The last blow brings a node down before it is gone: a tree topples away from you, a rock sinks apart.
+var gather_falls := 0   ## (for the tests)
+func _node_fall(nd: Dictionary) -> void:
+	var n: Node3D = nd.node
+	if not n.has_meta("rest"):
+		n.set_meta("rest", [n.rotation, n.scale, n.position])
+	if Net.dedicated or not n.is_inside_tree() or player.global_position.distance_to(n.global_position) > 80.0:
+		n.visible = false
+		return
+	gather_falls += 1
+	var tw := n.create_tween()
+	if nd.kind == "tree":
+		var away := n.global_position - player.global_position
+		away.y = 0
+		away = away.normalized() if away.length() > 0.1 else Vector3.FORWARD
+		var axis := Vector3.UP.cross(away).normalized()
+		var r0 := n.global_basis
+		tw.tween_method(func(t: float):
+			if is_instance_valid(n):
+				n.global_basis = Basis(axis, t * t * 1.45) * r0, 0.0, 1.0, 0.9)
+		tw.tween_callback(func(): sfx("fall_heavy", -6, n.global_position))
+		tw.tween_property(n, "scale", n.scale * 0.01, 0.35).set_delay(0.6)
+	else:
+		tw.tween_property(n, "scale", n.scale * Vector3(1.15, 0.2, 1.15), 0.4).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(n, "position", n.position - Vector3(0, 0.2, 0), 0.4)
+		tw.tween_property(n, "scale", n.scale * 0.01, 0.25)
+	tw.tween_callback(func():
+		if is_instance_valid(n) and int(nd.charges) <= 0:
+			n.visible = false)
+
+
 func _w_node(id: int, charges: int, back: int) -> void:
 	var nd: Dictionary = nodes[id]
+	var was := int(nd.charges)
 	nd.charges = charges
 	nd.back = back
-	nd.node.visible = charges > 0
+	if charges <= 0 and was > 0 and nd.node.visible:
+		_node_fall(nd)
+	else:
+		if charges > 0 and nd.node.has_meta("rest"):
+			var rest: Array = nd.node.get_meta("rest")
+			nd.node.rotation = rest[0]
+			nd.node.position = rest[2]
+			nd.node.remove_meta("rest")
+		nd.node.visible = charges > 0
 	nd.body.collision_layer = (1 | 16) if charges > 0 and not nd.kind in ["herb", "bone", "ammo"] else (16 if charges > 0 else 0)
 	if charges > 0 and charges < int(NODE_KINDS[nd.kind].charges):
 		nd.node.scale = Vector3.ONE * (0.6 + 0.4 * charges / float(NODE_KINDS[nd.kind].charges))
@@ -4702,10 +4793,7 @@ func _world_tick(delta: float) -> void:
 	if not vigils.is_empty():
 		_vigil_tick(delta)
 	if night:
-		_wave_t -= delta
-		if _wave_t <= 0.0:
-			_wave_t = maxf(16.0, 34.0 - nights * 1.5) * float(WRules.pace()[1])
-			_night_wave()
+		_round_tick(delta)
 	else:
 		_day_t -= delta
 		if _day_t <= 0.0:
@@ -4802,6 +4890,9 @@ func night_theme_for(n: int) -> String:
 func _w_nightfall(_d: int) -> void:
 	night = true
 	_wave_t = 25.0
+	_round_n = 0
+	_round_live = false
+	_round_foes.clear()
 	night_theme = night_theme_for(nights + 1)
 	_fell_tonight = false
 	_falls_tonight = 0
@@ -4982,11 +5073,15 @@ func award(kind: String, mult := 1.0) -> void:
 		autosave_soon(2.0)
 
 
+var _lit_seen := -1   ## how many beacons burned when most health was last reckoned
+
+
 func _apply_skills() -> void:
 	if player == null or player.weapon == null:
 		return
 	var full := player.health >= player.max_health - 0.01
-	player.max_health = skills.health_max() + _meal_hp
+	# Each lit beacon steadies the fellowship a little more: +10 most health, up to +60
+	player.max_health = skills.health_max() + _meal_hp + 10.0 * mini(lit.size(), 6)
 	player.health = player.max_health if full else minf(player.health, player.max_health)
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
@@ -5050,24 +5145,72 @@ const FOG_CAP := 0.028   ## the thickest the haze may get above ground (about 35
 
 
 ## How many forms the night sends, and of what kind, grows with the nights survived.
-func _night_wave() -> void:
+## The night comes in rounds: each waits until the last is cleared (or has had its time), then a breath,
+## then the next, a little larger. The round nearest dawn is the largest, and after it the night is quiet.
+const ROUNDS_MAX := 6
+const ROUND_TIMEOUT := 90.0      ## a round's stragglers cannot hold the next one off longer than this
+const NIGHT_HP := 1.25           ## what walks at night is tougher than what walks by day
+const NIGHT_HARM := 1.2          ## and bites harder
+var _round_n := 0
+var _round_live := false
+var _round_age := 0.0
+var _round_foes: Array = []
+
+
+func _round_tick(delta: float) -> void:
+	if _round_n >= ROUNDS_MAX:
+		return
+	if _round_live:
+		_round_age += delta
+		_round_foes = _round_foes.filter(func(e): return is_instance_valid(e) and e.is_alive())
+		if _round_foes.is_empty() or _round_age > ROUND_TIMEOUT:
+			_round_live = false
+			_wave_t = randf_range(30.0, 45.0) * float(WRules.pace()[1])
+		return
+	_wave_t -= delta
+	if _wave_t > 0.0:
+		return
+	var to_dawn := fposmod(weather.dawn() - clock, 24.0) * DAY_SECONDS / 24.0
+	var last := _round_n + 1 >= ROUNDS_MAX or to_dawn < 200.0
+	var made := _night_wave((0.75 + 0.12 * _round_n) * (1.4 if last else 1.0))
+	if made.is_empty():
+		_wave_t = 12.0   # no one out in the open: it waits for them
+		return
+	_round_n = ROUNDS_MAX if last else _round_n + 1
+	_round_foes = made
+	_round_live = true
+	_round_age = 0.0
+
+
+## Toughens one of the night's walkers.
+func _night_grit(e) -> void:
+	if e and is_instance_valid(e) and e is LesserSpeeb:
+		e.hp *= NIGHT_HP
+		e.max_hp *= NIGHT_HP
+
+
+## One round of the night's walkers, k times the usual size. Returns those it brought.
+func _night_wave(k := 1.0) -> Array:
+	var made: Array = []
 	var tg := targets()
 	if tg.is_empty():
-		return
+		return made
 	var cap := mini(int(WCrowd.scale(self, 10 + mini(nights, 10)) * (1.25 if night_theme == "long" else 1.0) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP)
 	if flags.get("ending", "") == "writer":
 		cap = int(cap / 2)   # the Mouth is closed; what walks now is only what was left
 	if flags.get("ending", "") == "unlit":
-		return   # it has what it wanted: nothing comes at night
+		return made   # it has what it wanted: nothing comes at night
 	for t in tg:
 		if safe_at(t.global_position):
 			continue
 		if alive_count() >= cap:
-			return
+			return made
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press())))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press() * k)))
 		var roster: Array = forms_at(t.global_position)
+		# The night leans on the heavy and on those that strike from afar
+		var hard: Array = roster.filter(func(f): var sp: Dictionary = LesserSpeeb.KINDS.get(f, {}); return str(sp.get("role", "")) == "gun" or f == "spitter" or float(sp.get("hp", 0.0)) >= 150.0)
 		# Near where the cast-out wake, the box cats run in packs some nights
 		# (rare and small on the first nights; a pack is sized for those near, not for the whole group)
 		var screaming := night_theme == "screaming"
@@ -5075,22 +5218,33 @@ func _night_wave() -> void:
 			var base := (randi_range(6, 9) + mini(nights, 5)) if screaming else (randi_range(3, 4) + mini(nights, 4))
 			var pack := mini(int(base * WCrowd.share(self, t.global_position) * float(WRules.pace()[0])), WCrowd.ALIVE_CAP - alive_count())
 			var from: Vector3 = t.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 40.0
-			for k in pack:
+			for i in pack:
 				var bc = _spawn_near("box_cat", from, 2.0, 8.0)
 				if bc and bc.has_method("seek"):
 					bc.seek(t.global_position, 60.0)
+				if bc:
+					made.append(bc)
 			if pack > 0:
 				sfx("shriek_%d" % (randi() % 4), 0, from, 2.1)
 			continue
-		for k in n:
-			var e = _spawn_near(roster[randi() % roster.size()], t.global_position, 30.0, 48.0)
+		for i in n:
+			var pick: String = hard[randi() % hard.size()] if not hard.is_empty() and randf() < 0.35 else roster[randi() % roster.size()]
+			var e = _spawn_near(pick, t.global_position, 30.0, 48.0)
 			# The night's walkers come looking for the living; they need not see you yet
 			if e and e.has_method("seek"):
 				e.seek(t.global_position, 40.0)
+			if e:
+				_night_grit(e)
+				made.append(e)
 		if nights >= 2 and tier >= 2 and randf() < 0.12 + nights * 0.02:
-			_spawn_near("saucer", t.global_position, 30.0, 40.0)
+			var sc = _spawn_near("saucer", t.global_position, 30.0, 40.0)
+			if sc:
+				made.append(sc)
 		if (nights >= 4 and tier >= 3 and randf() < 0.06 + nights * 0.01) or (night_theme == "hunt" and randf() < 0.35):
-			_spawn_near("elite", t.global_position, 35.0, 45.0)
+			var el = _spawn_near("elite", t.global_position, 35.0, 45.0)
+			if el:
+				_night_grit(el)
+				made.append(el)
 			hud.notify("Something greater walks tonight.")
 		# Some nights, in the dark country, something follows that is hardly there at all
 		var bio: String = terrain.biome_name(t.global_position.x, t.global_position.z)
@@ -5099,6 +5253,7 @@ func _night_wave() -> void:
 			_spawn_near("unseen", t.global_position, 34.0, 46.0)
 		if randf() < 0.25:
 			sfx("horror_deep", -10, t.global_position + Vector3(randf_range(-40, 40), 0, randf_range(-40, 40)), randf_range(0.8, 1.0))
+	return made
 
 
 func _unseen_count() -> int:
@@ -5141,10 +5296,33 @@ func _quest_foes() -> void:
 			_spawn_one(roster[randi() % roster.size()], c, 6.0, 16.0, true)
 
 
+## After a fight by day the waste lets you breathe: while a foe is near, and for a while after the
+## last one falls, no stray comes and no road ahead turns to a fight.
+const CALM := 90.0          ## the breather after a fight, in seconds
+const CALM_NEAR := 120.0    ## longer in the near lands, while one is still learning
+var breather := 0.0
+var _roam_t := 200.0
+
+
 ## By day the waste is quieter, but the ruins are not empty, and the roads are not always clear.
 func _day_watch() -> void:
-	_road_tick(6.0)
 	var tg := targets()
+	var fighting := false
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.boss == "" and tg.any(func(t): return t.global_position.distance_to(e.global_position) < 60.0):
+			fighting = true
+			break
+	if fighting:
+		var near := tg.any(func(t): return tier_at(t.global_position) == 1)
+		breather = CALM_NEAR if near else CALM
+	else:
+		breather = maxf(0.0, breather - 6.0)
+	_road_tick(6.0)
+	_roam_t -= 6.0
+	if _roam_t <= 0.0:
+		_roam_t = 30.0 if breather > 0.0 else randf_range(180.0, 240.0)
+		if breather <= 0.0:
+			_roam()
 	for t in tg:
 		var p: Vector3 = t.global_position
 		if safe_at(p) or settlement_at(p, 40.0) != "":
@@ -5163,10 +5341,22 @@ func _day_watch() -> void:
 				var guards: Array = ["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"].filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= tr)
 				for k in n:
 					_spawn_near(guards[randi() % guards.size()], r.pos, 6.0, 14.0, true)
-		if alive_count() < 2 and randf() < 0.08:
-			var isle := not terrain.isle_at(p.x, p.z, 1.3).is_empty()
-			var roster: Array = forms_at(p) if isle else ["rusher", "spider", "swarm"]
+
+
+## A stray by day, or a pair: what that land breeds, come upon one of the fellowship in the open.
+func _roam() -> void:
+	if alive_count() >= 2:
+		return
+	var tg := targets()
+	tg.shuffle()
+	for t in tg:
+		var p: Vector3 = t.global_position
+		if safe_at(p) or settlement_at(p, 40.0) != "":
+			continue
+		var roster: Array = forms_at(p)
+		for i in (2 if randf() < 0.4 else 1):
 			_spawn_near(roster[randi() % roster.size()], p, 40.0, 60.0)
+		return
 
 
 func _spawn_near(kind: String, c: Vector3, rmin: float, rmax: float, anywhere := false) -> LesserSpeeb:
@@ -5702,7 +5892,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
 	if WRules.sworn("vow_glass"):
 		amount *= 1.5
-	amount *= TIER_HARM[tier_at(from) - 1] * sqrt(foe_power()) * (1.25 if flags.has("second_vow") else 1.0)
+	amount *= TIER_HARM[tier_at(from) - 1] * (1.25 if flags.has("second_vow") else 1.0)
 	if power_is("gilt"):
 		amount *= 0.8
 	if night and skills.has_boon("night_eyes"):
@@ -7477,12 +7667,13 @@ func debug_chips() -> void:
 	_gather(best)
 	await get_tree().create_timer(0.2).timeout
 	var last := gather_chips - first
+	var heard := ",".join(gather_heard)
 	await get_tree().create_timer(2.5).timeout
 	var left := 0
 	for c in get_children():
 		if c is MeshInstance3D and (c as MeshInstance3D).mesh is BoxMesh and _chip_mats.values().has((c as MeshInstance3D).material_override):
 			left += 1
-	print("CHIPS first=%d last=%d left=%d" % [first, last, left])
+	print("CHIPS first=%d last=%d left=%d heard=%s floats=%d fell=%d gone=%s" % [first, last, left, heard, gather_floats, gather_falls, not nd.node.visible])
 	get_tree().quit()
 
 
@@ -8546,20 +8737,21 @@ func _road_tick(step: float) -> void:
 func _road_event(at: Vector3, seen_from: Vector3) -> void:
 	var rr := RandomNumberGenerator.new()
 	rr.randomize()
-	var roll := rr.randf()
+	# About a third of what lies ahead on the road is a fight, and none while the fellowship catches its breath
+	var roll := rr.randf() * (0.66 if breather > 0.0 else 1.0)
 	var kind := "camp"
-	if roll < 0.24:
+	if roll < 0.26:
 		kind = "camp"
-	elif roll < 0.42:
+	elif roll < 0.46:
 		kind = "fallen"
-	elif roll < 0.6:
-		kind = "pack"
-	elif roll < 0.72:
-		kind = "attack"
-	elif roll < 0.9:
-		kind = "unlit"
-	else:
+	elif roll < 0.66:
 		kind = "cairn"
+	elif roll < 0.78:
+		kind = "pack"
+	elif roll < 0.88:
+		kind = "attack"
+	else:
+		kind = "unlit"
 	match kind:
 		"camp":
 			shared("_rq_satchel", [0, at + Vector3(1.5, 0, 0), Items.roll("camp", 3, rr), false])
@@ -9575,21 +9767,19 @@ func debug_regrow() -> void:
 	print("REGROW far=%s near_kept=%s seen=%s" % [int(nodes[far_id].charges) > 0, int(nodes[near_id].charges) == 0, nodes[far_id].node.visible])
 	get_tree().quit()
 
-## Testing aid: the forms grow with the arms they face.
+## Testing aid: the forms do not grow with the arms they face, only with the land.
 func debug_power() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
-	var p0 := foe_power()
 	var e0 := spawn_at("rusher", player.global_position + Vector3(0, 1.5, -20))
 	var h0: float = e0.max_hp
 	e0.die(false)
 	Game.warms["tier"] = {"shotgun": 3}
-	var p1 := foe_power()
 	var e1 := spawn_at("rusher", player.global_position + Vector3(0, 1.5, -20))
 	var h1: float = e1.max_hp
 	e1.die(false)
 	Game.warms["tier"] = {}
-	print("POWER base=%s grows=%s hp_grows=%s" % [is_equal_approx(p0, 1.0) or p0 < 1.1, p1 > p0 + 0.4, h1 > h0 * 1.3])
+	print("POWER flat=%s tiers=%s" % [is_equal_approx(h0, h1), TIER_HP])
 	get_tree().quit()
 
 ## Testing aid: a ward is worn in its slot and wards its land; taken off it no longer does; an old

@@ -2101,6 +2101,8 @@ func nearest_target(from: Vector3) -> Node3D:
 	var best: Node3D = null
 	var bd := INF
 	for t in targets():
+		if sheltered(t.global_position):
+			continue
 		var d: float = from.distance_squared_to(t.global_position)
 		if d < bd:
 			bd = d
@@ -2108,7 +2110,20 @@ func nearest_target(from: Vector3) -> Node3D:
 	return best
 
 
+## Whether one standing here is beyond any foe's reach (the open world's settlements).
+func sheltered(_p: Vector3) -> bool:
+	return false
+
+
+## How much harder the foes strike just now (the open world's nights).
+func foe_harm() -> float:
+	return 1.0
+
+
 func hurt_target(t: Node3D, amount: float, from: Vector3) -> void:
+	if sheltered(t.global_position):
+		return
+	amount *= foe_harm()
 	if t == player:
 		damage_player(amount, from)
 	elif t is Companion:

@@ -153,7 +153,7 @@ static var _scan_bounds := {}
 
 
 const KINDS := {
-	"rusher": {"name": "Ash Stalker", "hp": 52.0, "size": 1.0, "speed": 5.6, "bite": 15.0, "radius": 0.45, "body": "cat",
+	"rusher": {"name": "Ash Stalker", "hp": 60.0, "size": 1.0, "speed": 5.6, "bite": 15.0, "radius": 0.45, "body": "cat",
 		"weak": {"shot": 1.3}, "tough": {}, "text": "Runs you down and springs at the last."},
 	"spitter": {"name": "Bile Choir", "hp": 38.0, "size": 0.85, "speed": 3.2, "bite": 0.0, "radius": 0.4,
 		"weak": {"bullet": 1.4}, "tough": {"shot": 0.7}, "text": "Keeps its distance and spits. Pick it off."},
@@ -433,8 +433,9 @@ func _ready() -> void:
 			_home = global_position
 			_wander = global_position
 		plate = float(spec.get("plate", 0.0))
-		if plate > 0.0:
-			_fb.wear_plate(kind in ["unlit_brute", "knight"])
+		# The knight's and the breaker's own armour is their plate: it soaks the same, with nothing drawn over it
+		if plate > 0.0 and not kind in ["knight", "unlit_brute"]:
+			_fb.wear_plate(false)
 		_fit_shape(cs)
 		# Once its arms and plate are on and it has found its stance, fitted again
 		get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
@@ -2435,8 +2436,8 @@ class Bolt extends Area3D:
 			queue_free()
 
 	func _hit(b: Node) -> void:
-		if b is Player:
-			level.damage_player(damage, global_position)
+		if b is Player and not level.sheltered(b.global_position):
+			level.damage_player(damage * level.foe_harm(), global_position)
 		queue_free()
 
 

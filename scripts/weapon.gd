@@ -242,7 +242,7 @@ func fitted(id: String) -> bool:
 
 ## What the work done on this gun adds to each shot.
 func tier_mult() -> float:
-	return 1.0 + 0.12 * Game.tier_of(gun())
+	return WArms.tier_mult(Game.tier_of(gun()))
 
 
 ## The most reserve a gun can carry: eight magazines, or more where the waste allows.
@@ -1413,6 +1413,7 @@ func strike(heavy := false) -> void:
 	if not player.spend(HEAVY_COST if heavy else LIGHT_COST):
 		return
 	var m: Dictionary = ArmsDB.MELEE[melee].duplicate()
+	m.dmg = float(m.dmg) * WArms.tier_mult(Game.tier_of(melee))
 	_heavy = heavy
 	if heavy:
 		m.dmg = float(m.dmg) * 2.2
@@ -1458,17 +1459,29 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		Arms.deal(hits, fwd, str(m.get("harm", "blade")))
 		LesserSpeeb.harm_pierce = 1.0
 		_practise("blade", hits)
-		_hit_stop(0.09 if heavy else 0.05)
+		_hit_stop(0.09 if heavy else 0.05, hits.keys())
 	elif not r.is_empty():
 		lvl.puff(r.position, r.normal)
 		lvl.sfx("thud", -10)
 
 
-## A blade that lands holds the world still for a blink, so the blow is felt. Only when playing alone:
-## with others, time is shared and must not stop for one.
+## A blade that lands holds the world still for a blink, so the blow is felt. With others, time is shared
+## and must not stop for one: then only what was struck holds still, on this screen, and the view jolts.
 static var stops := 0   ## how many hit-stops have been held (for the tests)
-func _hit_stop(secs: float) -> void:
-	if Net.online or Engine.time_scale < 1.0:
+static var held := 0    ## how many struck foes were held still in a fellowship (for the tests)
+func _hit_stop(secs: float, struck: Array = []) -> void:
+	if Net.online:
+		for e in struck:
+			if is_instance_valid(e) and e is Node:
+				held += 1
+				for ap in (e as Node).find_children("*", "AnimationPlayer", true, false):
+					var a := ap as AnimationPlayer
+					if a.is_playing():
+						a.pause()
+						get_tree().create_timer(secs, false).timeout.connect(func(): if is_instance_valid(a) and not a.is_playing(): a.play())
+		player.shake(0.25 if secs > 0.07 else 0.12)
+		return
+	if Engine.time_scale < 1.0:
 		return
 	stops += 1
 	Engine.time_scale = 0.05

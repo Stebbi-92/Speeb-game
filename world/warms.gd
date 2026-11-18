@@ -272,14 +272,39 @@ const TIERS := ["Worn", "Cleaned", "Tempered", "Master-worked"]
 const KINDS := [["blades", "melee", "Blade"], ["thrown", "grenade", "Thrown"], ["kits", "gadget", "Kit"]]
 
 
-static func tier_cost(t: int) -> Dictionary:
+## Each step of work adds 15% to a gun's or a blade's harm (Master-worked: x1.45).
+static func tier_mult(t: int) -> float:
+	return 1.0 + 0.15 * t
+
+
+## What working an arm up to step t costs. Arms that came to hand at the start cost the least; those
+## made of the stuff of the harder lands cost half again or twice as much.
+static func tier_cost(t: int, id := "") -> Dictionary:
 	var c := {"scrap": 20 * t, "salt": 40 * t}
 	if t >= 2:
 		c["red_iron"] = 3 * (t - 1)
 	if t >= 3:
 		c["oil"] = 4
 		c["obsidian"] = 2
+	var k := craft_k(id)
+	if k != 1.0:
+		for key in c:
+			c[key] = int(ceil(int(c[key]) * k))
 	return c
+
+
+## How far along the road an arm is made: x1 for what one starts with or makes of common stuff,
+## x1.5 for the middle arms, x2 for those that want obsidian, salt crystal or much clockwork.
+static func craft_k(id: String) -> float:
+	if not MAKE.has(id):
+		return 1.0
+	var m: Dictionary = MAKE[id]
+	if m.has("obsidian") or m.has("salt_crystal") or int(m.get("clockwork", 0)) >= 3:
+		return 2.0
+	for key in m:
+		if not key in ["scrap", "wood", "cloth", "stone"]:
+			return 1.5
+	return 1.0
 
 
 static func table(list: String) -> Dictionary:
@@ -348,7 +373,7 @@ static func clean(d) -> Dictionary:
 	var t = d.get("tier", {})
 	if t is Dictionary:
 		for g in t:
-			if ArmsDB.GUNS.has(g):
+			if ArmsDB.GUNS.has(g) or ArmsDB.MELEE.has(g):
 				a.tier[g] = clampi(int(t[g]), 0, 3)
 	# Before 0.6 the sniper carried its glass built in; a rifle from then keeps it, now as a fitted scope
 	if not d.has("glass") and "sniper" in a.owned:
