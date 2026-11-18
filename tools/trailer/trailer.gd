@@ -20,6 +20,7 @@ var _only := ""
 var _eye_h := -1.0
 var _shot := {}
 var _hidden: Array = []
+var _track := Vector3.INF
 
 
 func _init(path: String) -> void:
@@ -190,6 +191,8 @@ func _set_hour(h: float) -> void:
 	w.clock = fposmod(h, 24.0)
 	w.night = w.clock < 5.5 or w.clock > 20.5
 	w._apply_time(true)
+	# Some shots want the haze thinner (or thicker) than the hour gives
+	w.env.fog_density *= float(_shot.get("fog", 1.0))
 
 
 func _shoot(s: Dictionary) -> void:
@@ -228,6 +231,11 @@ func _shoot(s: Dictionary) -> void:
 		elif not on and i in w.lit:
 			w.lit.erase(i)
 		w._light_beacon(i, on)
+	var kdb = s.get("kindle", null)
+	for i in w.beacon_nodes.size():
+		var dk = w.beacon_nodes[i].get("dark")
+		if dk is VisualInstance3D:
+			dk.layers = 0 if (kdb != null and int(kdb.get("beacon", 0)) == i) else 1
 	var clock0 := float(s.get("clock", 12.0))
 	var rate := float(s.get("hours_per_sec", 0.0))
 	_set_hour(clock0)
@@ -289,6 +297,7 @@ func _shoot(s: Dictionary) -> void:
 			_set_hour(clock0)
 			_place_cam(path, look, 0.0, fp, s)
 	# Rolling
+	_track = Vector3.INF
 	var start := _now()
 	var kindled := false
 	t = 0.0
@@ -330,6 +339,8 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 			_eye_h = pl.head.position.y
 		var eye_h := _eye_h
 		pl.global_position = p - Vector3(0, eye_h, 0)
+		if s.get("track", false):
+			l = _tracked(p, l)
 		var to := l - p
 		pl.yaw = atan2(-to.x, -to.z)
 		pl.pitch = clampf(atan2(to.y, Vector2(to.x, to.z).length()), -1.4, 1.4)
@@ -346,6 +357,27 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 		cam.rotate_object_local(Vector3.FORWARD, roll)
 		if s.get("bait", null) == null:
 			w.player.global_position = Vector3(p.x, w.terrain.height_at(p.x, p.z) + 0.1, p.z)
+
+
+## The eye follows the nearest form in front of it, smoothly, as a player's would.
+func _tracked(eye: Vector3, rest: Vector3) -> Vector3:
+	var best: Node3D = null
+	var bd := 1e9
+	var fwd := (rest - eye).normalized()
+	for e in w.enemies:
+		if not is_instance_valid(e) or e.get("hp") != null and float(e.hp) <= 0.0:
+			continue
+		var to: Vector3 = e.global_position - eye
+		if to.length() < 70.0 and to.normalized().dot(fwd) > 0.2 and to.length() < bd:
+			bd = to.length()
+			best = e
+	var want := rest
+	if best:
+		want = best.global_position + Vector3(0, 0.7 * float(_shot.get("aim_up", 1.0)), 0)
+	if _track == Vector3.INF:
+		_track = want
+	_track = _track.lerp(want, minf(1.0, _dt() * float(_shot.get("track_speed", 5.0))))
+	return _track
 
 
 ## Takes up the gun the shot asks for, full.
@@ -379,8 +411,8 @@ func _guns(wpn, s: Dictionary, t: float) -> void:
 func _kindle(i: int, grow: float) -> void:
 	var b: Dictionary = w.beacon_nodes[i]
 	b.flame.visible = true
-	b.flame.scale = Vector3.ONE * 0.3
-	b.light.light_energy = 1.0
+	b.flame.scale = Vector3.ONE * 0.15
+	b.light.light_energy = 0.15
 	b.beam.visible = false
 	w.sfx("bell", -2, b.pos)
 	var tw := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

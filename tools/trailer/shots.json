@@ -1,49 +1,751 @@
 {
-"seed": 20261118,
-"slot": "trailer",
-"shots": [
- {"name": "s01_dawn_ash", "at": "biome:ash", "search": 900, "clock": 6.0, "hours_per_sec": 0.06, "dur": 7, "fov": 50, "ease": "linear",
-  "path": [{"ang": 200, "dist": 140, "up": 45}, {"ang": 185, "dist": 110, "up": 38}], "look": [0, 0, 0], "columns": true},
- {"name": "s02_dead_forest", "at": "biome:forest", "clock": 16.6, "dur": 6, "fov": 55,
-  "path": [[-30, 2.2, 40], [-10, 2.6, 25], [8, 3.2, 12]], "look": [[0, 3, -10], [10, 3, -25], [20, 4, -40]]},
- {"name": "s03_rust_dunes", "at": "biome:dunes", "clock": 17.6, "dur": 6, "fov": 45,
-  "path": [{"ang": 250, "dist": 95, "up": 6}, {"ang": 230, "dist": 85, "up": 14}], "look": [0, 0, 0]},
- {"name": "s04_salt_frost", "at": "biome:salt", "clock": 10.5, "weather": "frost", "dur": 5, "fov": 50,
-  "path": [[0, 2, 70], [0, 1.6, 50]], "look": [0, 1, -40]},
- {"name": "s05_ashstorm_walk", "at": "biome:ash", "search": 900, "shift": [-60, 80], "mode": "fp", "gun": "shotgun", "walk": true,
-  "clock": 14.0, "weather": "ashstorm", "dur": 6, "fov": 75, "path": [[0, 1.6, 0], [0, 1.6, -9]], "look": [[0, 1.4, -40], [6, 1.6, -49]]},
- {"name": "s06_cinderwick_dusk", "at": "town:cinderwick", "clock": 17.8, "dur": 7, "fov": 50,
-  "path": [{"ang": 170, "dist": 80, "up": 16}, {"ang": 185, "dist": 48, "up": 7}], "look": [0, 3, 0]},
- {"name": "s07_forms_wait", "at": "biome:ash", "search": 400, "shift": [-40, 20], "clock": 17.3, "dur": 5, "fov": 45,
-  "path": [[0, 0.7, 30], [0, 0.9, 25]], "look": [0, 1.4, 14],
-  "forms": [{"kind": "brute", "p": [0, 0, 12], "still": true}, {"kind": "rusher", "p": [-3, 0, 15], "still": true}, {"kind": "howler", "p": [3.5, 0, 16], "still": true}, {"kind": "spider", "p": [1.5, 0, 10], "still": true}]},
- {"name": "s08_fp_shotgun", "at": "biome:ash", "search": 400, "shift": [60, -60], "mode": "fp", "gun": "shotgun", "live": true,
-  "clock": 17.0, "dur": 6, "fov": 75, "path": [[0, 1.6, 0], [0, 1.6, 1.5]], "look": [0, 1.0, -20],
-  "forms": [{"kind": "rusher", "p": [-2, 0, -16]}, {"kind": "rusher", "p": [3, 0, -19]}, {"kind": "rusher", "p": [0, 0, -23]}],
-  "aim": [[0.6, 6]], "fire": [[1.8, 5.6]]},
- {"name": "s09_marsh", "at": "biome:marsh", "clock": 18.3, "dur": 6, "fov": 50,
-  "path": [{"ang": 300, "dist": 75, "up": 3}, {"ang": 320, "dist": 65, "up": 2.5}], "look": [0, 1, 0]},
- {"name": "s10_fp_rifle", "at": "biome:dunes", "shift": [40, 40], "mode": "fp", "gun": "machine_gun", "live": true,
-  "clock": 16.5, "dur": 6, "fov": 75, "path": [[0, 1.6, 0], [0, 1.6, 1]], "look": [0, 1.6, -25],
-  "forms": [{"kind": "brute", "p": [0, 0, -26]}, {"kind": "spitter", "p": [5, 0, -22]}],
-  "aim": [[0.5, 6]], "fire": [[1.2, 3.0], [3.6, 5.6]]},
- {"name": "s11_night_horde", "at": "biome:ash", "search": 400, "shift": [120, 40], "clock": 22.5, "live": true, "dur": 7, "fov": 50,
-  "path": [[0, 1.2, 0], [0, 1.0, 4]], "look": [0, 1.5, -20], "bait": [0, 0, 6],
-  "forms": [{"kind": "rusher", "p": [-6, 0, -34]}, {"kind": "rusher", "p": [5, 0, -38]}, {"kind": "brute", "p": [0, 0, -42]}, {"kind": "howler", "p": [-10, 0, -46]}, {"kind": "spider", "p": [9, 0, -44]}, {"kind": "elite", "p": [2, 0, -55]}]},
- {"name": "s12_fp_flamer", "at": "biome:forest", "shift": [50, -30], "mode": "fp", "gun": "flamer", "live": true,
-  "clock": 21.8, "dur": 5, "fov": 75, "path": [[0, 1.6, 0], [0, 1.6, 1.5]], "look": [0, 0.8, -12],
-  "forms": [{"kind": "spider", "p": [-2, 0, -11]}, {"kind": "spider", "p": [2, 0, -13]}, {"kind": "swarm", "p": [0, 0, -9]}, {"kind": "swarm", "p": [1, 0, -10]}],
-  "fire": [[1.5, 4.6]]},
- {"name": "s13_rocket", "at": "biome:basalt", "mode": "fp", "gun": "rocket", "live": true,
-  "clock": 17.2, "dur": 5, "fov": 75, "path": [[0, 1.6, 0], [0, 1.6, 0.5]], "look": [0, 1.0, -30],
-  "forms": [{"kind": "brute", "p": [-2, 0, -30]}, {"kind": "rusher", "p": [2, 0, -28]}, {"kind": "idol", "p": [0, 0, -33]}],
-  "aim": [[0.4, 2.2]], "fire": [[1.6, 1.8]]},
- {"name": "s14_beacon_kindle", "at": "beacon:0", "clock": 21.5, "dur": 9, "fov": 50, "ease": "smooth",
-  "path": [{"ang": 200, "dist": 26, "up": 1.0}, {"ang": 210, "dist": 34, "up": 12}], "look": [[0, 4, 0], [0, 22, 0]],
-  "kindle": {"beacon": 0, "t": 1.5, "grow": 3.5}, "columns": true},
- {"name": "s15_cinderwick_night", "at": "town:cinderwick", "clock": 21.6, "dur": 6, "fov": 50, "lit": [0],
-  "path": [{"ang": 140, "dist": 45, "up": 5}, {"ang": 165, "dist": 42, "up": 6}], "look": [0, 3, 0]},
- {"name": "s16_beacon_road", "at": "beacon:0", "clock": 22.0, "dur": 9, "fov": 55, "lit": [0, 1, 2, 3], "columns": true, "ease": "out",
-  "path": [{"ang": 180, "dist": 40, "up": 3}, {"ang": 180, "dist": 60, "up": 60}], "look": [[0, 8, 0], [0, 30, -200]]}
-]
+ "seed": 20261118,
+ "slot": "trailer",
+ "shots": [
+  {
+   "name": "s01_dawn_ash",
+   "at": "biome:ash",
+   "search": 900,
+   "clock": 7.0,
+   "hours_per_sec": 0.05,
+   "dur": 7,
+   "fov": 50,
+   "ease": "linear",
+   "path": [
+    {
+     "ang": 200,
+     "dist": 120,
+     "up": 22
+    },
+    {
+     "ang": 188,
+     "dist": 90,
+     "up": 16
+    }
+   ],
+   "look": [
+    0,
+    4,
+    -60
+   ],
+   "fog": 0.35
+  },
+  {
+   "name": "s02_dead_forest",
+   "at": "biome:forest",
+   "clock": 16.6,
+   "dur": 6,
+   "fov": 55,
+   "path": [
+    [
+     -30,
+     2.2,
+     40
+    ],
+    [
+     -10,
+     2.6,
+     25
+    ],
+    [
+     8,
+     3.2,
+     12
+    ]
+   ],
+   "look": [
+    [
+     0,
+     3,
+     -10
+    ],
+    [
+     10,
+     3,
+     -25
+    ],
+    [
+     20,
+     4,
+     -40
+    ]
+   ]
+  },
+  {
+   "name": "s03_rust_dunes",
+   "at": "biome:dunes",
+   "clock": 17.6,
+   "dur": 6,
+   "fov": 45,
+   "path": [
+    {
+     "ang": 250,
+     "dist": 95,
+     "up": 6
+    },
+    {
+     "ang": 230,
+     "dist": 85,
+     "up": 14
+    }
+   ],
+   "look": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "s04_salt_frost",
+   "at": "biome:salt",
+   "clock": 10.5,
+   "weather": "frost",
+   "dur": 5,
+   "fov": 50,
+   "path": [
+    [
+     0,
+     2,
+     70
+    ],
+    [
+     0,
+     1.6,
+     50
+    ]
+   ],
+   "look": [
+    0,
+    1,
+    -40
+   ]
+  },
+  {
+   "name": "s05_ashstorm_walk",
+   "at": "biome:ash",
+   "search": 900,
+   "shift": [
+    -60,
+    80
+   ],
+   "mode": "fp",
+   "gun": "shotgun",
+   "walk": true,
+   "clock": 14.0,
+   "weather": "ashstorm",
+   "dur": 6,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     -9
+    ]
+   ],
+   "look": [
+    [
+     0,
+     1.4,
+     -40
+    ],
+    [
+     6,
+     1.6,
+     -49
+    ]
+   ],
+   "preroll": 5
+  },
+  {
+   "name": "s06_cinderwick_dusk",
+   "at": "town:cinderwick",
+   "clock": 17.8,
+   "dur": 7,
+   "fov": 50,
+   "path": [
+    {
+     "ang": 170,
+     "dist": 80,
+     "up": 16
+    },
+    {
+     "ang": 185,
+     "dist": 48,
+     "up": 7
+    }
+   ],
+   "look": [
+    0,
+    3,
+    0
+   ]
+  },
+  {
+   "name": "s07_forms_wait",
+   "at": "biome:ash",
+   "search": 400,
+   "shift": [
+    -40,
+    20
+   ],
+   "clock": 17.3,
+   "dur": 5,
+   "fov": 45,
+   "path": [
+    [
+     0,
+     0.7,
+     30
+    ],
+    [
+     0,
+     0.9,
+     25
+    ]
+   ],
+   "look": [
+    0,
+    1.4,
+    14
+   ],
+   "forms": [
+    {
+     "kind": "brute",
+     "p": [
+      0,
+      0,
+      12
+     ],
+     "still": true
+    },
+    {
+     "kind": "rusher",
+     "p": [
+      -3,
+      0,
+      15
+     ],
+     "still": true
+    },
+    {
+     "kind": "howler",
+     "p": [
+      3.5,
+      0,
+      16
+     ],
+     "still": true
+    },
+    {
+     "kind": "spider",
+     "p": [
+      1.5,
+      0,
+      10
+     ],
+     "still": true
+    }
+   ]
+  },
+  {
+   "name": "s08_fp_shotgun",
+   "at": "biome:ash",
+   "search": 400,
+   "shift": [
+    60,
+    -60
+   ],
+   "mode": "fp",
+   "gun": "shotgun",
+   "live": true,
+   "clock": 17.0,
+   "dur": 6,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     1.5
+    ]
+   ],
+   "look": [
+    0,
+    1.0,
+    -20
+   ],
+   "forms": [
+    {
+     "kind": "rusher",
+     "p": [
+      -4,
+      0,
+      -28
+     ]
+    },
+    {
+     "kind": "rusher",
+     "p": [
+      3,
+      0,
+      -32
+     ]
+    },
+    {
+     "kind": "rusher",
+     "p": [
+      0,
+      0,
+      -38
+     ]
+    }
+   ],
+   "aim": [
+    [
+     0.3,
+     6
+    ]
+   ],
+   "fire": [
+    [
+     2.2,
+     5.8
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2
+  },
+  {
+   "name": "s09_marsh",
+   "at": "biome:marsh",
+   "clock": 18.3,
+   "dur": 6,
+   "fov": 50,
+   "path": [
+    {
+     "ang": 300,
+     "dist": 75,
+     "up": 3
+    },
+    {
+     "ang": 320,
+     "dist": 65,
+     "up": 2.5
+    }
+   ],
+   "look": [
+    0,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "s10_fp_rifle",
+   "at": "biome:dunes",
+   "shift": [
+    40,
+    40
+   ],
+   "mode": "fp",
+   "gun": "machine_gun",
+   "live": true,
+   "clock": 16.5,
+   "dur": 6,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     1
+    ]
+   ],
+   "look": [
+    0,
+    1.6,
+    -25
+   ],
+   "forms": [
+    {
+     "kind": "brute",
+     "p": [
+      0,
+      0,
+      -26
+     ]
+    },
+    {
+     "kind": "spitter",
+     "p": [
+      5,
+      0,
+      -22
+     ]
+    }
+   ],
+   "aim": [
+    [
+     0.5,
+     6
+    ]
+   ],
+   "fire": [
+    [
+     1.2,
+     3.0
+    ],
+    [
+     3.6,
+     5.6
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2
+  },
+  {
+   "name": "s11_night_horde",
+   "at": "biome:ash",
+   "search": 400,
+   "shift": [
+    120,
+    40
+   ],
+   "clock": 22.5,
+   "live": true,
+   "dur": 7,
+   "fov": 50,
+   "path": [
+    [
+     0,
+     1.2,
+     0
+    ],
+    [
+     0,
+     1.0,
+     4
+    ]
+   ],
+   "look": [
+    0,
+    1.5,
+    -20
+   ],
+   "bait": [
+    0,
+    0,
+    6
+   ],
+   "forms": [
+    {
+     "kind": "rusher",
+     "p": [
+      -6,
+      0,
+      -34
+     ]
+    },
+    {
+     "kind": "rusher",
+     "p": [
+      5,
+      0,
+      -38
+     ]
+    },
+    {
+     "kind": "brute",
+     "p": [
+      0,
+      0,
+      -42
+     ]
+    },
+    {
+     "kind": "howler",
+     "p": [
+      -10,
+      0,
+      -46
+     ]
+    },
+    {
+     "kind": "spider",
+     "p": [
+      9,
+      0,
+      -44
+     ]
+    },
+    {
+     "kind": "elite",
+     "p": [
+      2,
+      0,
+      -55
+     ]
+    }
+   ]
+  },
+  {
+   "name": "s12_fp_flamer",
+   "at": "biome:forest",
+   "shift": [
+    50,
+    -30
+   ],
+   "mode": "fp",
+   "gun": "flamer",
+   "live": true,
+   "clock": 21.8,
+   "dur": 5,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     1.5
+    ]
+   ],
+   "look": [
+    0,
+    0.8,
+    -12
+   ],
+   "forms": [
+    {
+     "kind": "spider",
+     "p": [
+      -2,
+      0,
+      -11
+     ]
+    },
+    {
+     "kind": "spider",
+     "p": [
+      2,
+      0,
+      -13
+     ]
+    },
+    {
+     "kind": "swarm",
+     "p": [
+      0,
+      0,
+      -9
+     ]
+    },
+    {
+     "kind": "swarm",
+     "p": [
+      1,
+      0,
+      -10
+     ]
+    }
+   ],
+   "fire": [
+    [
+     1.5,
+     4.6
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2,
+   "aim_up": 0.4
+  },
+  {
+   "name": "s13_rocket",
+   "at": "biome:basalt",
+   "mode": "fp",
+   "gun": "rocket",
+   "live": true,
+   "clock": 17.2,
+   "dur": 5,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     0.5
+    ]
+   ],
+   "look": [
+    0,
+    1.0,
+    -30
+   ],
+   "forms": [
+    {
+     "kind": "brute",
+     "p": [
+      -2,
+      0,
+      -30
+     ]
+    },
+    {
+     "kind": "rusher",
+     "p": [
+      2,
+      0,
+      -28
+     ]
+    },
+    {
+     "kind": "idol",
+     "p": [
+      0,
+      0,
+      -33
+     ]
+    }
+   ],
+   "aim": [
+    [
+     0.4,
+     2.2
+    ]
+   ],
+   "fire": [
+    [
+     1.6,
+     1.8
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2
+  },
+  {
+   "name": "s14_beacon_kindle",
+   "at": "beacon:0",
+   "clock": 21.5,
+   "dur": 9,
+   "fov": 50,
+   "ease": "smooth",
+   "path": [
+    {
+     "ang": 200,
+     "dist": 26,
+     "up": 1.0
+    },
+    {
+     "ang": 210,
+     "dist": 34,
+     "up": 12
+    }
+   ],
+   "look": [
+    [
+     0,
+     4,
+     0
+    ],
+    [
+     0,
+     22,
+     0
+    ]
+   ],
+   "kindle": {
+    "beacon": 0,
+    "t": 1.5,
+    "grow": 3.5
+   }
+  },
+  {
+   "name": "s15_cinderwick_night",
+   "at": "town:cinderwick",
+   "clock": 21.6,
+   "dur": 6,
+   "fov": 50,
+   "lit": [
+    0
+   ],
+   "path": [
+    {
+     "ang": 140,
+     "dist": 45,
+     "up": 5
+    },
+    {
+     "ang": 165,
+     "dist": 42,
+     "up": 6
+    }
+   ],
+   "look": [
+    0,
+    3,
+    0
+   ]
+  },
+  {
+   "name": "s16_beacon_road",
+   "at": "beacon:0",
+   "clock": 22.0,
+   "dur": 9,
+   "fov": 55,
+   "lit": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "ease": "out",
+   "path": [
+    {
+     "ang": 180,
+     "dist": 40,
+     "up": 3
+    },
+    {
+     "ang": 180,
+     "dist": 60,
+     "up": 60
+    }
+   ],
+   "look": [
+    [
+     0,
+     8,
+     0
+    ],
+    [
+     0,
+     30,
+     -200
+    ]
+   ]
+  }
+ ]
 }
