@@ -145,6 +145,14 @@ const SCANS := {
 	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
 		{"head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
+		{"bone": "Head_0", "shrink": true, "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
+	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
+		{"bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
+	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
+		{"bone": "head_0137", "shrink": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
 	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
 	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
 		{"bone": "Head_65", "shrink": true, "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
@@ -283,6 +291,12 @@ const BOSSES := {
 	"boss_forest": {"name": "The Long Watcher", "base": "unseen", "hp": 1600.0, "size": 1.3, "speed": 5.5, "bite": 50.0, "radius": 1.1, "grow": 1.9, "ways": ["blink", "charge"], "land": "forest"},
 	"boss_basalt": {"name": "The Basalt Idol", "base": "idol", "hp": 2600.0, "size": 3.0, "speed": 2.2, "bite": 45.0, "radius": 1.5, "grow": 1.0, "ways": ["slam", "volley", "charge"], "land": "basalt"},
 	"boss_marsh": {"name": "The Tar Mother", "base": "spider", "hp": 1800.0, "size": 0.8, "speed": 6.0, "bite": 35.0, "radius": 1.3, "grow": 2.6, "ways": ["brood", "rain", "charge"], "brood": "spider", "land": "marsh"},
+	# The great ones of the far sea and the Far Shores (0.16): land is the isle they keep
+	"boss_quiet": {"name": "The Archivist", "base": "unseen", "hp": 2600.0, "size": 1.5, "speed": 5.0, "bite": 46.0, "radius": 1.2, "grow": 2.1, "ways": ["line", "volley", "ambush"], "land": "quiet"},
+	"boss_domes": {"name": "The Lantern-Breaker", "base": "unlit_brute", "hp": 2800.0, "size": 1.7, "speed": 4.2, "bite": 48.0, "radius": 1.1, "grow": 1.0, "ways": ["charge", "brood", "volley"], "brood": "tunnel_unlit", "land": "domes"},
+	"boss_frost": {"name": "The Glacier Mother", "base": "idol", "hp": 3400.0, "size": 3.4, "speed": 2.0, "bite": 52.0, "radius": 1.7, "grow": 1.0, "ways": ["slam", "quake", "rain"], "land": "frost"},
+	"boss_sun": {"name": "The Dry River", "base": "spitter", "hp": 2900.0, "size": 2.8, "speed": 4.2, "bite": 0.0, "radius": 1.4, "grow": 1.0, "ways": ["volley", "rain", "brood"], "brood": "canyon_strider", "land": "sun"},
+	"boss_steppe": {"name": "The Spine-King", "base": "elite", "hp": 3200.0, "size": 3.4, "speed": 3.6, "bite": 50.0, "radius": 1.7, "grow": 1.0, "ways": ["charge", "slam", "brood"], "brood": "grass_stalker", "land": "steppe"},
 }
 const IDOL_CODES := ["goldspeeb", "marblespeeb", "jadespeeb", "obsidianspeeb", "fossilspeeb"]
 
@@ -1616,6 +1630,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive or hidden:
 		return false
 	flinch(amount, from_dir)
+	if boss == "" and amount > 4.0 and level.has_method("power_is") and level.power_is("rime"):
+		_stagger = maxf(_stagger, 0.7)   # the Glacier Mother's power: struck, a lesser form freezes a moment
 	var raw := amount   # what a puppet sends on: the host weighs weakness, plate and guard itself
 	if harm_kind != "" and boss == "":
 		# A blunt blow is a blade's to a form that has no word on blunt harm
@@ -2246,6 +2262,11 @@ const PATTERNS := {
 	"boss_forest": [[["charge"], ["ambush"]], [["ambush", "charge"], ["charge"]]],
 	"boss_basalt": [[["slam"], ["volley"], ["charge"]], [["quake"], ["volley"], ["charge", "slam"]]],
 	"boss_marsh": [[["brood"], ["rain"], ["charge"]], [["charge", "charge"], ["rain"], ["brood"]]],
+	"boss_quiet": [[["line"], ["ambush"], ["volley"]], [["ambush", "line"], ["volley", "volley"], ["line"]]],
+	"boss_domes": [[["volley"], ["charge"], ["brood"]], [["brood", "volley"], ["charge", "charge"], ["volley"]]],
+	"boss_frost": [[["slam"], ["rain"], ["quake"]], [["quake", "slam"], ["rain", "rain"], ["quake"]]],
+	"boss_sun": [[["volley"], ["brood"], ["rain"]], [["rain", "volley"], ["brood"], ["rain", "rain"]]],
+	"boss_steppe": [[["charge"], ["slam"], ["brood"]], [["charge", "charge"], ["slam", "brood"], ["charge"]]],
 }
 
 

@@ -352,7 +352,12 @@ func _isle_raw(il: Dictionary, x: float, z: float) -> float:
 	# The heart: a level clearing where those before left something
 	var heart := Vector2(x, z).distance_to(isle_heart(il))
 	var flat := 1.0 - smoothstep(16.0, 34.0, heart)
-	return lerpf(y, WIsles.SEA_Y + 3.0 + float(th.relief) * 0.12, flat)
+	y = lerpf(y, WIsles.SEA_Y + 3.0 + float(th.relief) * 0.12, flat)
+	if th.get("far", false):
+		# A far isle's great one has its own level ground
+		var lf := 1.0 - smoothstep(26.0, 60.0, Vector2(x, z).distance_to(WIsles.lair_spot(il)))
+		y = lerpf(y, WIsles.SEA_Y + 3.5 + float(th.relief) * 0.12, lf)
+	return y
 
 
 ## A Far Shore's height: broad shapes for a land 2 km across, each in its own way. The Frostmark rises
@@ -390,7 +395,13 @@ func _shore_raw(il: Dictionary, th: Dictionary, x: float, z: float) -> float:
 	var y := lerpf(WIsles.FLOOR_Y, top, land)
 	var heart := Vector2(x, z).distance_to(isle_heart(il))
 	var flat := 1.0 - smoothstep(22.0, 46.0, heart)
-	return lerpf(y, WIsles.SEA_Y + 4.0 + relief * 0.08, flat)
+	y = lerpf(y, WIsles.SEA_Y + 4.0 + relief * 0.08, flat)
+	# The shore's town: a wide level clearing, its ground eased down to it
+	var town := Vector2(x, z).distance_to(WIsles.town_spot(il))
+	var tf := 1.0 - smoothstep(48.0, 110.0, town)
+	y = lerpf(y, WIsles.SEA_Y + 5.0 + relief * 0.1, tf)
+	var lf := 1.0 - smoothstep(28.0, 80.0, Vector2(x, z).distance_to(WIsles.lair_spot(il)))
+	return lerpf(y, WIsles.SEA_Y + 4.5 + relief * 0.12, lf)
 
 
 ## The level clearing on an isle, a little off its middle.

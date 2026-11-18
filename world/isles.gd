@@ -132,6 +132,18 @@ static func plan(seed: int) -> Array:
 	return out
 
 
+## Where a Far Shore's town stands: partway in from its shore, off to one side of its heart.
+static func town_spot(il: Dictionary) -> Vector2:
+	var c: Vector2 = il.c
+	return c + (-c.normalized()).rotated(1.9) * float(il.r) * 0.42
+
+
+## Where a far isle's great one sleeps: partway in, to the other side of its heart from the town.
+static func lair_spot(il: Dictionary) -> Vector2:
+	var c: Vector2 = il.c
+	return c + (-c.normalized()).rotated(-1.9) * float(il.r) * 0.45
+
+
 ## Whether an isle lies out on the far sea (or is a Far Shore), past the near isles.
 static func far(il: Dictionary) -> bool:
 	return bool(THEMES.get(str(il.get("key", "")), {}).get("far", false))

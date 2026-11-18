@@ -83,6 +83,11 @@ const DB := {
 	"t_forest": {"name": "Watcher's Eye", "kind": "trophy", "stack": 5, "value": 260, "color": Color(0.5, 0.55, 0.6), "text": "Glass, or something like it. Do not look into it for long."},
 	"t_basalt": {"name": "Idol's Gilt", "kind": "trophy", "stack": 5, "value": 280, "color": Color(0.95, 0.78, 0.3), "text": "Gold leaf from the Basalt Idol's face. The face beneath was not stone."},
 	"t_marsh": {"name": "Tar Pearl", "kind": "trophy", "stack": 5, "value": 220, "color": Color(0.15, 0.12, 0.1), "text": "Black, smooth, warm. Found where the Tar Mother's heart was."},
+	"t_quiet": {"name": "The Archivist's Lens", "kind": "trophy", "stack": 5, "value": 320, "color": Color(0.8, 0.9, 1.0), "text": "A round of clear glass. Through it, faces you have never seen look back."},
+	"t_domes": {"name": "The Keeper's Hook", "kind": "trophy", "stack": 5, "value": 300, "color": Color(0.35, 0.33, 0.3), "text": "A long iron hook from a lighthouse. It still smells of oil."},
+	"t_frost": {"name": "Glacier Heart", "kind": "trophy", "stack": 5, "value": 340, "color": Color(0.7, 0.85, 1.0), "text": "Blue ice that does not melt in the hand."},
+	"t_sun": {"name": "Dry River Scale", "kind": "trophy", "stack": 5, "value": 320, "color": Color(0.8, 0.4, 0.25), "text": "Red, hard and warm, like a stone left in the sun."},
+	"t_steppe": {"name": "Spine-King's Horn", "kind": "trophy", "stack": 5, "value": 340, "color": Color(0.9, 0.88, 0.8), "text": "Old white horn, light as a bird's bone. Cats follow it."},
 	"raft": {"name": "Raft", "kind": "boat", "stack": 1, "value": 30, "color": Color(0.45, 0.35, 0.24), "text": "Logs and rope, ready to lash together. Launch it from the shore. Two can ride; paddle it with the walking keys."},
 	"longboat": {"name": "Longboat", "kind": "boat", "stack": 1, "value": 220, "color": Color(0.3, 0.22, 0.16), "text": "A long boat in pieces, with oars and a mast. Launch it from the shore. Eight can ride."},
 	"sloop": {"name": "Sloop", "kind": "boat", "stack": 1, "value": 120, "color": Color(0.32, 0.24, 0.18), "text": "A small boat with a mast, in pieces. Launch it from the shore. Four can ride, and it runs before the wind."},
@@ -229,6 +234,11 @@ const POWERS := {
 	"t_forest": {"key": "eye", "name": "The Watcher's Eye", "text": "Your blows and shots strike a fifth harder."},
 	"t_basalt": {"key": "gilt", "name": "Gilded Skin", "text": "Every blow you take is a fifth lighter."},
 	"t_marsh": {"key": "tar", "name": "Tar Lungs", "text": "You swim without tiring, and the sea cannot drown you."},
+	"t_quiet": {"key": "lens", "name": "The Lens", "text": "Forms near you show on your compass, through walls and hills."},
+	"t_domes": {"key": "hook", "name": "The Keeper's Calm", "text": "Your lamp draws nothing: the dread does not rise about you."},
+	"t_frost": {"key": "rime", "name": "Rime Touch", "text": "Your blows freeze the lesser forms where they stand, a moment."},
+	"t_sun": {"key": "dry", "name": "Dry Blood", "text": "No heat touches you: not the sun, the dunes or the burning stone."},
+	"t_steppe": {"key": "horn", "name": "The Rider's Horn", "text": "Your cat never tires."},
 }
 
 ## Loot tables: [item, weight, min, max]

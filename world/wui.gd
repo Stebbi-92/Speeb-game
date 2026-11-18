@@ -3954,6 +3954,18 @@ class Compass extends Control:
 			var tt := Time.get_ticks_msec() * 0.001
 			heading += sin(tt * 0.37) * 1.1 + sin(tt * 1.3) * 0.25
 		draw_rect(Rect2(0, 18, wd, 1), Color(1, 1, 1, 0.18))
+		if w.power_is("lens"):
+			# The Archivist's Lens: forms near you, as red marks on the band
+			for e in w.enemies:
+				if not is_instance_valid(e) or not e.is_alive():
+					continue
+				var dv: Vector3 = e.global_position - w.player.global_position
+				if dv.length() > 90.0:
+					continue
+				var dxe := wrapf(atan2(dv.x, -dv.z) - heading, -PI, PI)
+				if absf(dxe) <= 1.2:
+					var xe := cx + dxe / 1.2 * cx
+					draw_rect(Rect2(xe - 2, 12, 4, 13), Color(0.95, 0.25, 0.2, 1.0 - dv.length() / 110.0))
 		var font := ThemeDB.fallback_font
 		for k in 8:
 			var ang := k * TAU / 8.0

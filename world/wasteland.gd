@@ -183,6 +183,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	if gen >= 2:
 		terrain.home = WPlaces.start
 	WPlaces.lay_out_far(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
+	WPlaces.lay_out_shores(terrain.isles)
 	for k in WPlaces.SETTLEMENTS:
 		terrain.add_flat(WPlaces.spos(k), WPlaces.SETTLEMENTS[k].radius + 8.0)
 	for bp in WPlaces.beacon_points():
@@ -220,6 +221,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
+	_plan_far_lairs()
 	_plan_far_ruins()
 	await _step("The sea is poured", 0.27)
 	sea = WSea.new().setup(self)
@@ -813,7 +815,7 @@ func _build_settlement(k: String) -> void:
 		p.y = terrain.height_at(p.x, p.z)
 		_person(pid, p, yaw_to(p, c))
 	# And the folk who live there, about their day
-	for i in (3 if s.get("far", false) else 5):
+	for i in (3 if s.get("far", false) or s.has("shore") else 5):
 		var f := WTownsfolk.new().setup(self, c, r * 0.6, hash(k) + i * 101)
 		add_child(f)
 		var a := i * TAU / 5.0 + 0.4
@@ -1056,7 +1058,7 @@ func _town_plan(k: String) -> Array:
 			homes += 1
 	# And what a town has besides: a smithy, a well, market stalls, a watchtower by the wall
 	var extras := [["smithy", 3.2], ["well", 1.6], ["stall", 1.8], ["stall", 1.8], ["tower", 1.8]]
-	if s.get("far", false):
+	if s.get("far", false) or s.has("shore"):
 		extras = [["well", 1.6], ["stall", 1.8], ["tower", 1.8]]
 	# A yard on the open side: a pen, a patch of ground worked for what will grow, the town's stores
 	if style in ["crescent", "quarters", "terrace"]:
@@ -2450,6 +2452,8 @@ func land_at(p: Vector3) -> String:
 
 ## Whether this pilgrim carries the ward against a land's hardship (or the land has none).
 func warded(bn: String) -> bool:
+	if power_is("dry") and bn in ["sun", "dunes", "basalt"]:
+		return true   # the Dry River's power: no heat touches you
 	return not LAND_WARD.has(bn) or bn in WArms.worn(arms).wards
 
 
@@ -8319,6 +8323,8 @@ func debug_folk() -> void:
 	clock = 23.0
 	var seen := {}
 	for il in terrain.isles:
+		if WIsles.far(il):
+			continue   # the Frostmark has its own draugr: only the near isles' tales here
 		var c: Vector2 = il.c
 		var roster: Array = forms_at(Vector3(c.x, terrain.height_at(c.x, c.y), c.y))
 		for k in ["draugr", "nykur", "shtriga", "kulshedra"]:
@@ -8833,6 +8839,19 @@ func _plan_lairs() -> void:
 			lairs.append({"id": land, "land": land, "boss": b, "name": "Lair of " + LesserSpeeb.BOSSES[b].name.trim_prefix("The "), "pos": Vector3(p.x, 0, p.y)})
 			terrain.add_flat(p, 24.0)
 			break
+
+
+## The great ones of the far sea and the Far Shores, each on its own isle (their ids after the rest).
+func _plan_far_lairs() -> void:
+	for b in LesserSpeeb.BOSSES:
+		var land: String = LesserSpeeb.BOSSES[b].land
+		if WTerrain.BIOMES.has(land):
+			continue
+		for il in terrain.isles:
+			if il.key != land:
+				continue
+			var q := WIsles.lair_spot(il)
+			lairs.append({"id": land, "land": land, "boss": b, "name": "Lair of " + LesserSpeeb.BOSSES[b].name.trim_prefix("The "), "pos": Vector3(q.x, terrain.height_at(q.x, q.y), q.y)})
 
 
 func lair_ready(l: Dictionary) -> bool:
@@ -12060,6 +12079,8 @@ func debug_farsea() -> void:
 				pois.append(Vector2(ru.pos.x, ru.pos.z))
 		for l in lairs:
 			pois.append(Vector2(l.pos.x, l.pos.z))
+		for k in WPlaces.SETTLEMENTS:
+			pois.append(WPlaces.spos(k))
 		var r := RandomNumberGenerator.new()
 		r.seed = 77
 		var n := 0
@@ -12079,6 +12100,15 @@ func debug_farsea() -> void:
 		terrain.map_image(1024).save_png(OS.get_environment("FARMAP"))
 	print("FARSEA far=%d clear=%s dry=%d lands=%s" % [far.size(), clear, dry, ",".join(lands)])
 	print("FARSEA full=%s" % (worst >= 0.6))
+	var towns := 0
+	for k in WPlaces.SETTLEMENTS:
+		if WPlaces.on_shore(k):
+			var c := WPlaces.spos(k)
+			var ok := terrain.height_at(c.x, c.y) > WIsles.SEA_Y + 2.0 and terrain.normal_at(c.x + 20.0, c.y).y > 0.97 and terrain.normal_at(c.x, c.y - 20.0).y > 0.97
+			ok = ok and not WPlaces.roads.any(func(rd): return rd[0] == k or rd[1] == k)
+			if ok:
+				towns += 1
+	print("FARSEA towns=%d" % towns)
 	get_tree().quit()
 
 
@@ -12126,6 +12156,37 @@ func debug_turn() -> void:
 	get_tree().quit()
 
 const WARMS_SLOT := {"frost": "cloak", "sun": "neck", "steppe": "hands"}
+
+
+## Test: the five great ones of the far lands. Each has a lair on its own isle, on level dry ground;
+## each wakes with its own name and a learnable loop, and leaves its trophy, whose power is known.
+func debug_farlairs() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var far := lairs.filter(func(l): return not WTerrain.BIOMES.has(str(l.land)))
+	var level_ok := 0
+	for l in far:
+		if l.pos.y > WIsles.SEA_Y + 1.0 and terrain.normal_at(l.pos.x + 12.0, l.pos.z).y > 0.97 and terrain.normal_at(l.pos.x, l.pos.z - 12.0).y > 0.97:
+			level_ok += 1
+	var named := 0
+	var trophies := 0
+	for l in far:
+		var b: String = l.boss
+		var e := spawn_at(b, player.global_position + Vector3(0, 2, -20))
+		if e and e.spec.name == LesserSpeeb.BOSSES[b].name and LesserSpeeb.PATTERNS.has(b):
+			named += 1
+		var t0 := inv.count("t_" + str(l.land))
+		if e:
+			e.die(false)
+			_w_boss_down(b, player.global_position)
+		await get_tree().create_timer(0.6).timeout
+		if Items.POWERS.has("t_" + str(l.land)) and Items.DB.has("t_" + str(l.land)):
+			trophies += 1
+	print("FARLAIRS lairs=%d level=%d named=%d trophies=%d" % [far.size(), level_ok, named, trophies])
+	get_tree().quit()
 
 
 ## Testing aid: the Grey Sea and its isles are there, the sea holds a swimmer up and tires them,
@@ -14087,7 +14148,7 @@ func _rivals_dawn() -> void:
 func convoy_route(from: Vector3) -> Array:
 	var safe := []
 	for k in WPlaces.SETTLEMENTS:
-		if safety_of(k) >= 60:
+		if safety_of(k) >= 60 and not WPlaces.on_shore(k):   # a caravan does not walk over the sea
 			safe.append(k)
 	var best := []
 	var bd := 700.0

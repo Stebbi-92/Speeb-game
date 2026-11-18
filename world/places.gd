@@ -47,6 +47,19 @@ const SETTLEMENTS := {
 		"name": "Last Light", "pos": Vector2(0, 1500), "radius": 28.0, "wall": Color(0.38, 0.34, 0.3), "far": true,
 		"blurb": "A watchtower at the far rim that never let its lamp go out.",
 	},
+	# The towns of the Far Shores (0.16), each on its own shore past the far sea
+	"hearthholm": {
+		"name": "Hearthholm", "radius": 32.0, "wall": Color(0.26, 0.24, 0.22), "shore": "frost",
+		"blurb": "Turf-roofed longhouses round a hot spring under the glacier. Forty-one hearths, each with a name.",
+	},
+	"hanging": {
+		"name": "The Hanging Town", "radius": 30.0, "wall": Color(0.5, 0.3, 0.2), "shore": "sun",
+		"blurb": "Rooms cut into red rock, and a mirror-fire on the rim that signals to the caravans by day.",
+	},
+	"stillwater": {
+		"name": "Stillwater", "radius": 30.0, "wall": Color(0.4, 0.38, 0.32), "shore": "steppe",
+		"blurb": "A town of riverfolk and cat-riders on the slow water. Lamps on every post.",
+	},
 }
 
 ## The souls of the waste. "at" is a settlement; "off" places them within it.
@@ -199,6 +212,57 @@ const PEOPLE := {
 		"about": "I keep the tower fed. The road out here is long and the carts come twice a year if we are lucky.",
 		"rumors": [
 			"A waystone at each end saves the walk. Name them the same and step through.",
+		],
+	},
+	"sigrun": {
+		"name": "Sigrun", "title": "Law-speaker of Hearthholm", "at": "hearthholm", "off": Vector2(0, -8), "role": "elder", "robe": Color(0.3, 0.32, 0.36),
+		"greet": "You came over the sea. Sit by the fire, then, and say your name. We keep names here.",
+		"about": "The old law was spoken on the Thing-field. Now the dead stand on it. I would speak there again before I die.",
+		"rumors": [
+			"Your beacons were a light we saw on clear nights, far off. The Order wanted it paid for. We never paid.",
+			"The Ice Hall is at the glacier's foot. Something sleeps in the ice there, and the ice is her skin.",
+		],
+	},
+	"halvard": {
+		"name": "Halvard Grim", "title": "Smith", "at": "hearthholm", "off": Vector2(11, 5), "role": "smith", "robe": Color(0.24, 0.22, 0.2),
+		"greet": "Bring me something you made that broke. A thing that never broke was never used.",
+		"about": "Glacier iron is blue and very hard. It wants a slow fire and a patient hand.",
+		"rumors": [
+			"The geysers on the high ground are not all water. Some of them have something living in the vent.",
+		],
+	},
+	"asha": {
+		"name": "Asha Redwater", "title": "Caravan-mistress", "at": "hanging", "off": Vector2(0, -8), "role": "trader", "robe": Color(0.55, 0.3, 0.2),
+		"greet": "Share my water first, then we can talk about price.",
+		"about": "I lost a caravan on the Long Road. Twelve bells, twelve beasts. I pay well for the bells.",
+		"rumors": [
+			"Under the canyon floor something swims through the sand. We call it the Dry River. It is not a river.",
+			"Carry a water gourd here. By noon the sun takes what you have.",
+		],
+	},
+	"tobiah": {
+		"name": "Tobiah", "title": "Water-finder", "at": "hanging", "off": Vector2(-11, 5), "role": "healer", "robe": Color(0.45, 0.38, 0.3),
+		"greet": "I hear you. I hear the water behind the rock, too.",
+		"about": "I was born blind. The rock talks to me instead. Lately it says something I do not like.",
+		"rumors": [
+			"Three singers walk the canyons together. While one sings, the others heal. Break the song first.",
+		],
+	},
+	"ileana": {
+		"name": "Mother Ileana", "title": "Elder of the Riders", "at": "stillwater", "off": Vector2(0, -8), "role": "elder", "robe": Color(0.42, 0.4, 0.3),
+		"greet": "You ride a cat. Badly. We can mend that, for a price in deeds.",
+		"about": "We have ridden the great cats on the steppe since before your Order had a name. The grass keeps its own law.",
+		"rumors": [
+			"Something lies across three hills out on the grass. The Spine. It was not always lying down.",
+			"Without a bone compass the steppe turns you round. Follow the standing stones.",
+		],
+	},
+	"kestrel": {
+		"name": "Kestrel", "title": "Young rider", "at": "stillwater", "off": Vector2(11, 5), "role": "quartermaster", "robe": Color(0.5, 0.45, 0.35),
+		"greet": "Shells, meat, rope. I am riding to the Spine soon. Alone, if I have to.",
+		"about": "Everyone says the Spine is death. Everyone says that about everything.",
+		"rumors": [
+			"The ghost herds run at dusk. Do not stand in front of them. Do not stand at all.",
 		],
 	},
 	"ash_lena": {
@@ -396,7 +460,7 @@ static var roads: Array = []
 ## Each road winds a little and keeps off steep ground where it can.
 static func plan_roads(seed: int, probe: Callable) -> void:
 	roads.clear()
-	var keys: Array = settle_at.keys()
+	var keys: Array = settle_at.keys().filter(func(k): return not on_shore(k))   # no road runs over the sea
 	var pairs: Array = []
 	var linked := [keys[0]]
 	while linked.size() < keys.size():
@@ -460,6 +524,22 @@ static func _wind(r: RandomNumberGenerator, probe: Callable, a: Vector2, b: Vect
 		sm.append(pts[pts.size() - 1])
 		pts = sm
 	return pts
+
+
+## The towns of the Far Shores stand in a clearing kept for them on their shore (see WTerrain._shore_raw).
+static func lay_out_shores(isles: Array) -> void:
+	for k in SETTLEMENTS:
+		var sh := str(SETTLEMENTS[k].get("shore", ""))
+		if sh == "":
+			continue
+		for il in isles:
+			if il.key == sh:
+				settle_at[k] = WIsles.town_spot(il)
+
+
+## Whether a town stands on a Far Shore, across the sea from the waste.
+static func on_shore(k: String) -> bool:
+	return SETTLEMENTS.has(k) and SETTLEMENTS[k].has("shore")
 
 
 ## The far settlements stand beyond the old rim, spread apart around it. Drawn from their own dice so that
