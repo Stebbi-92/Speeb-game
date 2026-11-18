@@ -10,6 +10,7 @@ param(
     [string]$Shots = "res://tools/trailer/shots.json"
 )
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $false
 $ProgressPreference = "SilentlyContinue"
 if ($Game -eq "") { $Game = Join-Path $Root "game" }
 New-Item -ItemType Directory -Force -Path $Root, "$Root\out", "$Root\clips" | Out-Null
@@ -38,7 +39,9 @@ Copy-Item "$Game\tools\trailer\override.cfg" "$Game\override.cfg" -Force
 
 if (-not (Test-Path "$Game\.godot\imported")) {
     Write-Host "Importing the game's files (first time only, a few minutes)..."
+    $ErrorActionPreference = "Continue"
     & $godot --headless --path $Game --import 2>&1 | Out-File "$Root\out\import.log"
+    $ErrorActionPreference = "Stop"
 }
 
 $raw = "$Root\out\raw.avi"
@@ -48,8 +51,9 @@ Remove-Item "$userDir\trailer_cuts.json" -ErrorAction SilentlyContinue
 $gargs = @("--path", $Game, "--resolution", $Res, "--fixed-fps", "60", "--write-movie", $raw, "--", "level=12", "trailer=$Shots")
 if ($Only -ne "") { $gargs += "only=$Only" }
 Write-Host "Filming... (the game window shows each shot slowly; leave it be)"
+$ErrorActionPreference = "Continue"   # Godot writes warnings to stderr
 $t0 = Get-Date
-& $godot @args 2>&1 | Tee-Object -FilePath "$Root\out\film.log" | Select-String "TRAILER|SCRIPT ERROR"
+& $godot @gargs 2>&1 | Tee-Object -FilePath "$Root\out\film.log" | Select-String "TRAILER|SCRIPT ERROR"
 Write-Host ("Filmed in {0:N1} minutes" -f ((Get-Date) - $t0).TotalMinutes)
 
 $cutsPath = "$userDir\trailer_cuts.json"
