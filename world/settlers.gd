@@ -16,7 +16,7 @@ const JOBS := {
 	"keeper": {"name": "fire-keeper", "goods": {}, "line": "I'll keep the fire. Go on, I've got it."},
 }
 ## What each trade teaches the fellowship when one of its kind settles (a recipe's "needs").
-const TEACHES := {"woodcutter": "book_ship", "salter": "book_salter", "scavenger": "book_gunwright", "hunter": "book_herbal", "keeper": "book_lamp"}
+const TEACHES := {"woodcutter": "book_rigging", "salter": "book_salter", "scavenger": "book_gunwright", "hunter": "book_herbal", "keeper": "book_lamp"}
 ## What each asks for, now and then: [item, how many]. Leave it in the base's chest; at dawn it is taken
 ## and paid for.
 const WANTS := {

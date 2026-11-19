@@ -66,13 +66,14 @@ const BOONS := {
 	"iron_skin": {"name": "Iron Skin", "text": "You take 10% less harm."},
 	"beacon_heart": {"name": "Beacon Heart", "text": "25 more health."},
 	"sure_aim": {"name": "Sure Aim", "text": "Your guns and blades hit 10% harder."},
-	"quick_hands": {"name": "Quick Hands", "text": "You reload 15% faster."},
 	"salvager": {"name": "Salvager", "text": "30% more from everything you gather."},
-	"packrat": {"name": "Packrat", "text": "6 more places in your pack."},
-	"cat_kin": {"name": "Cat-Kin", "text": "Your cat sprints twice as long."},
-	"silver_tongue": {"name": "Silver Tongue", "text": "Buy 10% cheaper and sell 15% dearer."},
-	"bandolier": {"name": "Deep Bandolier", "text": "Carry 150 more rounds."},
-	"night_eyes": {"name": "Night Eyes", "text": "Forms deal 15% less harm to you at night."},
+	# Boons that are new things to do, not numbers
+	"rally": {"name": "Rallying Cry", "text": "Your whistle rallies the squad near you: breath back, and a burst of speed. Once a minute."},
+	"second_relic": {"name": "Second Relic", "text": "Two spirit-cats may run with you at once."},
+	"lantern": {"name": "Lantern-bearer", "text": "Your lit lantern keeps the dread off everyone near you."},
+	"pack_cat": {"name": "Pack-Cat", "text": "With a cat of your own, it carries 8 places of your pack."},
+	"quick_camp": {"name": "Quick Camp", "text": "Once a night, lay a campfire for nothing."},
+	"deep_diver": {"name": "Deep Diver", "text": "Swimming costs half the breath: you stay under twice as long."},
 }
 var boons: Array = []        ## the boons chosen, kept for good
 var boon_offer: Array = []   ## three boons offered by a kindled beacon, waiting to be chosen
@@ -198,6 +199,12 @@ func has_boon(id: String) -> bool:
 	return id in boons
 
 
+## Whether this survivor has a cat of their own (the Pack-Cat boon carries in it).
+func _has_cat() -> bool:
+	var lv = Game.main.level if Game.main else null
+	return lv != null and lv.get("cat") != null
+
+
 ## Three boons not yet held, to be chosen from (fewer once nearly all are taken).
 func roll_boons(rr: RandomNumberGenerator) -> Array:
 	var left: Array = []
@@ -239,7 +246,7 @@ func speed_mult() -> float:
 
 
 func pack_size() -> int:
-	return 24 + 4 * rank("deep_pockets") + (6 if has_boon("packrat") else 0)
+	return 24 + 4 * rank("deep_pockets") + (8 if has_boon("pack_cat") and _has_cat() else 0)
 
 
 func damage_mult() -> float:
@@ -247,11 +254,11 @@ func damage_mult() -> float:
 
 
 func reload_mult() -> float:
-	return (1.0 - 0.15 * rank("quick_hands")) * (0.85 if has_boon("quick_hands") else 1.0)
+	return (1.0 - 0.15 * rank("quick_hands")) * 1.0
 
 
 func reserve_max() -> int:
-	return 400 + 100 * rank("bandolier") + (150 if has_boon("bandolier") else 0)
+	return 400 + 100 * rank("bandolier") + 0
 
 
 func harm_mult() -> float:
@@ -278,11 +285,11 @@ func cost(c: Dictionary) -> Dictionary:
 
 
 func buy_mult() -> float:
-	return (1.0 - 0.06 * rank("haggler")) * (0.9 if has_boon("silver_tongue") else 1.0)
+	return (1.0 - 0.06 * rank("haggler")) * 1.0
 
 
 func sell_mult() -> float:
-	return (1.0 + 0.1 * rank("haggler")) * (1.15 if has_boon("silver_tongue") else 1.0) * (0.5 if WRules.sworn("vow_tithe") else 1.0)
+	return (1.0 + 0.1 * rank("haggler")) * 1.0 * (0.5 if WRules.sworn("vow_tithe") else 1.0)
 
 
 func build_hp_mult() -> float:

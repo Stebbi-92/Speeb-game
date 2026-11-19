@@ -1830,10 +1830,13 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 		award("beacon")
 	var b: Dictionary = beacon_nodes[i]
 	if ok:
+		var most0 := most_lit()
 		if not i in lit:
 			lit.append(i)
 		flags["clean_%d" % i] = true   # its key went in: it stays clean, even if the fire goes out
 		flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
+		if most_lit() > most0:
+			_verb_gained(most_lit())
 		_light_beacon(i, true)
 		sfx("choir", 0, b.pos)
 		if player.global_position.distance_to(b.pos) < 200.0:
@@ -1851,6 +1854,152 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 		b.light.light_energy = 0.0
 		hud.notify("The flame at %s guttered out. What was poured goes back to the one who poured it." % WPlaces.BEACONS[i].name)
 	_beacon_prompt(i)
+
+
+# ------------------------------------------------------------------ what each fire lets you do
+
+## Each fire, counted by the most that have ever burned in the world, opens a new thing to do (gameplay
+## bible: "every milestone pays with a new verb"). World things go by the world's count; boons stay personal.
+const FIRE_VERBS := {
+	1: ["Ride", "Strays come near the towns. Feed one meat three times and it is yours to ride."],
+	2: ["Survey", "From a high place you see ruins and lairs far off, and they go on your map."],
+	3: ["Grow", "Planter boxes can be built: seeds, and fields of your own."],
+	4: ["Travel", "Waystones can be built: two of one name lead to each other."],
+	5: ["Sail", "The Sloop-wright's book: the sloop can be made at a bench."],
+	6: ["Voyage", "The Longboat-wright's book: eight seats, for long voyages."],
+	7: ["Discern", "Hidden and unseen forms near you show on your compass."],
+	8: ["Bulwark", "Each night, the beacons' blessing takes the first blow that would land on you."],
+	9: ["Choose", "The Ferryman's Way is open: go down to the Tenth Hall."],
+}
+const VERB_BOOKS := {5: "book_ship", 6: "book_longboat"}
+var bulwark_spent := false
+var quick_camp_spent := false
+
+
+func has_verb(fire: int) -> bool:
+	return most_lit() >= fire
+
+
+## A fire beyond any before it: what it opens, for everyone.
+func _verb_gained(n: int) -> void:
+	_verb_books()
+	if not FIRE_VERBS.has(n) or Net.dedicated:
+		return
+	var v: Array = FIRE_VERBS[n]
+	get_tree().create_timer(7.0, false).timeout.connect(func():
+		if is_instance_valid(hud):
+			hud.alert_banner("A new way: %s" % v[0], v[1]))
+
+
+## The books the fires bring are known to the world, also in a world lit before they were.
+func _verb_books() -> void:
+	for f in VERB_BOOKS:
+		if has_verb(f) and not flags.has(VERB_BOOKS[f]):
+			flags[VERB_BOOKS[f]] = true
+			flags["found_" + VERB_BOOKS[f]] = true
+
+
+## The Rallying Cry: those near get their breath back and a burst of speed.
+var _rally_cd := 0.0
+const RALLY_REACH := 20.0
+const RALLY_CD := 60.0
+
+func rally() -> void:
+	if _rally_cd > 0.0:
+		hud.notify("Your voice is spent. Again in %d seconds." % ceili(_rally_cd))
+		return
+	_rally_cd = RALLY_CD
+	shared("_w_rally", [Net.me(), player.global_position])
+
+
+var rally_burst := 0.0   ## seconds of the rally's speed left
+func _w_rally(by: int, at: Vector3) -> void:
+	if Net.dedicated or player.global_position.distance_to(at) > RALLY_REACH:
+		return
+	sfx("choir", -8, at, 1.6)
+	player.stamina = player.stamina_max
+	rally_burst = 6.0
+	player.walk_speed = 3.4 * skills.speed_mult() * 1.25
+	player.run_speed = 5.8 * skills.speed_mult() * 1.25
+	hud.notify("You rally to %s." % ("the cry" if by == Net.me() else Net.name_of(by)))
+
+
+## The Lantern-bearer: who carries a lit lantern and the boon (peer -> true); the dread does not rise near them.
+var bearers := {}
+var _bearing := false
+const BEARER_REACH := 15.0
+
+func _w_bearer(by: int, on: bool) -> void:
+	if on:
+		bearers[by] = true
+	else:
+		bearers.erase(by)
+
+
+func near_bearer(p: Vector3) -> bool:
+	for id in bearers:
+		var who: Node3D = player if id == Net.me() else avatars.get(id)
+		if who and is_instance_valid(who) and who.global_position.distance_to(p) < BEARER_REACH:
+			return true
+	return false
+
+
+## Survey (the second fire): from a high place, ruins and lairs within sight go on the map.
+var _survey_t := 0.0
+var _surveyed := {}
+var _books_checked := false
+const SURVEY_SIGHT := 600.0
+
+func _verbs_tick(delta: float) -> void:
+	if rally_burst > 0.0:
+		rally_burst -= delta
+		if rally_burst <= 0.0:
+			_apply_skills()
+	_rally_cd = maxf(0.0, _rally_cd - delta)
+	if ready_world and not _books_checked:
+		_books_checked = true
+		_verb_books()   # a world lit before the books came with the fires
+	var bear: bool = skills.has_boon("lantern") and player.relics != null and player.relics.lantern_lit
+	if bear != _bearing:
+		_bearing = bear
+		shared("_w_bearer", [Net.me(), bear])
+	_survey_t -= delta
+	if _survey_t > 0.0 or not has_verb(2) or Net.dedicated or player.vessel != null:
+		return
+	_survey_t = 3.0
+	for pid in pieces:
+		if pieces[pid].kind == "portal":
+			_portal_look(pid)   # a link wakes or dims as beacons and lanes are lit or go dark
+	var p := player.global_position
+	var cell := Vector2i(int(p.x / 250.0), int(p.z / 250.0))
+	if _surveyed.has(cell) or not high_point(p):
+		return
+	_surveyed[cell] = true
+	var n := 0
+	for r in ruins:
+		var q: Vector3 = r.pos
+		if q.distance_to(p) < SURVEY_SIGHT and not is_revealed(q):
+			reveal_place(Vector2(q.x, q.z), 40.0)
+			n += 1
+	for l in lairs:
+		if l.pos.distance_to(p) < SURVEY_SIGHT and not is_revealed(l.pos):
+			reveal_place(Vector2(l.pos.x, l.pos.z), 50.0)
+			n += 1
+	if n > 0:
+		sfx("bell", -16, null, 1.8)
+		hud.notify("From the height you survey the land: %d place%s marked on your map." % [n, "" if n == 1 else "s"])
+
+
+## A high place: well above the ground all round, 150 m out.
+func high_point(p: Vector3) -> bool:
+	if terrain == null:
+		return false
+	var h: float = terrain.height_at(p.x, p.z)
+	var sum := 0.0
+	for k in 8:
+		var a := k * TAU / 8.0
+		sum += terrain.height_at(p.x + cos(a) * 150.0, p.z + sin(a) * 150.0)
+	return h - sum / 8.0 >= 16.0
 
 
 # ------------------------------------------------------------------ the turn
@@ -3465,11 +3614,71 @@ func _chest_label(pid: int) -> void:
 	lab.text = str(pc.name)
 
 
+## The waystone rules (gameplay bible): people travel fast, cargo goes by road and sea.
+## Waystones wake with the fourth fire; one end must stand in a lit beacon's ground or a town; both on one
+## land (the waste and each isle are lands of their own), save that a far isle links to the waste along a
+## lit sea lane. A waystone whose anchor beacon goes dark dims and says why; it is never taken down.
+const WAY_CARGO := ["beacon_oil", "deep_oil", "fleet_log", "bell_ichor", "red_iron", "salt_crystal", "obsidian"]
+
+func waystone_land(p: Vector3) -> String:
+	if terrain == null:
+		return "waste"
+	var il := terrain.isle_at(p.x, p.z, 1.2)
+	return str(il.key) if not il.is_empty() else "waste"
+
+
+## Whether a waystone stands where it may anchor a link: in a lit beacon's ground or a town.
+func waystone_anchored(p: Vector3) -> bool:
+	for i in lit:
+		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
+			return true
+	return settlement_at(p, TOWN_SAFE) != ""
+
+
+## Why two waystones of one name do not link, or "" if they do.
+func waystone_why(a: int, b: int) -> String:
+	if not pieces.has(a) or not pieces.has(b):
+		return "?"
+	if not has_verb(4):
+		return "The waystones sleep until the fourth fire burns."
+	var pa: Vector3 = pieces[a].pos
+	var pb: Vector3 = pieces[b].pos
+	if not waystone_anchored(pa) and not waystone_anchored(pb):
+		for i in WPlaces.BEACONS.size():
+			if not i in lit and (Vector2(pa.x, pa.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE or Vector2(pb.x, pb.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE):
+				return "Dim: %s has gone dark. Light it again to wake this link." % WPlaces.BEACONS[i].name
+		return "Dim: one of the pair must stand in a lit beacon's ground or a town."
+	var la := waystone_land(pa)
+	var lb := waystone_land(pb)
+	if la == lb:
+		return ""
+	var far := lb if la == "waste" else (la if lb == "waste" else "")
+	if far != "" and lights and lights.houses.any(func(h): return h.lane == far):
+		return "" if lights.lane_lit(far) else "Dim: the waste links to that isle only when both lights on its sea lane burn."
+	return "Dim: the two stand on different lands. Go by boat."
+
+
+## Why this pilgrim may not step through now, or "".
+func waystone_carry_why() -> String:
+	if player.mount != null:
+		return "Get down first: a cat will not pass a waystone."
+	if ember_by == Net.me():
+		return "An ember will not pass a waystone. Carry it by road."
+	for slot in inv.slots:
+		if slot == null:
+			continue
+		var id := str(slot.id) if slot is Dictionary else str(slot[0])
+		if id in WAY_CARGO or id in WArms.FAR_STUFF or id.begins_with("heart_") or id.begins_with("coal_"):
+			return "%s will not pass a waystone. Cargo goes by road and sea." % Items.iname(id)
+	return ""
+
+
 func _portal_look(pid: int) -> void:
 	var pc: Dictionary = pieces[pid]
 	if pc.kind != "portal" or not pc.node.has_meta("veil"):
 		return
-	var on := portal_pair(pid) >= 0
+	var pair := portal_pair(pid)
+	var on := pair >= 0 and waystone_why(pid, pair) == ""
 	(pc.node.get_meta("veil") as StandardMaterial3D).albedo_color.a = 0.45 if on else 0.0
 	(pc.node.get_meta("light") as OmniLight3D).light_energy = 1.4 if on else 0.0
 	(pc.node.get_meta("label") as Label3D).text = str(pc.name)
@@ -3478,6 +3687,13 @@ func _portal_look(pid: int) -> void:
 func step_through(pid: int) -> void:
 	var to := portal_pair(pid)
 	if to < 0:
+		return
+	var why := waystone_why(pid, to)
+	if why == "":
+		why = waystone_carry_why()
+	if why != "":
+		hud.notify(why)
+		sfx("deny", -10)
 		return
 	var pc: Dictionary = pieces[to]
 	var fwd := Vector3(sin(pc.yaw), 0, cos(pc.yaw))
@@ -5622,6 +5838,8 @@ func _w_nightfall(_d: int) -> void:
 
 func _w_dawn(d: int) -> void:
 	night = false
+	bulwark_spent = false
+	quick_camp_spent = false
 	day = d
 	nights += 1
 	raiding.clear()
@@ -6602,10 +6820,13 @@ func _cat_tick(delta: float) -> void:
 		cat.global_position = gpos(at)
 	if Input.is_action_just_pressed("quick_heal") and not player.input_locked and not get_tree().paused:
 		quick_heal()
+	if Input.is_action_just_pressed("whistle") and not player.input_locked and skills.has_boon("rally"):
+		rally()
 	if Input.is_action_just_pressed("whistle") and not player.input_locked and cat:
 		sfx("bell", -14, null, 2.2)
 		cat.call_to(player)
 		hud.notify("You whistle for %s." % cat.cat_name)
+	_verbs_tick(delta)
 	_salts_tick()
 	_stray_t -= delta
 	if _stray_t > 0.0:
@@ -6623,8 +6844,8 @@ func _cat_tick(delta: float) -> void:
 		return
 	# By day, near a town, a stray cat may be about
 	var town := settlement_at(player.global_position, 120.0)
-	if town == "" or night or randf() > 0.25:
-		return
+	if town == "" or night or randf() > 0.25 or not has_verb(1):
+		return   # strays come near the towns once the first fire burns
 	var a := randf() * TAU
 	var at := player.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(22.0, 35.0)
 	_stray = WCat.new().setup(self, WCat.FACES[randi() % WCat.FACES.size()], true)
@@ -6656,6 +6877,7 @@ func cat_used(c: WCat) -> void:
 		cat = c
 		_stray = null
 		c._refresh()
+		_apply_skills()   # a Pack-Cat carries from now on
 		sfx("choir", -10, null, 1.4)
 		hud.say("The cat is yours. Its name is %s, unless you give it another. Hold [%s] on it to name it and fit its barding." % [c.cat_name, Game.key_text("interact")], 6.0)
 		return
@@ -6718,14 +6940,19 @@ func damage_player(amount: float, from: Vector3) -> void:
 		# Stepped aside in time
 		hud.hitmarker(false, true)
 		return
+	# Bulwark (the eighth fire): the beacons' blessing takes the first blow of each night
+	if night and not lethal and not bulwark_spent and has_verb(8) and amount > 0.5:
+		bulwark_spent = true
+		sfx("bell", -6, null, 1.3)
+		hud.hitmarker(false, true)
+		hud.notify("The beacons' blessing takes the blow. It will not again until tomorrow night.")
+		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
 	if WRules.sworn("vow_glass"):
 		amount *= 1.5
 	amount *= TIER_HARM[tier_at(from) - 1] * (1.25 if flags.has("second_vow") else 1.0)
 	if power_is("gilt"):
 		amount *= 0.8
-	if night and skills.has_boon("night_eyes"):
-		amount *= 0.85
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled and not lethal:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -12695,6 +12922,96 @@ func debug_danger5() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the fires' verbs (by the world's most lit) and the boons that are verbs.
+func debug_verbs() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var was_lit := lit.duplicate()
+	lit = []
+	flags.erase("most_lit")
+	for b in ["book_ship", "book_longboat"]:
+		flags.erase(b)
+	var none: bool = not has_verb(1) and not has_verb(4)
+	flags["most_lit"] = 6
+	_verb_books()
+	var books: bool = flags.has("book_ship") and flags.has("book_longboat") and _recipe_shown("longboat")
+	var travel: bool = has_verb(4) and not has_verb(7)
+	flags["most_lit"] = 9
+	lit = was_lit
+	# Bulwark: the first blow of the night is taken
+	night = true
+	bulwark_spent = false
+	player.max_health = 1000.0
+	player.health = 1000.0
+	var foe_at := player.global_position + Vector3(3, 0, 0)
+	damage_player(20.0, foe_at)
+	var first_taken: bool = is_equal_approx(player.health, 1000.0) and bulwark_spent
+	damage_player(20.0, foe_at)
+	var second_lands: bool = player.health < 1000.0
+	# Rallying Cry
+	skills.boons.append("rally")
+	player.stamina = 0.0
+	var w0: float = player.walk_speed
+	_w_rally(Net.me(), player.global_position)
+	var rallied: bool = player.stamina >= player.stamina_max - 0.1 and player.walk_speed > w0
+	# Lantern-bearer
+	_w_bearer(Net.me(), true)
+	var bearer: bool = near_bearer(player.global_position) and dread.rate(player.global_position + Vector3(0, 0, 5)) <= 0.0
+	_w_bearer(Net.me(), false)
+	# Second Relic: two spirits at once
+	skills.boons.append("second_relic")
+	skills.boons.append("deep_diver")
+	var away := gpos(WPlaces.bpos(3))
+	player.global_position = away + Vector3(0, 1, 0)
+	await get_tree().create_timer(0.3).timeout
+	spirits.spent.clear()
+	var s1: bool = spirits.summon("spirit_ember")
+	var s2: bool = spirits.summon("spirit_ash")
+	await get_tree().create_timer(0.3).timeout
+	var two: int = spirits.running()
+	var diver: bool = player._boon("deep_diver")
+	# Survey: there is a high place to survey from
+	var high := false
+	for k in 600:
+		var a := k * 0.9
+		var q := Vector3(cos(a), 0, sin(a)) * (200.0 + k * 4.0)
+		if high_point(q):
+			high = true
+			break
+	# Waystones: one end in a town; the waste and an isle do not link; cargo and riding are refused
+	var town_p := gpos(WPlaces.spos("cinderwick")) + Vector3(4, 0, 4)
+	var isle_p := Vector3.INF
+	for il in terrain.isles:
+		if not lights.houses.any(func(h): return h.lane == il.key):
+			isle_p = gpos(terrain.isle_heart(il))
+			break
+	builder._rq_build(1, "portal", town_p, 0.0)
+	builder._rq_build(1, "portal", town_p + Vector3(220, 0, 90), 0.0)
+	builder._rq_build(1, "portal", town_p + Vector3(300, 0, -300), 0.0)
+	builder._rq_build(1, "portal", isle_p, 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var ws: Array = []
+	for pid in pieces:
+		if pieces[pid].kind == "portal":
+			ws.append(pid)
+	var n := ws.size()
+	var linked: bool = waystone_why(ws[n - 4], ws[n - 3]) == ""
+	var unanchored: bool = waystone_why(ws[n - 3], ws[n - 2]) != ""
+	var cross: bool = waystone_why(ws[n - 4], ws[n - 1]) != ""
+	inv.add("red_iron", 1)
+	var ore: bool = waystone_carry_why() != ""
+	inv.take("red_iron", inv.count("red_iron"))
+	for f in WArms.FAR_STUFF + WAY_CARGO:
+		inv.take(f, inv.count(f))
+	var free: bool = waystone_carry_why() == ""
+	print("VERBS none=%s books=%s travel=%s bulwark=%s second=%s rally=%s bearer=%s relics=%s/%s/%d diver=%s high=%s" % [none, books, travel, first_taken, second_lands, rallied, bearer, s1, s2, two, diver, high])
+	for b in ["rally", "second_relic", "deep_diver"]:
+		skills.boons.erase(b)   # leave the character as it was for the checks after
+	spirits.spent.clear()
+	print("WAYSTONES linked=%s unanchored=%s cross=%s ore=%s free=%s" % [linked, unanchored, cross, ore, free])
+	get_tree().quit()
+
+
 ## Testing aid: a great one leaves something lasting: its named fittings every time, a book the first time only,
 ## and the Bell-Wound's trophy now has a power.
 func debug_greatdrops() -> void:
@@ -13055,7 +13372,7 @@ func debug_books() -> void:
 		await get_tree().create_timer(1.0).timeout
 	_debug_room(8)
 	# Start from a fellowship that has read nothing (earlier checks may have read some)
-	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values():
+	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values() + ["book_ship", "book_longboat"]:
 		flags.erase(bk)
 		flags.erase("found_" + bk)
 	var cid := "isle_hrafn_0"
@@ -13713,6 +14030,7 @@ func debug_spirit() -> void:
 	dev.go(dev.spot_in("ash"))
 	await get_tree().create_timer(1.0).timeout
 	inv.add("spirit_ember", 1)
+	spirits.spent.clear()
 	var came := spirits.summon("spirit_ember")
 	var again := spirits.refusal("spirit_ember") != ""
 	var e = _spawn_near("rusher", player.global_position, 8.0, 10.0, true)
@@ -14424,14 +14742,17 @@ func debug_boons() -> void:
 	# Choose Fleet Foot and Packrat by force, to see them work
 	skills.boon_offer = ["fleet"]
 	var took := skills.take_boon("fleet")
-	skills.boon_offer = ["packrat"]
-	skills.take_boon("packrat")
+	if cat == null:
+		cat = WCat.new().setup(self, WCat.FACES[0], false)
+		add_child(cat)
+	skills.boon_offer = ["pack_cat"]
+	skills.take_boon("pack_cat")
 	var faster: bool = skills.speed_mult() > sp0
-	var bigger: bool = skills.pack_size() == pk0 + 6
+	var bigger: bool = skills.pack_size() == pk0 + 8
 	var back := WSkills.new()
 	back.from_data(skills.to_data())
 	ui.close_all()
-	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == 2, next_shown])
+	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == skills.boons.size() and "pack_cat" in back.boons, next_shown])
 	get_tree().quit()
 
 
@@ -15158,7 +15479,7 @@ func debug_whatnow() -> void:
 	ui.open_journal() if ui.has_method("open_journal") else ui._open("journal")
 	await get_tree().process_frame
 	var shown: bool = ui._panel_name == "journal"
-	skills.boon_offer = ["fleet", "packrat", "salvager"]
+	skills.boon_offer = ["fleet", "pack_cat", "salvager"]
 	var boon_first: bool = what_now()[2].title == "A beacon boon waits"
 	print("WHATNOW n=%d kinds=%s road_at=%s shown=%s boon=%s first=%s" % [g.size(), ",".join(kinds), g[0].at is Vector3, shown, boon_first, g[0].text.left(40)])
 	get_tree().quit()

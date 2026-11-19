@@ -125,7 +125,8 @@ const DB := {
 	"book_steppe": {"name": "The Horn-Wright's Pattern", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Spine-King. Teaches Far Plate."},
 	"book_domes": {"name": "The Dome Foundry Book", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Lantern-Breaker. Teaches the Dome-steel Hand Cannon."},
 	"book_quiet": {"name": "The Archive of Forging", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Archivist. Teaches the fifth step of work on arms: Far-forged."},
-	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat."},
+	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "The Sloop-wright's drawings, salt-stained. Teaches the Sloop. The fifth fire brings it."},
+	"book_longboat": {"name": "The Longboat-wright's Book", "kind": "book", "stack": 1, "value": 60, "color": Color(0.28, 0.34, 0.46), "text": "Eight oars and a long keel. Teaches the Longboat. The sixth fire brings it."},
 	"book_rigging": {"name": "Storm Rigging", "kind": "book", "stack": 1, "value": 40, "color": Color(0.35, 0.45, 0.55), "text": "Knots and sail plans for heavy weather. Your boats run a fifth faster."},
 	"book_furrier": {"name": "The Furrier's Pattern", "kind": "book", "stack": 1, "value": 40, "color": Color(0.5, 0.38, 0.26), "text": "How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood."},
 	"book_herbal": {"name": "The Herbwife's Notes", "kind": "book", "stack": 1, "value": 40, "color": Color(0.4, 0.5, 0.32), "text": "Pressed flowers and careful measures. Teaches a cheaper salve."},
@@ -198,7 +199,7 @@ const RECIPES := [
 	{"id": "fittings_fine", "n": 2, "cost": {"scrap": 8, "salt_crystal": 2}, "bench": true, "needs": "book_engine"},
 	{"id": "raft", "n": 1, "cost": {"wood": 16, "cloth": 4}, "bench": true},
 	{"id": "sloop", "n": 1, "cost": {"wood": 30, "heartwood": 6, "cloth": 10, "scrap": 6}, "bench": true, "needs": "book_ship"},
-	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_ship"},
+	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_longboat"},
 	{"id": "beacon_oil", "n": 1, "cost": {"oil": 2, "salt": 10, "herb": 4}, "bench": true, "needs": "oilcraft"},
 	{"id": "deep_oil", "n": 1, "cost": {"oil": 2, "bell_ichor": 1}, "bench": true, "needs": "oilcraft"},
 ]
@@ -219,10 +220,10 @@ const PIECES := {
 	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "While lit, no forms rise within 15 paces."},
 	"bedroll": {"name": "Bedroll", "group": "Camp", "cost": {"cloth": 3}, "hp": 120.0, "text": "Rest here. You wake here if you fall."},
 	"chest": {"name": "Storage Chest", "group": "Camp", "cost": {"wood": 8}, "hp": 250.0, "text": "Sixteen places to keep things."},
-	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "text": "Plant seeds here. Come back in a day."},
+	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "fires": 3, "text": "Plant seeds here. Come back in a day."},
 	"bench": {"name": "Workbench", "group": "Camp", "cost": {"wood": 6, "scrap": 4}, "hp": 300.0, "text": "Make guns, parts, ammunition and tools."},
 	"lamp": {"name": "Oil Lamp", "group": "Camp", "cost": {"scrap": 2, "oil": 1}, "hp": 150.0, "text": "A tall light."},
-	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "text": "Name it. Two waystones of one name lead to each other."},
+	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "fires": 4, "text": "Name it. Two waystones of one name lead to each other."},
 	"shrine": {"name": "Trophy Shrine", "group": "Camp", "cost": {"stone": 10, "bone": 4, "scrap": 2}, "hp": 400.0, "text": "Lay a great one's trophy here once. After that, kneel to take its power for a while."},
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
 	"bed": {"name": "Bed", "group": "Home", "cost": {"wood": 6, "cloth": 4}, "hp": 160.0, "text": "Sleep here. You wake here if you fall. Snugger than a bedroll."},
@@ -252,7 +253,7 @@ const MODELS := {
 	"book_engine": ["furn", "books", true], "book_furrier": ["furn", "books", true], "book_gunwright": ["furn", "books", true],
 	"book_herbal": ["furn", "books", true], "book_hymnal": ["furn", "books", true], "book_kanun": ["furn", "books", true],
 	"book_lamp": ["furn", "books", true], "book_rigging": ["furn", "books", true], "book_saga": ["furn", "books", true],
-	"book_salter": ["furn", "books", true], "book_ship": ["furn", "books", true],
+	"book_salter": ["furn", "books", true], "book_ship": ["furn", "books", true], "book_longboat": ["furn", "books", true],
 	"meat": ["food", "meat-ribs"], "raw_meat": ["food", "meat-raw"], "roast": ["food", "whole-ham"],
 	"broth": ["food", "bowl-broth"], "stew": ["food", "pot-stew"], "pie": ["food", "pie"], "tea": ["food", "cup-tea"],
 	"tuber": ["food", "beet"], "milk": ["food", "bowl"], "salt": ["food", "bag-flat"],
@@ -289,7 +290,7 @@ const LOOT := {
 ## Lost books found in the waste's ruins, in the order they turn up; and the one each isle keeps.
 ## The book each far great one leaves the first time it falls in a world.
 const GREAT_BOOKS := {"frost": "book_frost", "sun": "book_sun", "steppe": "book_steppe", "domes": "book_domes", "quiet": "book_quiet"}
-const LAND_BOOKS := ["book_ship", "book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
+const LAND_BOOKS := ["book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
 const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_kanun", "cog": "book_engine"}
 
 ## What each trader keeps for sale, beyond what reputation opens.

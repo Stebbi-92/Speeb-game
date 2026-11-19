@@ -3871,7 +3871,7 @@ func _draw_portal() -> void:
 	var pc: Dictionary = w.pieces.get(_pid, {})
 	if pc.is_empty():
 		return
-	_body.add_child(_wrap("Two waystones of the same name lead to each other.", 18, DIM))
+	_body.add_child(_wrap("Two waystones of the same name lead to each other. One must stand in a lit beacon's ground or a town. People pass; cargo, ore and keys go by road and sea.", 18, DIM))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 12)
 	var field := LineEdit.new()
@@ -3886,9 +3886,14 @@ func _draw_portal() -> void:
 	hb.add_child(_chip("Name it", false, save))
 	_body.add_child(hb)
 	var to: int = w.portal_pair(_pid)
-	if to >= 0:
+	if to >= 0 and w.waystone_why(_pid, to) != "":
+		_body.add_child(_wrap(w.waystone_why(_pid, to), 18, Color(0.95, 0.6, 0.45)))
+	elif to >= 0:
 		var d := int(pc.pos.distance_to(w.pieces[to].pos))
 		_body.add_child(_action("Step through  (%d m)" % d, func(): close_all(); w.step_through(_pid), "", GOLD))
+		var cw: String = w.waystone_carry_why()
+		if cw != "":
+			_body.add_child(_wrap(cw, 16, Color(0.95, 0.6, 0.45)))
 	elif str(pc.name) != "":
 		_body.add_child(_wrap("No other waystone bears this name yet.", 18, DIM))
 	var names := {}
@@ -3945,7 +3950,10 @@ func _draw_build_guide() -> void:
 				w.builder.toggle()
 				w.player.set_armed(false)
 			w.builder._hint()
-		grid.add_child(_card("pc_" + k, pc.name, "Holds well" if float(pc.hp) >= 600.0 else pc.group, DIM, cost, "Build", go, w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick))
+		var fires := int(pc.get("fires", 0))
+		var known: bool = w.has_verb(fires)
+		var sub: String = ("Holds well" if float(pc.hp) >= 600.0 else pc.group) if known else "After fire %d" % fires
+		grid.add_child(_card("pc_" + k, pc.name, sub, DIM, cost, "Build", go, known and w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick))
 	if chosen == "":
 		return
 	var pcs: Dictionary = Items.PIECES[chosen]
@@ -3984,13 +3992,18 @@ class Compass extends Control:
 			var tt := Time.get_ticks_msec() * 0.001
 			heading += sin(tt * 0.37) * 1.1 + sin(tt * 1.3) * 0.25
 		draw_rect(Rect2(0, 18, wd, 1), Color(1, 1, 1, 0.18))
-		if w.power_is("lens"):
-			# The Archivist's Lens: forms near you, as red marks on the band
+		var discern: bool = w.has_verb(7)
+		if w.power_is("lens") or discern:
+			# The Archivist's Lens: forms near you, as red marks on the band. Discern (the seventh fire):
+			# the hidden and the unseen near you
+			var lens: bool = w.power_is("lens")
 			for e in w.enemies:
 				if not is_instance_valid(e) or not e.is_alive():
 					continue
+				if not lens and not (e.get("hidden") == true or e.get("kind") == "unseen" or (e.get("_buried") is float and e.get("_buried") > 0.5)):
+					continue
 				var dv: Vector3 = e.global_position - w.player.global_position
-				if dv.length() > 90.0:
+				if dv.length() > (90.0 if lens else 50.0):
 					continue
 				var dxe := wrapf(atan2(dv.x, -dv.z) - heading, -PI, PI)
 				if absf(dxe) <= 1.2:

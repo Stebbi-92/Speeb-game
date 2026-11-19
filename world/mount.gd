@@ -216,7 +216,7 @@ func pace(sprint: bool, delta: float) -> float:
 	var base: float = w.player.walk_speed
 	if sprint and not winded and breath > 0.0:
 		_sprint_t = 0.6
-		breath = maxf(0.0, breath - delta * (0.0 if w.power_is("horn") else (3.5 if w.skills.has_boon("cat_kin") else 7.0)))
+		breath = maxf(0.0, breath - delta * (0.0 if w.power_is("horn") else 7.0))
 		if breath <= 0.0:
 			winded = true
 		return base * SPRINT

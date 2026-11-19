@@ -31,6 +31,8 @@ func sheltered(p: Vector3) -> bool:
 func rate(p: Vector3) -> float:
 	if not w.night or sheltered(p) or w.power_is("hook"):
 		return -2.0 if w.night else -1.0
+	if w.near_bearer(p):
+		return -0.5   # a Lantern-bearer walks with you: the dark keeps back
 	var r: float = RISE * TIER_RATE[clampi(w.tier_at(p), 1, TIER_RATE.size()) - 1]
 	var rl = w.player.get("relics")
 	if rl and rl.lantern_lit:

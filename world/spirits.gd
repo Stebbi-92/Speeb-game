@@ -2,7 +2,8 @@ class_name WSpirits
 extends RefCounted
 ## Spirit-cats. A relic holds the ghost of a cat that once kept a shrine; call it up and it runs beside
 ## you and bites what comes for you, for a minute or so, then fades. A relic is spent once used and
-## kindles again when you rest by a fire. Only one runs with you at a time. Not within town walls.
+## kindles again when you rest by a fire. Only one runs with you at a time (two with the Second Relic).
+## Not within town walls.
 
 const KINDS := {
 	"spirit_ember": {"name": "Ember-Cat", "face": "autumnspeeb", "color": Color(1.0, 0.55, 0.25), "size": 1.0,
@@ -17,8 +18,9 @@ const REACH := 26.0                       ## how far from its pilgrim it will go
 
 var w
 var spent := {}       ## relic -> true, until rested by a fire
-var cat: WSpiritCat = null
-var _friends := {}    ## peer -> the puppet cat by a friend
+var cat: WSpiritCat = null   ## the last one called
+var _mine := {}       ## relic -> its cat, while it runs
+var _friends := {}    ## "peer/relic" -> the puppet cat by a friend
 
 
 func _init(world) -> void:
@@ -35,8 +37,8 @@ func refusal(id: String) -> String:
 		return "?"
 	if is_spent(id):
 		return "The relic is cold. Rest by a fire to kindle it again."
-	if cat != null and is_instance_valid(cat) and cat._fade <= 0.0:
-		return "A spirit already runs with you."
+	if running() >= (2 if w.skills.has_boon("second_relic") else 1):
+		return "A spirit already runs with you." if running() == 1 else "Two spirits already run with you."
 	if w.settlement_at(w.player.global_position) != "":
 		return "The spirits will not come within town walls."
 	if w.downed:
@@ -62,7 +64,8 @@ func show(peer: int, id: String, on: bool) -> void:
 	if Net.dedicated:
 		return
 	var mine := peer == Net.me()
-	var old = cat if mine else _friends.get(peer)
+	var key := "%d/%s" % [peer, id]
+	var old = _mine.get(id) if mine else _friends.get(key)
 	if old != null and is_instance_valid(old):
 		old.end()
 	if not on or not KINDS.has(id):
@@ -78,8 +81,19 @@ func show(peer: int, id: String, on: bool) -> void:
 	w.sfx("choir", -10, c.global_position, 1.4)
 	if mine:
 		cat = c
+		_mine[id] = c
 	else:
-		_friends[peer] = c
+		_friends[key] = c
+
+
+## How many spirit-cats run with this pilgrim now.
+func running() -> int:
+	var n := 0
+	for id in _mine:
+		var c = _mine[id]
+		if c != null and is_instance_valid(c) and c._fade <= 0.0:
+			n += 1
+	return n
 
 
 ## Resting by a fire: every relic kindles again.

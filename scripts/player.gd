@@ -299,7 +299,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_pressed("soft") and not input_locked:
 			velocity.y = -2.5
 		if not _power("tar"):
-			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (0.5 if _power("white") else 1.0))
+			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (0.5 if _power("white") else 1.0) * (0.5 if _boon("deep_diver") else 1.0))
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -469,6 +469,11 @@ func _update_target(delta: float) -> void:
 
 
 ## Whether this pilgrim carries a great one's power (see the waste's POWERS).
+func _boon(k: String) -> bool:
+	var sk = get_parent().get("skills") if get_parent() else null
+	return sk != null and sk.has_method("has_boon") and sk.has_boon(k)
+
+
 func _power(k: String) -> bool:
 	var lvl = get_parent()   # the powers are the waste's, which this pilgrim walks in
 	return lvl != null and lvl.has_method("power_is") and lvl.power_is(k)

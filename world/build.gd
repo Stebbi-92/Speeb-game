@@ -258,7 +258,17 @@ func place() -> void:
 		w.sfx("deny", -10)
 		return
 	var k: String = _plan.kind
+	var fires := int(Items.PIECES[k].get("fires", 0))
+	if fires > 0 and not w.has_verb(fires):
+		w.hud.notify("The %s comes with the %s fire." % [Items.PIECES[k].name, ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"][fires]])
+		w.sfx("deny", -10)
+		return
 	var cost: Dictionary = w.skills.cost(Items.PIECES[k].cost)
+	# Quick Camp: once a night a campfire is laid for nothing
+	if acts(k) == "campfire" and w.skills.has_boon("quick_camp") and not w.quick_camp_spent:
+		cost = {}
+		w.quick_camp_spent = true
+		w.hud.notify("Quick Camp: a fire laid in a breath. Again tomorrow night.")
 	if not w.stock_pay(cost):
 		w.hud.notify("You lack the makings: %s." % Items.cost_text(cost))
 		w.sfx("deny", -10)
