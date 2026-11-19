@@ -2,6 +2,17 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.16.0 (the far lands)
+
+- **The turn:** the fifth beacon opens the sea. The whirlpool and the far isles show, the seventh night's raid comes out of the water, and champions rise past the first ring. See [The Grey Sea](The-Grey-Sea).
+- **The far sea:** Quietglass and the Thousand Domes, then the Far Shores (each about 2 km across): the Frostmark, the Sunward Reach and the Pale Steppe.
+- **New hardships** with their wards: cold, thirst by day and getting lost.
+- **Three far towns** (Hearthholm, the Hanging Town, Stillwater) with six new people.
+- **Five far great ones,** each with a trophy and a power.
+- **The Lighthouse chain:** ten lighthouses; light both on a way for a safe sea lane.
+- **The Kelp Forest:** slow boats and weed eels.
+- **Fixes** from a full sweep: no item copies when quitting during the death countdown, no waking on a boat after dying, drowning spares armour, friends can always be raised, refused joins say why, old saves keep their gathered spots, quest keepsakes no longer lock errands, settlers remember their wants, and more (see the release notes).
+
 ## 0.15.0 (the living waste)
 
 - **Road safety:** each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down road bands and break nearby raid camps to make them safer; run and leave camps standing and they grow worse. See [The Ashen Waste](The-Ashen-Waste).

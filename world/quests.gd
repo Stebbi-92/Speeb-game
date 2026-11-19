@@ -422,9 +422,25 @@ func _progress(qid: String, n: int, need: int) -> void:
 
 ## Recovered things are counted the moment they are in someone's pack.
 func _check_recover() -> void:
+	# Several errands may want the same thing (a keepsake): each one found counts for one errand only
+	var owed := {}
+	var waiting := {}
 	for q in active():
 		var s := step_of(q)
-		if s.t == "recover" and w.inv.count(s.item) > 0:
+		if s.is_empty():
+			continue
+		var key := "%s:%d" % [q.id, int(q.stage)]
+		if s.t == "talk" and not (s.get("take", []) as Array).is_empty():
+			owed[s.take[0]] = int(owed.get(s.take[0], 0)) + int(s.take[1])
+		elif s.t == "recover" and _sent.has(key) and Time.get_ticks_msec() - int(_sent[key]) < 3000:
+			owed[s.item] = int(owed.get(s.item, 0)) + 1
+			waiting[q.id] = true
+	for q in active():
+		var s := step_of(q)
+		if s.is_empty() or s.t != "recover" or waiting.has(q.id):
+			continue
+		if w.inv.count(s.item) > int(owed.get(s.item, 0)):
+			owed[s.item] = int(owed.get(s.item, 0)) + 1
 			ask_advance(q.id)
 
 
@@ -559,7 +575,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 	var back := {"t": "talk", "who": giver, "text": "Return to %s at %s." % [gname, WPlaces.SETTLEMENTS[k].name]}
 	match kind:
 		"gather":
-			var opts := [["wood", 15, 30], ["stone", 15, 30], ["scrap", 6, 12], ["salt", 30, 60], ["cloth", 6, 12], ["herb", 5, 10], ["bone", 8, 16]]
+			var opts := [["wood", 15, 30], ["stone", 15, 30], ["scrap", 6, 12], ["meat", 6, 12], ["cloth", 6, 12], ["herb", 5, 10], ["bone", 8, 16]]
 			var g: Array = opts[rr.randi() % opts.size()]
 			var n := rr.randi_range(g[1], g[2])
 			var nm := Items.iname(g[0])
@@ -780,6 +796,11 @@ func talk_options(pid: String) -> Array:
 
 
 func _turn_in(qid: String, stage: int, s: Dictionary) -> String:
+	# Once per step: a second click before the host's word comes back must not pay twice
+	var key := "turn:%s:%d" % [qid, stage]
+	if _sent.has(key) and Time.get_ticks_msec() - int(_sent[key]) < 8000:
+		return ""
+	_sent[key] = Time.get_ticks_msec()
 	match s.t:
 		"gather":
 			w.inv.take(s.item, int(s.n))

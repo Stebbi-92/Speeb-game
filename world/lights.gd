@@ -162,8 +162,7 @@ func _touched(i: int) -> void:
 	if w.inv.count("oil") < OIL:
 		w.hud.notify("The lamp is dry. It wants %d lamp oil." % OIL)
 		return
-	w.inv.take("oil", OIL)
-	w.shared("_rq_house", [Net.me(), i])
+	w.shared("_rq_house", [Net.me(), i])   # the oil is taken once the host says the wick took
 
 
 ## Host: the oil is poured; the sea comes for the light until it holds.
@@ -192,6 +191,8 @@ func start(by: int, i: int) -> void:
 
 ## Everyone: the oil is poured and the lamp smokes.
 func holding(i: int, by: int) -> void:
+	if by == Net.me():
+		w.inv.take("oil", OIL)   # the host starts each lamp only once, so this comes once
 	_holding[i] = HOLD_SECS
 	_show(i)
 	if w.player.global_position.distance_to(houses[i].pos) < 150.0:

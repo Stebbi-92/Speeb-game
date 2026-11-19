@@ -693,6 +693,7 @@ func _physics_process(delta: float) -> void:
 				_cry("growl_%d" % (randi() % 3), -2)
 				_cry_cd = randf_range(5.0, 9.0)
 	if kind == "bloater" and dist < 2.4:
+		last_hitter = 0   # it burst itself: no one slew it
 		die(true)
 		return
 	var reach: float = 1.0 + spec.radius

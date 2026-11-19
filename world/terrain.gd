@@ -449,7 +449,7 @@ func make_isles(m: Material) -> void:
 	floor_b.set_meta("ground", true)
 	var fcs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(12000, 2, 12000)
+	box.size = Vector3(WIsles.MAP_HALF * 2.0 + 1000.0, 2, WIsles.MAP_HALF * 2.0 + 1000.0)   # under the whole sea, the far shores too
 	fcs.shape = box
 	fcs.position = Vector3(0, WIsles.FLOOR_Y - 1.0, 0)
 	floor_b.add_child(fcs)

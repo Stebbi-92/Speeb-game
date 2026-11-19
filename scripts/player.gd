@@ -470,4 +470,5 @@ func _update_target(delta: float) -> void:
 
 ## Whether this pilgrim carries a great one's power (see the waste's POWERS).
 func _power(k: String) -> bool:
-	return Game.main != null and Game.main.has_method("power_is") and Game.main.power_is(k)
+	var lvl = get_parent()   # the powers are the waste's, which this pilgrim walks in
+	return lvl != null and lvl.has_method("power_is") and lvl.power_is(k)

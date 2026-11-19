@@ -11,6 +11,26 @@ Brelm alpha 0.16.0: the far lands
 - The Kelp Forest: boats go slowly, and weed eels pull swimmers down.
 - The map reaches the whole far sea. Scroll to zoom in further.
 
+Fixes from a full sweep of the game:
+- Leaving the game while the death countdown runs no longer keeps both your pack and the satchel you dropped.
+- Dying on a boat no longer puts you back on it.
+- Drowning no longer breaks your armour.
+- Friends can always raise a fallen player.
+- A refused join now says why (wrong version, wrong word, full).
+- Old saves keep their gathered spots and ammo piles. Worlds with five or more beacons already lit get the turn.
+- New characters joining a fellowship no longer get credit for beacons they never lit.
+- Searched crates keep what was stored in them when they fill again.
+- Two errands that both want a keepsake no longer lock each other.
+- Settlers remember what they asked for after a reload.
+- Sell all trinkets sells every stack.
+- Vault keepers: a fallen friend climbs out with the rest and takes a share.
+- The tar and white powers now work.
+- Refused builds, lighthouse lamps and beacon oil give back what was paid.
+- Town road safety and gifts agree for everyone in the fellowship.
+- Militia shoot on dedicated servers.
+- Far Shore trees no longer vanish while you stand among them. Nothing grows in the far towns or on lairs.
+- The Pale Steppe landing sits at the sea, not on a river.
+
 Brelm alpha 0.15.0: the living waste
 
 - Each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down the bands on its roads and break raid camps nearby, and its roads grow safer. Run from them and leave camps standing, and they grow worse day by day.

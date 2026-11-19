@@ -202,7 +202,7 @@ static func split_address(s: String) -> Array:
 
 
 func leave(reason := "") -> void:
-	var was := online or _joining
+	var was := online or _joining or peer != null   # refused while still knocking counts too, so the reason is shown
 	if is_host():
 		_announce_remove()
 	_close_port_upnp()
@@ -340,7 +340,7 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	var slot := 0
 	while slot in used:
 		slot += 1
-	if slot >= cap():
+	if slot >= cap() or players.size() >= cap():   # count heads, not the first free place: one may have left from the middle
 		_refused.rpc_id(id, "The fellowship is full." if slot >= MAX_PLAYERS else "This fellowship walks a trial, and the trials take four at most. Join when they are back in the waste or the gathering.")
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
@@ -425,6 +425,12 @@ func _rules(unlimited: bool) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _roster(p: Dictionary, lead: int) -> void:
+	# One who has left is taken out of the world here too, not left standing until they fall silent
+	var lvl = _level()
+	if lvl and lvl.has_method("net_left"):
+		for id in players.keys():
+			if not p.has(id) and id != me():
+				lvl.net_left(id)
 	players = p
 	leader = lead
 	roster_changed.emit()

@@ -265,7 +265,7 @@ func place() -> void:
 		return
 	w.sfx("carve", -4, _plan.pos)
 	_hint.call_deferred()
-	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
+	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult(), cost])
 	w.award("build")
 	if acts(k) == "bedroll":
 		w.bedroll = _plan.pos
@@ -305,20 +305,16 @@ func upgrade() -> bool:
 		w.sfx("deny", -10)
 		return true
 	w.sfx("crumble" if t == 0 else "mag_in", -4, pc.pos)
-	w.shared("_rq_tier", [Net.me(), pid, t + 1])
+	w.shared("_rq_tier", [Net.me(), pid, t + 1, cost])
 	w.award("build")
 	return true
 
 
-func _rq_tier(by: int, pid: int, t: int) -> void:
+func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
 	if not Net.authority():
 		return
 	if not w.pieces.has(pid) or int(w.pieces[pid].get("tier", 0)) != t - 1 or t >= TIER_NAMES.size():
-		var back: Array = []
-		var cost: Dictionary = TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)]
-		for it in cost:
-			back.append([it, int(cost[it])])
-		Net.call_peer(by, "_w_give", [back])
+		Net.call_peer(by, "_w_give", [_refund(TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)], paid)])
 		return
 	var k: String = w.pieces[pid].kind
 	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * TIER_HP[t]])
@@ -365,12 +361,13 @@ func key_of(k: String, p: Vector3, yaw: float) -> String:
 	return "free:%d:%d:%s" % [roundi(p.x * 2.0), roundi(p.z * 2.0), k]
 
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0, paid = null) -> void:
 	if not Net.authority():
 		return
 	var key := key_of(k, p, yaw)
 	if _occupied(key) or key == "door:?" or not Items.PIECES.has(k):
-		Net.call_peer(by, "_w_give", [_cost_items(k, 1.0)])
+		if Items.PIECES.has(k):
+			Net.call_peer(by, "_w_give", [_refund(Items.PIECES[k].cost, paid)])
 		return
 	var pid: int = w.piece_next
 	w.piece_next += 1
@@ -379,6 +376,18 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
 		w.shared("_w_fuel", [pid, w.world_hours() + Wasteland.FUEL_START])
 	if acts(k) == "chest":
 		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
+
+
+## What goes back for a build the host turned down: what was paid (a skill may have made it less), never more than it costs.
+func _refund(cost: Dictionary, paid) -> Array:
+	var out: Array = []
+	for it in cost:
+		var n := int(cost[it])
+		if paid is Dictionary:
+			n = mini(n, int((paid as Dictionary).get(it, 0)))
+		if n > 0:
+			out.append([it, n])
+	return out
 
 
 func _cost_items(k: String, frac: float) -> Array:

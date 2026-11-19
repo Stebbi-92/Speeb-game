@@ -2916,10 +2916,13 @@ func _junk_value() -> int:
 
 func _sell_junk() -> void:
 	var got := 0
-	for s in w.inv.slots.duplicate():
+	var ids := {}
+	for s in w.inv.slots:
 		if s != null and Items.info(s.id).kind == "trinket":
-			var n: int = w.inv.take(s.id, int(s.n))
-			got += sell_price(s.id) * n
+			ids[s.id] = true
+	for id in ids:
+		var n: int = w.inv.take(id, w.inv.count(id))   # every stack of it, wherever they lie
+		got += sell_price(id) * n
 	if got > 0:
 		w.give([["salt", got]])
 		w.sfx("shell", -6)
@@ -3577,14 +3580,14 @@ func _bed_rows() -> void:
 	row.add_theme_constant_override("h_separation", 8)
 	row.add_theme_constant_override("v_separation", 6)
 	if owner != me:
-		row.add_child(_bed_chip("Make it mine", func(): w.shared("_rq_bed_owner", [pid, me, Net.me()]), GOLD))
+		row.add_child(_bed_chip("Make it mine", func(): w.shared("_rq_bed_owner", [Net.me(), pid, me]), GOLD))
 	if Net.online:
 		for id in Net.players:
 			var nm: String = Net.name_of(id)
 			if nm != owner and nm != me:
-				row.add_child(_bed_chip("Give to %s" % nm, func(): w.shared("_rq_bed_owner", [pid, nm, Net.me()]), Net.color_of(id).lightened(0.3)))
+				row.add_child(_bed_chip("Give to %s" % nm, func(): w.shared("_rq_bed_owner", [Net.me(), pid, nm]), Net.color_of(id).lightened(0.3)))
 	if owner != "":
-		row.add_child(_bed_chip("Free it", func(): w.shared("_rq_bed_owner", [pid, "", Net.me()]), DIM))
+		row.add_child(_bed_chip("Free it", func(): w.shared("_rq_bed_owner", [Net.me(), pid, ""]), DIM))
 	_body.add_child(row)
 
 

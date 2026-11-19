@@ -194,13 +194,18 @@ func spot(il: Dictionary, rr: RandomNumberGenerator, lo: float, hi: float, slope
 func _shore(from: Vector2, dir: Vector2, reach: float) -> Vector2:
 	var last := from
 	var k := 0.0
+	var wet := 0.0   # a river crossed is not the sea: the water must go on a while
 	while k < reach:
 		var q := from + dir * k
 		if w.terrain.height_at(q.x, q.y) < WIsles.SEA_Y - 0.3:
-			return last
-		last = q
+			wet += 2.0
+			if wet >= 40.0:
+				return last
+		else:
+			wet = 0.0
+			last = q
 		k += 2.0
-	return Vector2.INF
+	return last if wet > 0.0 else Vector2.INF
 
 
 ## A pier out from the shore, with a moored rowing boat and the stores of whoever kept it.
@@ -408,10 +413,12 @@ func _kala(il: Dictionary, rr: RandomNumberGenerator) -> void:
 const ISLE_TREES := {"fen": 60, "kala": 40, "hrafn": 18, "cog": 10, "quiet": 6, "domes": 50, "frost": 40, "sun": 6, "steppe": 48}
 
 func _woods(il: Dictionary, rr: RandomNumberGenerator) -> void:
-	var feet: Array = []
 	var want: int = ISLE_TREES.get(str(il.key), 20)
 	var clumps := maxi(2, want / 8)
+	var heart: Vector2 = w.terrain.isle_heart(il)
+	var town: Vector2 = WIsles.town_spot(il) if WIsles.THEMES[il.key].get("shore", false) else Vector2.INF
 	for k in clumps:
+		var feet: Array = []   # each clump is drawn on its own, so it shows from near it, not from the isle's middle
 		var c := spot(il, rr, 0.15, 0.85)
 		if c == Vector3.INF:
 			continue
@@ -420,10 +427,12 @@ func _woods(il: Dictionary, rr: RandomNumberGenerator) -> void:
 			var y: float = w.terrain.height_at(q.x, q.y)
 			if y < WIsles.SEA_Y + 0.8 or w.terrain.normal_at(q.x, q.y).y < 0.8:
 				continue
-			if Vector2(q - Vector2(il.c)).length() < 30.0:
+			if Vector2(q - Vector2(il.c)).length() < 30.0 or q.distance_to(heart) < 40.0:
 				continue   # the landing and the ruin's heart stay open
+			if town != Vector2.INF and q.distance_to(town) < 60.0:
+				continue   # and the shore's town
 			feet.append(Vector3(q.x, y, q.y))
-	WTrees.plant(w, feet, rr)
+		WTrees.plant(w, feet, rr)
 
 
 ## Cogwright: mills that still turn, scaffolds and wagons rusting, cannon on the shore.

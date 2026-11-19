@@ -250,9 +250,10 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	await _step("Stores are hidden", 0.67)
 	_scatter_nodes()
 	await _step("Stores are hidden", 0.82)
-	_scatter_isle_nodes()
+	_scatter_isle_nodes(false)
 	await _step("Stores are hidden", 0.84)
 	_scatter_ammo()
+	_scatter_isle_nodes(true)   # the far lands last, so older saves keep their node ids
 	await _step("The isles wake", 0.85)
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
@@ -439,6 +440,12 @@ func _process(delta: float) -> void:
 		var cam := get_viewport().get_camera_3d()
 		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
 		_ground_laid = true
+	if Net.dedicated and ready_world:
+		# No one plays here, but the towns' watch still walks and shoots
+		_gate_t -= delta
+		if _gate_t <= 0.0:
+			_gate_t = 1.0
+			_militia_tick(1.0)
 	if player and hud and not Net.dedicated:
 		_stuck_tick(delta)
 		_boss_watch()
@@ -447,6 +454,7 @@ func _process(delta: float) -> void:
 			_bed_t = 0.5
 			_place_sounds()
 			_landmarks_tick()
+			_lair_hint()
 		_cat_tick(delta)
 		_trade_tell_tick(delta)
 		_gate_t -= delta
@@ -586,6 +594,8 @@ func _plan_far_ruins() -> void:
 			if y < WIsles.SEA_Y + 1.5 or terrain.normal_at(q.x, q.y).y < 0.86:
 				continue
 			if not _clear_of_places(q, 110.0, 190.0 if float(il.r) > 800.0 else 120.0):
+				continue
+			if lairs.any(func(l): return q.distance_to(Vector2(l.pos.x, l.pos.z)) < 60.0):
 				continue
 			var wd: Array = WIsles.THEMES[il.key].words
 			var nm: String = str(wd[0][r.randi() % wd[0].size()]) + " " + str(wd[1][r.randi() % wd[1].size()])
@@ -1688,8 +1698,11 @@ func _beacon_touched(i: int) -> void:
 	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult()])
 
 
-func _rq_kindle(_by: int, i: int, vm := 1.0) -> void:
-	if not Net.authority() or i in lit or vigils.has(i):
+func _rq_kindle(by: int, i: int, vm := 1.0) -> void:
+	if not Net.authority():
+		return
+	if i in lit or vigils.has(i):
+		Net.call_peer(by, "_w_give", [[["beacon_oil", 1]]])   # someone was there first: the oil goes back
 		return
 	shared("_w_vigil", [i, (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)])
 	second_front(beacon_nodes[i].pos)
@@ -2509,6 +2522,7 @@ func _land_tick(delta: float) -> void:
 	var bn := land_at(player.global_position)
 	lost = bn == "steppe" and not warded(bn)
 	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn in ["salt", "sun"] and night):
+		lost = false   # a town or a home knows where it is
 		if ui:
 			# The weather may still ask something, out in the open
 			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" and not weather.sheltered else ""
@@ -3066,7 +3080,7 @@ func bed_mine_or_free(pid: int) -> bool:
 
 ## Asked by a pilgrim: a bed is given to someone (by name), or freed (""). Only one whose bed it is,
 ## anyone while it is no one's, or the host, may give it.
-func _rq_bed_owner(pid: int, to: String, by: int) -> void:
+func _rq_bed_owner(by: int, pid: int, to: String) -> void:
 	if not Net.authority() or not pieces.has(pid) or WBuilder.acts(pieces[pid].kind) != "bedroll":
 		return
 	var o := bed_owner(pid)
@@ -3695,6 +3709,8 @@ func _rq_open(by: int, id: String) -> void:
 			var rr := RandomNumberGenerator.new()
 			rr.randomize()
 			var bag := Inventory.new(12)
+			if containers.has(id):
+				bag.from_data(containers[id])   # what was left or stored here stays; the new finds go in beside it
 			for it in Items.roll(c.table, maxi(1, int(round((rr.randi_range(2, 4) + (2 if c.sealed else 0)) * WRules.yield_mult()))), rr):
 				bag.add(it[0], it[1])
 			var book := _book_for(id, rr)
@@ -4267,7 +4283,7 @@ func _scatter_ammo() -> void:
 	r.seed = world_seed + 9393
 	var spots: Array = []
 	for ru in ruins:
-		if ru.has("isle") or r.randf() < 0.3:
+		if ru.has("isle") or ru.has("far") or r.randf() < 0.3:
 			continue
 		var rp: Vector3 = ru.pos
 		var a := r.randf() * TAU
@@ -4283,21 +4299,39 @@ func _scatter_ammo() -> void:
 		_make_node(nodes.size(), "ammo", p, r)
 
 
+## Off the far lands' towns, lairs and ruins.
+func _far_clear(p2: Vector2, il: Dictionary) -> bool:
+	if p2.distance_to(WIsles.lair_spot(il)) < 30.0:
+		return false
+	for k in WPlaces.SETTLEMENTS:
+		var st: Dictionary = WPlaces.SETTLEMENTS[k]
+		if st.has("shore") and p2.distance_to(WPlaces.spos(k)) < float(st.radius) + 8.0:
+			return false
+	for ru in ruins:
+		if ru.get("far", "") == il.key and p2.distance_to(Vector2(ru.pos.x, ru.pos.z)) < 12.0:
+			return false
+	return true
+
+
 ## What grows and lies on the isles, by their own dice, after everything on the mainland.
-func _scatter_isle_nodes() -> void:
+func _scatter_isle_nodes(far_ones: bool) -> void:
 	for il in terrain.isles:
+		if WIsles.far(il) != far_ones:
+			continue
 		var th: Dictionary = WIsles.THEMES[il.key]
 		var r := RandomNumberGenerator.new()
 		r.seed = world_seed + 6060 + hash(il.key)
 		var heart: Vector2 = terrain.isle_heart(il)
 		var made := 0
-		var want := int(70.0 * clampf(pow(float(il.r) / 300.0, 2.0), 1.0, 4.0))   # the far shores are wide, but each node costs
-		for tries in want * 9:
+		var want := int(70.0 * clampf(pow(float(il.r) / 300.0, 2.0), 1.0, 4.0)) if far_ones else 70   # the far shores are wide, but each node costs
+		for tries in (want * 9 if far_ones else 600):   # the near isles roll as they always did, for old saves
 			if made >= want:
 				break
 			var a := r.randf() * TAU
 			var p2: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.85
 			if p2.distance_to(heart) < 30.0:
+				continue
+			if far_ones and not _far_clear(p2, il):
 				continue
 			var p := gpos(p2)
 			if p.y < WIsles.SEA_Y + 0.6 or terrain.normal_at(p.x, p.z).y < 0.8:
@@ -5130,7 +5164,7 @@ func near_fire(at: Vector3, reach := 8.0) -> bool:
 func _w_clock(c: float, d: int, n: int) -> void:
 	if Net.authority():
 		return
-	if absf(c - clock) > 0.05:
+	if absf(wrapf(c - clock, -12.0, 12.0)) > 0.05:   # across midnight, the two clocks are a moment apart, not a day
 		clock = c
 	day = d
 	nights = n
@@ -5994,7 +6028,7 @@ func mend_boat(b: WBoat) -> void:
 		hud.notify("You need 4 wood to mend it.")
 		return
 	inv.take("wood", 4)
-	shared("_rq_boat_hp", [b.id, minf(float(b.spec.hp), b.hp + float(b.spec.hp) * 0.4)])
+	shared("_rq_boat_hp", [b.id, float(b.spec.hp) * 0.4])
 	hud.notify("You mend the %s." % str(b.spec.name).to_lower())
 	sfx("carve", -6, b.global_position)
 
@@ -6120,9 +6154,11 @@ func _w_boat_move(bid: int, p: Vector3, yaw: float, sp: float, sl: int) -> void:
 	b.net_set(p, yaw, sp, sl)
 
 
-func _rq_boat_hp(bid: int, hp: float) -> void:
+## A change to a boat's hull, by how much: the host adds up several at once (two serpents in one breath) rightly.
+func _rq_boat_hp(bid: int, change: float) -> void:
 	if Net.authority() and boats.has(bid):
-		shared("_w_boat_hp", [bid, hp])
+		var b: WBoat = boats[bid]
+		shared("_w_boat_hp", [bid, minf(float(b.spec.hp), b.hp + change)])
 
 
 func _w_boat_hp(bid: int, hp: float) -> void:
@@ -6137,7 +6173,7 @@ func _w_boat_hp(bid: int, hp: float) -> void:
 
 ## Harm to a boat (only the host's count of it matters).
 func hurt_boat(b: WBoat, amount: float) -> void:
-	shared("_rq_boat_hp", [b.id, b.hp - amount])
+	shared("_rq_boat_hp", [b.id, -amount])
 	if b.riders.has(Net.me()):
 		player.shake(0.3)
 		hud.notify("The %s shudders." % str(b.spec.name).to_lower())
@@ -6300,7 +6336,8 @@ func _on_interact_pressed() -> void:
 func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated or (dev and dev.god):
 		return
-	if player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
+	var lethal := amount >= 9000.0   # drowned or fallen: no armour, guard, mount or boat takes any of that
+	if not lethal and player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
 		# Stepped aside in time
 		hud.hitmarker(false, true)
 		return
@@ -6313,7 +6350,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	if night and skills.has_boon("night_eyes"):
 		amount *= 0.85
 	var wpn = player.weapon
-	if wpn and wpn.guarding and wpn.enabled:
+	if wpn and wpn.guarding and wpn.enabled and not lethal:
 		# The blade is raised: a blow from the front is turned, and it costs breath
 		var to := from - player.global_position
 		to.y = 0
@@ -6327,10 +6364,10 @@ func damage_player(amount: float, from: Vector3) -> void:
 				if amount < 1.0:
 					return
 	# Aboard, a heavy blow lands on the boat as well
-	if player.vessel != null and is_instance_valid(player.vessel) and amount >= 10.0:
+	if not lethal and player.vessel != null and is_instance_valid(player.vessel) and amount >= 10.0:
 		hurt_boat(player.vessel, amount * 0.6)
 	# Riding, the cat takes half of the blow; hurt out, it throws its rider and runs off a while
-	if player.mount and cat:
+	if player.mount and cat and not lethal:
 		if cat.take(amount * 0.5):
 			dismount()
 			hud.notify("%s throws you and will not carry you for %d seconds. Meat would soothe it." % [cat.cat_name, int(WCat.REST_HURT)])
@@ -6339,7 +6376,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 			cat._call = false
 		amount *= 0.5
 	# Plate worn on the body (or the helm, now and then) soaks part of the blow and wears down
-	var pt := WArms.plate_take(arms, amount, randf() < 0.25)
+	var pt := WArms.plate_take(arms, amount, randf() < 0.25) if not lethal else [amount, false]
 	if pt[0] < amount:
 		amount = pt[0]
 		sfx("hit_metal", -10)
@@ -6412,6 +6449,8 @@ func _perish(message: String) -> void:
 	if _pfail:
 		return
 	dismount()
+	if player.vessel != null and is_instance_valid(player.vessel):
+		_leave_boat(player.vessel)   # or the boat would carry them on, and they would wake aboard it
 	_burn = 0.0
 	_slow = 0.0
 	_freeze = 0.0
@@ -6437,6 +6476,13 @@ func _perish(message: String) -> void:
 	inv.changed.emit()
 	if not drop.is_empty():
 		shared("_rq_satchel", [Net.me(), player.global_position, drop, true])
+		# Kept at once, empty-handed, so leaving the game before waking cannot keep both the pack and the satchel
+		if not Net.dedicated and world_uid != "":
+			var cd := char_data().duplicate(true)
+			cd["pos"] = respawn_point()
+			cd["hp"] = player.max_health
+			_save_wait()
+			Game.write_safe(_char_path(), var_to_str(cd))
 	await hud.fade_to(1.0, 1.4)
 	hud.clear_say()
 	hud.raise_text(true)
@@ -6996,6 +7042,7 @@ func _load_character() -> void:
 	# Cast out with almost nothing, and shown the first steps
 	if guide:
 		guide.begin(0)
+	kindled = []   # a new pilgrim has lit nothing yet, whatever the fellowship has
 	inv.from_data([])
 	inv.add("bandage", 2)
 	inv.add("meat", 2)
@@ -7125,8 +7172,8 @@ static func describe(s: String) -> String:
 
 # ================================================================== calls the fellowship shares, passed on to their keepers
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
-	builder._rq_build(by, k, p, yaw, hm)
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0, paid = null) -> void:
+	builder._rq_build(by, k, p, yaw, hm, paid)
 
 
 func _rq_unbuild(by: int, pid: int) -> void:
@@ -7157,8 +7204,8 @@ func _rq_door(pid: int) -> void:
 	builder._rq_door(pid)
 
 
-func _rq_tier(by: int, pid: int, t: int) -> void:
-	builder._rq_tier(by, pid, t)
+func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
+	builder._rq_tier(by, pid, t, paid)
 
 
 func _w_tier(pid: int, t: int, hp: float) -> void:
@@ -7563,6 +7610,8 @@ func _cont_count(cid: String, item: String) -> int:
 func _world_ready() -> void:
 	_warm_up()
 	reveal_lit()
+	if lit.size() >= TURN_AT and not turned():
+		flags["turned"] = true   # a world from before the turn was kept, already five fires along
 	_turn_marks()
 	if lights:
 		lights.refresh()
@@ -8934,6 +8983,14 @@ var _lair_called := {}
 var _lair_told := {}
 
 
+## Coming near a sleeping great one for the first time, you are told how to wake it (on every pilgrim's own machine).
+func _lair_hint() -> void:
+	for l in lairs:
+		if lair_ready(l) and not _lair_told.has(l.id) and player.global_position.distance_to(l.pos) < 40.0 and (not Net.authority() or _lair_boss.get(l.id) == null):
+			_lair_told[l.id] = true
+			hud.notify("%s sleeps here. Hold %s at the stone in the middle to call it out, when you are ready." % [LesserSpeeb.BOSSES[l.boss].name, Game.key_text("interact")])
+
+
 ## The host wakes a great one once a pilgrim has called it out and is still near.
 func _lair_tick() -> void:
 	for l in lairs:
@@ -8941,10 +8998,6 @@ func _lair_tick() -> void:
 		if e != null and (not is_instance_valid(e) or not e.is_alive()):
 			_lair_boss.erase(l.id)
 			e = null
-		# Coming near a sleeping great one for the first time, you are told how to wake it
-		if e == null and lair_ready(l) and not _lair_told.has(l.id) and not Net.dedicated and player.global_position.distance_to(l.pos) < 40.0:
-			_lair_told[l.id] = true
-			hud.notify("%s sleeps here. Hold %s at the stone in the middle to call it out, when you are ready." % [LesserSpeeb.BOSSES[l.boss].name, Game.key_text("interact")])
 		if e != null or not lair_ready(l) or not _lair_called.has(l.id):
 			continue
 		_lair_called.erase(l.id)
@@ -12955,14 +13008,14 @@ func debug_crowd() -> void:
 	var bp := player.global_position + Vector3(4, 0, 0)
 	builder._w_piece(900, "bed", bp, 0.0, 160.0)
 	var me := bed_name()
-	_rq_bed_owner(900, me, Net.me())
+	_rq_bed_owner(Net.me(), 900, me)
 	var mine := bed_owner(900) == me and bedroll is Vector3 and respawn_point().distance_to(bp) < 3.0
 	var saved: bool = str(world_data().pieces[900][5].get("owner", "")) == me
-	_rq_bed_owner(900, "Wren", Net.me())
+	_rq_bed_owner(Net.me(), 900, "Wren")
 	var given := bed_owner(900) == "Wren" and not bed_mine_or_free(900) and respawn_point().distance_to(bp) > 5.0
 	pieces[900].owner = "Wren"
-	_rq_bed_owner(900, "", 99)   # not Wren's, and not the host's own call: refused when online, so try as host
-	_rq_bed_owner(900, "", Net.me())
+	_rq_bed_owner(99, 900, "")   # not Wren's, and not the host's own call: refused when online, so try as host
+	_rq_bed_owner(Net.me(), 900, "")
 	var freed := bed_owner(900) == ""
 	var label: String = (pieces[900].node.get_meta("bed_label") as Label3D).text if pieces[900].node.has_meta("bed_label") else "?"
 	# The longboat
@@ -13185,7 +13238,7 @@ func debug_kin() -> void:
 			if v in BIOME_FORMS[b]:
 				in_lands += 1
 				break
-	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.size() - 1, copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
+	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.keys().filter(func(x): return LesserSpeeb.VARIANTS[x].base != "serpent").size(), copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
 	get_tree().quit()
 
 
@@ -14087,6 +14140,8 @@ func _w_safety(town: String, amount: int, who: String) -> void:
 ## Each dawn the roads slip back a little, and more where raid camps stand near: keeping a town safe
 ## means going out and clearing its roads.
 func _safety_dawn() -> void:
+	if not Net.authority():
+		return   # the host keeps the count, and tells everyone, so a late joiner's towns agree with it
 	for k in WPlaces.SETTLEMENTS:
 		var drop := SAFETY_DECAY
 		if events:
@@ -14095,6 +14150,13 @@ func _safety_dawn() -> void:
 				if e.kind == "camp" and Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k)) < SAFETY_REACH + 100.0:
 					drop += SAFETY_CAMP_DECAY
 		safety[k] = maxi(0, safety_of(k) - drop)
+	if Net.online:
+		shared("_w_safety_all", [safety.duplicate()])
+
+
+func _w_safety_all(d: Dictionary) -> void:
+	if not Net.authority():
+		safety = d.duplicate()
 
 
 # ---- what safe and dangerous roads mean
@@ -14129,6 +14191,7 @@ func _honour_check(k: String, before: int) -> void:
 		hud.title_card("Friend of %s" % nm, "Its inn's beds are yours, free")
 	if before < HONOUR_GIFT and st >= HONOUR_GIFT and not flags.has("honour_gift_" + k):
 		flags["honour_gift_" + k] = true
+		shared("_w_flag", ["honour_gift_" + k])   # the whole fellowship's world keeps that it was given
 		give([["fittings_rare", 1], ["coin", 10]])
 		hud.notify("The folk of %s send you a gift for what you have done for them: a rare fitting and ten coin." % nm)
 	if before < HONOUR_WARDEN and st >= HONOUR_WARDEN:

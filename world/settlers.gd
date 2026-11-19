@@ -219,4 +219,7 @@ func from_data(d) -> void:
 		return
 	for s in d:
 		if s is Dictionary and JOBS.has(str(s.get("job", ""))):
-			add({"id": int(s.id), "fire": int(s.fire), "job": str(s.job), "name": str(s.name), "seed": int(s.get("seed", 0))})
+			var one := {"id": int(s.id), "fire": int(s.fire), "job": str(s.job), "name": str(s.name), "seed": int(s.get("seed", 0))}
+			if s.get("want") is Array:
+				one["want"] = (s.want as Array).duplicate()   # what they asked for is kept, and joiners see it too
+			add(one)

@@ -115,7 +115,6 @@ func pose(data: Array) -> void:
 	_to = data[0]
 	_yaw = data[1]
 	_pitch = data[2]
-	var was := downed
 	downed = data[3]
 	hp = data[4]
 	var armed: bool = data[6] and data[5] == "shotgun"
@@ -168,8 +167,10 @@ func pose(data: Array) -> void:
 		var lvl = Game.main.level
 		if lvl and lvl.has_method("raise_hold"):
 			_area.set_meta("hold", lvl.raise_hold())
-	if downed != was:
-		_area.set_meta("prompt", "Raise %s" % Net.name_of(peer_id) if downed else "")
+	# Checked every pose, not only on a change: word of the fall may come before the pose that shows it
+	var want := "Raise %s" % Net.name_of(peer_id) if downed else ""
+	if str(_area.get_meta("prompt", "")) != want:
+		_area.set_meta("prompt", want)
 		_label.text = Net.name_of(peer_id) + ("\nfallen" if downed else "")
 
 
