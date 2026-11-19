@@ -148,12 +148,12 @@ const CONTROLS := [
 	["move_forward", "Walk forward", [KEY_W, KEY_UP]], ["move_back", "Walk back", [KEY_S, KEY_DOWN]],
 	["move_left", "Step left", [KEY_A, KEY_LEFT]], ["move_right", "Step right", [KEY_D, KEY_RIGHT]],
 	["jump", "Jump", [KEY_SPACE]], ["run", "Hasten", [KEY_SHIFT]], ["soft", "Tread softly", [KEY_CTRL, KEY_C]],
-	["interact", "Interact", [KEY_E, KEY_F]],
+	["interact", "Interact", [KEY_E]],
 	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
 	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],
 	["melee", "Melee", [KEY_Z]], ["grenade", "Grenade", [KEY_G]], ["gadget", "Gadget", [KEY_T]], ["streak", "Call a kill streak", [KEY_H]],
 	["dash", "Dodge (the waste), Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]], ["whistle", "Whistle for your cat (the waste)", [KEY_N]],
-	["revive", "Use smelling salts on a fallen friend", [KEY_Y]], ["quick_heal", "Use your best healing (the waste)", [KEY_T]],
+	["revive", "Use smelling salts on a fallen friend", [KEY_Y]], ["quick_heal", "Use your best healing (the waste)", [KEY_F]],
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
 	["slot_7", "Relic 7 (milk in the waste)", [KEY_7]], ["slot_8", "Claw (the waste)", [KEY_8]], ["slot_9", "Censer (the waste)", [KEY_9]],
@@ -174,8 +174,10 @@ const PAD := {
 	"swap_gun": [JOY_BUTTON_RIGHT_SHOULDER], "grenade": [JOY_BUTTON_LEFT_SHOULDER],
 	"run": [JOY_BUTTON_LEFT_STICK], "melee": [JOY_BUTTON_RIGHT_STICK],
 	"map": [JOY_BUTTON_DPAD_UP], "pack": [JOY_BUTTON_DPAD_DOWN], "journal": [JOY_BUTTON_DPAD_LEFT], "build": [JOY_BUTTON_DPAD_RIGHT],
-	"pause": [JOY_BUTTON_START], "fellowship": [JOY_BUTTON_BACK],
+	"pause": [JOY_BUTTON_START],
 }
+## Held on a controller, the quick wheel (see PadWheel): healing, whistle, salts, relics, the fellowship list.
+const PAD_WHEEL := JOY_BUTTON_BACK
 var pad_look := 3.2   ## how fast the right stick turns you, in radians a second at full tilt
 
 
@@ -193,6 +195,11 @@ func _setup_input() -> void:
 				b.button_index = p
 				InputMap.action_add_event(c[0], b)
 		InputMap.action_set_deadzone(c[0], 0.3)
+	if not InputMap.has_action("pad_wheel"):
+		InputMap.add_action("pad_wheel")
+		var wb := InputEventJoypadButton.new()
+		wb.button_index = PAD_WHEEL
+		InputMap.action_add_event("pad_wheel", wb)
 
 
 ## The keys now set for an action.

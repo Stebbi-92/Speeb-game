@@ -1,7 +1,5 @@
 # Controls
 
-_This page is made from the game's own data by `tools/wiki.gd`. Edit the game, not this page._
-
 Every control can be changed in **Settings**. These are the defaults.
 
 | Action | Keys |
@@ -13,7 +11,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Jump | Space |
 | Hasten | Shift |
 | Tread softly | Ctrl or C |
-| Interact | E or F |
+| Interact | E |
 | Fire, use, or build | Left mouse |
 | Aim, or take down a built piece | Right mouse |
 | Reload, or turn a piece | R |
@@ -25,7 +23,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Dodge (the waste), Swift Cast | Q |
 | Riftwalk | V |
 | Whistle for your cat (the waste) | N |
-| Use your best healing (the waste) | T |
+| Use your best healing (the waste) | F |
 | Use smelling salts on a fallen friend | Y |
 | Relic 1 (arms) | 1 |
 | Relic 2 | 2 |
@@ -61,7 +59,7 @@ A controller works too: the left stick walks, the right stick looks.
 | Melee | Right stick press |
 | Grenade | LB |
 | Dodge (the waste), Swift Cast | B |
-| Fellowship list (together) | Back |
+| Quick wheel: hold, point a stick, let go. Best healing, whistle, smelling salts, relics 1 to 9 and the fellowship list | Back |
 | Pack (the waste) | D-pad down |
 | Map (the waste) | D-pad up |
 | Journal (the waste) | D-pad left |

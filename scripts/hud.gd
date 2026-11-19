@@ -82,6 +82,7 @@ func _ready() -> void:
 	th.default_font_size = 24
 	root.theme = th
 	add_child(root)
+	root.add_child(PadWheel.new())   # the controller's quick wheel
 
 	overlay = ColorRect.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)

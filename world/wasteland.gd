@@ -11266,6 +11266,14 @@ func debug_quickheal() -> void:
 	quick_heal()
 	var kept := inv.count("bandage") == 1
 	print("QUICKHEAL first=%s cure=%s last=%s kept=%s key=%s" % [first, cure, last, kept, Game.key_text("quick_heal")])
+	# One key for each action, and the controller's wheel reaches what has no button
+	var shared_keys := 0
+	for c in Game.CONTROLS:
+		for d in Game.CONTROLS:
+			if c[0] < d[0] and c[0] != "pause" and Game.keys_of(c[0]).any(func(k): return k in Game.keys_of(d[0])):
+				shared_keys += 1
+	var wheel: bool = InputMap.has_action("pad_wheel") and PadWheel.pick(Vector2(0, -1)) == 0 and PadWheel.pick(Vector2(1, 0)) == 3 and hud.root.find_children("*", "PadWheel", true, false).size() == 1
+	print("WHEEL shared_keys=%d wheel=%s" % [shared_keys, wheel])
 
 
 func debug_cat() -> void:
