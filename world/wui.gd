@@ -4071,6 +4071,24 @@ class MapDraw extends Control:
 				var p := _to(p3)
 				var c := Color(1, 0.97, 0.8) if i in w.lit else Color(0.45, 0.42, 0.4)
 				draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(7, 5), p + Vector2(-7, 5)]), c)
+		if w.lights:
+			# The Lighthouse chain: a lit lane as a gold line over the water, each light as a small tower
+			for lane in w.lights.lanes:
+				if w.lights.lane_lit(lane):
+					var ln: Array = w.lights.lanes[lane]
+					draw_dashed_line(_to(Vector3(ln[0].x, 0, ln[0].y)), _to(Vector3(ln[1].x, 0, ln[1].y)), Color(0.95, 0.82, 0.45, 0.8), 2.0, 8.0)
+			for i in w.lights.houses.size():
+				var hp: Vector3 = w.lights.houses[i].pos
+				if w.is_revealed(hp) or w.lights.lit(i):
+					var p := _to(hp)
+					var hc := Color(1.0, 0.9, 0.55) if w.lights.lit(i) else Color(0.5, 0.48, 0.45)
+					draw_rect(Rect2(p + Vector2(-2.5, -7), Vector2(5, 10)), hc)
+					draw_circle(p + Vector2(0, -8), 3.0, hc)
+			if w.lights.kelp != Vector3.INF and w.is_revealed(w.lights.kelp):
+				var kp := _to(w.lights.kelp)
+				var kr: float = (_to(w.lights.kelp + Vector3(WLights.KELP_R, 0, 0)) - kp).length()
+				draw_circle(kp, kr, Color(0.25, 0.4, 0.2, 0.35))
+				draw_string(font, kp + Vector2(-40, 4), "Kelp Forest", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.75, 0.85, 0.65))
 		if w.bedroll is Vector3:
 			var p := _to(w.bedroll)
 			draw_line(p - Vector2(5, 0), p + Vector2(5, 0), Color(0.6, 0.85, 1.0), 2.0)

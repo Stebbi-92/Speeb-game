@@ -36,6 +36,7 @@ var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts 
 var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
+var lights: WLights      ## the Lighthouse chain over the far sea, its lanes, and the Kelp Forest
 var events: WEvents      ## roaming events: short goals between the long ones
 var spirits: WSpirits    ## spirit-cat relics, and the one running with you
 var trades: WTrades      ## the pilgrim's trade: smith, cook, alchemist or tinker
@@ -273,6 +274,9 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	hall = WHall.new(self)
 	hall.build()
 	deep = WDeep.new(self)
+	lights = WLights.new(self)
+	lights.plan()
+	lights.build()
 	vaults = WVaults.new(self)
 	kraken.build()
 	endings.build()
@@ -541,6 +545,23 @@ func _plan_ruins() -> void:
 				continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[fr.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
 		far += 1
+
+
+# ------------------------------------------------------------------ the Lighthouse chain (see WLights)
+
+func _rq_house(by: int, i: int) -> void:
+	if lights:
+		lights.start(by, i)
+
+
+func _w_house_hold(i: int, by: int) -> void:
+	if lights:
+		lights.holding(i, by)
+
+
+func _w_house(i: int, ok: bool) -> void:
+	if lights:
+		lights.done(i, ok)
 
 
 ## The far isles and the Far Shores: nameless ruins over the whole of each, about one every 300 m,
@@ -4975,7 +4996,7 @@ func _serpent_watch() -> void:
 		return
 	for t in targets():
 		var p: Vector3 = t.global_position
-		if not terrain.is_water(p.x, p.z, 4.0) or sea.open_water(p, 240.0) < 160.0:
+		if not terrain.is_water(p.x, p.z, 4.0) or sea.open_water(p, 240.0) < 160.0 or (lights and lights.lane_safe(p)):
 			continue
 		if randf() > 0.15:
 			continue
@@ -5023,6 +5044,8 @@ func _sea_tick(delta: float) -> void:
 				deep.host_tick(1.0)
 			if kraken:
 				kraken.host_tick()
+			if lights:
+				lights.host_tick()
 			if events:
 				events.host_tick(1.0)
 			_ember_tick(1.0)
@@ -6601,6 +6624,8 @@ var _region := ""
 
 
 func _visit_check() -> void:
+	if lights:
+		lights.local_tick()
 	var bn := land_at(player.global_position)
 	var region := terrain.region_name(player.global_position.x, player.global_position.z)
 	if region != _region:
@@ -7539,6 +7564,8 @@ func _world_ready() -> void:
 	_warm_up()
 	reveal_lit()
 	_turn_marks()
+	if lights:
+		lights.refresh()
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -12156,6 +12183,44 @@ func debug_turn() -> void:
 	get_tree().quit()
 
 const WARMS_SLOT := {"frost": "cloak", "sun": "neck", "steppe": "hands"}
+
+
+## Test: the Lighthouse chain. Two lights on each lane to a far place, on open water; a pilgrim can
+## stand on the rock; oil poured and the hold kept lights one; both on a lane make it safe from the
+## deep; the Kelp Forest slows a boat's way.
+func debug_lights() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var wet := lights.houses.filter(func(h): return terrain.is_water(h.pos.x, h.pos.z, 6.0)).size()
+	print("LIGHTS houses=%d lanes=%d wet=%d kelp=%s" % [lights.houses.size(), lights.lanes.size(), wet, lights.kelp != Vector3.INF])
+	var h0: Dictionary = lights.houses[0]
+	player.place(h0.pos + Vector3(0, 2.0, 3.5), 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var stands: bool = player.global_position.y > WIsles.SEA_Y + 0.2
+	inv.add("oil", WLights.OIL)
+	lights._touched(0)
+	await get_tree().create_timer(0.5).timeout
+	var poured := inv.count("oil") == 0 and lights._holding.has(0)
+	lights._holding[0] = 1.0
+	lights.host_tick()
+	await get_tree().create_timer(0.5).timeout
+	var one := lights.lit(0)
+	var lane: String = h0.lane
+	var mid: Vector2 = lights.lanes[lane][0].lerp(lights.lanes[lane][1], 0.5)
+	var half_safe := lights.lane_safe(Vector3(mid.x, 0, mid.y))
+	for i in lights.houses.size():
+		if lights.houses[i].lane == lane and i != 0:
+			_w_house(i, true)
+	await get_tree().create_timer(0.3).timeout
+	var safe := lights.lane_safe(Vector3(mid.x, 0, mid.y))
+	var kelp_in := lights.in_kelp(lights.kelp)
+	for i in lights.houses.size():
+		flags.erase("house_%d" % i)
+	print("LIGHTS stands=%s poured=%s one=%s half_safe=%s safe=%s kelp_in=%s" % [stands, poured, one, half_safe, safe, kelp_in])
+	get_tree().quit()
 
 
 ## Test: the five great ones of the far lands. Each has a lair on its own isle, on level dry ground;

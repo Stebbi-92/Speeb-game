@@ -84,7 +84,8 @@ func places() -> Array:
 	var out: Array = [["The first town", Vector3(WPlaces.start.x, 0, WPlaces.start.y)]]
 	for id in WPlaces.SETTLEMENTS:
 		var s: Dictionary = WPlaces.SETTLEMENTS[id]
-		out.append([s.name, Vector3(s.pos.x, 0, s.pos.y) + Vector3(0, 0, s.radius + 6.0)])
+		var sp := WPlaces.spos(id)
+		out.append([s.name, Vector3(sp.x, 0, sp.y) + Vector3(0, 0, s.radius + 6.0)])
 	for il in w.terrain.isles:
 		out.append(["Isle: %s" % il.name, Vector3(il.c.x, 0, il.c.y)])
 	if w.kraken and w.kraken.spot != Vector3.INF:
@@ -242,7 +243,7 @@ func cycle_crowd() -> void:
 	w.hud.notify("The waste reckons %s." % ("the fellowship as it is" if WCrowd.fake == 0 else "%d pilgrims" % WCrowd.fake))
 
 
-## The forms of the far lands (0.10), not yet sent by any land: called up here only, to try them.
+## The forms of the far lands (sent by the far isles and Far Shores since 0.16): called up here, to try them.
 const NEW_FORMS := ["flicker", "archivist_hand", "tunnel_unlit", "kelp_drowner", "rime_walker", "geyser_wight", "raven_mask",
 	"canyon_strider", "dust_choir", "glass_husk", "grass_stalker", "mound_guard", "herd_ghost"]
 

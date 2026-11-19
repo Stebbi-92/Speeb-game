@@ -23,7 +23,7 @@ const FORM_TIER := {
 	"cinder_hound": 1, "rust_stalker": 2, "bog_crawler": 2, "rime_bones": 3, "bile_elder": 2, "mourner": 2,
 	"dirge_howler": 3, "iron_idol": 3, "pyre_sack": 3, "sand_maw": 3, "tar_giant": 3, "glass_crawler": 4, "cinder_hauler": 4,
 	# 0.10: the forms of the far lands. Each has a way of its own (see FoeTraits).
-	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "geyser_wight": 3, "canyon_strider": 3,
+	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "weed_eel": 3, "geyser_wight": 3, "canyon_strider": 3,
 	"dust_choir": 3, "grass_stalker": 3, "raven_mask": 4, "rime_walker": 4, "glass_husk": 4, "mound_guard": 4, "herd_ghost": 4,
 	# 0.12: the old tales of the themed isles
 	"nykur": 2, "draugr": 3, "shtriga": 3, "kulshedra": 4,
@@ -68,6 +68,8 @@ const VARIANTS := {
 		"text": "It grabs at your rounds and runs. Slay it and you get them back."},
 	"tunnel_unlit": {"base": "unlit_gun", "name": "Tunnel Unlit", "hp": 75.0, "trait": "burrow", "tint": Color(0.4, 0.33, 0.25),
 		"text": "Goes into the ground and comes up at your back. Listen for the earth breaking."},
+	"weed_eel": {"base": "serpent", "name": "Weed Eel", "hp": 120.0, "size": 1.0, "bite": 14.0, "slow": 4.0, "speed": 6.5, "radius": 0.6, "tint": Color(0.22, 0.32, 0.18),
+		"text": "Long and thin, wound in kelp. It comes up under swimmers in the Kelp Forest and pulls them down."},
 	"kelp_drowner": {"base": "drowned", "name": "Kelp Drowner", "hp": 95.0, "bite": 16.0, "slow": 5.0, "tint": Color(0.2, 0.35, 0.25),
 		"text": "Wrapped in weed from the deep. Its grip holds you a long while. Burn it."},
 	"rime_walker": {"base": "colossus", "name": "Rime Walker", "hp": 300.0, "bite": 34.0, "freeze": 1.5, "tint": Color(0.75, 0.88, 1.0),

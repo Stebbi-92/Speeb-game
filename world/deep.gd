@@ -43,6 +43,8 @@ func host_tick(delta: float) -> void:
 
 
 func _far_out(p: Vector3) -> bool:
+	if w.lights and w.lights.lane_safe(p):
+		return false   # a lit sea lane: the deep keeps off it
 	return w.terrain.is_water(p.x, p.z, 4.0) and w.sea.open_water(p, 240.0) >= FAR_OUT
 
 

@@ -62,6 +62,7 @@ check sea       debug_sea      "SEA isles=9 dry=9 nodes=[1-9][0-9]+ ruins=9 open
 check farsea    debug_farsea   "FARSEA far=5 clear=true dry=5 lands=salt,dunes,frost,sun,steppe" "FARSEA full=true" "FARSEA towns=3"
 check turn      debug_turn     "TURN before=false after=true col=true host=tide" "TURN lands frost=\\[true, true, true\\] steppe=\\[true, true, true\\]"
 check farlairs  debug_farlairs "FARLAIRS lairs=5 level=5 named=5 trophies=5"
+check lights    debug_lights   "LIGHTS houses=10 lanes=5 wet=10 kelp=true" "LIGHTS stands=true poured=true one=true half_safe=false safe=true kelp_in=true"
 check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT aboard=true helm=true" "BOAT moved=[1-9][0-9.]* carried=true" "BOAT off=true riders=0" "BOAT sail=2 sloop_speed=([5-9]|1[0-9])\." "BOAT wrecked=true thrown=true"
 check weather   debug_weather  "WEATHER long_night=true thaw=true cold=true warm=true choke=true covered=true hurt=true" "WEATHER gale_swell=true"
 check books     debug_books    "BOOKS isle=true first=book_ship hidden=true read=true shown=true again=false"
