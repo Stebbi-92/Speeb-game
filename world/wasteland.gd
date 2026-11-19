@@ -247,6 +247,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	await _step("The lairs are dug", 0.67)
 	for l in lairs:
 		_build_lair(l)
+	_build_shrine_bowls()
 	await _step("Stores are hidden", 0.67)
 	_scatter_nodes()
 	await _step("Stores are hidden", 0.82)
@@ -1661,6 +1662,8 @@ func _beacon_prompt(i: int) -> void:
 		a.set_meta("prompt", "Walk the beacon road" if i in my_kindled() else "Keep a vigil here (its boon is yours)")
 	elif vigils.has(i):
 		a.set_meta("prompt", "")
+	elif not key_for(i).is_empty():
+		a.set_meta("prompt", "The bowl is fouled: it wants %s" % ["Deep Oil", "the Fleet Log", "a far great one's heart", "three far coals"][fire_for(i) - 6])
 	else:
 		a.set_meta("prompt", "Kindle the beacon (Beacon Oil)")
 
@@ -1682,30 +1685,35 @@ func _beacon_touched(i: int) -> void:
 		return
 	if vigils.has(i):
 		return
-	if ember_by == Net.me():
-		if i == 8 and lit.size() < 8:
-			hud.say("The ninth bowl will not take even an ember while any other beacon stands dark.", 5.0)
-			return
-		shared("_rq_ember_kindle", [Net.me(), i])
-		return
 	if i == 8 and lit.size() < 8:
-		hud.say("The ninth bowl is choked with black earth. It will not take a flame while any other beacon stands dark.", 5.0)
+		hud.say("The ninth bowl will not take even an ember while any other beacon stands dark." if ember_by == Net.me() else "The ninth bowl is choked with black earth. It will not take a flame while any other beacon stands dark.", 5.0)
+		return
+	# After the turn the Mouth's breath fouls the dark bowls: each wants a key from beyond the shore
+	var key := key_for(i)
+	if not key.is_empty() and not _has_key(key):
+		hud.say("The Mouth has breathed on this bowl. It is fouled, and will not take %s until %s goes in first." % ["an ember" if ember_by == Net.me() else "oil", key_text(i)], 6.0)
+		return
+	var paid: Array = _pay_key(key)
+	if ember_by == Net.me():
+		shared("_rq_ember_kindle", [Net.me(), i, paid])
 		return
 	if inv.count("beacon_oil") <= 0:
+		give(paid)
 		hud.say("The bowl is cold and dry. It wants beacon oil, rendered in the old measure.", 4.5)
 		return
 	inv.take("beacon_oil", 1)
-	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult()])
+	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult(), paid])
 
 
-func _rq_kindle(by: int, i: int, vm := 1.0) -> void:
+func _rq_kindle(by: int, i: int, vm := 1.0, key: Array = []) -> void:
 	if not Net.authority():
 		return
-	if i in lit or vigils.has(i):
-		Net.call_peer(by, "_w_give", [[["beacon_oil", 1]]])   # someone was there first: the oil goes back
+	var paid: Array = [["beacon_oil", 1]] + key
+	if i in lit or vigils.has(i) or not _key_fits(i, key):
+		Net.call_peer(by, "_w_give", [paid])   # someone was there first, or the key is not the one: it all goes back
 		return
 	var t := (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)
-	vigil_paid[i] = {"by": by, "items": [["beacon_oil", 1]]}
+	vigil_paid[i] = {"by": by, "items": paid}
 	if second_front(beacon_nodes[i].pos, false, i) != null:
 		t = maxf(t, FRONT_VIGIL)   # both halves need time: the defenders to ride back, the bowl to hold
 	shared("_w_vigil", [i, t])
@@ -1824,6 +1832,8 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 	if ok:
 		if not i in lit:
 			lit.append(i)
+		flags["clean_%d" % i] = true   # its key went in: it stays clean, even if the fire goes out
+		flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
 		_light_beacon(i, true)
 		sfx("choir", 0, b.pos)
 		if player.global_position.distance_to(b.pos) < 200.0:
@@ -1863,6 +1873,177 @@ func _the_turn() -> void:
 	hud.alert_banner("The sea opens", "Five fires burn, and the dark has turned to face the sea. The whirlpool and the far isles show on the horizon. From now on the seventh night comes up out of the water.")
 	_turn_marks()
 	autosave_soon(1.0)
+
+
+## The fouled bowls. After the turn the Mouth breathes on every bowl that has never burned; each takes oil only
+## once its key goes in. Keys go by the most fires that have ever burned in the world, never by which beacon.
+const HEARTS := ["heart_quiet", "heart_domes", "heart_frost", "heart_sun", "heart_steppe"]
+const COALS := ["coal_frost", "coal_sun", "coal_steppe"]
+
+func most_lit() -> int:
+	return maxi(int(flags.get("most_lit", 0)), lit.size())
+
+
+func fouled(i: int) -> bool:
+	return turned() and not i in lit and not flags.has("clean_%d" % i)
+
+
+## The fire a fouled bowl would be: the next after the most that ever burned (six to nine).
+func fire_for(i: int) -> int:
+	return 9 if i == 8 else clampi(most_lit() + 1, TURN_AT + 1, 8)
+
+
+## What a bowl wants before its oil: [] for none, else a list of [item, n] (a heart is any one of five).
+func key_for(i: int) -> Array:
+	if not fouled(i):
+		return []
+	match fire_for(i):
+		6:
+			return [["deep_oil", 1]]
+		7:
+			return [["fleet_log", 1]]
+		8:
+			return [["heart", 1]]
+	return COALS.map(func(c): return [c, 1])
+
+
+func key_text(i: int) -> String:
+	match fire_for(i):
+		6:
+			return "Deep Oil (lamp oil and the Bell-Wound's ichor, rendered at a bench)"
+		7:
+			return "the Fleet Log from Quietglass"
+		8:
+			return "the heart of a far great one"
+	return "three far coals, one from the shrine-bowl of each Far Shore"
+
+
+func _has_key(key: Array) -> bool:
+	for k in key:
+		if k[0] == "heart":
+			if not HEARTS.any(func(h): return inv.count(h) > 0):
+				return false
+		elif inv.count(k[0]) < int(k[1]):
+			return false
+	return true
+
+
+## Takes the key from the pack; returns what was taken, to be given back if the vigil fails.
+func _pay_key(key: Array) -> Array:
+	var out: Array = []
+	for k in key:
+		var id: String = k[0]
+		if id == "heart":
+			for h in HEARTS:
+				if inv.count(h) > 0:
+					id = h
+					break
+		inv.take(id, int(k[1]))
+		out.append([id, int(k[1])])
+	return out
+
+
+## Host: whether what was paid is the key this bowl wants.
+func _key_fits(i: int, paid: Array) -> bool:
+	var want := key_for(i)
+	if want.is_empty():
+		return true
+	for k in want:
+		var ok := false
+		for p in paid:
+			if (k[0] == "heart" and p[0] in HEARTS) or p[0] == k[0]:
+				ok = int(p[1]) >= int(k[1])
+		if not ok:
+			return false
+	return true
+
+
+## What a pilgrim holding nothing for it is told to fetch, and where (for What now and the compass).
+func key_hint(i: int) -> Array:
+	match fire_for(i):
+		6:
+			if inv.count("bell_ichor") > 0:
+				return ["Render Deep Oil at a workbench: two lamp oil and the Bell-Wound's ichor.", null]
+			return ["Bring down the Bell-Wound at the Kraken-Bell for its ichor.", kraken.spot if kraken and kraken.spot != Vector3.INF else null]
+		7:
+			for il in terrain.isles:
+				if il.key == "quiet":
+					return ["Light the lane to Quietglass and search it for the Fleet Log." if lights == null or not lights.lane_lit("quiet") else "Search the ruins of Quietglass for the Fleet Log.", gpos(il.c)]
+		8:
+			var best = null
+			for l in lairs:
+				if l.land in ["quiet", "domes", "frost", "sun", "steppe"] and (best == null or player.global_position.distance_to(l.pos) < player.global_position.distance_to(best)):
+					best = l.pos
+			return ["Bring down a far great one for its heart.", best]
+	for c in COALS:
+		if inv.count(c) <= 0:
+			for sb in shrine_bowls:
+				if sb.coal == c:
+					return ["Carry a coal home from the shrine-bowl of %s." % sb.name, sb.pos]
+	return ["", null]
+
+
+## The shrine-bowls of the Far Shores: lit once with lamp oil, each gives a coal to carry home (one of each is the
+## ninth fire's key). Taking one again later is free, so the key can always be had again.
+var shrine_bowls: Array = []   ## {land, coal, name, pos, flame}
+
+func _build_shrine_bowls() -> void:
+	for il in terrain.isles:
+		var coal := "coal_" + str(il.key)
+		if not coal in COALS:
+			continue
+		var h: Vector2 = terrain.isle_heart(il)
+		var q: Vector2 = h + (Vector2(il.c) - h).normalized().rotated(1.2) * 22.0 if Vector2(il.c).distance_to(h) > 1.0 else h + Vector2(22, 0)
+		var at := gpos(q)
+		var n := Node3D.new()
+		add_child(n)
+		n.global_position = at
+		var stone := mat(Color(0.42, 0.4, 0.38), 0.9)
+		_add(n, cyl(Vector3.ZERO, 0.7, 1.0, stone), Vector3(0, 0.5, 0))
+		_add(n, cyl(Vector3.ZERO, 1.1, 0.25, stone, false), Vector3(0, 1.1, 0))
+		var flame := OmniLight3D.new()
+		flame.light_color = Color(1.0, 0.6, 0.3)
+		flame.omni_range = 9.0
+		flame.position = Vector3(0, 1.8, 0)
+		n.add_child(flame)
+		var a := Area3D.new()
+		a.collision_layer = 16
+		a.collision_mask = 0
+		var cs := CollisionShape3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = 2.0
+		cs.shape = sh
+		a.add_child(cs)
+		n.add_child(a)
+		a.position = Vector3(0, 1.0, 0)
+		var sb := {"land": str(il.key), "coal": coal, "name": str(il.name), "pos": at, "flame": flame, "area": a}
+		shrine_bowls.append(sb)
+		personal_interactable(a, "", func(): _shrine_bowl_used(sb))
+		_shrine_bowl_show(sb)
+
+
+func _shrine_bowl_show(sb: Dictionary) -> void:
+	var on := flags.has("shrine_" + str(sb.land))
+	(sb.flame as OmniLight3D).light_energy = 2.5 if on else 0.0
+	(sb.area as Area3D).set_meta("prompt", "Take a coal from the shrine-bowl" if on else "Light the shrine-bowl (1 lamp oil)")
+
+
+func _shrine_bowl_used(sb: Dictionary) -> void:
+	if not flags.has("shrine_" + str(sb.land)):
+		if inv.count("oil") < 1:
+			hud.notify("The shrine-bowl is cold. It wants lamp oil.")
+			return
+		inv.take("oil", 1)
+		shared("_w_flag", ["shrine_" + str(sb.land)])
+		sfx("bell", -4, sb.pos)
+		hud.say("The old bowl takes the oil, and a white coal wakes in the ash.", 4.0)
+		for b in shrine_bowls:
+			_shrine_bowl_show(b)
+	if inv.count(sb.coal) > 0:
+		hud.notify("You carry one of its coals already.")
+		return
+	give([[sb.coal, 1]])
+	hud.notify("You take a coal from the shrine-bowl of %s. Carry it home across the sea." % sb.name)
 
 
 ## What the turn shows: the whirlpool's spray on the horizon, and the far sea on the map.
@@ -1969,9 +2150,15 @@ func _w_ember(by: int, i: int) -> void:
 		_beacon_prompt(k)
 
 
-func _rq_ember_kindle(by: int, i: int) -> void:
-	if not Net.authority() or by != ember_by or i in lit or vigils.has(i):
+func _rq_ember_kindle(by: int, i: int, key: Array = []) -> void:
+	if not Net.authority():
 		return
+	if by != ember_by or i in lit or vigils.has(i) or not _key_fits(i, key):
+		if not key.is_empty():
+			Net.call_peer(by, "_w_give", [key])
+		return
+	if not key.is_empty():
+		vigil_paid[i] = {"by": by, "items": key}
 	shared("_w_ember_end", [true])
 	var t := EMBER_VIGIL
 	if second_front(beacon_nodes[i].pos, false, i) != null:
@@ -3404,6 +3591,9 @@ func lay_trophy(t: String) -> void:
 
 func _w_flag(f: String) -> void:
 	flags[f] = true
+	if f.begins_with("shrine_"):
+		for sb in shrine_bowls:
+			_shrine_bowl_show(sb)
 	autosave_soon(3.0)
 
 
@@ -3802,6 +3992,18 @@ func _rq_open(by: int, id: String) -> void:
 				shared("_w_flag", ["found_" + relic])
 			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
+		# The keys of the road: the Bell-Wound's ichor in the tower, the Fleet Log in Quietglass once its lane is lit
+		var key_find := ""
+		if id.begins_with("kraken_"):
+			key_find = "bell_ichor"
+		elif (id.begins_with("fs_quiet_") or id.begins_with("isle_quiet")) and lights and lights.lane_lit("quiet"):
+			key_find = "fleet_log"
+		if key_find != "" and containers.has(id):
+			var kb := Inventory.new(14)
+			kb.from_data(containers[id])
+			if kb.count(key_find) <= 0:
+				kb.add(key_find, 1)
+				containers[id] = kb.to_data()
 		var cache := quests.cache_items(id)
 		if not cache.is_empty():
 			var bag := Inventory.new(14)
@@ -7746,11 +7948,16 @@ func _cont_count(cid: String, item: String) -> int:
 func _world_ready() -> void:
 	_warm_up()
 	reveal_lit()
+	for i in lit:
+		flags["clean_%d" % i] = true
+	flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
 	if lit.size() >= TURN_AT and not turned():
 		flags["turned"] = true   # a world from before the turn was kept, already five fires along
 	_turn_marks()
 	if lights:
 		lights.refresh()
+	for sb in shrine_bowls:
+		_shrine_bowl_show(sb)
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -9177,7 +9384,8 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		# A great one always leaves fittings: rare ones, and now and then storied
 		drop_for_each(at, func():
 			var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
-			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]])
+			var heart: Array = [["heart_" + land, 1]] if Items.DB.has("heart_" + land) else []   # the key to the eighth fire
+			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]] + heart)
 		autosave_soon(2.0)
 	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
 		award("kill_boss")
@@ -12356,6 +12564,50 @@ func debug_farsea() -> void:
 ## Test: the turn (the fifth beacon) and the Far Shores' hardships. The turn marks the world once,
 ## shows the whirlpool, and the seventh night comes from the sea. On the Frostmark the cold bites
 ## until the sheepskin is worn; on the Pale Steppe a pilgrim is lost until the compass is carried.
+## Testing aid: after the turn the dark bowls are fouled; each takes oil only with its key, a failed vigil gives
+## the key back, a lit bowl stays clean, and the ninth wants a coal from each Far Shore.
+func debug_fouled() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	lit = [0, 1, 2, 3, 4]
+	flags["turned"] = true
+	for i in 5:
+		flags["clean_%d" % i] = true
+	flags["most_lit"] = 5
+	var b: Vector3 = beacon_nodes[5].pos
+	player.max_health = 100000.0
+	player.health = 100000.0
+	player.place(b + Vector3(4, 1, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var want6: bool = key_for(5) == [["deep_oil", 1]] and fouled(5)
+	inv.add("beacon_oil", 2)
+	_beacon_touched(5)
+	var barred := not vigils.has(5)
+	inv.add("deep_oil", 1)
+	_beacon_touched(5)
+	var took: bool = vigils.has(5) and inv.count("deep_oil") == 0
+	# Leave the bowl and let it gutter: the key and the oil come back
+	player.place(b + Vector3(300, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	vigils[5] = 0.01
+	_vigil_tick(0.1)
+	var back: bool = not vigils.has(5) and inv.count("deep_oil") == 1 and inv.count("beacon_oil") == 2
+	player.place(b + Vector3(4, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	_beacon_touched(5)
+	vigils[5] = 0.01
+	_vigil_tick(0.1)
+	var lit6: bool = 5 in lit and flags.has("clean_5") and most_lit() == 6
+	var want7: bool = key_for(6) == [["fleet_log", 1]]
+	lit.erase(5)
+	var stays_clean: bool = not fouled(5) and key_for(5).is_empty()
+	var ninth: bool = key_for(8).size() == 3
+	inv.add("heart_frost", 1)
+	var heart_ok: bool = _key_fits(6, [["heart_frost", 1]]) == false and _has_key([["heart", 1]])
+	print("FOULED want6=%s barred=%s took=%s back=%s lit6=%s want7=%s clean=%s ninth=%s heart=%s bowls=%d" % [want6, barred, took, back, lit6, want7, stays_clean, ninth, heart_ok, shrine_bowls.size()])
+	get_tree().quit()
+
+
 func debug_turn() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -14655,6 +14907,9 @@ func what_now() -> Array:
 			txt += " You carry %d beacon oil." % oil
 			if oil == 0:
 				txt += " Render more at a workbench: 2 lamp oil, 10 salt, 4 ash-bloom." if flags.has("oilcraft") else ""
+			var hint := quests.next_hint(main_q)
+			if hint.begins_with("Next: ") and turned():
+				txt += " The bowl is fouled: " + hint.trim_prefix("Next: ")
 		out.append({"kind": "road", "title": "The beacon road", "text": txt, "at": t})
 	elif lit.size() < 9:
 		var nb := next_dark_beacon(me)

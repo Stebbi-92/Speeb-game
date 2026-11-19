@@ -15,6 +15,17 @@ const DB := {
 	"fittings_rare": {"name": "Rare Fittings", "kind": "part", "stack": 10, "value": 60, "color": Color(0.4, 0.62, 0.95), "text": "Machined before the fall. At a workbench, rework a gun part into a Rare one."},
 	"fittings_storied": {"name": "Storied Fittings", "kind": "part", "stack": 5, "value": 150, "color": Color(0.95, 0.75, 0.3), "text": "Fittings with a name and a past. At a workbench, rework a gun part into a Storied one."},
 	"oil": {"name": "Lamp Oil", "kind": "material", "stack": 20, "value": 6, "color": Color(0.75, 0.55, 0.2), "text": "Drawn from the Well. It burns yellow and smoky."},
+	"bell_ichor": {"name": "Bell-Wound Ichor", "kind": "material", "stack": 10, "value": 60, "color": Color(0.25, 0.5, 0.42), "text": "Green and slow, from the thing in the Kraken-Bell. Rendered with lamp oil, it makes Deep Oil."},
+	"deep_oil": {"name": "Deep Oil", "kind": "quest", "stack": 5, "value": 80, "color": Color(0.35, 0.75, 0.6), "text": "Lamp oil and the Bell-Wound's ichor. A bowl the Mouth has fouled takes it: the key to the sixth fire."},
+	"fleet_log": {"name": "The Fleet Log", "kind": "quest", "stack": 5, "value": 80, "color": Color(0.55, 0.42, 0.3), "text": "The Drowned Fleet's last log, kept in Quietglass. Its last page names the bowls. The key to the seventh fire."},
+	"heart_quiet": {"name": "Heart of the Archivist", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.75, 0.85, 1.0), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_domes": {"name": "Heart of the Lantern-Breaker", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.5, 0.45, 0.4), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_frost": {"name": "Heart of the Glacier Mother", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.65, 0.85, 1.0), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_sun": {"name": "Heart of the Dry River", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.85, 0.45, 0.25), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_steppe": {"name": "Heart of the Spine-King", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.9, 0.86, 0.75), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"coal_frost": {"name": "Frostmark Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.6, 0.8, 1.0), "text": "A coal from the shrine-bowl of the Frostmark. With one from each Far Shore, the ninth bowl will take."},
+	"coal_sun": {"name": "Sunward Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(1.0, 0.55, 0.25), "text": "A coal from the shrine-bowl of the Sunward Reach. With one from each Far Shore, the ninth bowl will take."},
+	"coal_steppe": {"name": "Steppe Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.95, 0.9, 0.7), "text": "A coal from the shrine-bowl of the Pale Steppe. With one from each Far Shore, the ninth bowl will take."},
 	"beacon_oil": {"name": "Beacon Oil", "kind": "quest", "stack": 5, "value": 40, "color": Color(1.0, 0.95, 0.75), "text": "Oil rendered in the old measure. It burns white, and the night draws back from it."},
 	"raw_meat": {"name": "Raw Meat", "kind": "food", "stack": 10, "value": 3, "color": Color(0.7, 0.28, 0.26), "heal": -4.0, "food": 10.0, "text": "From a hunted beast. Cook it first."},
 	"roast": {"name": "Roast Meat", "kind": "food", "stack": 10, "value": 7, "color": Color(0.5, 0.3, 0.18), "heal": 15.0, "food": 50.0, "meal": {"hp": 20, "mins": 20}, "text": "Cooked over a cooking station. A meal: more health for a while."},
@@ -167,6 +178,7 @@ const RECIPES := [
 	{"id": "sloop", "n": 1, "cost": {"wood": 30, "heartwood": 6, "cloth": 10, "scrap": 6}, "bench": true, "needs": "book_ship"},
 	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_ship"},
 	{"id": "beacon_oil", "n": 1, "cost": {"oil": 2, "salt": 10, "herb": 4}, "bench": true, "needs": "oilcraft"},
+	{"id": "deep_oil", "n": 1, "cost": {"oil": 2, "bell_ichor": 1}, "bench": true, "needs": "oilcraft"},
 ]
 
 ## The pieces of a shelter. Size and cost; hp is how long it holds against the night.

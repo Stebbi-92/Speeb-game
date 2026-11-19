@@ -331,7 +331,26 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 		"reflex", "holo", "combat_scope", "heavy_suppressor", "compensator", "muzzle_brake", "flash_hider", "angled_grip", "slim_grip":
 			_part(Arms.ACC_FAMILY[item])
 		_:
-			if item.begins_with("brew_"):
+			if item.begins_with("heart_"):
+				# A great one's heart, still warm
+				_poly([[0.5, 0.86], [0.18, 0.5], [0.22, 0.28], [0.38, 0.2], [0.5, 0.32], [0.62, 0.2], [0.78, 0.28], [0.82, 0.5]], c.darkened(0.35))
+				_poly([[0.5, 0.74], [0.28, 0.5], [0.3, 0.34], [0.4, 0.3], [0.5, 0.42], [0.6, 0.3], [0.7, 0.34], [0.72, 0.5]], c)
+			elif item.begins_with("coal_"):
+				# A coal from a far shrine-bowl, glowing
+				_dot(0.5, 0.55, 0.3, Color(c, 0.3))
+				_poly([[0.3, 0.6], [0.4, 0.38], [0.6, 0.34], [0.72, 0.52], [0.62, 0.72], [0.4, 0.74]], Color(0.15, 0.12, 0.1))
+				_poly([[0.42, 0.56], [0.48, 0.44], [0.6, 0.44], [0.62, 0.58], [0.5, 0.64]], c)
+			elif item in ["deep_oil", "bell_ichor"]:
+				# A stoppered jar, green-black
+				_box(0.42, 0.14, 0.16, 0.12, wood)
+				_poly([[0.34, 0.28], [0.66, 0.28], [0.74, 0.5], [0.7, 0.86], [0.3, 0.86], [0.26, 0.5]], c.darkened(0.4) if item == "deep_oil" else c)
+				_poly([[0.32, 0.56], [0.68, 0.56], [0.68, 0.84], [0.32, 0.84]], c)
+			elif item == "fleet_log":
+				# A sea-stained book, bound in cord
+				_poly([[0.2, 0.18], [0.78, 0.14], [0.82, 0.84], [0.24, 0.88]], c)
+				_poly([[0.26, 0.24], [0.74, 0.2], [0.76, 0.78], [0.3, 0.82]], Color(0.85, 0.8, 0.68))
+				_ln([0.24, 0.52], [0.8, 0.48], Color(0.3, 0.22, 0.15), 0.04)
+			elif item.begins_with("brew_"):
 				# A stoppered flask of the draught's colour
 				_box(0.44, 0.12, 0.12, 0.2, wood)
 				_poly([[0.42, 0.3], [0.58, 0.3], [0.8, 0.62], [0.74, 0.88], [0.26, 0.88], [0.2, 0.62]], Color(0.75, 0.8, 0.78, 0.5))

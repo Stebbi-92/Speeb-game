@@ -228,6 +228,7 @@ func fallen(d: int) -> void:
 	w._crate("kraken_%d" % d, top(), "vault", 0.0, false)
 	if not Net.dedicated and w.player.global_position.distance_to(spot) < 160.0:
 		w.inv.add("t_kraken", 1)
+		w.inv.add("bell_ichor", 1)   # for Deep Oil, the key to the sixth fire
 		if w.inv.count("spirit_grave") < 1:
 			w.inv.add("spirit_grave", 1)
 		w.hud.title_card("The Bell-Wound", "It sinks, and lets the tower go")

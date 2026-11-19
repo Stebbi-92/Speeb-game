@@ -38,12 +38,24 @@ const MAIN := [
 	{"t": "talk", "who": "corvin", "text": "Go to Gallowmere, on the dry lake far to the <dir:S:gallowmere:cinderwick>, and speak with its warden.",
 		"ask": "You put out the beacons.",
 		"say": "Yes. I did. My father did. His father before him.\n\nYou think the night comes from nowhere. It comes up out of a mouth in the earth, <dir:B:8:gallowmere> of here, where the ninth beacon stood. When the ninth was lit, the mouth was quiet. Then it swallowed the beacon whole, tower and bowl and keepers, and it began to speak.\n\nIt asked for the other eight. It said: put them out, and I will leave Gallowmere standing. So we did. And we are standing. Do you understand? Every fire you light, it will want back. Light all eight, and it will have to come up and take them itself. Perhaps then you can do what we could not."},
-	{"t": "count", "n": 8, "text": "Kindle all eight beacons that still stand. The ninth was swallowed; the mouth will have to answer."},
+	{"t": "count", "n": 5, "text": "Kindle a fifth beacon. Five fires, and the dark will have to turn and look at you."},
+	{"t": "talk", "who": "corvin", "text": "Five fires burn, and the sea has opened. Return to the warden of Gallowmere.",
+		"ask": "Five are burning. The sea has opened.",
+		"say": "And the mouth breathed. Did you feel it? Every bowl still dark has been fouled. Oil will slide off it now like water off tar.\n\nA fouled bowl wants something from beyond the shore before it will take. The first is Deep Oil. My grandfather spoke of it: lamp oil, rendered at a bench with the ichor of the thing in the Kraken-Bell. The Bell-Wound. Bring it down and it bleeds green.\n\nThe sea took everything from us once. Now you have to go and take something back from it."},
+	{"t": "count", "n": 6, "key": "deep_oil", "text": "Kindle a sixth beacon. A fouled bowl wants Deep Oil first: lamp oil and the Bell-Wound's ichor, rendered at a bench."},
+	{"t": "talk", "who": "ione", "text": "Six fires. The gravekeeper of Mourner's Rest has heard the dead again.",
+		"ask": "The sixth bowl took the Deep Oil.",
+		"say": "The drowned are talking now. They have never talked before.\n\nThey were the Fleet. They sailed to Quietglass with the Order's last ships, and kept a log to the end. Its last page names the bowls, one by one, as they were fouled. They say a bowl will remember its name if you read it the page.\n\nThe log is still in Quietglass. Light the lane there first, or the deep will have you before the glass does."},
+	{"t": "count", "n": 7, "key": "fleet_log", "text": "Kindle a seventh beacon. A fouled bowl wants the Fleet Log, from Quietglass, reached by a lit sea lane."},
+	{"t": "talk", "who": "sigrun", "text": "Seven fires. Sail to Hearthholm on the Frostmark and speak with its law-speaker.",
+		"ask": "Seven fires burn across the sea.",
+		"say": "We saw the seventh from the Thing-field. The old men wept, and the young ones asked why.\n\nThe eighth is the hard one. The law says: what the Mouth breathes on, a great heart must warm. The far lands have five great ones, the Ice Hall's mother among them. Take the heart of any one, and carry it home to your bowl.\n\nWe will speak your name here while you are gone. We keep names."},
+	{"t": "count", "n": 8, "key": "heart", "text": "Kindle an eighth beacon. A fouled bowl wants the heart of a far great one."},
 	{"t": "talk", "who": "corvin", "text": "Eight fires burn. Return to the warden of Gallowmere.",
 		"ask": "Eight are burning. What now?",
-		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth. Pour oil into it and it will take, and the thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
+		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth and fouled besides. It wants a coal from every far shore: the Frostmark, the Sunward Reach, the Pale Steppe. Each has a shrine-bowl the Order built. Light them and carry one coal from each.\n\nThen pour the oil. The thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
 		"give": [["beacon_oil", 2]]},
-	{"t": "kindle", "beacon": 8, "text": "Kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."},
+	{"t": "kindle", "beacon": 8, "key": "coals", "text": "Bring a coal from the shrine-bowl of each Far Shore, then kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."},
 	{"t": "talk", "who": "maud", "text": "It is done. Return to Cinderwick.",
 		"ask": "The ninth burns. The mouth is quiet.",
 		"say": "I know. The whole camp came out to look. You can see it from here, a white thread in the <dir:B:8:cinderwick>, like the one I remember.\n\nThe nights will still come. The waste is still the waste. Forms will still walk out of the dark where the fires do not reach. But they will not come for everything, and they will not come forever.\n\nThe waste is not saved, survivor. It is kept. And now there is someone to keep it."},
@@ -262,8 +274,17 @@ func target_of(q: Dictionary):
 				return w.crates[s.crate].pos if w.crates.has(s.crate) else null
 			return s.get("pos")
 		"kindle":
+			var kh := _key_wanted(int(s.beacon))
+			if kh.size() == 2 and kh[1] != null:
+				return kh[1]
 			return w.beacon_nodes[int(s.beacon)].pos
 		"count":
+			# A fouled bowl: what it wants first, and where that is
+			var nb: int = w.next_dark_beacon(w.player.global_position)
+			if nb >= 0 and nb < 8:
+				var kh := _key_wanted(nb)
+				if kh.size() == 2 and kh[1] != null:
+					return kh[1]
 			# No oil and none to make it from: the Lantern Well first
 			if w.inv.count("beacon_oil") <= 0 and w.inv.count("oil") < 2:
 				return w.gpos(WPlaces.spos("lanternwell"))
@@ -298,6 +319,16 @@ func _ruin_pos(id: String):
 	return null
 
 
+## A fouled bowl's key, if this pilgrim lacks it: [what to do, where] (else []).
+func _key_wanted(i: int) -> Array:
+	if i < 0 or not w.has_method("key_for"):
+		return []
+	var k: Array = w.key_for(i)
+	if k.is_empty() or w._has_key(k):
+		return []
+	return w.key_hint(i)
+
+
 func step_text(q: Dictionary) -> String:
 	var s := step_of(q)
 	if s.is_empty():
@@ -316,7 +347,14 @@ func step_text(q: Dictionary) -> String:
 ## The small next thing on a long beacon step: carry the oil you have, or make it, or fetch what it takes.
 func next_hint(q: Dictionary) -> String:
 	var s := step_of(q)
-	if s.is_empty() or s.t != "count":
+	if s.is_empty() or not s.t in ["count", "kindle"]:
+		return ""
+	var nb: int = int(s.beacon) if s.t == "kindle" else w.next_dark_beacon(w.player.global_position)
+	if nb >= 0:
+		var kh := _key_wanted(nb)
+		if kh.size() == 2 and str(kh[0]) != "":
+			return "Next: " + str(kh[0])
+	if s.t == "kindle":
 		return ""
 	var jars: int = w.inv.count("beacon_oil")
 	if jars > 0:
