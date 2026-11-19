@@ -1,3 +1,10 @@
+Brelm alpha 0.18.0: the polish
+
+- Plain words on screen: prompts, menus and the HUD say kill, enemy and player. Sprint and Sneak are the new names of Hasten and Tread softly. The waste's own voice stays in lore, rumours and talk.
+- Each system shows up when you first need it: fear at the first night, hardships at the first hard land, trades at the first town, road safety at the first plea, seasons from day five. One who joins later sees all the world has reached.
+- Music: a small score for dawn, night, the seventh night, towns, the sea and great ones, with a swell when a beacon catches. It has its own Music slider in Settings.
+- Together: a friend's perfect guard now turns enemies' blows as yours does. One who joins sees the events under way.
+
 Brelm alpha 0.17.0: the long road and the keeping
 
 The road across the sea
