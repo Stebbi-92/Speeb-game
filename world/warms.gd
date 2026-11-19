@@ -13,7 +13,7 @@ const START := {
 ## Relics a survivor can make at a workbench. The lantern and the praying hands are carried from the start.
 const RELICS := {
 	"claw": {"name": "Claw of Ascent", "cost": {"scrap": 14, "cloth": 4, "oil": 1}, "text": "Cast it at a wall, rock or roof to pull yourself up."},
-	"censer": {"name": "Censer", "cost": {"scrap": 8, "salt": 12, "oil": 2}, "text": "Its smoke shows nearby forms, slows them and draws lurkers out."},
+	"censer": {"name": "Censer", "cost": {"scrap": 8, "salt": 12, "oil": 2}, "text": "Its smoke shows nearby enemies, slows them and draws lurkers out."},
 }
 
 ## What may be worn: head, body and feet. "guard" is the share of harm it turns aside.

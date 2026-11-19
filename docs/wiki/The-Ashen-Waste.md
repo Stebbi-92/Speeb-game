@@ -103,7 +103,7 @@ Each beacon lit gives a gift, lets you choose one boon out of three, and shows w
 
 ## Riding cats
 
-Great stray cats roam near the towns by day. They shy away from running feet, so walk up softly. Feed one meat three times and it is yours. Press Interact to ride it; hold Hasten to run it until it is out of breath. Hold Interact on it to name it and give it barding (hide, bone or iron), which turns aside part of the harm it takes. Your cat walks faster than you can run. Harm while riding is shared with your cat; hurt too much, it throws you and must rest (or feed it meat). It waits where you leave it, and comes when you whistle (N).
+Great stray cats roam near the towns by day. They shy away from running feet, so walk up softly. Feed one meat three times and it is yours. Press Interact to ride it; hold Sprint to run it until it is out of breath. Hold Interact on it to name it and give it barding (hide, bone or iron), which turns aside part of the harm it takes. Your cat walks faster than you can run. Harm while riding is shared with your cat; hurt too much, it throws you and must rest (or feed it meat). It waits where you leave it, and comes when you whistle (N).
 
 ## Falling
 

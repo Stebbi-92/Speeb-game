@@ -1365,9 +1365,12 @@ func lesser(code: String, pos: Vector3, size := 1.4) -> Emoji3D:
 	var info: Dictionary = Game.lesser[code]
 	var seen := Game.found.has(code)
 	var a := interact_area(pos, size * 0.55, "Witness :%s:" % code if not seen else "%s (recorded)" % info.name, func(): pass, 0.0, false)
+	if seen:
+		a.set_meta("recorded", true)
 	personal_interactable(a, a.get_meta("prompt"), func():
 		var fresh := Game.find_emoji(code)
-		if a.get_meta("prompt").begins_with("Witness"):
+		if not a.has_meta("recorded"):
+			a.set_meta("recorded", true)
 			witnessed += 1
 		hud.notify("%s\n%s" % [info.name, info.decree] if fresh else info.name)
 		sfx("bell", -18 if fresh else -26)

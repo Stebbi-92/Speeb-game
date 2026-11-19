@@ -758,7 +758,7 @@ func set_fellowship(rows: Array) -> void:
 			shown.append(r)
 	var head: Label = _fellowship.get_child(0)
 	head.visible = fellowship_open and not rows.is_empty()
-	head.text = "Fellowship, %d   [%s] to hide" % [rows.size(), Game.key_text("fellowship")]
+	head.text = "Players, %d   [%s] to hide" % [rows.size(), Game.key_text("fellowship")]
 	while _fellowship.get_child_count() - 1 > shown.size():
 		var c := _fellowship.get_child(_fellowship.get_child_count() - 1)
 		_fellowship.remove_child(c)
@@ -981,12 +981,12 @@ static var _load_pic_last := -1
 
 ## Things worth knowing, shown while a land is raised. Short and plain.
 const TIPS := [
-	"A lit campfire makes a base. No forms rise near it.",
+	"A lit campfire makes a base. No enemies spawn near it.",
 	"Fires burn wood. One piece lasts a day.",
 	"Hunt hares, goats and tuskers for meat and hide. Cook meat before you eat it.",
 	"Make, fit and improve guns at a workbench.",
 	"Aim down the sights. Firing from the hip is less sure.",
-	"Flares show what moves. The Censer's smoke shows and slows forms.",
+	"Flares show what moves. The Censer's smoke shows and slows enemies.",
 	"The Claw of Ascent grips any wall or rock.",
 	"Roads join the towns. Follow the signposts.",
 	"Two waystones with the same name are joined.",
@@ -998,7 +998,7 @@ const TIPS := [
 	"Light a beacon to see the land around it on your map.",
 	"The map shows only what you have seen.",
 	"Heavy bullets drop less over a long shot.",
-	"Listen. Many forms give a sound before they strike.",
+	"Listen. Many enemies make a sound before they attack.",
 	"A shotgun is loaded one shell at a time.",
 ]
 
@@ -1510,7 +1510,7 @@ func toggle_codex() -> void:
 		for id in Game.REVELATIONS:
 			var rv: Array = Game.REVELATIONS[id]
 			codex_list.add_child(_text_row(rv[0], rv[1], Game.revealed.has(id)))
-		codex_list.add_child(_label("Undone in all: %d    ·    Longest litany: %d    ·    Saucers brought down: %d" % [Game.stats.kills, Game.stats.best_streak, Game.stats.saucers], 18, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		codex_list.add_child(_label("Kills: %d    ·    Best streak: %d    ·    Saucers downed: %d" % [Game.stats.kills, Game.stats.best_streak, Game.stats.saucers], 18, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 		var nine_found := 0
 		for c in Game.NINE:
 			if Game.found.has(c):
@@ -1871,7 +1871,7 @@ func show_options() -> void:
 	if Game.revealed.has("hundred"):
 		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, _set_finish)
 	else:
-		_options_list.add_child(_label("Undo one hundred lesser forms to earn the gilded finish.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		_options_list.add_child(_label("Kill one hundred enemies to earn the gilded finish.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	_section("Controls")
 	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
 	_slider("Aiming and scope sensitivity", 0.2, 2.0, 0.05, Game.aim_sens, func(x): Game.aim_sens = x; Game.save(), "%d%%", 100.0)
@@ -1911,8 +1911,8 @@ func show_options() -> void:
 		_options_list.add_child(_label("In a fellowship the host's difficulty holds for everyone.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	else:
 		_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
-	_choice("Lesser forms", ["Flesh: cat heads", "Masks: their emojis"], Game.forms_style, func(i): Game.forms_style = i; Game.save())
-	_section("Fellowship")
+	_choice("Enemy look", ["Flesh: cat heads", "Masks: their emojis"], Game.forms_style, func(i): Game.forms_style = i; Game.save())
+	_section("Playing together")
 	_line("Your name among the fellowship", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
 	_line("Internet list address", Game.lobby_url, Net.DEFAULT_LOBBY if Net.DEFAULT_LOBBY != "" else "https://... (optional)", func(t): Game.lobby_url = t.strip_edges(); Game.save())
 	if pause_panel.visible:

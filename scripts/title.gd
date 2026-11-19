@@ -650,7 +650,7 @@ func _browser() -> Control:
 	frame.add_child(v)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 12)
-	var h := _heading("Fellowships")
+	var h := _heading("Games")
 	top.add_child(h)
 	_count = _plain("", hud.DIM, 15)
 	_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -678,7 +678,7 @@ func _browser() -> Control:
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fh.add_child(sp)
 	_sort = OptionButton.new()
-	for t in ["Most pilgrims", "Name", "Nearest"]:
+	for t in ["Most players", "Name", "Nearest"]:
 		_sort.add_item(t)
 	_sort.add_theme_font_size_override("font_size", 15)
 	_sort.item_selected.connect(func(_i): _list_servers())
@@ -686,7 +686,7 @@ func _browser() -> Control:
 	v.add_child(fh)
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 12)
-	for c in [["FELLOWSHIP", 320], ["WHERE", 170], ["PILGRIMS", 150]]:
+	for c in [["GAME", 320], ["WHERE", 170], ["PLAYERS", 150]]:
 		var l := _plain(c[0], Color(hud.GOLD, 0.6), 12)
 		l.custom_minimum_size.x = c[1]
 		cols.add_child(l)
@@ -854,9 +854,9 @@ func _list_servers() -> void:
 		shown += 1
 		_found.add_child(_server_card(d, full, other))
 	if _count:
-		_count.text = "" if Net.servers.is_empty() else "%d found  ·  %d pilgrims walking" % [Net.servers.size(), walking]
+		_count.text = "" if Net.servers.is_empty() else "%d found  ·  %d players" % [Net.servers.size(), walking]
 	if Net.servers.is_empty():
-		_found.add_child(_empty("No fellowships yet.", "Fellowships on your network appear here, and public ones from the internet. A private one is joined by its code."))
+		_found.add_child(_empty("No games yet.", "Games on your network appear here, and public ones from the internet. A private one is joined by its code."))
 	elif shown == 0:
 		_found.add_child(_empty("None match.", "Clear the search, or show full and closed fellowships."))
 

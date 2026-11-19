@@ -270,7 +270,8 @@ func _draw_skills() -> void:
 	bar.add_theme_stylebox_override("fill", fg)
 	lv.add_child(bar)
 	top.add_child(lv)
-	top.add_child(_chip("Trade: %s" % (w.trades.tname(w.trades.trade) if w.trades.trade != "" else "choose one"), w.trades.trade == "", func(): open_trade()))
+	if w.staged("trades") or w.trades.trade != "":
+		top.add_child(_chip("Trade: %s" % (w.trades.tname(w.trades.trade) if w.trades.trade != "" else "choose one"), w.trades.trade == "", func(): open_trade()))
 	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
 	_body.add_child(top)
 	_close_and_rule(top)
@@ -291,7 +292,7 @@ func _draw_skills() -> void:
 			rr.add_child(b)
 		_body.add_child(rr)
 	if s.points == 0:
-		_body.add_child(_label("Experience comes from what you undo, make, build and find, and from the beacons you light.", 15, DIM))
+		_body.add_child(_label("Experience comes from kills, making, building and finding things, and from the beacons you light.", 15, DIM))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	_body.add_child(row)
@@ -371,7 +372,7 @@ func _skill_card(id: String) -> Button:
 	tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tx.custom_minimum_size.x = 210
 	v.add_child(tx)
-	if not can and why != "Mastered" and why != "No points to spend":
+	if not can and not why in [WSkills.MASTERED, WSkills.NO_POINTS]:
 		v.add_child(_label(why, 12, Color(0.85, 0.5, 0.4, 0.85)))
 	b.add_child(v)
 	b.pressed.connect(func(): _learn(id))
@@ -741,7 +742,9 @@ func _process(_delta: float) -> void:
 	var part := "Night" if w.night else ("Dawn" if w.clock < 7.0 else ("Dusk" if w.clock >= 18.0 else "Day"))
 	_clock.text = "Day %d   %02d:%02d   %s" % [w.day, h, mn, part]
 	if w.weather:
-		_clock.text += "\n" + w.weather.label()
+		var wl: String = w.weather.label(w.staged("seasons"))
+		if wl != "":
+			_clock.text += "\n" + wl
 	_compass.w = w
 	_compass.queue_redraw()
 	_keys.visible = _panel == null and not w.builder.active
@@ -2687,7 +2690,7 @@ func _speaker_head(pd: Dictionary) -> void:
 	nv.add_child(_label(pd.title, 17, DIM))
 	top.add_child(nv)
 	var st := int(w.rep.get(pd.at, 0))
-	var sv: int = w.safety_of(pd.at) if WPlaces.SETTLEMENTS.has(pd.at) else -1
+	var sv: int = w.safety_of(pd.at) if WPlaces.SETTLEMENTS.has(pd.at) and w.staged("standing") else -1
 	var cv := VBoxContainer.new()
 	cv.add_theme_constant_override("separation", 0)
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3305,7 +3308,7 @@ func _draw_trade() -> void:
 	top.add_child(_title("Your Trade"))
 	_body.add_child(top)
 	_close_and_rule(top)
-	var lead := "Each pilgrim keeps one trade. Each makes something no other can, so friends lean on one another."
+	var lead := "Each player keeps one trade. Each makes something no other can, so friends lean on one another."
 	if tr.trade != "":
 		lead += " To change it, go to a town and pay %d coin." % WTrades.CHANGE_COST
 	_body.add_child(_wrap(lead, 18, DIM, 900))
@@ -3591,7 +3594,7 @@ func _draw_rest() -> void:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
 			near += 1
 	if near > 0:
-		_body.add_child(_wrap("You cannot rest with forms so close.", 20, PALE))
+		_body.add_child(_wrap("You cannot rest with enemies so close.", 20, PALE))
 	elif w.night:
 		var t := "Sleep until dawn?" if not Net.online else ("Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes." if Net.pilgrims().size() <= 4 else "Sleep until dawn? Three in four of the fellowship must lie down by a fire or a bedroll.")
 		_body.add_child(_wrap(t, 20, PALE))
@@ -4168,7 +4171,7 @@ class MapDraw extends Control:
 			if w.visited.has(k) or w.is_revealed(p3):
 				var p := _to(p3)
 				# How safe its roads are, as a soft ring of colour: red, amber, green, pale gold
-				if w.visited.has(k):
+				if w.visited.has(k) and w.staged("standing"):
 					var sv: int = w.safety_of(k)
 					var tint := Color(0.85, 0.2, 0.15) if sv < 25 else (Color(0.9, 0.6, 0.2) if sv < 60 else (Color(0.35, 0.75, 0.35) if sv < 90 else Color(0.95, 0.85, 0.5)))
 					var rad: float = (_to(p3 + Vector3(w.SAFETY_REACH, 0, 0)) - p).length()

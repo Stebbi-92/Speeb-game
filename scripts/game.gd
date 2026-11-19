@@ -147,7 +147,7 @@ func _json(path: String) -> Variant:
 const CONTROLS := [
 	["move_forward", "Walk forward", [KEY_W, KEY_UP]], ["move_back", "Walk back", [KEY_S, KEY_DOWN]],
 	["move_left", "Step left", [KEY_A, KEY_LEFT]], ["move_right", "Step right", [KEY_D, KEY_RIGHT]],
-	["jump", "Jump", [KEY_SPACE]], ["run", "Hasten", [KEY_SHIFT]], ["soft", "Tread softly", [KEY_CTRL, KEY_C]],
+	["jump", "Jump", [KEY_SPACE]], ["run", "Sprint", [KEY_SHIFT]], ["soft", "Sneak", [KEY_CTRL, KEY_C]],
 	["interact", "Interact", [KEY_E]],
 	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
 	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],
@@ -157,7 +157,7 @@ const CONTROLS := [
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
 	["slot_7", "Relic 7 (milk in the waste)", [KEY_7]], ["slot_8", "Claw (the waste)", [KEY_8]], ["slot_9", "Censer (the waste)", [KEY_9]],
-	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Fellowship list (together)", [KEY_L]],
+	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Player list (together)", [KEY_L]],
 	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
 	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
 	["pause", "Menu", [KEY_ESCAPE, KEY_P]],

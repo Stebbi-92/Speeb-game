@@ -1872,7 +1872,7 @@ const FIRE_VERBS := {
 	4: ["Travel", "Waystones can be built: two of one name lead to each other."],
 	5: ["Sail", "The Sloop-wright's book: the sloop can be made at a bench."],
 	6: ["Voyage", "The Longboat-wright's book: eight seats, for long voyages."],
-	7: ["Discern", "Hidden and unseen forms near you show on your compass."],
+	7: ["Discern", "Hidden and unseen enemies near you show on your compass."],
 	8: ["Bulwark", "Each night, the beacons' blessing takes the first blow that would land on you."],
 	9: ["Choose", "The Ferryman's Way is open: go down to the Tenth Hall."],
 }
@@ -2089,14 +2089,14 @@ const HALL_REACH := 60.0
 const HALL_K := {"eye": 0.25, "gilt": 0.25}
 const HALL_FORMS := {
 	"ember": "The frost bites less: a coat is warm enough.",
-	"hush": "Forms see you a little less far.",
+	"hush": "Enemies see you a little less far.",
 	"white": "Running and swinging cost a sixth less breath.",
 	"eye": "Your blows strike a twentieth harder.",
 	"gilt": "Blows on you are a twentieth lighter.",
 	"tar": "You drown more slowly.",
-	"lens": "Forms within 20 m show on your compass.",
+	"lens": "Enemies within 20 m show on your compass.",
 	"hook": "The dread rises a third more slowly.",
-	"rime": "A third of your blows freeze lesser forms a moment.",
+	"rime": "A third of your blows freeze weaker enemies a moment.",
 	"dry": "Heat harms you half as much.",
 	"horn": "Your cat tires a third more slowly.",
 	"bell": "Every twenty-fourth blow you land rings, twice as hard.",
@@ -3203,6 +3203,7 @@ func _land_tick(delta: float) -> void:
 			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" and not weather.sheltered else ""
 			ui.set_hazard(why)
 		return
+	reach_stage("wards")
 	if ui:
 		ui.set_hazard("%s  Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name])
 	match bn:
@@ -4089,6 +4090,50 @@ func lay_trophy(t: String) -> void:
 	hud.notify("You lay %s on the shrine. Its power is yours to take up now." % Items.iname(t))
 
 
+# ------------------------------------------------------------------ stages
+## Each system is shown when its land first needs it, once in a world. What has been shown is kept in
+## the world's flags, so one who joins late sees every system the world has reached, without the cards.
+const STAGES := {
+	"dread": ["Fear", "In the open dark your fear rises and the edges of sight darken. A fire, a town or a lit lantern eases it."],
+	"wards": ["Hardships", "This land bites. Gear made from the land's own stuff wards it off. Towns and roofs are safe."],
+	"trades": ["Trades", "Each player keeps one trade and makes something no one else can. Choose yours in the pack."],
+	"standing": ["Road safety", "Every town knows how safe its roads are. Kill enemies near it and break nearby camps to make them safer. The map shows each as a ring."],
+	"seasons": ["Seasons", "The seasons turn every five days. Each changes the night and the weather. You hear of it a day ahead."],
+}
+
+
+func staged(k: String) -> bool:
+	return flags.has("stage_" + k)
+
+
+## A system is needed here for the first time: everyone in the world is shown it.
+func reach_stage(k: String) -> void:
+	if not staged(k) and STAGES.has(k):
+		shared("_w_stage", [k])
+
+
+func _w_stage(k: String) -> void:
+	if staged(k) or not STAGES.has(k):
+		return
+	flags["stage_" + k] = true
+	if not Net.dedicated and hud:
+		hud.alert_banner(STAGES[k][0], STAGES[k][1])
+	autosave_soon(3.0)
+
+
+## An older world has gone past some stages already: mark them, without the cards.
+func _stages_catch_up() -> void:
+	if nights > 0 or day > 1:
+		flags["stage_dread"] = true
+	if day >= WWeather.SEASON_DAYS:
+		flags["stage_seasons"] = true
+	for k in WPlaces.SETTLEMENTS:
+		if visited.has(k):
+			flags["stage_trades"] = true
+		if safety_of(k) < 25:
+			flags["stage_standing"] = true
+
+
 func _w_flag(f: String) -> void:
 	flags[f] = true
 	if f.begins_with("shrine_"):
@@ -4139,7 +4184,7 @@ func _great_warning() -> void:
 		1:
 			hud.notify("The great raid comes tomorrow night: %s. Mend your walls and lay in shells." % GREAT_HOSTS[great_host()].name.to_lower())
 		2:
-			hud.notify("Two nights to the great raid. The forms are gathering.")
+			hud.notify("Two nights to the great raid. Enemies are gathering.")
 
 
 ## The seventh night: three waves fall on every camp a pilgrim is keeping, or on the pilgrims themselves.
@@ -4254,7 +4299,7 @@ func _great_dawn() -> void:
 
 func _w_great_spoils(spoils: Array) -> void:
 	hud.title_card("", "The raid is broken")
-	hud.notify("The forms leave what they carried. The fellowship shares it.")
+	hud.notify("The enemies leave what they carried. Everyone shares it.")
 	give(spoils)
 	award("beacon", 0.6)
 
@@ -6037,8 +6082,8 @@ func _w_clock(c: float, d: int, n: int) -> void:
 ## morning gives something for it. Every pilgrim works out the same night from the world and its count.
 const NIGHT_THEMES := {
 	"screaming": {"name": "The Screaming Night", "text": "Box cats run in packs tonight. Hold until dawn.", "many": 1.0, "gives": [["fittings_fine", 2], ["meat", 3]]},
-	"long": {"name": "The Long Dark", "text": "More forms walk tonight than any night before. Hold until dawn.", "many": 1.4, "gives": [["fittings_rare", 1], ["salt", 40]]},
-	"hunt": {"name": "The Hunter's Moon", "text": "Greater forms walk among the rest tonight. Hold until dawn.", "many": 1.0, "gives": [["tempered", 2], ["clockwork", 1]]},
+	"long": {"name": "The Long Dark", "text": "More enemies come tonight than any night before. Hold until dawn.", "many": 1.4, "gives": [["fittings_rare", 1], ["salt", 40]]},
+	"hunt": {"name": "The Hunter's Moon", "text": "Stronger enemies walk among the rest tonight. Hold until dawn.", "many": 1.0, "gives": [["tempered", 2], ["clockwork", 1]]},
 	"quiet": {"name": "A Quiet Night", "text": "Few walk tonight. Rest, or build.", "many": 0.5, "gives": []},
 }
 var night_theme := ""
@@ -6101,6 +6146,7 @@ func _w_nightfall(_d: int) -> void:
 					_maybe_raid())
 	sfx("drone", -6)
 	hud.say("The sun goes down behind the ridges. Night comes to the waste, and the forms come with it.", 6.0)
+	_w_stage("dread")
 	if WCrowd.describe(self) != "":
 		hud.notify(WCrowd.describe(self))
 	quests.on_event("nightfall", {})
@@ -6141,6 +6187,8 @@ func _w_dawn(d: int) -> void:
 		hud.notify(se.text)
 	elif season_ahead(d) != "":
 		hud.notify(season_ahead(d))
+	if d >= WWeather.SEASON_DAYS:
+		_w_stage("seasons")
 	if Net.authority():
 		_director_dawn()
 		_great_dawn()
@@ -7559,7 +7607,7 @@ func _visit_check() -> void:
 	if region != _region:
 		var il := terrain.isle_at(player.global_position.x, player.global_position.z, 1.4)
 		if _region != "":
-			if region == "The Grey Sea":
+			if region == WTerrain.SEA_NAME:
 				hud.notify("The Grey Sea\nOpen water. Keep to a boat: a swimmer tires, and things live under it.")
 			elif not il.is_empty() and region == il.name:
 				if not visited.has("isle_" + str(il.key)):
@@ -7587,6 +7635,7 @@ func _visit_check() -> void:
 		hud.notify(WPlaces.SETTLEMENTS[k].blurb)
 		award("settlement")
 		quests.on_event("reach", {})
+		reach_stage("trades")
 	for r in ruins:
 		if not known_ruins.has(r.id) and player.global_position.distance_to(r.pos) < 40.0:
 			known_ruins[r.id] = true
@@ -8498,6 +8547,7 @@ func _world_ready() -> void:
 	for i in lit:
 		flags["clean_%d" % i] = true
 	flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
+	_stages_catch_up()
 	if lit.size() >= TURN_AT and not turned():
 		flags["turned"] = true   # a world from before the turn was kept, already five fires along
 	_turn_marks()
@@ -9946,7 +9996,7 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		skills.points += 1
 		Game.gain_pxp(300)
 		ui.skills_changed()
-		hud.notify("%s is undone.\nA point of skill is yours to spend [%s]." % [LesserSpeeb.BOSSES[b].name, Game.key_text("skills")])
+		hud.notify("%s is slain.\nA point of skill is yours to spend [%s]." % [LesserSpeeb.BOSSES[b].name, Game.key_text("skills")])
 		player.health = player.max_health
 		hud.set_health(1.0, true)
 		autosave_soon(4.0)
@@ -13721,6 +13771,32 @@ func debug_boat() -> void:
 
 ## Testing aid: the seasons set the length of the night; salt frost bites the thinly dressed by
 ## night away from a fire, and an ash storm chokes one with an uncovered face.
+## Testing aid: the systems are shown as their land needs them. A new world has none; the clock hides
+## the season until the seasons are reached; a stage is shown once and kept; an older world catches up.
+func debug_stages() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for k in STAGES:
+		flags.erase("stage_" + k)
+	var none := true
+	for k in STAGES:
+		none = none and not staged(k)
+	var hid := weather.label(false).find(str(weather.season().name)) < 0 and weather.label(true).find(str(weather.season().name)) >= 0
+	reach_stage("trades")
+	await get_tree().create_timer(0.3).timeout
+	var once := staged("trades") and not staged("seasons")
+	_w_stage("trades")
+	var d0 := day
+	day = WWeather.SEASON_DAYS + 1
+	_stages_catch_up()
+	var caught := staged("seasons") and staged("dread")
+	day = d0
+	for k in STAGES:
+		flags.erase("stage_" + k)
+	print("STAGES none=%s hid=%s once=%s caught=%s" % [none, hid, once, caught])
+	get_tree().quit()
+
+
 func debug_weather() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -15422,6 +15498,8 @@ func _w_safety(town: String, amount: int, who: String) -> void:
 		return
 	var before := safety_of(town)
 	safety[town] = clampi(before + amount, 0, 100)
+	if before >= 25 and safety_of(town) < 25:
+		_w_stage("standing")
 	if before >= 25 and safety_of(town) < 25 and not Net.dedicated and visited.has(town):
 		hud.alert_banner("A plea from %s" % WPlaces.SETTLEMENTS[town].name, "Its roads have gone dangerous. Its gates will be barred at night, and its traders ask more.")
 	if amount <= 0 or who == "":
@@ -15830,8 +15908,8 @@ func what_now() -> Array:
 			if oil == 0:
 				txt += " Render more at a workbench: 2 lamp oil, 10 salt, 4 ash-bloom." if flags.has("oilcraft") else ""
 			var hint := quests.next_hint(main_q)
-			if hint.begins_with("Next: ") and turned():
-				txt += " The bowl is fouled: " + hint.trim_prefix("Next: ")
+			if hint.begins_with(WQuests.KEY_HINT) and turned():
+				txt += " The bowl is fouled: " + hint.trim_prefix(WQuests.KEY_HINT)
 		out.append({"kind": "road", "title": "The beacon road", "text": txt, "at": t})
 	elif lit.size() < 9:
 		var nb := next_dark_beacon(me)
@@ -15892,7 +15970,7 @@ func what_now() -> Array:
 				lv = u
 				best = g
 		if best != "":
-			grow = {"kind": "grow", "title": "Level %d: the %s" % [lv, ArmsDB.GUNS[best].name], "text": "%d experience to the next level. Kindle beacons, finish tasks and undo forms." % maxi(0, WSkills.need(skills.level) - skills.xp), "at": null}
+			grow = {"kind": "grow", "title": "Level %d: the %s" % [lv, ArmsDB.GUNS[best].name], "text": "%d experience to the next level. Kindle beacons, finish tasks and kill enemies." % maxi(0, WSkills.need(skills.level) - skills.xp), "at": null}
 		else:
 			grow = {"kind": "grow", "title": "Grow strong", "text": "Rework your arms with better fittings at a workbench.", "at": null}
 	out.append(grow)

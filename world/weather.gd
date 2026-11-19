@@ -237,10 +237,11 @@ func _harm(at: Vector3, under: bool) -> void:
 
 
 ## What the fellowship sees on the clock: the season, and the weather if any.
-func label() -> String:
-	var t := str(season().name)
+func label(with_season := true) -> String:
+	var t := str(season().name) if with_season else ""
 	if kind != "clear" and k > 0.3:
-		t += ",  " + str(KINDS[kind].name).to_lower()
+		var wk := str(KINDS[kind].name)
+		t = wk if t == "" else t + ",  " + wk.to_lower()
 	return t
 
 

@@ -9,8 +9,8 @@ Every control can be changed in **Settings**. These are the defaults.
 | Step left | A or Left |
 | Step right | D or Right |
 | Jump | Space |
-| Hasten | Shift |
-| Tread softly | Ctrl or C |
+| Sprint | Shift |
+| Sneak | Ctrl or C |
 | Interact | E |
 | Fire, use, or build | Left mouse |
 | Aim, or take down a built piece | Right mouse |
@@ -35,7 +35,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Claw (the waste) | 8 |
 | Censer (the waste) | 9 |
 | The Book of Emojis | Tab |
-| Fellowship list (together) | L |
+| Player list (together) | L |
 | Pack (the waste) | I |
 | Map (the waste) | M |
 | Journal (the waste) | J |
@@ -50,7 +50,7 @@ A controller works too: the left stick walks, the right stick looks.
 | Action | Button |
 |---|---|
 | Jump | A |
-| Hasten | Left stick press |
+| Sprint | Left stick press |
 | Interact | X |
 | Fire, use, or build | RT |
 | Aim, or take down a built piece | LT |

@@ -66,13 +66,13 @@ const MELEE := {
 
 const GRENADES := {
 	"frag": {"name": "Frag Grenade", "dmg": 150.0, "radius": 6.0, "fuse": 2.2, "carry": 2, "unlock": 1, "text": "Thrown with G. Bursts after a moment."},
-	"incendiary": {"name": "Fire Grenade", "dmg": 14.0, "radius": 5.0, "fuse": 1.4, "burn": 7.0, "carry": 2, "unlock": 7, "text": "Leaves the ground burning a while. The forms will not cross it unharmed."},
+	"incendiary": {"name": "Fire Grenade", "dmg": 14.0, "radius": 5.0, "fuse": 1.4, "burn": 7.0, "carry": 2, "unlock": 7, "text": "Leaves the ground burning a while. Enemies will not cross it unharmed."},
 }
 
 const GADGETS := {
 	"bandages": {"name": "Field Dressing", "charges": 2, "recharge": 50.0, "unlock": 2, "text": "Used with T. Restores forty health over a few seconds."},
 	"flare": {"name": "Flare", "charges": 2, "recharge": 40.0, "unlock": 4, "text": "Thrown with T. A red light that burns a long while and shows what moves near it."},
-	"mine": {"name": "Salt Mine", "charges": 2, "recharge": 45.0, "unlock": 8, "text": "Set with T. Bursts when a form steps near."},
+	"mine": {"name": "Salt Mine", "charges": 2, "recharge": 45.0, "unlock": 8, "text": "Set with T. Bursts when an enemy steps near."},
 }
 
 ## What may be fitted to a gun. One thing to each slot: a sight above, something on the muzzle,

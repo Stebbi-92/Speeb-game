@@ -321,13 +321,16 @@ func is_water(x: float, z: float, depth := 0.0) -> bool:
 
 
 ## The name of the place underfoot: a land of the waste, an isle, or the sea itself.
+const SEA_NAME := "The Grey Sea"
+
+
 func region_name(x: float, z: float) -> String:
 	if maxf(absf(x), absf(z)) > N * CELL * 0.5 - 40.0 or is_water(x, z, 0.5):
 		var il := isle_at(x, z, 1.4)
 		if not il.is_empty() and not is_water(x, z, 0.5):
 			return il.name
 		if is_water(x, z, 0.5):
-			return "The Grey Sea"
+			return SEA_NAME
 	return BIOME_NAMES[biome_name(x, z)]
 
 

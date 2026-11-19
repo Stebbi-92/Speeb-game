@@ -5,6 +5,7 @@ extends Node
 
 const MAX_ACTIVE := 6
 const OFFERS_PER := 3
+const KEY_HINT := "Next: "   ## the start of a hint that names a fouled bowl's key
 
 var w
 var quests := {}
@@ -84,7 +85,7 @@ const STORIES := {
 		"pitch": "There is a vault in the hills where the Order put its dead. The dead in it are not quiet. Something was sealed in from the inside.",
 		"steps": [
 			{"t": "reach", "ruin": "sealed_vault", "text": "Find the Vault of the Inward Seal, <dir:R:sealed_vault:mourners> of Mourner's Rest."},
-			{"t": "kill", "ruin": "sealed_vault", "n": 8, "text": "Undo the forms that keep the vault."},
+			{"t": "kill", "ruin": "sealed_vault", "n": 8, "text": "Kill the enemies guarding the vault."},
 			{"t": "recover", "crate": "sealed_vault_1", "item": "order_seal", "text": "Force the iron chest within the vault (it wants a pry bar)."},
 			{"t": "talk", "who": "ione", "text": "Bring the seal to Ione.", "ask": "This was pressed into the door from the inside.",
 				"say": "The Silent Clerics who sealed themselves in. I had heard it, but not believed it.\n\nWhen the beacons began to die, some of the Order did not run. They walled themselves in with their dead and kept silence until the end, so that the dark would find nothing to speak to. The seal says: we did not answer.\n\nKeep the oil I give you. Light something with it. That is the only answer worth giving.", "take": ["order_seal", 1]},
@@ -100,7 +101,7 @@ const STORIES := {
 	"caravans": {"title": "The Salt-Pan Caravans", "giver": "wren", "at": "cinderwick",
 		"pitch": "The caravans <dir:R:salt_caravans:cinderwick> of the camp died in one night. Forms roost in the wagons now. They come down at dusk and test our wall.",
 		"steps": [
-			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Undo the forms roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."},
+			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Kill the enemies roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."},
 			{"t": "talk", "who": "wren", "text": "Tell Wren it is done.", "ask": "The caravans are clear.",
 				"say": "Good. I will not thank you; we are past that. Take these. You will need them more than I will, tonight."},
 		], "reward": {"salt": 30, "items": [["shells", 40], ["bandage", 2]], "rep": 2}},
@@ -121,7 +122,7 @@ const STORIES := {
 	"ferry2": {"title": "The Bell on the Fen", "giver": "ash_lena", "at": "gallowmere", "after": "done_ferry1",
 		"pitch": "He wrote that the Drowned Chapel rings by itself, and that the bell calls the dead up out of the water. Will you go and take it down?",
 		"steps": [
-			{"t": "kill", "ruin": "isle_fen", "n": 8, "text": "Undo the drowned that keep the chapel on the Sunk Fen, <dir:R:isle_fen:gallowmere> across the sea."},
+			{"t": "kill", "ruin": "isle_fen", "n": 8, "text": "Kill the drowned guarding the chapel on the Sunk Fen, <dir:R:isle_fen:gallowmere> across the sea."},
 			{"t": "recover", "crate": "isle_fen_0", "item": "chapel_bell", "text": "Search the Drowned Chapel for its bell."},
 			{"t": "talk", "who": "ash_lena", "text": "Bring the bell to Lena.", "ask": "The bell. It did not ring once on the way back.",
 				"say": "Good. Then it is only a bell now.\n\nI will hang it at the edge of the dry lake, where the jetty was. If it rings, I will know it is only the wind.\n\nThere is one more page. He saw lights on the iron isle, and a door that opened with a key. He never went in. I would like to know what was there.", "take": ["chapel_bell", 1]},
@@ -173,7 +174,7 @@ const STORIES := {
 		"pitch": "The dead tell me there are stones on Hrafnsey with names cut into them. Names nobody has said in a hundred years. Bring me one.",
 		"steps": [
 			{"t": "reach", "ruin": "isle_hrafn", "text": "Find the Saga Stones on Hrafnsey, <dir:R:isle_hrafn:mourners> across the sea."},
-			{"t": "kill", "ruin": "isle_hrafn", "n": 8, "text": "Undo what keeps the stones."},
+			{"t": "kill", "ruin": "isle_hrafn", "n": 8, "text": "Kill what guards the stones."},
 			{"t": "recover", "crate": "isle_hrafn_0", "item": "saga_rubbing", "text": "Search by the stones for something to take the names on."},
 			{"t": "talk", "who": "ione", "text": "Bring the names to Ione.", "ask": "Charcoal on cloth. These were cut into the tallest stone.",
 				"say": "I will read them out tonight, one at a time, slowly. The dead like to hear the old names. It reminds them there were people before the night, and there will be people after it.", "take": ["saga_rubbing", 1]},
@@ -353,7 +354,7 @@ func next_hint(q: Dictionary) -> String:
 	if nb >= 0:
 		var kh := _key_wanted(nb)
 		if kh.size() == 2 and str(kh[0]) != "":
-			return "Next: " + str(kh[0])
+			return KEY_HINT + str(kh[0])
 	if s.t == "kindle":
 		return ""
 	var jars: int = w.inv.count("beacon_oil")
@@ -626,9 +627,9 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			salt = int(Items.info(g[0]).value * n * 1.6) + 10
 		"hunt":
 			var n := rr.randi_range(6, 12)
-			o.title = "The Forms at %s" % ruin.name
+			o.title = "Enemies at %s" % ruin.name
 			o.pitch = "Forms have been gathering at %s. They come closer every night. Undo %d of them there, before they come all the way." % [ruin.name, n]
-			o.steps = [{"t": "kill", "ruin": ruin.id, "n": n, "text": "Undo %d forms at %s." % [n, ruin.name]}, back.merged({"ask": "%s is quiet, for now." % ruin.name, "say": "For now is all any of us get. Thank you."})]
+			o.steps = [{"t": "kill", "ruin": ruin.id, "n": n, "text": "Kill %d enemies at %s." % [n, ruin.name]}, back.merged({"ask": "%s is quiet, for now." % ruin.name, "say": "For now is all any of us get. Thank you."})]
 			salt = 25 + n * 3
 		"recover":
 			var thing: String = KEEPSAKES[rr.randi() % KEEPSAKES.size()]
@@ -669,7 +670,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			var n := rr.randi_range(8, 14)
 			o.title = "The Wall of %s" % WPlaces.SETTLEMENTS[k].name
 			o.pitch = "Stand the wall with us tonight. We are too few. Undo %d of the forms that come for %s, and see us to the dawn." % [n, WPlaces.SETTLEMENTS[k].name]
-			o.steps = [{"t": "watch", "at": k, "n": n, "text": "Keep %s through the night: undo %d forms within sight of it." % [WPlaces.SETTLEMENTS[k].name, n]},
+			o.steps = [{"t": "watch", "at": k, "n": n, "text": "Keep %s through the night: kill %d enemies within sight of it." % [WPlaces.SETTLEMENTS[k].name, n]},
 				back.merged({"ask": "We kept the wall.", "say": "We did. I have not slept so well in a month as I did after the dawn. Take this."})]
 			salt = 30 + n * 3
 		"find":

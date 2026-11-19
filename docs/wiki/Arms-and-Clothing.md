@@ -38,7 +38,7 @@ Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases 
 - **Iron sights.** Every gun has its own sights, lined up so the shot goes where they point.
 - **Sway.** Down the sights your aim sways a little. Heavy guns sway more, pistols less. A foregrip and practice steady it.
 - **Bullet drop.** Past about 25 metres a round falls. Shot and pistol rounds fall most, rifle rounds least. Rockets fall too.
-- **Hold your breath.** Behind a scope, hold Hasten (Shift) to steady it for a few seconds.
+- **Hold your breath.** Behind a scope, hold Sprint (Shift) to steady it for a few seconds.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks.
 
 ### Sights

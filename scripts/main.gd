@@ -410,4 +410,4 @@ func _server_window() -> void:
 func server_idle() -> void:
 	_state = "lobby"
 	await _swap(null)
-	Net._log("Waiting for pilgrims. The first to join chooses the trial.")
+	Net._log("Waiting for players. The first to join chooses the trial.")

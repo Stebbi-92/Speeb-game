@@ -43,8 +43,8 @@ const SKILLS := {
 	"vigil_keeper": {"name": "Vigil Keeper", "ranks": 2, "tier": 0, "text": "A new flame holds 15% sooner for each rank."},
 	"grace": {"name": "Grace of the Flame", "ranks": 2, "tier": 0, "text": "By fires and in settlements, wounds close twice as fast again for each rank."},
 	"pilgrim": {"name": "Pilgrim", "ranks": 2, "tier": 2, "text": "10% more experience from everything for each rank."},
-	"witness": {"name": "Witness", "ranks": 1, "tier": 4, "text": "Forms within 40 metres show on your compass at night."},
-	"last_light": {"name": "Last Light", "ranks": 1, "tier": 7, "text": "Within sight of a burning beacon, the forms' blows are halved."},
+	"witness": {"name": "Witness", "ranks": 1, "tier": 4, "text": "Enemies within 40 metres show on your compass at night."},
+	"last_light": {"name": "Last Light", "ranks": 1, "tier": 7, "text": "Within sight of a burning beacon, enemy attacks do half harm."},
 }
 
 ## Experience for each deed.
@@ -107,16 +107,20 @@ func tree_of(id: String) -> String:
 	return ""
 
 
+const MASTERED := "Mastered"
+const NO_POINTS := "No points to spend"
+
+
 ## Why a skill cannot be learned now, or "" if it can.
 func blocked(id: String) -> String:
 	var s: Dictionary = SKILLS[id]
 	if rank(id) >= int(s.ranks):
-		return "Mastered"
+		return MASTERED
 	var t := tree_of(id)
 	if spent_in(t) < int(s.tier):
 		return "Needs %d points in %s" % [int(s.tier), TREES[t].name]
 	if points <= 0:
-		return "No points to spend"
+		return NO_POINTS
 	return ""
 
 

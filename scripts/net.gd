@@ -105,7 +105,7 @@ func my_name() -> String:
 
 
 func name_of(id: int) -> String:
-	return players[id].name if players.has(id) else "A pilgrim"
+	return players[id].name if players.has(id) else "A player"
 
 
 ## How many may walk now: eight in the waste and the gathering, four in a trial.

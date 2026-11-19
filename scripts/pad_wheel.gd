@@ -6,7 +6,7 @@ extends Control
 
 const HOLD := 0.2   ## held this long before the wheel shows (a quick tap shows it too, on release)
 const ENTRIES := [
-	["quick_heal", "Best healing"], ["whistle", "Whistle"], ["revive", "Smelling salts"], ["fellowship", "Fellowship"],
+	["quick_heal", "Best healing"], ["whistle", "Whistle"], ["revive", "Smelling salts"], ["fellowship", "Players"],
 	["slot_1", "Relic 1"], ["slot_2", "Relic 2"], ["slot_3", "Relic 3"], ["slot_4", "Relic 4"], ["slot_5", "Relic 5"],
 	["slot_6", "Relic 6"], ["slot_7", "Relic 7"], ["slot_8", "Claw"], ["slot_9", "Censer"],
 ]
