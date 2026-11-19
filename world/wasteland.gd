@@ -2716,6 +2716,23 @@ func tier_at(p: Vector3) -> int:
 
 
 const FAR_SHORE_LANDS := ["frost", "sun", "steppe"]
+## The stuff each far land yields, gathered there or found in its ruins (see WArms.FAR_STUFF).
+const FAR_FINDS := {"quiet": "lens_glass", "domes": "dome_steel", "frost": "ice_iron", "sun": "sunglass", "steppe": "steppe_horn"}
+
+## The far land's own stuff at this spot, or "" in the waste and on the near isles.
+func far_find(p: Vector3) -> String:
+	if terrain == null:
+		return ""
+	var il := terrain.isle_at(p.x, p.z, 1.0)
+	return str(FAR_FINDS.get(str(il.get("key", "")), "")) if not il.is_empty() else ""
+
+
+## The same, for a far ruin's or an isle's crate by its id.
+static func far_find_id(id: String) -> String:
+	for k in FAR_FINDS:
+		if id.begins_with("fs_%s_" % k) or id.begins_with("isle_%s" % k):
+			return FAR_FINDS[k]
+	return ""
 
 ## How many dangers there are, as the pilgrim knows it: the fifth shows only after the turn.
 func tiers_known() -> int:
@@ -3991,6 +4008,9 @@ func _rq_open(by: int, id: String) -> void:
 				bag.from_data(containers[id])   # what was left or stored here stays; the new finds go in beside it
 			for it in Items.roll(c.table, maxi(1, int(round((rr.randi_range(2, 4) + (2 if c.sealed else 0)) * WRules.yield_mult()))), rr):
 				bag.add(it[0], it[1])
+			var far_stuff := far_find_id(id)
+			if far_stuff != "":
+				bag.add(far_stuff, rr.randi_range(1, 3))
 			var book := _book_for(id, rr)
 			if book != "":
 				bag.add(book, 1)
@@ -5026,6 +5046,10 @@ func _rq_gather(by: int, id: int) -> void:
 	var ls: Array = LAND_STUFF.get(land_at(np), [])
 	if not ls.is_empty() and ls[0] == nd.kind and rr.randf() < float(ls[2]):
 		out.append([ls[1], rr.randi_range(1, 2)])
+	# Out past the sea, the land's own stuff comes up with whatever else is taken
+	var ff := far_find(np)
+	if ff != "" and nd.kind != "herb" and rr.randf() < 0.3:
+		out.append([ff, rr.randi_range(1, 2)])
 	shared("_w_node", [id, nd.charges - 1, day + 2])
 	Net.call_peer(by, "_w_gathered", [id, out])
 
@@ -9397,10 +9421,17 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 			l.glow.light_energy = 0.2
 	if Net.authority():
 		# A great one always leaves fittings: rare ones, and now and then storied
+		# ...and its own named fittings each time, and the first time it falls in a world, a book
+		var book := great_book(land)
+		if book != "":
+			shared("_w_flag", ["felled_" + land])
+		var first := [book]
 		drop_for_each(at, func():
 			var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
 			var heart: Array = [["heart_" + land, 1]] if Items.DB.has("heart_" + land) else []   # the key to the eighth fire
-			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]] + heart)
+			var bk: Array = [[first[0], 1]] if first[0] != "" else []
+			first[0] = ""
+			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1], ["fit_" + land, 1]] + heart + bk)
 		autosave_soon(2.0)
 	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
 		award("kill_boss")
@@ -9411,6 +9442,20 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 		player.health = player.max_health
 		hud.set_health(1.0, true)
 		autosave_soon(4.0)
+
+
+## The book a great one leaves the first time it falls in a world: a far one's own, or a lost book of the
+## waste not yet found. Never again after (a lair that returns every three days is not a library).
+func great_book(land: String) -> String:
+	if flags.has("felled_" + land):
+		return ""
+	var own := str(Items.GREAT_BOOKS.get(land, ""))
+	if own != "":
+		return own
+	for bk in Items.LAND_BOOKS:
+		if not flags.has("found_" + bk) and not flags.has(bk):
+			return bk
+	return ""
 
 
 ## Testing aid: shares of loot that belong to another pilgrim are kept but not seen, and stay theirs through a save.
@@ -12650,6 +12695,91 @@ func debug_danger5() -> void:
 	get_tree().quit()
 
 
+## Testing aid: a great one leaves something lasting: its named fittings every time, a book the first time only,
+## and the Bell-Wound's trophy now has a power.
+func debug_greatdrops() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(4, 0, 0)
+	var got := func() -> Dictionary:
+		var out := {}
+		for sid in containers:
+			if str(sid).begins_with("s"):
+				var bag := Inventory.new(30)
+				bag.from_data(containers[sid])
+				for it in ["fit_frost", "book_frost", "t_frost", "heart_frost"]:
+					out[it] = int(out.get(it, 0)) + bag.count(it)
+		return out
+	flags.erase("felled_frost")
+	_w_boss_down("boss_frost", at)
+	await get_tree().create_timer(0.3).timeout
+	var one: Dictionary = got.call()
+	_w_boss_down("boss_frost", at)
+	await get_tree().create_timer(0.3).timeout
+	var two: Dictionary = got.call()
+	var waste_book := great_book("ash")
+	var g := WArms.roll_grade(1, null, "salt")
+	var named: bool = int(g.r) == 3 and str(g.n) == "White Disc's" and "far" in g.t and g.t.size() == 3
+	var gated: bool = not ui._arm_known("carbine") and ui._arm_known("shotgun") and not ui._tier_known(4) and ui._tier_known(3)
+	flags["book_sun"] = true
+	flags["book_quiet"] = true
+	gated = gated and ui._arm_known("carbine") and ui._tier_known(4)
+	# The Bell's Toll: the eighth blow that lands strikes twice as hard
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 1, 6))
+	power = "t_kraken"
+	power_left = 120.0
+	Arms._toll = 0
+	var drops: Array = []
+	for i in 8:
+		var h0: float = e.hp
+		Arms.deal({e: 2.0}, Vector3.FORWARD)
+		drops.append(h0 - e.hp)
+	power = ""
+	var toll: bool = is_equal_approx(float(drops[7]), float(drops[0]) * 2.0) and is_equal_approx(float(drops[6]), float(drops[0]))
+	print("GREATDROPS fit=%d book=%d trophy=%d books_after_two=%d waste_book=%s named=%s gated=%s toll=%s power=%s" % [int(one.get("fit_frost", 0)), int(one.get("book_frost", 0)), int(one.get("t_frost", 0)), int(two.get("book_frost", 0)), waste_book.begins_with("book_"), named, gated, toll, Items.POWERS.has("t_kraken")])
+	get_tree().quit()
+
+
+## Testing aid: the far lands' stuff, Far-forged work, far plate and the three far arms.
+func debug_farforged() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var shore: Vector3 = Vector3.INF
+	for il in terrain.isles:
+		if il.key == "steppe":
+			shore = gpos(terrain.isle_heart(il))
+	var finds: bool = far_find(shore) == "steppe_horn" and far_find(Vector3(40, 0, 40)) == "" and far_find_id("fs_frost_3") == "ice_iron" and far_find_id("isle_quiet") == "lens_glass" and far_find_id("vault_2") == ""
+	var forged: bool = is_equal_approx(WArms.tier_mult(4), 1.6) and WArms.TIERS[4] == "Far-forged"
+	var gc := WArms.tier_cost(4, "shotgun")
+	var bc := WArms.tier_cost(4, "hatchet")
+	var costs: bool = int(gc.get("dome_steel", 0)) == 3 and int(gc.get("lens_glass", 0)) == 2 and int(bc.get("ice_iron", 0)) == 3 and not gc.has("obsidian") and not WArms.tier_cost(3, "shotgun").has("dome_steel")
+	var kept: int = int(WArms.clean({"tier": {"shotgun": 4, "pistol": 9}}).tier.get("shotgun", 0))
+	var capped: int = int(WArms.clean({"tier": {"pistol": 9}}).tier.get("pistol", 0))
+	var plate := WArms.worn({"wear": {"body": "far_plate"}})
+	var plate_ok: bool = plate.speed == 1.0 and plate.weary == 1.0 and plate.warm >= 1.5 and float(WArms.WEAR.far_plate.plate) > float(WArms.WEAR.obsidian_plate.plate)
+	var arms_ok := true
+	for id in ["carbine", "hand_cannon", "war_pick"]:
+		arms_ok = arms_ok and ArmsDB.far(id) and WArms.MAKE.has(id) and WArms.craft_k(id) == 2.5
+		for kind in ["primary", "secondary", "melee"]:
+			arms_ok = arms_ok and not id in ArmsDB.choices(kind)
+	arms_ok = arms_ok and ArmsDB.look("carbine") == "machine_gun" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
+	var w: Arms = player.weapon
+	var models := 0
+	for g in ["carbine", "hand_cannon"]:
+		var m := w._build(g, [])
+		models += 1 if m.get_child_count() > 0 else 0
+		m.free()
+	var pick := w._build_melee("war_pick")
+	models += 1 if pick != null else 0
+	if pick:
+		pick.free()
+	var glyphs := 0
+	for it in WArms.FAR_STUFF:
+		glyphs += 1 if Items.DB.has(it) and int(Items.DB[it].stack) == 40 else 0
+	print("FARFORGED finds=%s forged=%s costs=%s kept=%d capped=%d plate=%s arms=%s models=%d glyphs=%d" % [finds, forged, costs, kept, capped, plate_ok, arms_ok, models, glyphs])
+	get_tree().quit()
+
+
 func debug_turn() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -15005,6 +15135,8 @@ func what_now() -> Array:
 		var best := ""
 		var lv := 999
 		for g in ArmsDB.GUNS:
+			if ArmsDB.far(g):
+				continue   # the far arms come of the far lands' stuff, not of a level
 			var u := int(ArmsDB.GUNS[g].get("unlock", 1))
 			if u > skills.level and u < lv:
 				lv = u

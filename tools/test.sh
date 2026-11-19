@@ -63,6 +63,8 @@ check farsea    debug_farsea   "FARSEA far=5 clear=true dry=5 lands=salt,dunes,f
 check turn      debug_turn     "TURN before=false after=true col=true host=tide" "TURN lands frost=\\[true, true, true\\] steppe=\\[true, true, true\\]"
 check fouled    debug_fouled   "FOULED want6=true barred=true took=true back=true lit6=true want7=true clean=true ninth=true heart=true bowls=3"
 check danger5   debug_danger5  "DANGER5 before=4 after=5 waste_max=[1-4] foe=true boss=true lists=true"
+check farforged debug_farforged "FARFORGED finds=true forged=true costs=true kept=4 capped=4 plate=true arms=true models=3 glyphs=5"
+check greatdrops debug_greatdrops "GREATDROPS fit=1 book=1 trophy=1 books_after_two=1 waste_book=true named=true gated=true toll=true power=true"
 check farlairs  debug_farlairs "FARLAIRS lairs=5 level=5 named=5 trophies=5"
 check lights    debug_lights   "LIGHTS houses=10 lanes=5 wet=10 kelp=true" "LIGHTS stands=true poured=true one=true half_safe=false safe=true kelp_in=true"
 check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT aboard=true helm=true" "BOAT moved=[1-9][0-9.]* carried=true" "BOAT off=true riders=0" "BOAT sail=2 sloop_speed=([5-9]|1[0-9])\." "BOAT wrecked=true thrown=true"

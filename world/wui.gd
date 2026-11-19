@@ -1332,6 +1332,8 @@ func _draw_arms() -> void:
 					rows.append([g, sp.name, "%s  ·  %s" % [["Carried  ·  long gun 1", "Carried  ·  long gun 2", "Carried  ·  side arm"][place], WArms.TIERS[t]], GOLD, {}, "", Callable(), false])
 				elif owned:
 					rows.append([g, sp.name, "%s  ·  %s" % ["Long gun" if sp.slot == "primary" else "Side arm", WArms.TIERS[t]], DIM, {}, "Carry", func(): _carry(g, _free_place(g)), home])
+				elif not _arm_known(g):
+					rows.append([g, sp.name, "Needs %s" % Items.iname(WArms.MAKE_NEEDS[g]), Color(DIM, 0.5), {}, "", Callable(), false])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[g])
 					rows.append([g, sp.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[g], func(): a.owned.append(g); WArms.carry(a, g, _free_place(g))), bench and w.stock_has_all(c)])
@@ -1345,6 +1347,8 @@ func _draw_arms() -> void:
 				if id in a[k[0]]:
 					var on: bool = a[k[1]] == id
 					rows.append([id, tb[id].name, "Carried" if on else "Owned", GOLD if on else DIM, {}, "" if on else "Carry", func(): a[k[1]] = id; w.rearm(); _redraw(), home])
+				elif not _arm_known(id):
+					rows.append([id, tb[id].name, "Needs %s" % Items.iname(WArms.MAKE_NEEDS[id]), Color(DIM, 0.5), {}, "", Callable(), false])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[id])
 					rows.append([id, tb[id].name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[id], func(): a[k[0]].append(id); a[k[1]] = id), bench and w.stock_has_all(c)])
@@ -1418,7 +1422,9 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		var hd := float(info.dmg) * (WArms.tier_mult(bt) if ArmsDB.MELEE.has(id) else 1.0)
 		_stat(side, "Harm", str(int(round(hd))), clampf(hd / 150.0, 0.05, 1.0))
 	# A blade one owns can be worked up at a bench like a gun
-	if ArmsDB.MELEE.has(id) and id in a.blades and bt < 3:
+	if ArmsDB.MELEE.has(id) and id in a.blades and bt < WArms.TIERS.size() - 1 and not _tier_known(bt + 1):
+		side.add_child(_label("%s needs %s." % [WArms.TIERS[bt + 1], Items.iname(WArms.TIER_NEEDS[bt + 1])], 14, DIM))
+	elif ArmsDB.MELEE.has(id) and id in a.blades and bt < WArms.TIERS.size() - 1:
 		var tc: Dictionary = _acost(WArms.tier_cost(bt + 1, id))
 		side.add_child(_secondary("Work on it: %s" % WArms.TIERS[bt + 1], func(): _arms_pay(WArms.tier_cost(bt + 1, id), func(): a.tier[id] = bt + 1), bench and w.stock_has_all(tc)))
 		side.add_child(_cost_line(tc))
@@ -1513,7 +1519,9 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	_stat(left, "Steadiness", "%d" % int(round(100.0 / maxf(0.2, float(sp.kick)))), clampf(0.6 / maxf(0.2, float(sp.kick)), 0.05, 1.0))
 	_stat(left, "Aim speed", "%d%%" % int(round(float(sp.aim) * 100.0)), clampf(float(sp.aim) / 1.6, 0.05, 1.0))
 	_stat(left, "Holds", str(Arms.mag_of(g)), clampf(Arms.mag_of(g) / 60.0, 0.05, 1.0))
-	if t < 3:
+	if t < WArms.TIERS.size() - 1 and not _tier_known(t + 1):
+		left.add_child(_label("%s needs %s." % [WArms.TIERS[t + 1], Items.iname(WArms.TIER_NEEDS[t + 1])], 14, DIM))
+	elif t < WArms.TIERS.size() - 1:
 		var c: Dictionary = _acost(WArms.tier_cost(t + 1, g))
 		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1, g), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
 		left.add_child(wb)
@@ -1618,6 +1626,14 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 			var b := _secondary("%s %s  (%d)" % ["Rework" if rr == r2 else "Make", WArms.GRADES[rr].name, n], func(): _rework(g, m2, rr), bench and n > 0, 14)
 			b.tooltip_text = "Uses one %s." % Items.iname(fid)
 			acts.add_child(b)
+		# A great one's own fittings, where there are any
+		for land in WArms.NAMED:
+			var nf: int = w.stock_count("fit_" + land)
+			if nf <= 0:
+				continue
+			var nb := _secondary("Make %s  (%d)" % [WArms.NAMED[land][0], nf], func(): _rework(g, m2, 3, land), bench, 14)
+			nb.tooltip_text = "Uses one %s: Storied, with the %s trait." % [Items.iname("fit_" + land), WArms.TRAITS[WArms.NAMED[land][1]].name]
+			acts.add_child(nb)
 	else:
 		var c: Dictionary = _acost(WArms.PARTS[m2])
 		acts.add_child(_primary("Make", func(): _arms_pay(WArms.PARTS[m2], func():
@@ -1656,12 +1672,23 @@ func _practice_line(id: String) -> Control:
 	return row
 
 
-## Reworks a part with fittings: a new grade and fresh traits.
-func _rework(g: String, m: String, r: int) -> void:
-	var fid: String = WArms.FITTINGS[r]
+## Whether the fellowship has read what a far arm needs (every other arm is known).
+func _arm_known(id: String) -> bool:
+	return not WArms.MAKE_NEEDS.has(id) or w.flags.has(WArms.MAKE_NEEDS[id])
+
+
+## Whether the fellowship has read what a step of work needs.
+func _tier_known(t: int) -> bool:
+	return not WArms.TIER_NEEDS.has(t) or w.flags.has(WArms.TIER_NEEDS[t])
+
+
+## Reworks a part with fittings: a new grade and fresh traits. A great one's fittings
+## (named: its land) make it storied, with that great one's name and trait.
+func _rework(g: String, m: String, r: int, named := "") -> void:
+	var fid: String = "fit_" + named if named != "" else WArms.FITTINGS[r]
 	if not w.stock_pay({fid: 1}):
 		return
-	w.arms.grade["%s/%s" % [g, m]] = WArms.roll_grade(r)
+	w.arms.grade["%s/%s" % [g, m]] = WArms.roll_grade(r, null, named)
 	w.sfx("carve", -4, null, 1.2)
 	if r >= 3:
 		w.sfx("bell", -10)

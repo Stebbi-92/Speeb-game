@@ -232,6 +232,7 @@ static var harm_kind := ""
 static var harm_head := false    ## the blow is a head shot: it goes over any plate
 static var harm_pierce := 1.0    ## the load's bite on plate: above 1 goes through, below 1 is stopped more
 static var harm_heavy := false   ## the blow is a heavy, wound-up one: it breaks a foe's footing twice as fast
+static var harm_arm := ""        ## the arm the blow came from, where it matters (the far arms)
 
 ## Poise: how much a foe can take before its footing breaks. Every blow wears it (blades more, heavy and
 ## blunt blows twice as much, a close shotgun blast a little more); left alone two seconds it comes back.
@@ -1635,6 +1636,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	flinch(amount, from_dir)
 	if boss == "" and amount > 4.0 and level.has_method("power_is") and level.power_is("rime"):
 		_stagger = maxf(_stagger, 0.7)   # the Glacier Mother's power: struck, a lesser form freezes a moment
+	if boss == "" and harm_arm == "war_pick":
+		_stagger = maxf(_stagger, 0.6)   # ice iron: a lesser form freezes where it stands, a moment
 	var raw := amount   # what a puppet sends on: the host weighs weakness, plate and guard itself
 	if harm_kind != "" and boss == "":
 		# A blunt blow is a blade's to a form that has no word on blunt harm
@@ -1689,7 +1692,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	# Heavy forms barely give ground unless the blow is a heavy one; they slow under fire instead
-	var heavy_blow := amount >= 60.0 or harm_kind == "blast"
+	var heavy_blow := amount >= 60.0 or harm_kind == "blast" or harm_arm == "hand_cannon"   # the hand cannon staggers even the heavy
 	var steady := kind in ["idol", "brute", "elite"]
 	_knock += from_dir.normalized() * minf(amount, 80.0) * (0.0 if boss != "" else (0.03 if steady and not heavy_blow else (0.08 if kind == "elite" else 0.2)))
 	if steady:
@@ -1703,6 +1706,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 			wear *= 1.5
 		if harm_kind == "blunt" or harm_heavy or harm_kind == "blast":
 			wear *= 2.0
+		if harm_arm == "hand_cannon":
+			wear *= 1.8
 		if harm_kind == "shot":
 			var near_t: Node3D = level.nearest_target(global_position)
 			if near_t and near_t.global_position.distance_to(global_position) < 6.0:

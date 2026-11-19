@@ -14,6 +14,18 @@ const DB := {
 	"fittings_fine": {"name": "Fine Fittings", "kind": "part", "stack": 10, "value": 25, "color": Color(0.45, 0.8, 0.4), "text": "Springs, pins and good steel. At a workbench, rework a gun part into a Fine one."},
 	"fittings_rare": {"name": "Rare Fittings", "kind": "part", "stack": 10, "value": 60, "color": Color(0.4, 0.62, 0.95), "text": "Machined before the fall. At a workbench, rework a gun part into a Rare one."},
 	"fittings_storied": {"name": "Storied Fittings", "kind": "part", "stack": 5, "value": 150, "color": Color(0.95, 0.75, 0.3), "text": "Fittings with a name and a past. At a workbench, rework a gun part into a Storied one."},
+	"fit_kraken": {"name": "Bell-Wound's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Bell-Wound. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deep trait."},
+	"fit_ash": {"name": "Cinder Matron's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Cinder Matron. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Keen trait."},
+	"fit_dunes": {"name": "Sand Choir's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Sand Choir. At a workbench, rework a gun part into a Storied one that bears its name, and always has the True trait."},
+	"fit_salt": {"name": "White Disc's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the White Disc. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Far-reaching trait."},
+	"fit_forest": {"name": "Long Watcher's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Long Watcher. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deadeye trait."},
+	"fit_basalt": {"name": "Basalt Idol's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Basalt Idol. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Steady trait."},
+	"fit_marsh": {"name": "Tar Mother's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Tar Mother. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deep trait."},
+	"fit_quiet": {"name": "Archivist's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Archivist. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Ready trait."},
+	"fit_domes": {"name": "Lantern-Breaker's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Lantern-Breaker. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Swift trait."},
+	"fit_frost": {"name": "Glacier Mother's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Glacier Mother. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Nimble trait."},
+	"fit_sun": {"name": "Dry River's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Dry River. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Far-reaching trait."},
+	"fit_steppe": {"name": "Spine-King's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Spine-King. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Keen trait."},
 	"oil": {"name": "Lamp Oil", "kind": "material", "stack": 20, "value": 6, "color": Color(0.75, 0.55, 0.2), "text": "Drawn from the Well. It burns yellow and smoky."},
 	"bell_ichor": {"name": "Bell-Wound Ichor", "kind": "material", "stack": 10, "value": 60, "color": Color(0.25, 0.5, 0.42), "text": "Green and slow, from the thing in the Kraken-Bell. Rendered with lamp oil, it makes Deep Oil."},
 	"deep_oil": {"name": "Deep Oil", "kind": "quest", "stack": 5, "value": 80, "color": Color(0.35, 0.75, 0.6), "text": "Lamp oil and the Bell-Wound's ichor. A bowl the Mouth has fouled takes it: the key to the sixth fire."},
@@ -26,6 +38,11 @@ const DB := {
 	"coal_frost": {"name": "Frostmark Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.6, 0.8, 1.0), "text": "A coal from the shrine-bowl of the Frostmark. With one from each Far Shore, the ninth bowl will take."},
 	"coal_sun": {"name": "Sunward Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(1.0, 0.55, 0.25), "text": "A coal from the shrine-bowl of the Sunward Reach. With one from each Far Shore, the ninth bowl will take."},
 	"coal_steppe": {"name": "Steppe Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.95, 0.9, 0.7), "text": "A coal from the shrine-bowl of the Pale Steppe. With one from each Far Shore, the ninth bowl will take."},
+	"ice_iron": {"name": "Ice Iron", "kind": "material", "stack": 40, "value": 30, "color": Color(0.62, 0.78, 0.9), "text": "Iron frozen into the Frostmark's stone. Far-forged blades, far plate and the war-pick want it."},
+	"sunglass": {"name": "Sunglass", "kind": "material", "stack": 40, "value": 30, "color": Color(1.0, 0.72, 0.3), "text": "Sand of the Sunward Reach, fused clear by the sun. The carbine's sights are ground from it."},
+	"steppe_horn": {"name": "Steppe Horn", "kind": "material", "stack": 40, "value": 30, "color": Color(0.9, 0.85, 0.7), "text": "Horn of the Pale Steppe's great beasts. Light and hard: hafts, grips and far plate."},
+	"lens_glass": {"name": "Lens Glass", "kind": "material", "stack": 40, "value": 30, "color": Color(0.75, 0.88, 1.0), "text": "Ground glass from the Archive of Quietglass. Far-forged guns want it."},
+	"dome_steel": {"name": "Dome Steel", "kind": "material", "stack": 40, "value": 30, "color": Color(0.5, 0.48, 0.46), "text": "Steel from the Thousand Domes, made before the fall. Far-forged guns and the hand cannon want it."},
 	"beacon_oil": {"name": "Beacon Oil", "kind": "quest", "stack": 5, "value": 40, "color": Color(1.0, 0.95, 0.75), "text": "Oil rendered in the old measure. It burns white, and the night draws back from it."},
 	"raw_meat": {"name": "Raw Meat", "kind": "food", "stack": 10, "value": 3, "color": Color(0.7, 0.28, 0.26), "heal": -4.0, "food": 10.0, "text": "From a hunted beast. Cook it first."},
 	"roast": {"name": "Roast Meat", "kind": "food", "stack": 10, "value": 7, "color": Color(0.5, 0.3, 0.18), "heal": 15.0, "food": 50.0, "meal": {"hp": 20, "mins": 20}, "text": "Cooked over a cooking station. A meal: more health for a while."},
@@ -103,6 +120,11 @@ const DB := {
 	"longboat": {"name": "Longboat", "kind": "boat", "stack": 1, "value": 220, "color": Color(0.3, 0.22, 0.16), "text": "A long boat in pieces, with oars and a mast. Launch it from the shore. Eight can ride."},
 	"sloop": {"name": "Sloop", "kind": "boat", "stack": 1, "value": 120, "color": Color(0.32, 0.24, 0.18), "text": "A small boat with a mast, in pieces. Launch it from the shore. Four can ride, and it runs before the wind."},
 	# Lost books (0.8): found in ruins, read once to teach the whole fellowship something
+	"book_frost": {"name": "The Ice-Smith's Notes", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Glacier Mother. Teaches the Ice-iron War-pick."},
+	"book_sun": {"name": "The Glass-Grinder's Book", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Dry River. Teaches the Sunglass Carbine."},
+	"book_steppe": {"name": "The Horn-Wright's Pattern", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Spine-King. Teaches Far Plate."},
+	"book_domes": {"name": "The Dome Foundry Book", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Lantern-Breaker. Teaches the Dome-steel Hand Cannon."},
+	"book_quiet": {"name": "The Archive of Forging", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Archivist. Teaches the fifth step of work on arms: Far-forged."},
 	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat."},
 	"book_rigging": {"name": "Storm Rigging", "kind": "book", "stack": 1, "value": 40, "color": Color(0.35, 0.45, 0.55), "text": "Knots and sail plans for heavy weather. Your boats run a fifth faster."},
 	"book_furrier": {"name": "The Furrier's Pattern", "kind": "book", "stack": 1, "value": 40, "color": Color(0.5, 0.38, 0.26), "text": "How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood."},
@@ -240,6 +262,7 @@ const MODELS := {
 
 ## The great ones' powers, taken up at a Trophy Shrine (see the waste's take_power).
 const POWERS := {
+	"t_kraken": {"key": "bell", "name": "The Bell's Toll", "text": "Every eighth blow or shot you land rings, and strikes twice as hard."},
 	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},
 	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Forms see you at little more than half the distance."},
 	"t_salt": {"key": "white", "name": "White Breath", "text": "Running, swinging and swimming cost far less breath."},
@@ -264,6 +287,8 @@ const LOOT := {
 }
 
 ## Lost books found in the waste's ruins, in the order they turn up; and the one each isle keeps.
+## The book each far great one leaves the first time it falls in a world.
+const GREAT_BOOKS := {"frost": "book_frost", "sun": "book_sun", "steppe": "book_steppe", "domes": "book_domes", "quiet": "book_quiet"}
 const LAND_BOOKS := ["book_ship", "book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
 const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_kanun", "cog": "book_engine"}
 
@@ -278,7 +303,7 @@ const STOCK := {
 
 
 ## Which ammunition each gun takes.
-const AMMO := {"shotgun": "shells", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel"}
+const AMMO := {"shotgun": "shells", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel", "carbine": "rifle", "hand_cannon": "shells"}
 
 
 static func info(id: String) -> Dictionary:

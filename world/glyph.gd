@@ -241,8 +241,12 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_ln([0.38 + cos(ang) * 0.18, 0.42 + sin(ang) * 0.18], [0.38 + cos(ang) * 0.27, 0.42 + sin(ang) * 0.27], c, 0.08)
 			_ln([0.55, 0.78], [0.85, 0.48], steel, 0.06)
 			_ln([0.6, 0.85], [0.88, 0.62], steel, 0.04)
-		"shotgun", "machine_gun", "lmg", "sniper", "pistol", "pistol9", "revolver", "rocket", "minigun", "flamer":
-			_gun(item)
+		"shotgun", "machine_gun", "lmg", "sniper", "pistol", "pistol9", "revolver", "rocket", "minigun", "flamer", "carbine", "hand_cannon":
+			_gun(ArmsDB.look(item))
+		"war_pick":
+			_ln([0.22, 0.92], [0.68, 0.18], Color(0.88, 0.84, 0.7), 0.08)
+			_poly([[0.5, 0.22], [0.66, 0.16], [0.92, 0.3], [0.7, 0.26], [0.66, 0.34]], Color(0.62, 0.8, 0.95))
+			_poly([[0.56, 0.2], [0.42, 0.06], [0.62, 0.14]], Color(0.62, 0.8, 0.95))
 		"knife":
 			_ln([0.3, 0.82], [0.44, 0.66], wood, 0.1)
 			_poly([[0.42, 0.66], [0.74, 0.28], [0.78, 0.34], [0.48, 0.7]], steel)
@@ -340,6 +344,19 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_dot(0.5, 0.55, 0.3, Color(c, 0.3))
 				_poly([[0.3, 0.6], [0.4, 0.38], [0.6, 0.34], [0.72, 0.52], [0.62, 0.72], [0.4, 0.74]], Color(0.15, 0.12, 0.1))
 				_poly([[0.42, 0.56], [0.48, 0.44], [0.6, 0.44], [0.62, 0.58], [0.5, 0.64]], c)
+			elif item.begins_with("fit_"):
+				# A great one's own fittings: a gear with its mark at the heart
+				_dot(0.42, 0.46, 0.22, c)
+				for i in 6:
+					var ang := i * TAU / 6.0
+					_ln([0.42 + cos(ang) * 0.2, 0.46 + sin(ang) * 0.2], [0.42 + cos(ang) * 0.3, 0.46 + sin(ang) * 0.3], c, 0.09)
+				_dot(0.42, 0.46, 0.09, Color(0.3, 0.12, 0.08))
+				_poly([[0.72, 0.62], [0.8, 0.74], [0.92, 0.76], [0.82, 0.84], [0.84, 0.96], [0.72, 0.88], [0.6, 0.96], [0.62, 0.84], [0.52, 0.76], [0.64, 0.74]], Color(1, 0.92, 0.6))
+			elif item in WArms.FAR_STUFF:
+				# A lump of a far land's stuff: a raw chunk with a bright cut face
+				_poly([[0.16, 0.68], [0.3, 0.3], [0.58, 0.18], [0.84, 0.4], [0.8, 0.74], [0.46, 0.86]], c.darkened(0.35))
+				_poly([[0.3, 0.3], [0.58, 0.18], [0.62, 0.5], [0.36, 0.56]], c)
+				_poly([[0.58, 0.18], [0.84, 0.4], [0.62, 0.5]], c.lightened(0.4))
 			elif item in ["deep_oil", "bell_ichor"]:
 				# A stoppered jar, green-black
 				_box(0.42, 0.14, 0.16, 0.12, wood)
