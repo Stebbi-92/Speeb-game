@@ -55,9 +55,30 @@ func choose(k: String) -> bool:
 	return true
 
 
-## A recipe this pilgrim's hands can make: one without a trade, or of their own.
+## Trade goods anyone may make, at OPEN_MULT the cost without the trade, so a lone pilgrim can always finish the road.
+const OPEN := ["tempered", "clockwork"]
+const OPEN_MULT := 3
+
+## A recipe this pilgrim's hands can make: one without a trade, of their own, or an open trade good.
 func can_make(r: Dictionary) -> bool:
-	return not r.has("trade") or str(r.trade) == trade
+	return not r.has("trade") or str(r.trade) == trade or str(r.id) in OPEN
+
+
+## Whether this pilgrim pays the open price for it (an open trade good, not of their trade).
+func dear(r: Dictionary) -> bool:
+	return r.has("trade") and str(r.trade) != trade and str(r.id) in OPEN
+
+
+## What a recipe costs this pilgrim: their skills first (Thrift), then three times over without the trade.
+## Every menu and every making goes through here.
+func recipe_cost(r: Dictionary) -> Dictionary:
+	var c: Dictionary = w.skills.cost(r.cost)
+	if not dear(r):
+		return c
+	var out := {}
+	for k in c:
+		out[k] = int(c[k]) * OPEN_MULT
+	return out
 
 
 ## Extra made by trade, for a recipe of n: the cook's fire, the tinker's ammunition.

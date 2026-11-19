@@ -2161,7 +2161,7 @@ func _draw_craft() -> void:
 		if not station_shows(r, bench, pot >= 0):
 			continue
 		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire) and w.trades.can_make(r)
-		var ok: bool = here and w.stock_has_all(w.skills.cost(r.cost))
+		var ok: bool = here and w.stock_has_all(w.trades.recipe_cost(r))
 		var grp := _make_group(r)
 		if ok:
 			ready_in[grp] = int(ready_in.get(grp, 0)) + 1
@@ -2197,7 +2197,7 @@ func _draw_craft() -> void:
 		return
 	_rhere = chosen[1]
 	var rr: Dictionary = Items.RECIPES[chosen[0]]
-	var cost2: Dictionary = w.skills.cost(rr.cost)
+	var cost2: Dictionary = w.trades.recipe_cost(rr)
 	var n: int = int(rr.n) + w.skills.make_bonus(rr.id) + w.trades.bonus(rr)
 	side.add_child(_icon(rr.id, 72))
 	side.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 23, PALE))
@@ -2279,14 +2279,14 @@ func _recipe_card(i: int, here: bool, ok: bool) -> PanelContainer:
 	hv.add_child(_label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 17, PALE if here else DIM))
 	var where := "Workbench" if r.bench else ("Cooking station" if r.get("fire", false) else "By hand")
 	if r.has("trade"):
-		where = "%s's work · %s" % [w.trades.tname(r.trade), where]
+		where = "%s's work%s · %s" % [w.trades.tname(r.trade), " (x%d without it)" % WTrades.OPEN_MULT if w.trades.dear(r) else "", where]
 	hv.add_child(_label(where, 13, Color(DIM, 0.85) if here else NO_C))
 	head.add_child(hv)
 	v.add_child(head)
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 10)
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cost: Dictionary = w.skills.cost(r.cost)
+	var cost: Dictionary = w.trades.recipe_cost(r)
 	for k in cost:
 		var have: int = w.stock_count(k)
 		var c := HBoxContainer.new()
@@ -2413,7 +2413,7 @@ func _make(r: Dictionary, times := 1) -> void:
 		return
 	var made := 0
 	for t in times:
-		if not w.stock_pay(w.skills.cost(r.cost)):
+		if not w.stock_pay(w.trades.recipe_cost(r)):
 			break
 		made += 1
 	if made == 0:

@@ -1704,15 +1704,64 @@ func _rq_kindle(by: int, i: int, vm := 1.0) -> void:
 	if i in lit or vigils.has(i):
 		Net.call_peer(by, "_w_give", [[["beacon_oil", 1]]])   # someone was there first: the oil goes back
 		return
-	shared("_w_vigil", [i, (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)])
-	second_front(beacon_nodes[i].pos)
+	var t := (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)
+	vigil_paid[i] = {"by": by, "items": [["beacon_oil", 1]]}
+	if second_front(beacon_nodes[i].pos, false, i) != null:
+		t = maxf(t, FRONT_VIGIL)   # both halves need time: the defenders to ride back, the bowl to hold
+	shared("_w_vigil", [i, t])
 
 
-const FRONT_AT := 5   ## pilgrims in the fellowship before a vigil opens a second front
+const FRONT_AT := 5
+const FRONT_VIGIL := 240.0   ## a vigil with a second front lasts at least this long
+const FRONT_CAP := 480.0     ## and a front is held after this long whatever is left of it
+var fronts := {}             ## host: vigil (beacon) -> {at, t, want, came, fought}
+var vigil_paid := {}         ## host: vigil (beacon) -> {by, items}: given back if the flame gutters
+
+## Host: which pilgrim a target is (the host's own player, or a friend's avatar).
+func pid_of(t: Node3D) -> int:
+	if t == player:
+		return Net.me()
+	for id in avatars:
+		if avatars[id] == t:
+			return int(id)
+	return 0
+
+
+## Host: a front is held once its raid has all come and no raider stands in the camp's ground, or at the cap.
+func _front_held(i: int) -> bool:
+	if not fronts.has(i):
+		return true
+	var f: Dictionary = fronts[i]
+	if float(f.t) >= FRONT_CAP:
+		return true
+	if int(f.came) < int(f.want):
+		return false
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.has_meta("raid") and e.global_position.distance_to(f.at) < BASE_SAFE + 30.0:
+			return false
+	return true
+
+
+## Host: those in the camp's ground while its front is fought share in the beacon's credit.
+func _front_tick(i: int, delta: float) -> void:
+	if not fronts.has(i):
+		return
+	var f: Dictionary = fronts[i]
+	f.t = float(f.t) + delta
+	if _front_held(i):
+		if not f.get("held", false):
+			f.held = true
+			shared("_w_note", ["The camp is held. Back to the beacon."])
+		return
+	for t in targets():
+		if t.global_position.distance_to(f.at) < BASE_SAFE + 30.0:
+			var id := pid_of(t)
+			if id != 0:
+				f.fought[id] = true   ## pilgrims in the fellowship before a vigil opens a second front
 
 ## A fellowship of five or more is big enough to split: while the vigil burns, the forms fall on the
 ## camp nearest it as well, so some must ride back to hold it. Returns the camp's place, or null.
-func second_front(vigil_at: Vector3, force := false):
+func second_front(vigil_at: Vector3, force := false, vi := -1):
 	if not Net.authority() or (Net.pilgrims().size() < FRONT_AT and not force):
 		return null
 	var best := -1
@@ -1731,9 +1780,14 @@ func second_front(vigil_at: Vector3, force := false):
 	raiding[best] = 120.0
 	shared("_w_front", [c])
 	var roster: Array = forms_at(c)
-	for k in WCrowd.scale(self, 6 + mini(nights, 6)):
+	var want: int = WCrowd.scale(self, 6 + mini(nights, 6))
+	var f := {"at": c, "t": 0.0, "want": want, "came": 0, "fought": {}}
+	if vi >= 0:
+		fronts[vi] = f
+	for k in want:
 		get_tree().create_timer(randf_range(8.0, 40.0), false).timeout.connect(func():
 			if is_instance_valid(self):
+				f.came = int(f.came) + 1
 				var e = _spawn_near(roster[randi() % roster.size()], c, BASE_SAFE - 12.0, BASE_SAFE + 6.0, true)
 				if e:
 					e.set_meta("raid", true))
@@ -1761,7 +1815,8 @@ func _w_vigil(i: int, t: float) -> void:
 		hud.say("The ninth flame takes, and the ground beneath it groans. Something is climbing out of the mouth to put it out.", 7.0)
 
 
-func _w_vigil_end(i: int, ok: bool) -> void:
+## who: the pilgrims the host credits (near the bowl as it caught, or fought at its front); null for the old reckoning.
+func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 	vigils.erase(i)
 	if ok:
 		award("beacon")
@@ -1778,13 +1833,13 @@ func _w_vigil_end(i: int, ok: bool) -> void:
 		quests.on_event("lit", {"beacon": i})
 		if Net.authority():
 			_clear_near(b.pos, WPlaces.BEACON_SAFE)
-		_beacon_payoff(i)
+		_beacon_payoff(i, who)
 		if lit.size() >= TURN_AT and not flags.has("turned"):
 			get_tree().create_timer(9.0, false).timeout.connect(_the_turn)
 	else:
 		b.flame.visible = false
 		b.light.light_energy = 0.0
-		hud.notify("The flame at %s guttered out. The oil is spent." % WPlaces.BEACONS[i].name)
+		hud.notify("The flame at %s guttered out. What was poured goes back to the one who poured it." % WPlaces.BEACONS[i].name)
 	_beacon_prompt(i)
 
 
@@ -1829,13 +1884,13 @@ func _turn_marks() -> void:
 ## to the next dark beacon shown on the map.
 const BEACON_GIFT := [["tempered", 1], ["clockwork", 1], ["fittings_fine", 2], ["salt", 40]]
 
-func _beacon_payoff(i: int) -> void:
+func _beacon_payoff(i: int, who = null) -> void:
 	if Net.dedicated or _pfail:
 		return
 	var n := lit.size()
 	# World credit and personal credit: the beacon burns for everyone, but its boon and full gift
 	# are for those who stood near when it caught
-	var there: bool = player.global_position.distance_to(beacon_nodes[i].pos) < BEACON_THERE
+	var there: bool = (Net.me() in (who as Array)) if who is Array else player.global_position.distance_to(beacon_nodes[i].pos) < BEACON_THERE
 	var gift: Array = []
 	for g in BEACON_GIFT:
 		gift.append([g[0], maxi(1, int(int(g[1]) * (1 + n / 3) * (2 if WRules.sworn("vow_tithe") else 1) * (1.0 if there else 0.5)))])
@@ -1918,8 +1973,10 @@ func _rq_ember_kindle(by: int, i: int) -> void:
 	if not Net.authority() or by != ember_by or i in lit or vigils.has(i):
 		return
 	shared("_w_ember_end", [true])
-	shared("_w_vigil", [i, EMBER_VIGIL])
-	second_front(beacon_nodes[i].pos)
+	var t := EMBER_VIGIL
+	if second_front(beacon_nodes[i].pos, false, i) != null:
+		t = FRONT_VIGIL
+	shared("_w_vigil", [i, t])
 
 
 func _w_ember_end(delivered: bool) -> void:
@@ -3524,7 +3581,8 @@ func _vigil_tick(delta: float) -> void:
 			if t.global_position.distance_to(b.pos) < 50.0:
 				near = true
 		if not near:
-			vigils[i] -= delta * 4.0
+			vigils[i] -= delta * 4.0   # with no keeper at the bowl it burns down fast
+		_front_tick(i, delta)
 		b.flame.scale = Vector3.ONE * clampf(1.0 - vigils[i] / 150.0, 0.3, 1.0)
 		_vigil_t -= delta
 		if _vigil_t <= 0.0 and alive_count() < WCrowd.scale(self, 9):
@@ -3535,7 +3593,22 @@ func _vigil_tick(delta: float) -> void:
 			if i == 8 and randf() < 0.35:
 				_spawn_near("elite", b.pos, 30.0, 40.0)
 		if vigils[i] <= 0.0:
-			shared("_w_vigil_end", [i, near])
+			if near and not _front_held(i):
+				vigils[i] = 0.0   # the bowl holds, and waits for the camp
+				continue
+			# Credit: everyone near the bowl as it catches, and everyone who fought at its front
+			var who := {}
+			for t in targets():
+				if t.global_position.distance_to(b.pos) < BEACON_THERE:
+					who[pid_of(t)] = true
+			if fronts.has(i):
+				who.merge(fronts[i].fought)
+				fronts.erase(i)
+			var paid: Dictionary = vigil_paid.get(i, {})
+			vigil_paid.erase(i)
+			if not near and not paid.is_empty():
+				Net.call_peer(int(paid.by), "_w_give", [paid.items])   # nothing on the road is lost for good
+			shared("_w_vigil_end", [i, near, who.keys()])
 
 
 # ------------------------------------------------------------------ ruins
@@ -3809,8 +3882,70 @@ func _rq_ending(by: int, kind: String) -> void:
 		return
 	if not kind in ["writer", "unlit", "pilgrim"]:
 		kind = "keeper"
+	# A vote: everyone at the page chooses; the hall waits a minute for those still on the stair
+	if end_votes.is_empty():
+		end_t = END_WAIT
+		_end_first = by
+	end_votes[by] = kind
+	var all_in := Net.pilgrims().all(func(id): return end_votes.has(int(id))) if Net.online else true
+	if all_in or (Net.online and Net.pilgrims().size() <= 1):
+		_end_settle()
+	else:
+		shared("_w_end_votes", [end_votes.duplicate(), end_t])
+
+
+const END_WAIT := 60.0
+var end_votes := {}     ## host: pilgrim -> the ending they chose at the page
+var end_t := -1.0
+var _end_first := 0
+
+
+## Host: the page answers the most votes; a tie goes to the host (or, with no host at the page, the first to choose).
+func _end_settle() -> void:
+	var q: Dictionary = quests.quests.get("story_ferryway", {})
+	if end_votes.is_empty() or flags.has("ending") or q.is_empty():
+		end_votes.clear()
+		end_t = -1.0
+		return
+	var breaker: int = Net.me() if end_votes.has(Net.me()) and not Net.dedicated else _end_first
+	var kind := end_tally(end_votes, breaker)
+	var by: int = breaker if end_votes.get(breaker, "") == kind else end_votes.keys().filter(func(id): return end_votes[id] == kind)[0]
+	end_votes.clear()
+	end_t = -1.0
 	shared("_w_ending", [kind, by])
 	quests.advance(q.id, int(q.stage))
+
+
+## The most votes win; a tie goes to the breaker's choice, if theirs is among the tied.
+static func end_tally(votes: Dictionary, breaker: int) -> String:
+	var count := {}
+	for id in votes:
+		count[votes[id]] = int(count.get(votes[id], 0)) + 1
+	var top := 0
+	for k in count:
+		top = maxi(top, int(count[k]))
+	var tied: Array = count.keys().filter(func(k): return int(count[k]) == top)
+	tied.sort()
+	if tied.size() > 1 and votes.has(breaker) and votes[breaker] in tied:
+		return votes[breaker]
+	return tied[0]
+
+
+func _end_vote_tick(delta: float) -> void:
+	if end_t < 0.0:
+		return
+	end_t -= delta
+	if end_t <= 0.0:
+		_end_settle()
+
+
+func _w_end_votes(votes: Dictionary, left: float) -> void:
+	if Net.dedicated:
+		return
+	var names: Array = []
+	for id in votes:
+		names.append("%s: %s" % [Net.name_of(int(id)), ENDINGS.get(votes[id], ENDINGS.keeper)[0]])
+	hud.notify("At the page. %s. The hall waits %d seconds for the rest." % [", ".join(names), int(left)])
 
 
 const ENDINGS := {
@@ -5090,6 +5225,7 @@ func _sea_tick(delta: float) -> void:
 
 
 func _world_tick(delta: float) -> void:
+	_end_vote_tick(delta)
 	_sync_t -= delta
 	if _sync_t <= 0.0 and Net.online:
 		_sync_t = 10.0
@@ -7996,8 +8132,16 @@ func debug_credit() -> void:
 	s0 = inv.count(BEACON_GIFT[0][0])
 	_beacon_payoff(3)
 	var near_gift := inv.count(BEACON_GIFT[0][0]) - s0
+	var near_ok: bool = 3 in kindled and not skills.boon_offer.is_empty()
+	# Far from the bowl, but named by the host (fought at its front): the full gift and the boon
+	skills.boon_offer.clear()
+	lit.append(4)
+	player.global_position = beacon_nodes[4].pos + Vector3(900, 0, 0)
+	s0 = inv.count(BEACON_GIFT[0][0])
+	_beacon_payoff(4, [Net.me()])
+	var named: bool = 4 in kindled and not skills.boon_offer.is_empty() and inv.count(BEACON_GIFT[0][0]) - s0 >= near_gift
 	var back := char_data()
-	print("CREDIT far_half=%s far_boon=%s far_credit=%s vigil=%s near=%s saved=%s" % [far_gift * 2 <= near_gift + 1 and far_gift > 0, far_boon, far_credit, vigil, 3 in kindled and not skills.boon_offer.is_empty(), back.kindled.has(2) and back.kindled.has(3)])
+	print("CREDIT far_half=%s far_boon=%s far_credit=%s vigil=%s near=%s saved=%s named=%s" % [far_gift * 2 <= near_gift + 1 and far_gift > 0, far_boon, far_credit, vigil, near_ok, back.kindled.has(2) and back.kindled.has(3), named])
 	get_tree().quit()
 
 
@@ -9124,14 +9268,22 @@ func debug_front() -> void:
 	_w_piece(piece_next, "campfire", nc, 0.0, 100.0)
 	_w_piece(piece_next, "campfire", fc, 0.0, 100.0)
 	var few = second_front(b)
-	var at = second_front(b, true)
+	var at = second_front(b, true, 0)
 	var right: bool = at != null and (at as Vector3).distance_to(fc) < 20.0
 	player.max_health = 100000.0
 	player.health = 100000.0
 	player.place(fc + Vector3(3, 1, 0), 0.0)
 	await get_tree().create_timer(42.0).timeout
 	var raiders := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("raid") and e.global_position.distance_to(fc) < 80.0).size()
-	print("FRONT few=%s right=%s raiders=%s" % [few == null, right, raiders > 0])
+	_front_tick(0, 1.0)
+	var fought: bool = fronts.has(0) and fronts[0].fought.has(Net.me())
+	var open_while: bool = not _front_held(0)
+	for e in enemies.duplicate():
+		if is_instance_valid(e) and e.has_meta("raid"):
+			e.die(false)
+	await get_tree().process_frame
+	var held := _front_held(0)
+	print("FRONT few=%s right=%s raiders=%s fought=%s open=%s held=%s" % [few == null, right, raiders > 0, fought, open_while, held])
 	get_tree().quit()
 
 
@@ -10674,7 +10826,8 @@ func debug_ending() -> void:
 	print("ENDING sealed=%d offered=%s barred=%s stair=%s down=%s crossed=%s dark=%s held=%s killed=%d leaf7=%s nowriter=%s ending=%s done=%s" % [sealed, offered, barred, at_stair, down, crossed, dark, held, killed, leaf7, barred_writer, flags.get("ending", ""), flags.has("done_ferryway")])
 	hall.go_up()
 	await get_tree().create_timer(0.5).timeout
-	print("ENDING up=%s" % [not hall.inside(player.global_position)])
+	var tally := [end_tally({2: "writer", 3: "writer", 1: "keeper"}, 1), end_tally({2: "writer", 1: "keeper"}, 1), end_tally({2: "unlit", 3: "pilgrim"}, 3)]
+	print("ENDING up=%s vote=%s" % [not hall.inside(player.global_position), ",".join(tally)])
 	get_tree().quit()
 
 ## Testing aid: a far shot takes time to land, and still lands, and a moving foe would have walked on.

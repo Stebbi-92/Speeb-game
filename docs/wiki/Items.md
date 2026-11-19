@@ -54,8 +54,8 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 | **Lamp Oil** | 20 | 6 | Drawn from the Well. It burns yellow and smoky. |
 | **Hide** | 20 | 3 | A beast's skin. Cuts into cloth. |
 | **Torch** | 20 | 2 | Pitch-soaked wood. Makes a torch. |
-| **Tempered Steel** | 30 | 12 | Only a smith can make it. The best blades and plate need it. |
-| **Clockwork** | 30 | 12 | Only a tinker can make it. The great guns and the finer fittings need it. |
+| **Tempered Steel** | 30 | 12 | A smith makes it cheaply; anyone else pays three times over. The best blades and plate need it. |
+| **Clockwork** | 30 | 12 | A tinker makes it cheaply; anyone else pays three times over. The great guns and the finer fittings need it. |
 | **Red Iron** | 40 | 6 | Caravan iron, rusted red through. Found in the scrap of the Rust Dunes. |
 | **Heartwood** | 40 | 6 | The dark core of a tree of the Dead Forest. It does not rot. |
 | **Salt Crystal** | 40 | 9 | Clear salt from deep in the Salt Flats. |

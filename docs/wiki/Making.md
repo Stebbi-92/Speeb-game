@@ -41,8 +41,8 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 
 | Makes | From | Note |
 |---|---|---|
-| 1 Tempered Steel | 4 Scrap Iron, 1 Red Iron |  |
-| 1 Clockwork | 3 Scrap Iron, 1 Lamp Oil, 1 Salt Crystal |  |
+| 1 Tempered Steel | 4 Scrap Iron, 1 Red Iron | A smith's work; anyone else pays three times the cost |
+| 1 Clockwork | 3 Scrap Iron, 1 Lamp Oil, 1 Salt Crystal | A tinker's work; anyone else pays three times the cost |
 | 24 Shotgun Shells | 3 Scrap Iron, 8 Salt |  |
 | 60 Pistol Rounds | 3 Scrap Iron, 8 Salt |  |
 | 80 Rifle Rounds | 4 Scrap Iron, 10 Salt |  |
