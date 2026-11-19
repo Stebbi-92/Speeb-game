@@ -114,6 +114,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 - `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
 - Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the beacon bell, the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- The music (`assets/music`: dawn, night, the seventh night, the beacon's swell, towns, the sea and the great ones) is made in code (`tools/make_music.py`) for now, until free recordings take its place.
 
 ## Engine
 

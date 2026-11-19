@@ -73,6 +73,7 @@ const MAX_MARKS := 16
 var people := {}
 var settle_nodes := {}
 var beacon_nodes: Array = []
+var music: WMusic = null       ## the one music director
 var lairs: Array = []           ## one to a land: {id, land, boss, name, pos}
 var _lair_boss := {}            ## lair id -> the great one now awake there
 const LAIR_RETURN_DAYS := 3
@@ -1833,6 +1834,8 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 	vigils.erase(i)
 	if ok:
 		award("beacon")
+		if music:
+			music.beacon_swell()
 	var b: Dictionary = beacon_nodes[i]
 	if ok:
 		var most0 := most_lit()
@@ -6705,11 +6708,12 @@ func _combat_tick(delta: float) -> void:
 		hud.set_health(player.health / player.max_health, true)
 	enemies = enemies.filter(func(e): return is_instance_valid(e))
 	if _music:
-		var near := 0
-		for e in enemies:
-			if e.global_position.distance_to(player.global_position) < 26.0:
-				near += 1
-		_music.volume_db = move_toward(_music.volume_db, -10.0 if near > 0 else -60.0, delta * (30.0 if near > 0 else 8.0))
+		# The waste's music director plays the fight loop in its place
+		_music.queue_free()
+		_music = null
+	if music == null and not Net.dedicated:
+		music = WMusic.new(self)
+		add_child(music)
 
 
 ## Spikes bite whatever presses against them.
@@ -13794,6 +13798,35 @@ func debug_stages() -> void:
 	for k in STAGES:
 		flags.erase("stage_" + k)
 	print("STAGES none=%s hid=%s once=%s caught=%s" % [none, hid, once, caught])
+	get_tree().quit()
+
+
+## Testing aid: one music director in the waste, on its own Music line. Night asks for the night
+## piece, a town for the town's, a great one near for its loop; a beacon's swell plays over all.
+func debug_music() -> void:
+	while not ready_world or music == null:
+		await get_tree().create_timer(1.0).timeout
+	var all := true
+	for k in WMusic.PIECES:
+		all = all and WMusic.stream_of(k) != null
+	var bus := AudioServer.get_bus_index("Music") >= 0
+	player.global_position = gpos(WPlaces.spos("cinderwick")) + Vector3(150, 1, 0)
+	await get_tree().create_timer(0.2).timeout
+	var n0 := night
+	night = true
+	var at_night := music.want()
+	night = n0
+	player.global_position = gpos(WPlaces.spos("cinderwick")) + Vector3(0, 1, 0)
+	await get_tree().create_timer(0.2).timeout
+	var in_town := music.want()
+	var e := spawn_at("rusher", player.global_position + Vector3(6, 0.5, 0))
+	e.boss = "test"
+	var great := music.want()
+	e.boss = ""
+	e.die(false)
+	music.beacon_swell()
+	await get_tree().create_timer(1.5).timeout
+	print("MUSIC all=%s bus=%s night=%s town=%s great=%s swell=%s old_loop=%s" % [all, bus, at_night, in_town, great, music.now == "swell", _music == null])
 	get_tree().quit()
 
 

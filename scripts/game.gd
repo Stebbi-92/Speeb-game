@@ -38,8 +38,8 @@ var sensitivity := 0.0025
 var aim_sens := 1.0   ## looking while aiming, against what the zoom alone would give (1 = the same feel at every zoom)
 var volume := 0.8
 ## The mixer: each kind of sound on its own line, with its own volume.
-const BUSES := ["Guns", "Creatures", "World", "Interface"]
-var bus_vol := {"Guns": 1.0, "Creatures": 1.0, "World": 1.0, "Interface": 1.0}
+const BUSES := ["Guns", "Creatures", "World", "Interface", "Music"]
+var bus_vol := {"Guns": 1.0, "Creatures": 1.0, "World": 1.0, "Interface": 1.0, "Music": 0.8}
 var difficulty := 1
 var judgments := {}
 var relics := {}
@@ -579,7 +579,7 @@ func load_save() -> void:
 		var bv = d.get("bus_vol", {})
 		if bv is Dictionary:
 			for k in BUSES:
-				bus_vol[k] = clampf(float(bv.get(k, 1.0)), 0.0, 1.0)
+				bus_vol[k] = clampf(float(bv.get(k, bus_vol[k])), 0.0, 1.0)
 		difficulty = clampi(int(d.get("difficulty", difficulty)), 0, 2)
 		judgments = d.get("judgments", {}) if d.get("judgments", {}) is Dictionary else {}
 		for r in d.get("relics", []):
