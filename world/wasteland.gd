@@ -1945,6 +1945,109 @@ func near_bearer(p: Vector3) -> bool:
 
 
 ## Survey (the second fire): from a high place, ruins and lairs within sight go on the map.
+var _renown_t := 0.0
+var _renown_sent := -1
+var _hall_t := 0.0
+var _hall_keys := {}   ## the powers the trophy halls about you give, key -> true
+
+
+# ------------------------------------------------------------------ the trophy hall
+
+## Up to three trophies hang in a hall (five with renown), one of each kind; each gives a third of its
+## power to anyone at that base. Never both: a pilgrim who takes up the power at the shrine has that
+## instead (the stronger), not the two together. Gilded Skin and the Watcher's Eye are weaker still here.
+const HALL_REACH := 60.0
+const HALL_K := {"eye": 0.25, "gilt": 0.25}
+const HALL_FORMS := {
+	"ember": "The frost bites less: a coat is warm enough.",
+	"hush": "Forms see you a little less far.",
+	"white": "Running and swinging cost a sixth less breath.",
+	"eye": "Your blows strike a twentieth harder.",
+	"gilt": "Blows on you are a twentieth lighter.",
+	"tar": "You drown more slowly.",
+	"lens": "Forms within 20 m show on your compass.",
+	"hook": "The dread rises a third more slowly.",
+	"rime": "A third of your blows freeze lesser forms a moment.",
+	"dry": "Heat harms you half as much.",
+	"horn": "Your cat tires a third more slowly.",
+	"bell": "Every twenty-fourth blow you land rings, twice as hard.",
+}
+
+## The powers the halls near a point give, as key -> true.
+func halls_here(p: Vector3) -> Dictionary:
+	var out := {}
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind != "trophy_hall" or pc.pos.distance_to(p) > HALL_REACH:
+			continue
+		for t in pc.get("hung", []):
+			if POWERS.has(t):
+				out[str(POWERS[t].key)] = true
+	return out
+
+
+## How strongly a power works on this pilgrim: 1 with it taken up at the shrine, a third (or less) from a
+## hall nearby, else 0. The stronger, never the sum.
+func power_k(k: String) -> float:
+	if power_is(k):
+		return 1.0
+	return float(HALL_K.get(k, 1.0 / 3.0)) if _hall_keys.has(k) else 0.0
+
+
+## A pilgrim hangs a trophy from their pack (on), or takes one down into it.
+func hang_trophy(pid: int, t: String, on: bool) -> void:
+	if on:
+		if inv.take(t, 1) < 1:
+			return
+	shared("_rq_hang", [Net.me(), pid, t, on, skills.hall_places()])
+
+
+func _rq_hang(by: int, pid: int, t: String, on: bool, places: int) -> void:
+	if not Net.authority():
+		return
+	var pc: Dictionary = pieces.get(pid, {})
+	if pc.is_empty() or pc.kind != "trophy_hall" or not POWERS.has(t):
+		if on:
+			Net.call_peer(by, "_w_give", [[[t, 1]]])
+		return
+	var hung: Array = pc.get("hung", []).duplicate()
+	if on:
+		if t in hung or hung.size() >= clampi(places, 3, 5):
+			Net.call_peer(by, "_w_give", [[[t, 1]]])   # one of each, and only so many places
+			return
+		hung.append(t)
+	else:
+		if not t in hung:
+			return
+		hung.erase(t)
+		Net.call_peer(by, "_w_give", [[[t, 1]]])
+	shared("_w_hang", [pid, hung])
+
+
+func _w_hang(pid: int, hung: Array) -> void:
+	if not pieces.has(pid):
+		return
+	pieces[pid]["hung"] = hung.duplicate()
+	var n: Node3D = pieces[pid].node
+	if is_instance_valid(n) and n.has_meta("marks"):
+		var marks: Array = n.get_meta("marks")
+		for i in marks.size():
+			var g: MeshInstance3D = marks[i]
+			g.visible = i < hung.size()
+			if g.visible:
+				var gm := StandardMaterial3D.new()
+				gm.albedo_color = Items.info(hung[i]).color
+				gm.emission_enabled = true
+				gm.emission = Items.info(hung[i]).color
+				gm.emission_energy_multiplier = 0.6
+				g.material_override = gm
+		(n.get_meta("light") as OmniLight3D).light_energy = 0.8 if not hung.is_empty() else 0.0
+	_hall_keys = halls_here(player.global_position) if player else {}
+	if is_instance_valid(ui):
+		ui.planter_changed(pid)
+	autosave_soon(3.0)
+
+
 var _survey_t := 0.0
 var _surveyed := {}
 var _books_checked := false
@@ -1956,6 +2059,16 @@ func _verbs_tick(delta: float) -> void:
 		if rally_burst <= 0.0:
 			_apply_skills()
 	_rally_cd = maxf(0.0, _rally_cd - delta)
+	_renown_t -= delta
+	if _renown_t <= 0.0 or _renown_sent != skills.renown:
+		_renown_t = 30.0   # now and then, for those who joined since
+		_renown_sent = skills.renown
+		if Net.online:
+			shared("_w_renown", [Net.me(), skills.renown])
+	_hall_t -= delta
+	if _hall_t <= 0.0:
+		_hall_t = 1.0
+		_hall_keys = halls_here(player.global_position)
 	if ready_world and not _books_checked:
 		_books_checked = true
 		_verb_books()   # a world lit before the books came with the fires
@@ -2965,6 +3078,8 @@ func _land_tick(delta: float) -> void:
 			if _land_t <= 0.0:
 				_land_t = 5.0
 				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0, "frost": 4.0, "sun": 3.0}[bn] as float
+				if bn in ["sun", "basalt"]:
+					loss *= 1.0 - 0.5 * power_k("dry")
 				if bn == "frost" and near_fire(player.global_position):
 					return   # a fire keeps the cold off
 				player.health = maxf(1.0, player.health - loss)
@@ -5644,12 +5759,12 @@ func _serpent_watch() -> void:
 func _sea_tick(delta: float) -> void:
 	var p := player.global_position
 	player.water_y = sea.surface(p.x, p.z) if terrain.is_water(p.x, p.z, 1.0) else -INF
-	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated and not power_is("tar"):
+	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated and power_k("tar") < 1.0:
 		_drown_t -= delta
 		if _drown_t <= 0.0:
 			_drown_t = 1.0
 			hud.notify("You are drowning. Get to shore.")
-		player.health = maxf(1.0, player.health - 7.0 * delta)
+		player.health = maxf(1.0, player.health - 7.0 * delta * (1.0 - 0.5 * power_k("tar")))
 		hud.set_health(player.health / player.max_health, true)
 		_regen_wait = maxf(_regen_wait, 3.0)
 		if player.health <= 1.0:
@@ -6032,7 +6147,7 @@ func _apply_skills() -> void:
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
 	player.weapon.reserve_max = skills.reserve_max()
-	player.weapon.damage_mult = skills.damage_mult() * (1.2 if power_is("eye") else 1.0) * (alchemy.damage_mult() if alchemy else 1.0)
+	player.weapon.damage_mult = skills.damage_mult() * (1.0 + 0.2 * power_k("eye")) * (alchemy.damage_mult() if alchemy else 1.0)
 	player.weapon.reload_mult = skills.reload_mult()
 	inv.grow(skills.pack_size())
 	if not Net.dedicated:
@@ -6951,8 +7066,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	if WRules.sworn("vow_glass"):
 		amount *= 1.5
 	amount *= TIER_HARM[tier_at(from) - 1] * (1.25 if flags.has("second_vow") else 1.0)
-	if power_is("gilt"):
-		amount *= 0.8
+	amount *= 1.0 - 0.2 * power_k("gilt")
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled and not lethal:
 		# The blade is raised: a blow from the front is turned, and it costs breath
@@ -7426,7 +7540,7 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0), "owner": pc.get("owner", "")}]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0), "owner": pc.get("owner", ""), "hung": pc.get("hung", [])}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
@@ -7478,6 +7592,8 @@ func apply_world(d: Dictionary) -> void:
 			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
 			if str(p[5].get("owner", "")) != "":
 				_w_bed_owner(int(pid), str(p[5].owner), true)
+			if p[5].get("hung") is Array and not p[5].hung.is_empty():
+				_w_hang(int(pid), p[5].hung.filter(func(t): return POWERS.has(str(t))))
 		# Fires laid before they burned wood start with a full three days
 		if str(p[0]) in FIRE_KINDS:
 			var f := float(p[5].get("fuel", -1.0)) if p.size() > 5 and p[5] is Dictionary else -1.0
@@ -12919,6 +13035,59 @@ func debug_danger5() -> void:
 	var b := spawn_at("boss_frost", shore + Vector3(5, 2, 0))
 	var boss_ok: bool = b != null and b.max_hp < float(LesserSpeeb.BOSSES.boss_frost.get("hp", b.max_hp)) * TIER_HP[4] * 0.99
 	print("DANGER5 before=%d after=%d waste_max=%d foe=%s boss=%s lists=%s" % [before, after, waste_max, foe_ok, boss_ok, TIER_HP.size() == 5 and TIER_HARM.size() == 5 and WDread.TIER_RATE.size() == 5 and WSpirits.TIER_BITE.size() == 5])
+	get_tree().quit()
+
+
+## Testing aid: the trophy hall (a third of a power at the base, never summed with the shrine's) and renown.
+func debug_hall() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(5, 0, 0)
+	builder._rq_build(1, "trophy_hall", at, 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var hp := -1
+	for pid in pieces:
+		if pieces[pid].kind == "trophy_hall":
+			hp = pid
+	for t in ["t_forest", "t_basalt", "t_salt", "t_dunes"]:
+		inv.add(t, 2)
+	power = ""
+	power_left = 0.0
+	hang_trophy(hp, "t_forest", true)
+	hang_trophy(hp, "t_forest", true)   # one of each
+	hang_trophy(hp, "t_basalt", true)
+	hang_trophy(hp, "t_salt", true)
+	hang_trophy(hp, "t_dunes", true)    # a fourth: no place for it
+	await get_tree().create_timer(0.3).timeout
+	var hung: Array = pieces[hp].get("hung", [])
+	_hall_keys = halls_here(player.global_position)
+	var eye_hall := power_k("eye")
+	var saved: bool = world_data().pieces[hp][5].hung.size() == 3
+	flags["shrine_t_forest"] = true
+	take_power("t_forest")
+	var eye_full := power_k("eye")
+	power = ""
+	power_left = 0.0
+	var far_off := halls_here(player.global_position + Vector3(500, 0, 0)).is_empty()
+	var back_in_pack: int = inv.count("t_forest")
+	hang_trophy(hp, "t_salt", false)
+	await get_tree().create_timer(0.3).timeout
+	var down: bool = not "t_salt" in pieces[hp].hung and inv.count("t_salt") == 2
+	# Renown
+	var sk := WSkills.new()
+	sk.level = WSkills.MAX_LEVEL
+	sk.ranks = {"hardy": 2}
+	sk.gain(9500)
+	var step: bool = sk.renown == 1 and sk.renown_picks == 1
+	var placed: bool = sk.take_reward("hall") and sk.hall_places() == 4 and not sk.take_reward("hall")
+	sk.gain(9000)
+	var points0 := sk.points
+	var respec: bool = sk.take_reward("respec") and sk.ranks.is_empty() and sk.points == points0 + 2
+	var back := WSkills.new()
+	back.from_data(sk.to_data())
+	var kept: bool = back.renown == 2 and back.rewards.size() == 2
+	print("HALL hung=%d eye_hall=%.2f eye_full=%.2f far=%s saved=%s kept_one=%d down=%s" % [hung.size(), eye_hall, eye_full, far_off, saved, back_in_pack, down])
+	print("RENOWN step=%s placed=%s respec=%s kept=%s" % [step, placed, respec, kept])
 	get_tree().quit()
 
 

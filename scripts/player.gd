@@ -299,7 +299,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_pressed("soft") and not input_locked:
 			velocity.y = -2.5
 		if not _power("tar"):
-			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (0.5 if _power("white") else 1.0) * (0.5 if _boon("deep_diver") else 1.0))
+			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (1.0 - 0.5 * _power_k("white")) * (0.5 if _boon("deep_diver") else 1.0))
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -376,8 +376,7 @@ func _blessings(delta: float, dir: Vector3) -> void:
 func spend(n: float) -> bool:
 	if not Game.wasteland:
 		return true
-	if _power("white"):
-		n *= 0.5
+	n *= 1.0 - 0.5 * _power_k("white")
 	if winded or stamina < n * 0.5:
 		if Game.main and Game.main.hud and Time.get_ticks_msec() - _breath_note > 3000:
 			_breath_note = Time.get_ticks_msec()
@@ -394,7 +393,7 @@ func _stamina_tick(delta: float, running: bool) -> void:
 	if not Game.wasteland:
 		return
 	if running and is_on_floor():
-		stamina = maxf(0.0, stamina - 14.0 * delta * (0.5 if _power("white") else 1.0))
+		stamina = maxf(0.0, stamina - 14.0 * delta * (1.0 - 0.5 * _power_k("white")))
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -472,6 +471,11 @@ func _update_target(delta: float) -> void:
 func _boon(k: String) -> bool:
 	var sk = get_parent().get("skills") if get_parent() else null
 	return sk != null and sk.has_method("has_boon") and sk.has_boon(k)
+
+
+func _power_k(k: String) -> float:
+	var lvl = get_parent()
+	return lvl.power_k(k) if lvl != null and lvl.has_method("power_k") else 0.0
 
 
 func _power(k: String) -> bool:

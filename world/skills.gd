@@ -130,8 +130,63 @@ func learn(id: String) -> bool:
 
 
 ## Adds experience. Returns how many levels were gained.
+## Renown: past the last level, experience fills a bar of renown instead (about 9,000 a step).
+## Each step gives one reward to choose: a re-spec, a cosmetic, or a place in a trophy hall.
+const RENOWN_STEP := 9000
+const RENOWN_REWARDS := {
+	"respec": {"name": "A fresh start", "text": "Unlearn every skill and have all the points back to spend again."},
+	"barding": {"name": "Barding of Renown", "text": "Red and gold barding for your cat."},
+	"hall": {"name": "A trophy place", "text": "One more trophy may hang in the halls you tend (up to five)."},
+}
+var renown := 0
+var renown_xp := 0
+var renown_picks := 0      ## renown steps not yet turned into a reward
+var rewards: Array = []    ## the rewards chosen ("hall" may be taken twice)
+
+
+func has_reward(r: String) -> bool:
+	return r in rewards
+
+
+## How many trophies may hang in a hall this survivor tends: three, and up to five with renown.
+func hall_places() -> int:
+	return 3 + mini(2, rewards.count("hall"))
+
+
+func take_reward(r: String) -> bool:
+	if renown_picks <= 0 or not RENOWN_REWARDS.has(r):
+		return false
+	if r == "barding" and has_reward("barding"):
+		return false
+	if r == "hall" and rewards.count("hall") >= 2:
+		return false
+	renown_picks -= 1
+	rewards.append(r)
+	if r == "respec":
+		respec()
+	changed.emit()
+	return true
+
+
+## Every skill unlearned; the points come back.
+func respec() -> void:
+	var n := 0
+	for k in ranks:
+		n += int(ranks[k])
+	ranks = {}
+	points += n
+
+
 func gain(amount: int) -> int:
-	if level >= MAX_LEVEL or amount <= 0:
+	if amount <= 0:
+		return 0
+	if level >= MAX_LEVEL:
+		renown_xp += int(round(amount * (1.0 + 0.1 * rank("pilgrim"))))
+		while renown_xp >= RENOWN_STEP:
+			renown_xp -= RENOWN_STEP
+			renown += 1
+			renown_picks += 1
+		changed.emit()
 		return 0
 	xp += int(round(amount * (1.0 + 0.1 * rank("pilgrim"))))
 	var ups := 0
@@ -307,7 +362,8 @@ func vigil_mult() -> float:
 # ------------------------------------------------------------------ keeping
 
 func to_data() -> Dictionary:
-	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use, "boons": boons, "offer": boon_offer}
+	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use, "boons": boons, "offer": boon_offer,
+		"renown": renown, "rxp": renown_xp, "picks": renown_picks, "rewards": rewards}
 
 
 func from_data(d) -> void:
@@ -315,6 +371,13 @@ func from_data(d) -> void:
 		return
 	xp = int(d.get("xp", 0))
 	level = clampi(int(d.get("level", 1)), 1, MAX_LEVEL)
+	renown = maxi(0, int(d.get("renown", 0)))
+	renown_xp = clampi(int(d.get("rxp", 0)), 0, RENOWN_STEP)
+	renown_picks = clampi(int(d.get("picks", 0)), 0, renown)
+	rewards = []
+	for r in d.get("rewards", []):
+		if RENOWN_REWARDS.has(str(r)):
+			rewards.append(str(r))
 	points = maxi(0, int(d.get("points", 0)))
 	ranks = {}
 	var r = d.get("ranks", {})

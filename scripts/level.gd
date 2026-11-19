@@ -2224,14 +2224,15 @@ func _net_tick(delta: float) -> void:
 		var rows := []
 		if Net.online:
 			for id in Net.players:
+				var nm: String = Net.name_of(id) + ("  ·  Renown %d" % int(renowns[id]) if int(renowns.get(id, 0)) > 0 else "")
 				if id == Net.me():
-					rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id), "you"])
+					rows.append([nm, player.health / player.max_health, downed, Net.color_of(id), "you"])
 				elif avatars.has(id) and is_instance_valid(avatars[id]):
 					var a = avatars[id]
 					var tag := squad_tag(id)
-					rows.append([Net.name_of(id), a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position)) + ("  squad" if tag != "" else "")])
+					rows.append([nm, a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position)) + ("  squad" if tag != "" else "")])
 				else:
-					rows.append([Net.name_of(id), 1.0, false, Net.color_of(id), ""])
+					rows.append([nm, 1.0, false, Net.color_of(id), ""])
 		hud.set_fellowship(rows)
 		_watch_roster()
 
@@ -2289,6 +2290,12 @@ func net_left(id: int) -> void:
 	_down_peers.erase(id)
 	if Net.is_host():
 		_check_wipe()
+
+
+## Each pilgrim's renown, shown beside their name in the fellowship list (the waste's own; peer -> steps).
+var renowns := {}
+func _w_renown(by: int, n: int) -> void:
+	renowns[by] = n
 
 
 func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:

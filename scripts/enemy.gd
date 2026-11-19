@@ -1634,7 +1634,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive or hidden:
 		return false
 	flinch(amount, from_dir)
-	if boss == "" and amount > 4.0 and level.has_method("power_is") and level.power_is("rime"):
+	if boss == "" and amount > 4.0 and level.has_method("power_k") and randf() < level.power_k("rime"):
 		_stagger = maxf(_stagger, 0.7)   # the Glacier Mother's power: struck, a lesser form freezes a moment
 	if boss == "" and harm_arm == "war_pick":
 		_stagger = maxf(_stagger, 0.6)   # ice iron: a lesser form freezes where it stands, a moment
@@ -2652,8 +2652,8 @@ func sees(p: Node3D) -> bool:
 		reach *= 0.6
 	if p == level.player and Input.is_action_pressed("soft"):
 		reach *= 0.55
-	if p == level.player and level.has_method("power_is") and level.power_is("hush"):
-		reach *= 0.55
+	if p == level.player and level.has_method("power_k"):
+		reach *= 1.0 - 0.45 * level.power_k("hush")
 	if d > reach:
 		return false
 	var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))

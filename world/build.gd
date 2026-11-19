@@ -489,6 +489,8 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 			w.personal_interactable(body, "Use the waystone", func(): w.ui.open_portal(pid))
 		"shrine":
 			w.personal_interactable(body, "Kneel at the shrine", func(): w.ui.open_shrine(pid))
+		"trophy_hall":
+			w.personal_interactable(body, "Look at the trophies", func(): w.ui.open_hall(pid))
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -748,6 +750,33 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				l.omni_range = 16.0
 				l.position.y = 3.0
 				n.add_child(l)
+		"trophy_hall":
+			# A timber back wall under a little roof, with five plaques; the hung trophies glow on them
+			_part(n, body, Vector3(4.2, 3.0, 0.4), Vector3(0, 1.5, -0.6), m.wood if not is_ghost else null, is_ghost)
+			_part(n, null, Vector3(4.6, 0.2, 1.4), Vector3(0, 3.1, -0.2), m.wood if not is_ghost else null, is_ghost)
+			_part(n, null, Vector3(4.4, 0.3, 1.2), Vector3(0, 0.15, -0.2), m.stone if not is_ghost else null, is_ghost)
+			if not is_ghost:
+				var marks: Array = []
+				for i in 5:
+					var x := -1.6 + i * 0.8
+					_part(n, null, Vector3(0.6, 0.7, 0.08), Vector3(x, 1.8, -0.38), m.stone, false)
+					var gem := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.16
+					sm.height = 0.32
+					gem.mesh = sm
+					gem.position = Vector3(x, 1.8, -0.28)
+					gem.visible = false
+					n.add_child(gem)
+					marks.append(gem)
+				n.set_meta("marks", marks)
+				var hl := OmniLight3D.new()
+				hl.light_color = Color(0.95, 0.75, 0.45)
+				hl.light_energy = 0.0
+				hl.omni_range = 5.0
+				hl.position = Vector3(0, 2.4, 0.4)
+				n.add_child(hl)
+				n.set_meta("light", hl)
 		"shrine":
 			_part(n, body, Vector3(2.2, 1.2, 1.4), Vector3(0, 0.6, 0), null, is_ghost)
 			if is_ghost:

@@ -224,6 +224,7 @@ const PIECES := {
 	"bench": {"name": "Workbench", "group": "Camp", "cost": {"wood": 6, "scrap": 4}, "hp": 300.0, "text": "Make guns, parts, ammunition and tools."},
 	"lamp": {"name": "Oil Lamp", "group": "Camp", "cost": {"scrap": 2, "oil": 1}, "hp": 150.0, "text": "A tall light."},
 	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "fires": 4, "text": "Name it. Two waystones of one name lead to each other."},
+	"trophy_hall": {"name": "Trophy Hall", "group": "Camp", "cost": {"stone": 16, "wood": 10, "scrap": 4, "cloth": 4}, "hp": 600.0, "text": "Hang up to three great ones' trophies, one of each. Each gives a third of its power to all at this base."},
 	"shrine": {"name": "Trophy Shrine", "group": "Camp", "cost": {"stone": 10, "bone": 4, "scrap": 2}, "hp": 400.0, "text": "Lay a great one's trophy here once. After that, kneel to take its power for a while."},
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
 	"bed": {"name": "Bed", "group": "Home", "cost": {"wood": 6, "cloth": 4}, "hp": 160.0, "text": "Sleep here. You wake here if you fall. Snugger than a bedroll."},
@@ -238,7 +239,7 @@ const PIECES := {
 	"anvil": {"name": "Anvil", "group": "Camp", "cost": {"scrap": 8, "stone": 4}, "hp": 500.0, "text": "Work here as at a workbench. Hard to break."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
-const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine",
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine", "trophy_hall",
 	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]

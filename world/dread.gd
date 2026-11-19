@@ -37,6 +37,7 @@ func rate(p: Vector3) -> float:
 	var rl = w.player.get("relics")
 	if rl and rl.lantern_lit:
 		r *= 0.5
+	r *= 1.0 - w.power_k("hook")   # a hung Keeper's Hook: a third slower
 	return r
 
 

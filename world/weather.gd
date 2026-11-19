@@ -218,7 +218,7 @@ func hardship(at: Vector3) -> String:
 			if not wn.covered and not w.power_is("ember"):
 				return "The ash chokes you.  Cover your face, or get under a roof."
 		"frost":
-			if w.night and float(wn.warm) < 2.0 and not w.near_fire(at) and not w.power_is("ember"):
+			if w.night and float(wn.warm) < (1.0 if w.power_k("ember") > 0.0 else 2.0) and not w.near_fire(at) and not w.power_is("ember"):
 				return "The frost bites.  Dress warm, or keep near a fire."
 	return ""
 

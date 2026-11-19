@@ -15,6 +15,8 @@ const BARDING := {
 	"hide_barding": {"name": "Hide Barding", "guard": 0.2, "cost": {"hide": 6, "cloth": 2}},
 	"bone_barding": {"name": "Bone Barding", "guard": 0.35, "cost": {"bone": 10, "hide": 4}},
 	"iron_barding": {"name": "Iron Barding", "guard": 0.5, "cost": {"scrap": 20, "hide": 4}},
+	"far_barding": {"name": "Far Barding", "guard": 0.6, "cost": {"steppe_horn": 6, "ice_iron": 2, "hide": 4}},
+	"renown_barding": {"name": "Barding of Renown", "guard": 0.5, "cost": {"cloth": 4, "hide": 4}, "renown": true},
 }
 const WALK := 1.8         ## times the rider's walking pace
 const SPRINT := 2.8       ## times the rider's walking pace, on the cat's breath
@@ -194,6 +196,15 @@ func _refresh() -> void:
 				iron.metallic = 0.6
 				_box(Vector3(0.72, 0.5, 1.2), Vector3(0, 0.98, 0.05), iron, _bard)
 				_box(Vector3(0.6, 0.2, 0.3), Vector3(0, 1.62, 0.95), iron, _bard)
+			"far_barding":
+				var horn := _mat(Color(0.9, 0.86, 0.72))
+				var ice := _mat(Color(0.62, 0.78, 0.9))
+				_box(Vector3(0.72, 0.46, 1.15), Vector3(0, 0.98, 0.05), ice, _bard)
+				for i in 3:
+					_box(Vector3(0.78, 0.12, 0.14), Vector3(0, 1.22, 0.4 - i * 0.35), horn, _bard)
+			"renown_barding":
+				_box(Vector3(0.74, 0.44, 1.0), Vector3(0, 1.0, 0.05), _mat(Color(0.5, 0.12, 0.1)), _bard)
+				_box(Vector3(0.76, 0.06, 1.02), Vector3(0, 0.8, 0.05), _mat(Color(0.9, 0.72, 0.3)), _bard)
 	_label.text = cat_name if not wild else ("A stray cat" + (" (fed %d of 3)" % fed if fed > 0 else ""))
 	_label.modulate = Color(0.95, 0.85, 0.55) if not wild else Color(0.85, 0.82, 0.75)
 	_label.visible = not ridden
@@ -216,7 +227,7 @@ func pace(sprint: bool, delta: float) -> float:
 	var base: float = w.player.walk_speed
 	if sprint and not winded and breath > 0.0:
 		_sprint_t = 0.6
-		breath = maxf(0.0, breath - delta * (0.0 if w.power_is("horn") else 7.0))
+		breath = maxf(0.0, breath - delta * 7.0 * (1.0 - w.power_k("horn")))
 		if breath <= 0.0:
 			winded = true
 		return base * SPRINT

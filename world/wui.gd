@@ -215,10 +215,13 @@ func skills_changed() -> void:
 	if _xp_bar == null:
 		return
 	var s: WSkills = w.skills
-	_xp_bar.max_value = WSkills.need(s.level)
-	_xp_bar.value = s.xp
+	var top_level: bool = s.level >= WSkills.MAX_LEVEL
+	_xp_bar.max_value = WSkills.RENOWN_STEP if top_level else WSkills.need(s.level)
+	_xp_bar.value = s.renown_xp if top_level else s.xp
 	var extra := "    %d to spend  [%s]" % [s.points, Game.key_text("skills")] if s.points > 0 else ""
-	_xp_text.text = ("Level %d" % s.level) + ("   (the most there is)" if s.level >= WSkills.MAX_LEVEL else "") + extra
+	if s.renown_picks > 0:
+		extra += "    a renown reward to choose  [%s]" % Game.key_text("skills")
+	_xp_text.text = ("Level %d" % s.level) + ("   Renown %d" % s.renown if top_level else "") + extra
 	if _panel_name == "skills":
 		_draw_skills()
 
@@ -253,12 +256,12 @@ func _draw_skills() -> void:
 	var lv := VBoxContainer.new()
 	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lv.add_theme_constant_override("separation", 4)
-	lv.add_child(_label(("Level %d    %d of %d toward the next" % [s.level, s.xp, WSkills.need(s.level)]) if s.level < WSkills.MAX_LEVEL else "Level %d, the most there is" % s.level, 17, PALE))
+	lv.add_child(_label(("Level %d    %d of %d toward the next" % [s.level, s.xp, WSkills.need(s.level)]) if s.level < WSkills.MAX_LEVEL else "Level %d    Renown %d    %d of %d toward the next" % [s.level, s.renown, s.renown_xp, WSkills.RENOWN_STEP], 17, PALE))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(0, 6)
 	bar.max_value = 1.0
-	bar.value = float(s.xp) / maxf(1.0, WSkills.need(s.level)) if s.level < WSkills.MAX_LEVEL else 1.0
+	bar.value = float(s.xp) / maxf(1.0, WSkills.need(s.level)) if s.level < WSkills.MAX_LEVEL else float(s.renown_xp) / WSkills.RENOWN_STEP
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(1, 1, 1, 0.1)
 	var fg := StyleBoxFlat.new()
@@ -271,6 +274,22 @@ func _draw_skills() -> void:
 	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
 	_body.add_child(top)
 	_close_and_rule(top)
+	if s.renown_picks > 0:
+		# A step of renown: choose its reward
+		var rr := HBoxContainer.new()
+		rr.add_theme_constant_override("separation", 10)
+		rr.add_child(_label("Renown reward:", 16, GOLD))
+		for r in WSkills.RENOWN_REWARDS:
+			var rw: Dictionary = WSkills.RENOWN_REWARDS[r]
+			var can: bool = not (r == "barding" and s.has_reward("barding")) and not (r == "hall" and s.rewards.count("hall") >= 2)
+			var b := _secondary(rw.name, func():
+				if s.take_reward(r):
+					w._apply_skills()
+					w.char_save_soon()
+				_redraw(), can, 14)
+			b.tooltip_text = rw.text
+			rr.add_child(b)
+		_body.add_child(rr)
 	if s.points == 0:
 		_body.add_child(_label("Experience comes from what you undo, make, build and find, and from the beacons you light.", 15, DIM))
 	var row := HBoxContainer.new()
@@ -704,6 +723,8 @@ func _redraw_now() -> void:
 			_draw_cat()
 		"shrine":
 			_draw_shrine()
+		"hall":
+			_draw_hall()
 		"page":
 			_draw_page()
 		"ending":
@@ -3662,7 +3683,7 @@ func open_planter(pid: int) -> void:
 
 
 func planter_changed(pid: int) -> void:
-	if pid == _pid and _panel_name in ["planter", "portal"]:
+	if pid == _pid and _panel_name in ["planter", "portal", "hall"]:
 		_redraw()
 
 
@@ -3769,6 +3790,50 @@ func open_shrine(pid: int) -> void:
 	_open("shrine")
 
 
+func open_hall(pid: int) -> void:
+	_pid = pid
+	_open("hall")
+
+
+func _draw_hall() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title("Trophy Hall"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	var pc: Dictionary = w.pieces.get(_pid, {})
+	if pc.is_empty():
+		return
+	var hung: Array = pc.get("hung", [])
+	var places: int = w.skills.hall_places()
+	_body.add_child(_wrap("%d of %d places hung. Each trophy gives a third of its power to all within %d m. One who takes up a power at the shrine has that instead, never both." % [hung.size(), maxi(places, hung.size()), int(w.HALL_REACH)], 17, DIM))
+	for t in hung:
+		var pw: Dictionary = w.POWERS[t]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var nm := _label("%s:  %s" % [Items.iname(t), w.HALL_FORMS.get(pw.key, pw.text)], 17, GOLD)
+		nm.custom_minimum_size.x = 520
+		row.add_child(nm)
+		row.add_child(_secondary("Take down", func(): w.hang_trophy(_pid, t, false), true, 14))
+		_body.add_child(row)
+	var any := false
+	for t in w.POWERS:
+		if t in hung or w.inv.count(t) <= 0:
+			continue
+		any = true
+		var pw2: Dictionary = w.POWERS[t]
+		var row2 := HBoxContainer.new()
+		row2.add_theme_constant_override("separation", 12)
+		var nm2 := _label("%s:  %s" % [Items.iname(t), w.HALL_FORMS.get(pw2.key, pw2.text)], 17, PALE)
+		nm2.custom_minimum_size.x = 520
+		row2.add_child(nm2)
+		row2.add_child(_secondary("Hang it", func(): w.hang_trophy(_pid, t, true), hung.size() < places, 14))
+		_body.add_child(row2)
+	if hung.is_empty() and not any:
+		_body.add_child(_wrap("The hall is bare. Bring a great one's trophy, and hang it here.", 18, DIM))
+	_body.add_child(_action("Close", close_all, "Esc", DIM))
+
+
 func _draw_shrine() -> void:
 	_clear()
 	var top := HBoxContainer.new()
@@ -3840,6 +3905,8 @@ func _draw_cat() -> void:
 		if id == "":
 			continue
 		var b: Dictionary = WCat.BARDING[id]
+		if b.get("renown", false) and not w.skills.has_reward("barding"):
+			continue   # a renown step's cosmetic
 		var on: bool = c.barding == id
 		var cost: Dictionary = b.cost
 		var row := HBoxContainer.new()
@@ -3993,17 +4060,18 @@ class Compass extends Control:
 			heading += sin(tt * 0.37) * 1.1 + sin(tt * 1.3) * 0.25
 		draw_rect(Rect2(0, 18, wd, 1), Color(1, 1, 1, 0.18))
 		var discern: bool = w.has_verb(7)
-		if w.power_is("lens") or discern:
+		var lens_k: float = w.power_k("lens")
+		if lens_k > 0.0 or discern:
 			# The Archivist's Lens: forms near you, as red marks on the band. Discern (the seventh fire):
 			# the hidden and the unseen near you
-			var lens: bool = w.power_is("lens")
+			# How far each sees: the Lens taken up 90 m; a hung Lens 20 m; Discern, the hidden only, 50 m
+			var all_reach: float = 90.0 if lens_k >= 1.0 else (20.0 if lens_k > 0.0 else 0.0)
 			for e in w.enemies:
 				if not is_instance_valid(e) or not e.is_alive():
 					continue
-				if not lens and not (e.get("hidden") == true or e.get("kind") == "unseen" or (e.get("_buried") is float and e.get("_buried") > 0.5)):
-					continue
 				var dv: Vector3 = e.global_position - w.player.global_position
-				if dv.length() > (90.0 if lens else 50.0):
+				var hid: bool = e.get("hidden") == true or e.get("kind") == "unseen" or (e.get("_buried") is float and e.get("_buried") > 0.5)
+				if dv.length() > maxf(all_reach, 50.0 if discern and hid else 0.0):
 					continue
 				var dxe := wrapf(atan2(dv.x, -dv.z) - heading, -PI, PI)
 				if absf(dxe) <= 1.2:

@@ -1279,9 +1279,10 @@ static var _toll := 0   ## blows landed toward the Bell's Toll
 static func deal(hits: Dictionary, dir: Vector3, harm := "", crits := {}) -> void:
 	# The Bell-Wound's power: every eighth blow or shot that lands rings, and strikes twice as hard
 	var lv = Game.main.level if Game.main else null
-	if not hits.is_empty() and lv and lv.has_method("power_is") and lv.power_is("bell"):
+	var bell_k: float = lv.power_k("bell") if lv and lv.has_method("power_k") else 0.0
+	if not hits.is_empty() and bell_k > 0.0:
 		_toll += 1
-		if _toll >= 8:
+		if _toll >= int(round(8.0 / bell_k)):
 			_toll = 0
 			for t in hits:
 				hits[t] = float(hits[t]) * 2.0
