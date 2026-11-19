@@ -1,8 +1,6 @@
 # The Grey Sea
 
-_This page is made from the game's own data by `tools/wiki.gd`. Edit the game, not this page._
-
-Past the coast of the waste lies the Grey Sea, and four isles. Each isle is its own land, with its own foes, and a ruin at its heart that keeps a lost book.
+Past the coast of the waste lies the Grey Sea, and four near isles. Each isle is its own land, with its own foes, and a ruin at its heart that keeps a lost book.
 
 ## The isles
 
@@ -14,6 +12,24 @@ Past the coast of the waste lies the Grey Sea, and four isles. Each isle is its 
 Each isle has a pier facing the waste, a hut by it, and two wrecks with something left aboard.
 
 Each isle also keeps four **traces**: small scenes left by those who came before, not marked on any map. Look at one (**E**) to read it. Finding all four on an isle pays 25 coin.
+
+## The far sea and the Far Shores
+
+Past the four isles lies the far sea, and past that the Far Shores: lands the Order never held. When the fifth beacon burns, the sea opens: they show through the fog, and the seventh night's raid comes up out of the water.
+
+- **Quietglass**: Glass towers in the fog. Flickers blink in and out where the signs burn, and the Archivist's Hands steal what you carry. Its great one is **the Archivist**.
+- **The Thousand Domes**: A grey coast with domes in every dune. The Tunnel Unlit rise behind you, shoot and sink again. Its great one is **the Lantern-Breaker**.
+- **The Frostmark** (about 2 km across): Black lava under moss, a snowy spine, steam from the ground. The cold eats at your health; wear a **Frostfolk Sheepskin**, or keep near a fire. Rime Walkers, Geyser Wights and Raven Masks walk here. Its town is **Hearthholm**, its great one **the Glacier Mother**.
+- **The Sunward Reach** (about 2 km across): Red mesas and dry canyons. By day, thirst eats at your health; wear a **Water Gourd**. Canyon Striders, the Dust Choir and Glass Husks. Its town is **the Hanging Town**, its great one **the Dry River**.
+- **The Pale Steppe** (about 2 km across): Grey grass and slow rivers. Without a **Rider's Bone Compass** you are lost: the compass wanders and the map cannot find you. Grass Stalkers, the Mound King's Guard and the Herd Ghosts. Its town is **Stillwater**, its great one **the Spine-King**.
+
+Every far place is scattered with ruins, about one every 300 m.
+
+## The Lighthouse chain
+
+Ten dark lighthouses stand on rocks across the far sea, two on the way to each far place. Bring 3 lamp oil, pour it, and hold the rock while the drowned climb it. Light both on one way and it becomes a **sea lane**: a gold line on the map, and the Grey Wyrm and the Lamp-Eater keep off it.
+
+Off one lane lies **the Kelp Forest**. Boats go at half pace there, and weed eels come up under swimmers.
 
 ## Swimming
 

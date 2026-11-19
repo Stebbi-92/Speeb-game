@@ -1,3 +1,16 @@
+Brelm alpha 0.16.0: the far lands
+
+- The fifth beacon is the turn: the sea opens. The whirlpool and the far isles show on the horizon, the seventh night's raid comes up out of the water (the Drowned Tide), and champions rise in every land past the first ring.
+- The far sea: Quietglass, the city of glass, and the Thousand Domes, the bunker coast.
+- Past it, the Far Shores, each about 2 km across: the Frostmark (snow, lava and steam), the Sunward Reach (red mesas and dry canyons) and the Pale Steppe (grey grass and slow rivers).
+- Each far land has its own foes, the thirteen far forms among them, and ruins about every 300 m.
+- New hardships with their wards: cold on the Frostmark (Frostfolk Sheepskin), thirst on the Sunward Reach by day (Water Gourd), and getting lost on the Pale Steppe (Rider's Bone Compass).
+- Three far towns: Hearthholm, the Hanging Town and Stillwater, each with two new people.
+- Five far great ones, each with its own trophy and power: the Archivist, the Lantern-Breaker, the Glacier Mother, the Dry River and the Spine-King.
+- The Lighthouse chain: ten dark lighthouses on the far sea. Pour lamp oil and hold the rock to light one. Light both on a way and it becomes a safe sea lane, shown on the map.
+- The Kelp Forest: boats go slowly, and weed eels pull swimmers down.
+- The map reaches the whole far sea. Scroll to zoom in further.
+
 Brelm alpha 0.15.0: the living waste
 
 - Each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down the bands on its roads and break raid camps nearby, and its roads grow safer. Run from them and leave camps standing, and they grow worse day by day.

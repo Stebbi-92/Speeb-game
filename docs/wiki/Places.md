@@ -1,7 +1,5 @@
 # Places
 
-_This page is made from the game's own data by `tools/wiki.gd`. Edit the game, not this page._
-
 ## Settlements
 
 Walled places where people live, trade and give work. Inside their walls, no form rises.
@@ -15,6 +13,11 @@ Walled places where people live, trade and give work. Inside their walls, no for
 - **Saltreach**: The last salt-camp before nothing. The caravans used to turn back here.
 - **Ember Hollow**: Coal-diggers in a crater that has stayed warm since the fall.
 - **Last Light**: A watchtower at the far rim that never let its lamp go out.
+- **Hearthholm** (the Frostmark): Turf-roofed longhouses round a hot spring under the glacier. Forty-one hearths, each with a name.
+- **The Hanging Town** (the Sunward Reach): Rooms cut into red rock, and a mirror-fire on the rim that signals to the caravans by day.
+- **Stillwater** (the Pale Steppe): A town of riverfolk and cat-riders on the slow water. Lamps on every post.
+
+The three far towns stand across the sea: no road runs to them. Take a boat, and light the sea lanes on the way.
 
 ## Lands
 
