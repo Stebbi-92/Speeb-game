@@ -177,7 +177,8 @@ func _refresh() -> void:
 	if not wild:
 		var saddle: Node3D = (load(SADDLE) as PackedScene).instantiate()
 		saddle.scale = Vector3.ONE * 0.78
-		saddle.position = Vector3(0, 1.0, 0.0)
+		saddle.position = Vector3(0, 1.0, 0.12)   # under the rider's seat
+		saddle.rotation.y = PI                    # the pommel to the cat's head
 		for mi in saddle.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		_bard.add_child(saddle)
