@@ -2931,6 +2931,21 @@ func _rq_spend(_by: int, cids: Array, item: String, n: int) -> void:
 				if int(data[i][1]) <= 0:
 					data[i] = null
 		shared("_w_cont", [cid, data])
+	if n > 0:
+		if _by == Net.me():
+			_w_spend_short(item, n)
+		else:
+			Net.call_peer(_by, "_w_spend_short", [item, n])
+
+
+## The host found the chests short: two spent the same things at once. The spender pays the rest from
+## the pack if they can, and is told.
+func _w_spend_short(item: String, n: int) -> void:
+	var t := mini(n, inv.count(item))
+	if t > 0:
+		inv.take(item, t)
+	if n - t > 0 and hud:
+		hud.notify("Someone took the last %s from the chests first." % Items.iname(item))
 
 
 func _spend_local(cids: Array, item: String, n: int) -> void:
@@ -13854,6 +13869,23 @@ func debug_friendparry() -> void:
 	var stale := not friend_guarded(c, foe)
 	c.queue_free()
 	print("FRIENDPARRY turned=%s behind=%s stale=%s" % [turned_ok, behind, stale])
+	get_tree().quit()
+
+
+## Testing aid: two spend the same chest at once; the host finds it short and the late one pays from the pack.
+func debug_spendshort() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var had := inv.count("scrap")
+	inv.take("scrap", had)
+	inv.add("scrap", 3)
+	containers["test_short"] = [["scrap", 2], null, null]
+	_rq_spend(Net.me(), ["test_short"], "scrap", 5)
+	var emptied: bool = containers["test_short"][0] == null
+	var paid := inv.count("scrap") == 0
+	containers.erase("test_short")
+	inv.add("scrap", had)
+	print("SPENDSHORT emptied=%s paid=%s" % [emptied, paid])
 	get_tree().quit()
 
 

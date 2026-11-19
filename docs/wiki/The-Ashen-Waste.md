@@ -4,6 +4,10 @@ An open world, about four kilometres across, made fresh from a seed. Each world 
 
 The world is laid out as you move: the ground near you is in full detail, the far ground in less (this makes towns much smoother). While a world loads, a bar shows how far it has got, with changing hints.
 
+## What the world shows you, and when
+
+A new world starts simple. Each system shows up, with a short card, the first time the world needs it: **fear** at the first night, **hardships** and their wards at the first hard land, **trades** at the first town, **road safety** when a town first pleads for safer roads, and **seasons** from day five. The world keeps what it has shown, so anyone who joins later sees all of it.
+
 ## World settings
 
 Each world has its own settings, chosen next to **Begin** and changed by the host from the pause menu: difficulty, enemy skill, enemy numbers, resources, hunger and tiredness, air support, unlimited ammunition, night pace, and whether you drop your pack when you fall.

@@ -2,6 +2,13 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.18.0 (the polish)
+
+- **Plain words:** prompts, menus and the HUD say kill, enemy and player. Hasten is now **Sprint** and Tread softly is now **Sneak**. See [Controls](Controls).
+- **Systems show up when you need them:** fear at the first night, hardships at the first hard land, trades at the first town, road safety at the first plea, seasons from day five. Someone who joins later sees everything the world has reached.
+- **Music:** a small score for dawn, night, the seventh night, towns, the sea and great ones, with a swell when a beacon catches. It has its own **Music** slider in Settings.
+- **Together:** a friend's perfect guard works as yours does, a newcomer sees events already under way, and two players spending the same chest at once can no longer both get the goods.
+
 ## 0.17.0 (the long road and the keeping)
 
 - **Fouled bowls:** after the turn, the last four beacons each want a key from beyond the shore. See [The Ashen Waste](The-Ashen-Waste).

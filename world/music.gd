@@ -45,6 +45,8 @@ func _player() -> AudioStreamPlayer:
 static func stream_of(slot: String) -> AudioStream:
 	if _streams.has(slot):
 		return _streams[slot]
+	if not PIECES.has(slot):
+		return null
 	var s: AudioStream = null
 	var f: String = PIECES[slot][0]
 	for ext in ["ogg", "mp3"]:
