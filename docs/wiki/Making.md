@@ -60,3 +60,15 @@ Open your pack (**I**) and choose **Make**. Inside a base, the chests of that ba
 | 1 Sloop | 30 Deadwood, 6 Heartwood, 10 Cloth, 6 Scrap Iron | Learned during the main story |
 | 1 Longboat | 50 Deadwood, 12 Heartwood, 14 Cloth, 10 Scrap Iron, 2 Salt Crystal | Learned during the main story |
 | 1 Beacon Oil | 2 Lamp Oil, 10 Salt, 4 Ash-bloom | Learned during the main story |
+
+## Far materials
+
+Five materials come from the far shores: **ice iron** (the Frostmark), **sunglass** (the Sunward Reach), **steppe horn** (the Pale Steppe), **lens glass** (Quietglass) and **dome steel** (the Thousand Domes). Gather on their own land, or find them in its ruins and crates. They make the far arms, Far Plate and the Far-forged step.
+
+## Books from great ones
+
+The first time a great one falls it leaves a book. Some books are needed before a thing can be made; the workbench says "Needs" and the book's name.
+
+## Named fittings
+
+Every great one leaves fittings of its own, each time it falls. Rework a part with them to make it Storied, with the great one's name and a trait of its own.

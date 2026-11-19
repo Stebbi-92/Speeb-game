@@ -72,3 +72,18 @@ _What the beacons ask of those who keep them._
 | Find a ruin | 25 |
 | Enter a new land | 20 |
 | rumour | 10 |
+
+## Boons you use
+
+Six boons are things to do, not just numbers:
+
+- **Rallying Cry:** your whistle gives those near you their breath back and a burst of speed.
+- **Second Relic:** two spirit-cats at once.
+- **Lantern-bearer:** no dread near you, for you or your friends.
+- **Pack-Cat:** +8 pack while you have a cat.
+- **Quick Camp:** one free campfire a night.
+- **Deep Diver:** half the breath when swimming.
+
+## Renown
+
+Past level 30, experience fills renown instead. Each step of renown lets you pick one: a fresh start for your skills, the Barding of Renown for your cat, or another trophy place in your hall (up to five). The fellowship list shows each player's renown.

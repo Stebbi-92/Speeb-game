@@ -2,6 +2,18 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.17.0 (the long road and the keeping)
+
+- **Fouled bowls:** after the turn, the last four beacons each want a key from beyond the shore. See [The Ashen Waste](The-Ashen-Waste).
+- **Danger 5** on the Far Shores, five far materials, three far arms, Far-forged arms and Far Plate.
+- **Every fire opens something:** strays, survey, planters, waystones, boats, Discern, Bulwark and the Ferryman's Way.
+- **Six new boons** that you use, and waystones with rules.
+- **Great ones** leave named fittings and books. The Trophy Hall and Renown.
+- **After an ending:** roaming great ones, feast days and completion rewards. The Second Vow adds guttering fires and the Far Host.
+- **Together:** fairer beacon credit, an ending vote, and anyone can make tempered steel and clockwork (at a cost).
+- **Controls:** one key per action, and a quick wheel on the controller.
+- Worlds and characters from 0.16 may not carry over cleanly.
+
 ## 0.16.0 (the far lands)
 
 - **The turn:** the fifth beacon opens the sea. The whirlpool and the far isles show, the seventh night's raid comes out of the water, and champions rise past the first ring. See [The Grey Sea](The-Grey-Sea).

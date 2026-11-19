@@ -1,3 +1,38 @@
+Brelm alpha 0.17.0: the long road and the keeping
+
+The road across the sea
+- After the turn, the Mouth fouls the dark bowls. Each wants a key from beyond the shore before beacon oil will take: Deep Oil (lamp oil and the Bell-Wound's ichor) for the sixth fire, the Fleet Log from Quietglass for the seventh, a far great one's heart for the eighth, and three far coals for the ninth, one from a shrine-bowl on each Far Shore. Corvin, Ione and Sigrun tell you which. A key cleans its bowl for good, and goes back to you if the vigil fails.
+- Danger 5 on the Far Shores after the turn: foes have x3.6 health and x2.1 harm, champions are twice as common, and kills teach more.
+- Five far materials: ice iron, sunglass, steppe horn, lens glass and dome steel, gathered on their own land and found in its ruins.
+- A fifth step of work on arms: Far-forged (x1.60). Far Plate: the most plate, warm, and no weight. Far Barding for the cat.
+- Three far arms: the Sunglass Carbine (one fast, flat rifle round), the Dome-steel Hand Cannon (a two-shell side arm that staggers heavy forms) and the Ice-iron War-pick (through any plate, and it freezes lesser forms a moment). The far great ones leave the books that teach them.
+
+Every fire opens something new
+- 1 strays to tame and ride, 2 survey from high places (ruins and lairs go on your map), 3 planters, 4 waystones, 5 the sloop, 6 the longboat, 7 Discern (hidden and unseen forms on your compass), 8 Bulwark (the first blow of each night is taken), 9 the Ferryman's Way. These go by the most fires that ever burned in the world.
+- Six boons are now things to do: Rallying Cry (your whistle gives those near their breath and a burst of speed), Second Relic (two spirit-cats at once), Lantern-bearer (no dread near you), Pack-Cat (+8 pack with a cat), Quick Camp (one free campfire a night) and Deep Diver (half the breath swimming).
+- Waystones wake with the fourth fire. One of a pair must stand in a lit beacon's ground or a town, and both on one land; a far isle links to the waste only along a lit sea lane. People pass; cargo, ore, keys, far materials, an ember or a cat do not.
+
+Great ones and the keeping
+- Every great one leaves its own named fittings (rework a part into a Storied one with its name and trait), and the first time it falls, a book.
+- The Bell-Wound's trophy has a power: every eighth blow that lands strikes twice as hard.
+- The Trophy Hall: hang up to three trophies at a base; each gives a third of its power to all there. Never both: the shrine's power or the hall's, whichever is stronger.
+- Renown: past level 30, experience fills renown. Each step gives a fresh start for your skills, the Barding of Renown, or another trophy place (up to five).
+- After an ending the world goes on: great ones walk abroad in their own lands, every fifth day a town keeps a feast (food, salt and cheap trade), and each quarter of the bestiary and the map pays a reward.
+- The Second Vow adds rules: lit fires gutter to a third over three days and are tended with lamp oil, the Far Shores' forms walk the waste, and the seventh night brings the Far Host. The Far Shores take the vow lighter (x1.15).
+
+Playing together
+- A beacon's boon and gift go to everyone near when it caught and everyone who fought at its second front. With a second front the vigil lasts until the front is held (at least four minutes). A failed vigil gives the oil back.
+- The ending is chosen by a vote at the page: the most votes win, the host breaks a tie, and the hall waits a minute for those on their way.
+- Anyone can make tempered steel and clockwork, at three times the cost; the Smith and the Tinker make it cheaply.
+
+Controls
+- One key per action: Interact is E, best healing is F.
+- Controller: hold Back and point a stick for the quick wheel: healing, whistle, smelling salts, fellowship and the relics.
+
+Also
+- The cat's saddle (by YaredGmGm, CC-BY) now faces forward and sits under the rider.
+- Breaking change: worlds and characters from 0.16 may not carry over cleanly.
+
 Brelm alpha 0.16.0: the far lands
 
 - The fifth beacon is the turn: the sea opens. The whirlpool and the far isles show on the horizon, the seventh night's raid comes up out of the water (the Drowned Tide), and champions rise in every land past the first ring.

@@ -11,8 +11,8 @@
 - **Use the right harm.** Each creature is weak to some kinds of harm and hard against others: shotgun spread, bullets, blasts, blades and fire. See [[Creatures]].
 - **Watch the sides.** Stalkers and crawlers swing wide and come at you from the flanks.
 - **Great ones** each have a lair. They are much stronger, and some bring other creatures with them. Each extra player makes one 35% stronger.
-- **Danger by land.** Creatures are as strong as the land they rise in, never stronger because your arms got better. Health by land danger: x1, x1.5, x2.2, x3; harm: x1, x1.3, x1.6, x1.9. Their plate thickens the same way as their health.
-- **Working arms up.** At a workbench, guns and blades can be worked from Worn to Cleaned, Tempered and Master-worked: each step is +15% harm. Starting arms cost the least to work; middle arms cost half again; arms made with obsidian, salt crystal or lots of clockwork cost twice as much.
+- **Danger by land.** Creatures are as strong as the land they rise in, never stronger because your arms got better. Health by land danger: x1, x1.5, x2.2, x3; harm: x1, x1.3, x1.6, x1.9. The Far Shores are danger 5 after the turn: x3.6 health and x2.1 harm, champions twice as common, and kills teach more. Their plate thickens the same way as their health.
+- **Working arms up.** At a workbench, guns and blades can be worked from Worn to Cleaned, Tempered and Master-worked: each step is +15% harm. A fifth step, Far-forged, is learned from a far great one (see [[Arms and Clothing|Arms-and-Clothing]]). Starting arms cost the least to work; middle arms cost half again; arms made with obsidian, salt crystal or lots of clockwork cost twice as much.
 - **Beacons steady you.** Each lit beacon adds 10 most health, up to +60.
 - **Armour.** Helms and body plate soak part of each blow and wear down. Broken plate covers little; mend it at a workbench (Arms, Clothing) for scrap. The thin bar above your health shows what is left.
 - **Foes in plate.** The Unlit wear iron. Shots ring off it until it breaks. Aim for the head, or load Piercing Rounds. Hollow Rounds hit flesh harder but stop on plate.

@@ -49,7 +49,8 @@ Make a boat at a workbench, then use it from your pack at the shore to launch it
 
 Read a lost book and the whole fellowship learns what it teaches.
 
-- **The Shipwright's Folio**: Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat.
+- **The Shipwright's Folio**: The Sloop-wright's drawings, salt-stained. Teaches the Sloop. The fifth fire brings it.
+- **The Longboat-wright's Book**: Eight oars and a long keel. Teaches the Longboat. The sixth fire brings it.
 - **The Furrier's Pattern**: How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood.
 - **The Herbwife's Notes**: Pressed flowers and careful measures. Teaches a cheaper salve.
 - **Storm Rigging**: Knots and sail plans for heavy weather. Your boats run a fifth faster.
@@ -60,3 +61,7 @@ Read a lost book and the whole fellowship learns what it teaches.
 - **The Drowned Hymnal**: Its pages are still wet. Teaches a bog salve from tar.
 - **The Keeper's Law**: The old law of the hill keeps of Kalaja. Teaches storied fittings from red iron.
 - **The Engine Book**: Diagrams of Cogwright's wheels. Teaches fine fittings from scrap and salt crystal.
+
+## Past the turn
+
+After the turn the far isles hold the keys the fouled bowls want, and five far materials (see [[Making]]). The Far Shores are danger 5. The Bell-Wound's trophy has a power: every eighth blow that lands strikes twice as hard.

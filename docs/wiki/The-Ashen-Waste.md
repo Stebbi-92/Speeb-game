@@ -115,7 +115,7 @@ Everything you do earns experience. Each level gives a point to spend on [[Skill
 
 ## Beacon credit
 
-A lit beacon burns for the whole world, but its boon is personal. Those within 250 paces when it catches get the full gift and choose a boon. Those elsewhere get half the gift and no boon; they can walk to the lit beacon later and **keep a vigil** there to take its boon and credit for themselves. When a beacon is kindled you also see the next dark beacon and, past it, the smoke of that land's great one, both marked on your map.
+A lit beacon burns for the whole world, but its boon is personal. Those near it when it catches, and those who fought at its second front, get the full gift and choose a boon. With a second front, the vigil lasts until the front is held (at least four minutes). A failed vigil gives the oil back. Those elsewhere get half the gift and no boon; they can walk to the lit beacon later and **keep a vigil** there to take its boon and credit for themselves. When a beacon is kindled you also see the next dark beacon and, past it, the smoke of that land's great one, both marked on your map.
 
 ## Ember runs (two or more)
 
@@ -152,3 +152,55 @@ Every town knows how safe its roads are, from 0 to 100: **Dangerous**, **Uneasy*
 - **Honours:** at 5 standing you are a **Friend** of the town, and its inn's beds are free. At 8 it sends you a gift. At 12 you are its **Warden**.
 - **Rivals:** a town left dangerous beside a safe neighbour grumbles at you, and your standing there slips.
 - **The map** shows each town's roads as a ring of colour: red, amber, green or gold.
+
+## Every fire opens something
+
+Each beacon lit opens a new thing to do. These go by the most fires that ever burned in the world, so a fire that gutters out does not take them back.
+
+| Fire | Opens |
+|---|---|
+| 1 | Strays to tame and ride |
+| 2 | Survey: stand on a high place and nearby ruins and lairs (within 600 paces) go on your map |
+| 3 | Planter boxes |
+| 4 | Waystones |
+| 5 | The sloop (the Shipwright's Folio) |
+| 6 | The longboat (the Longboat-wright's Book) |
+| 7 | Discern: hidden and unseen forms show on your compass |
+| 8 | Bulwark: the first blow of each night is taken for you |
+| 9 | The Ferryman's Way |
+
+## Fouled bowls
+
+After the turn, the Mouth fouls the dark bowls. Each wants a key from beyond the shore before beacon oil will take:
+
+- **Sixth fire:** Deep Oil, made from lamp oil and the Bell-Wound's ichor.
+- **Seventh fire:** the Fleet Log, from Quietglass.
+- **Eighth fire:** a far great one's heart.
+- **Ninth fire:** three far coals, one from a shrine-bowl on each Far Shore.
+
+Corvin, Ione and Sigrun tell you which. A key cleans its bowl for good, and goes back to you if the vigil fails.
+
+## Waystones
+
+Waystones wake with the fourth fire. One of a pair must stand in a lit beacon's ground or in a town, and both must stand on one land. A far isle links to the waste only along a lit sea lane. People pass through; cargo, ore, keys, far materials, an ember or a cat do not. A waystone that cannot link shows why.
+
+## After an ending
+
+The world goes on after an ending.
+
+- **Great ones walk abroad.** Some dawns a great one leaves its lair and roams its own land. A banner says where.
+- **Feast days.** Every fifth day one town keeps a feast: food and salt for those who come, and trade at four fifths of the price.
+- **Completion.** Each quarter of the bestiary and of the map you have known pays a reward, up to the whole of both.
+
+## The Second Vow
+
+The Second Vow is the harder road after the first ending.
+
+- Lit fires gutter, down to a third over three days. Tend a fire with lamp oil to make it full again. A guttering fire keeps the night back less far.
+- The forms of the Far Shores walk the waste.
+- The seventh night brings the Far Host.
+- Everything is harder; the Far Shores take the vow lighter (x1.15).
+
+## The ending vote
+
+The ending is chosen by a vote at the page. The most votes win, the host breaks a tie, and the hall waits a minute for those still on their way.

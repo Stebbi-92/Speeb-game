@@ -19,10 +19,11 @@ While building, the pack key (**I**) opens the pieces to pick from. Rain and sno
 | **Barrel** | 5 Deadwood, 1 Scrap Iron | 200 | Sixteen places to keep things, like a chest. |
 | **Anvil** | 8 Scrap Iron, 4 Stone | 500 | Work here as at a workbench. Hard to break. |
 | **Workbench** | 6 Deadwood, 4 Scrap Iron | 300 | Make guns, parts, ammunition and tools. |
-| **Planter Box** | 4 Deadwood, 2 Stone, 2 Bone | 150 | Plant seeds here. Come back in a day. |
-| **Waystone** | 12 Stone, 6 Scrap Iron, 2 Lamp Oil | 600 | Name it. Two waystones of one name lead to each other. |
+| **Planter Box** | 4 Deadwood, 2 Stone, 2 Bone | 150 | Plant seeds here. Come back in a day. After the third fire. |
+| **Waystone** | 12 Stone, 6 Scrap Iron, 2 Lamp Oil | 600 | Name it. Two waystones of one name lead to each other. After the fourth fire; see [[The Ashen Waste|The-Ashen-Waste]]. |
 | **Oil Lamp** | 2 Scrap Iron, 1 Lamp Oil | 150 | A tall light. |
 | **Trophy Shrine** | 10 Stone, 4 Bone, 2 Scrap Iron | 400 | Lay a great one's trophy here once. After that, kneel to take its power for a while. |
+| **Trophy Hall** | 16 Stone, 10 Deadwood, 4 Scrap Iron, 4 Cloth | 600 | Hang up to three trophies, one of each. Each gives a third of its power to all within 60 paces. The shrine's power and the hall's never add up: the stronger one counts. |
 
 ## Frame
 

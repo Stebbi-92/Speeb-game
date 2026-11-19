@@ -1658,7 +1658,9 @@ func _beacon_prompt(i: int) -> void:
 	if ember_by == Net.me() and not i in lit and not vigils.has(i):
 		a.set_meta("prompt", "Kindle the beacon with the ember")
 		return
-	if i in lit:
+	if i in lit and flame_of(i) < 0.95 and i in my_kindled():
+		a.set_meta("prompt", "Tend the flame (lamp oil): it burns low")
+	elif i in lit:
 		a.set_meta("prompt", "Walk the beacon road" if i in my_kindled() else "Keep a vigil here (its boon is yours)")
 	elif vigils.has(i):
 		a.set_meta("prompt", "")
@@ -1680,6 +1682,9 @@ func _beacon_touched(i: int) -> void:
 			return
 		if not skills.boon_offer.is_empty():
 			ui.open_boons(WPlaces.BEACONS[i].name)
+			return
+		if flame_of(i) < 0.95:
+			tend_beacon(i)   # the Second Vow: a guttering fire is fed, not kindled again
 			return
 		ui.open_travel()
 		return
@@ -1880,6 +1885,130 @@ func has_verb(fire: int) -> bool:
 	return most_lit() >= fire
 
 
+# ------------------------------------------------------------------ the Second Vow and the Keeping
+
+## Under the Second Vow the lit fires gutter: each burns down over three days to a third, never lower, and
+## its ground shrinks with it. A pilgrim tends it with lamp oil: no vigil, no gift, no key.
+const TEND_HOURS := 72.0
+
+func flame_of(i: int) -> float:
+	if not flags.has("second_vow") or not i in lit:
+		return 1.0
+	var since: float = world_hours() - float(flags.get("tended_%d" % i, flags.get("vow_at", world_hours())))
+	return clampf(1.0 - since / TEND_HOURS * (2.0 / 3.0), 1.0 / 3.0, 1.0)
+
+
+## The vow's weight: lighter on the Far Shores, which are already hard enough.
+func vow_mult(p: Vector3, m: float) -> float:
+	if not flags.has("second_vow"):
+		return 1.0
+	return 1.15 if land_at(p) in FAR_SHORE_LANDS else m
+
+
+func tend_beacon(i: int) -> void:
+	if inv.count("oil") <= 0:
+		hud.notify("The flame wants lamp oil.")
+		return
+	inv.take("oil", 1)
+	shared("_w_tended", [i, world_hours(), Net.me()])
+
+
+func _w_tended(i: int, at: float, by: int) -> void:
+	flags["tended_%d" % i] = at
+	if i < beacon_nodes.size():
+		sfx("choir", -10, beacon_nodes[i].pos, 1.3)
+		_beacon_prompt(i)
+	if by == Net.me():
+		hud.notify("You tend %s. It burns high again." % WPlaces.BEACONS[i].name)
+		award("beacon", 0.1)
+	autosave_soon(3.0)
+
+
+## After an ending, or under the Second Vow, the waste is kept, not finished: now and then at dawn a great
+## one leaves its ring and walks abroad in its own land, and the fellowship hears of it.
+const ROAM_CHANCE := 0.35
+
+func keeping() -> bool:
+	return flags.has("ending") or flags.has("second_vow")
+
+
+func _roam_great() -> void:
+	if not Net.authority() or not keeping() or randf() > ROAM_CHANCE:
+		return
+	var ready: Array = lairs.filter(func(l): return lair_ready(l) and _lair_boss.get(l.id) == null)
+	if ready.is_empty():
+		return
+	var l: Dictionary = ready[randi() % ready.size()]
+	var land := land_at(l.pos)
+	for tries in 30:
+		var a := randf() * TAU
+		var q: Vector3 = l.pos + Vector3(cos(a), 0, sin(a)) * randf_range(200.0, 350.0)
+		q = gpos(Vector2(q.x, q.z))
+		if terrain.is_water(q.x, q.z, 0.3) or land_at(q) != land or gentle_at(q) or settlement_at(q, 120.0) != "" or base_at(q, 60.0) >= 0:
+			continue
+		var b := spawn_at(l.boss, q + Vector3(0, 2.0, 0))
+		if b:
+			_lair_boss[l.id] = b
+			shared("_w_roam_great", [l.boss, q])
+		return
+
+
+func _w_roam_great(b: String, at: Vector3) -> void:
+	reveal_place(Vector2(at.x, at.z), 60.0)
+	if Net.dedicated:
+		return
+	hud.alert_banner("%s walks abroad" % LesserSpeeb.BOSSES[b].name, "It has left its ring and walks its own land. It is on your map.")
+
+
+# ------------------------------------------------------------------ completion: the bestiary and the map
+
+## Every quarter of the bestiary filled, and of the map walked, pays (the Keeping: something to finish).
+const COMPLETE_GIFTS := {25: [["fittings_rare", 1], ["salt", 100]], 50: [["fittings_storied", 1], ["salt", 200]],
+	75: [["fittings_storied", 2], ["salt", 300]], 100: [["fittings_storied", 3], ["tempered", 4], ["clockwork", 4]]}
+var _bestiary_total := 0
+
+func bestiary_total() -> int:
+	if _bestiary_total == 0:
+		var all := {}
+		for b in BIOME_FORMS:
+			for k in BIOME_FORMS[b]:
+				all[k] = true
+		for il in WIsles.THEMES:
+			for k in WIsles.THEMES[il].get("forms", []):
+				all[k] = true
+		_bestiary_total = all.size()
+	return maxi(1, _bestiary_total)
+
+
+func bestiary_pct() -> int:
+	return mini(100, int(100.0 * slain_kinds.size() / bestiary_total()))
+
+
+## The share of the map walked or seen, as a percentage of the land (the sea is most of it, so it is
+## counted against the land the waste and its isles hold: about a third of the whole).
+func map_pct() -> int:
+	if revealed.is_empty():
+		return 0
+	var seen := revealed.size() - revealed.count(0)
+	return mini(100, int(100.0 * seen / (revealed.size() * 0.33)))
+
+
+func _completion_check() -> void:
+	if Net.dedicated or not ready_world:
+		return
+	for what in [["beast", bestiary_pct(), "the bestiary"], ["map", map_pct(), "the map"]]:
+		for q in COMPLETE_GIFTS:
+			var key := "%s_%d" % [what[0], q]
+			if int(what[1]) >= int(q) and not rewards_had.has(key):
+				rewards_had[key] = true
+				give(COMPLETE_GIFTS[q])
+				hud.alert_banner("%d%% of %s" % [q, what[2]], "A reward for it is in your pack.")
+				char_save_soon()
+
+
+var rewards_had := {}   ## the completion rewards this pilgrim has had
+
+
 ## A fire beyond any before it: what it opens, for everyone.
 func _verb_gained(n: int) -> void:
 	_verb_books()
@@ -2051,6 +2180,7 @@ func _w_hang(pid: int, hung: Array) -> void:
 var _survey_t := 0.0
 var _surveyed := {}
 var _books_checked := false
+var _map_t := 30.0
 const SURVEY_SIGHT := 600.0
 
 func _verbs_tick(delta: float) -> void:
@@ -2077,9 +2207,16 @@ func _verbs_tick(delta: float) -> void:
 		_bearing = bear
 		shared("_w_bearer", [Net.me(), bear])
 	_survey_t -= delta
-	if _survey_t > 0.0 or not has_verb(2) or Net.dedicated or player.vessel != null:
+	if _survey_t > 0.0:
 		return
 	_survey_t = 3.0
+	_feast_tick()
+	_map_t -= 3.0
+	if _map_t <= 0.0:
+		_map_t = 60.0
+		_completion_check()
+	if not has_verb(2) or Net.dedicated or player.vessel != null:
+		return
 	for pid in pieces:
 		if pieces[pid].kind == "portal":
 			_portal_look(pid)   # a link wakes or dims as beacons and lanes are lit or go dark
@@ -2700,7 +2837,7 @@ func safe_at(p: Vector3) -> bool:
 	if hall and hall.inside(p):
 		return true   # the night does not come down the Lake Stair: only the hall's own answer
 	for i in lit:
-		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
+		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE * flame_of(i):
 			return true
 	return settlement_at(p, TOWN_SAFE) != "" or base_at(p) >= 0
 
@@ -3042,7 +3179,7 @@ func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 		if LesserSpeeb.BOSSES.has(kind):
 			tp = mini(tp, 4)
 		var land: float = TIER_HP[tp - 1]
-		var m: float = land * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
+		var m: float = land * vow_mult(p, 1.3) * (WCrowd.hp(self) if e.boss == "" else 1.0)
 		e.hp *= m
 		e.max_hp *= m
 		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
@@ -4060,6 +4197,8 @@ func _great_raid() -> void:
 ## The seventh night's host changes as the lands are lit: the dead come first, then the Unlit march
 ## to put the beacons out again, then (after the turn) the sea itself, and at last the old iron of the deep lands.
 const GREAT_HOSTS := {
+	"far": {"name": "The Far Host", "band": ["rime_walker", "canyon_strider", "grass_stalker", "dust_choir", "geyser_wight"], "leads": ["mound_guard", "sand_maw"],
+		"text": "The Far Shores have crossed the sea: rime-walkers, striders and stalkers, and the mound-guards behind them."},
 	"pilgrims": {"name": "The Hollow Pilgrimage", "band": ["hollow", "hollow", "vigil", "saltbone"], "leads": ["warden"],
 		"text": "The dead walk on your camp, a Gravewarden behind them."},
 	"unlit": {"name": "The Unlit War Band", "band": ["unlit_gun", "unlit_gun", "unlit_blade", "unlit_mark", "unlit_flame"], "leads": ["unlit_brute", "unlit_brute"],
@@ -4072,6 +4211,8 @@ const GREAT_HOSTS := {
 
 ## Which host comes on the seventh night, by how many beacons burn.
 func great_host() -> String:
+	if flags.has("second_vow"):
+		return "far"   # the Second Vow: what lives beyond the sea comes for the camp
 	if lit.size() >= 7:
 		return "iron"
 	if lit.size() >= 5:
@@ -4520,7 +4661,7 @@ const ENDINGS := {
 	"keeper": ["The Keeper", "You leave the page white. The pen stays where it lay.\n\nUp in the waste the nine fires burn. The Mouth is held for as long as someone keeps them.\n\nThe waste is not saved. It is kept. And now you keep it."],
 	"unlit": ["The Unlit", "You leave the page. Behind the table there is a stair, and Ruth's people are waiting on it with their lamps put out.\n\nYou go down into the Mouth, and you are not seen again.\n\nUp in the waste the forms stop coming at night. The fires burn on. No one can quite remember your name."],
 	"pilgrim": ["The Pilgrim", "A thin man stands at the end of the table. He has no face you can keep hold of. He holds out a book, worn soft, its last page blank.\n\n\"He walked it once,\" he says. \"Now you.\"\n\nYou take Brelm's journal, and the vow with it. The road begins again: the same waste, harder, and you are its hermit now. This is the Second Vow."],
-	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nBut the stars are gone. The waste is safe, and very empty, as if no one is looking any more."],
+	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nThe stars are gone. But the waste goes on: great ones still walk abroad, the towns still keep their feasts, and there is work for anyone who wants it."],
 }
 
 
@@ -4528,6 +4669,7 @@ func _w_ending(kind: String, by: int) -> void:
 	flags["ending"] = kind
 	if kind == "pilgrim":
 		flags["second_vow"] = true
+		flags["vow_at"] = world_hours()   # from now the lit fires gutter, and must be tended
 	sfx("choir", -4)
 	var e: Array = ENDINGS.get(kind, ENDINGS.keeper)
 	hud.title_card(e[0], "The end of the road")
@@ -5106,7 +5248,20 @@ func forms_at(p: Vector3) -> Array:
 	var all: Array = WIsles.THEMES[il.key].forms if not il.is_empty() else BIOME_FORMS[terrain.biome_name(p.x, p.z)]
 	var t := tier_at(p)
 	var out: Array = all.filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= t)
+	# The Second Vow: the Far Shores' forms walk the waste too (never in the gentle ground, or a town)
+	if flags.has("second_vow") and il.is_empty() and t >= 2 and settlement_at(p, 40.0) == "":
+		out += far_forms().filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= t + 1)
 	return out if not out.is_empty() else GENTLE_FORMS
+
+
+## The forms of the Far Shores, once each.
+func far_forms() -> Array:
+	var out: Array = []
+	for land in FAR_SHORE_LANDS:
+		for k in WIsles.THEMES[land].forms:
+			if not k in out:
+				out.append(k)
+	return out
 
 
 static func _form_spec(k: String) -> Dictionary:
@@ -5953,6 +6108,8 @@ func _w_nightfall(_d: int) -> void:
 
 func _w_dawn(d: int) -> void:
 	night = false
+	if Net.authority():
+		_roam_great.call_deferred()
 	bulwark_spent = false
 	quick_camp_spent = false
 	day = d
@@ -5962,6 +6119,12 @@ func _w_dawn(d: int) -> void:
 	_my_vote = false
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
+	if feast_town(d) != "":
+		var ft := feast_town(d)
+		reveal_place(WPlaces.spos(ft), 80.0)
+		get_tree().create_timer(6.0, false).timeout.connect(func():
+			if is_instance_valid(hud):
+				hud.notify("Today is a feast day in %s. Come by day: food, salt and cheap trade." % WPlaces.SETTLEMENTS[ft].name))
 	if night_theme != "" and not Net.dedicated:
 		var nt: Dictionary = NIGHT_THEMES[night_theme]
 		if not _fell_tonight and not nt.gives.is_empty():
@@ -6604,7 +6767,8 @@ func _bestiary(e: LesserSpeeb) -> void:
 		text += " Weak to %s." % ", ".join(weak)
 	if not hard.is_empty():
 		text += " Hard against %s." % ", ".join(hard)
-	hud.revelation("Bestiary: %s (%d known)" % [str(e.spec.name), slain_kinds.size()], text)
+	hud.revelation("Bestiary: %s (%d of %d known)" % [str(e.spec.name), slain_kinds.size(), bestiary_total()], text)
+	_completion_check()
 	WPlaylog.note("First %s slain" % str(e.spec.name))
 
 
@@ -7065,7 +7229,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
 	if WRules.sworn("vow_glass"):
 		amount *= 1.5
-	amount *= TIER_HARM[tier_at(from) - 1] * (1.25 if flags.has("second_vow") else 1.0)
+	amount *= TIER_HARM[tier_at(from) - 1] * vow_mult(from, 1.25)
 	amount *= 1.0 - 0.2 * power_k("gilt")
 	var wpn = player.weapon
 	if wpn and wpn.guarding and wpn.enabled and not lethal:
@@ -7637,7 +7801,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds, "completed": rewards_had,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
@@ -7664,6 +7828,7 @@ func apply_char(d: Dictionary) -> void:
 			kindled.append(int(k))
 	traces_seen = d.get("traces", {}) if d.get("traces") is Dictionary else {}
 	slain_kinds = d.get("slain", {}) if d.get("slain") is Dictionary else {}
+	rewards_had = d.get("completed", {}) if d.get("completed") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	meals = {}
 	if d.get("meals") is Dictionary:
@@ -13038,6 +13203,72 @@ func debug_danger5() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the Second Vow's rules, the world after an ending (roaming great ones, feast days), completion.
+func debug_keeping() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var vow0 := flags.has("second_vow")
+	var lit0 := lit.duplicate()
+	if not 0 in lit:
+		lit.append(0)
+	flags["second_vow"] = true
+	flags["vow_at"] = world_hours() - TEND_HOURS * 2.0
+	var low := flame_of(0)
+	inv.add("oil", 1)
+	tend_beacon(0)
+	await get_tree().create_timer(0.2).timeout
+	var high := flame_of(0)
+	var shore := Vector3.INF
+	for il in terrain.isles:
+		if il.key == "sun":
+			shore = gpos(terrain.isle_heart(il))
+	var mults: bool = is_equal_approx(vow_mult(shore, 1.3), 1.15) and is_equal_approx(vow_mult(Vector3(300, 0, 300), 1.3), 1.3)
+	var host := great_host()
+	var far_in_waste := false
+	for k in 60:
+		var q := Vector3(cos(k * 0.5), 0, sin(k * 0.5)) * (900.0 + k * 20.0)
+		if tier_at(q) >= 3 and land_at(q) != "sea" and terrain.isle_at(q.x, q.z, 1.3).is_empty():
+			far_in_waste = forms_at(q).any(func(f): return f in far_forms())
+			if far_in_waste:
+				break
+	# Roaming great ones, once the world is in the keeping
+	flags["ending"] = "keeper"
+	for k in 30:
+		_roam_great()
+		if not _lair_boss.is_empty():
+			break
+	var roamed: bool = not _lair_boss.is_empty()
+	for id in _lair_boss.keys():
+		if is_instance_valid(_lair_boss[id]):
+			_lair_boss[id].die(false)
+	_lair_boss.clear()
+	# Feast days
+	var ft := feast_town(7)
+	var d0 := day
+	day = 7
+	var cheaper: bool = ft != "" and price_mult_at(ft) < price_mult_at("__none__") and feast_town(8) == ""
+	day = d0
+	# Completion
+	var slain0 := slain_kinds.duplicate()
+	for b in BIOME_FORMS:
+		for k in BIOME_FORMS[b]:
+			slain_kinds[k] = true
+	for il in WIsles.THEMES:
+		for k in WIsles.THEMES[il].get("forms", []):
+			slain_kinds[k] = true
+	rewards_had.clear()
+	var st0 := inv.count("fittings_storied")
+	_completion_check()
+	var done: bool = rewards_had.has("beast_100") and inv.count("fittings_storied") > st0
+	slain_kinds = slain0
+	flags.erase("ending")
+	if not vow0:
+		flags.erase("second_vow")
+	lit = lit0
+	print("KEEPING low=%.2f high=%.2f mults=%s host=%s far_in_waste=%s roamed=%s feast=%s total=%d done=%s writer=%s" % [low, high, mults, host, far_in_waste, roamed, cheaper, bestiary_total(), done, ENDINGS.writer[1].contains("goes on")])
+	get_tree().quit()
+
+
 ## Testing aid: the trophy hall (a third of a power at the base, never summed with the shrine's) and renown.
 func debug_hall() -> void:
 	while not ready_world:
@@ -15290,7 +15521,36 @@ func stock_at(role: String, k: String) -> Array:
 
 ## What a town's traders ask, against the usual, by how safe its roads are.
 func price_mult_at(k: String) -> float:
-	return DANGER_PRICE if WPlaces.SETTLEMENTS.has(k) and safety_of(k) < 25 else 1.0
+	return (DANGER_PRICE if WPlaces.SETTLEMENTS.has(k) and safety_of(k) < 25 else 1.0) * (FEAST_PRICE if k == feast_town(day) else 1.0)
+
+
+# ------------------------------------------------------------------ feast days
+
+## Every fifth day one town keeps a feast: by day its traders sell cheaper, and each pilgrim who comes is
+## fed and given a little salt. Feasts go on after any ending (gameplay bible: the world after stays alive).
+const FEAST_EVERY := 5
+const FEAST_PRICE := 0.8
+var _feasted_day := -1
+
+func feast_town(d: int) -> String:
+	if d < 2 or d % FEAST_EVERY != 2:
+		return ""
+	var towns: Array = WPlaces.SETTLEMENTS.keys().filter(func(k): return not WPlaces.SETTLEMENTS[k].get("isle", false))
+	if towns.is_empty():
+		return ""
+	towns.sort()
+	return str(towns[absi(hash(world_seed + d * 31)) % towns.size()])
+
+
+func _feast_tick() -> void:
+	var t := feast_town(day)
+	if t == "" or night or _feasted_day == day or Net.dedicated:
+		return
+	if settlement_at(player.global_position) == t:
+		_feasted_day = day
+		give([["feast", 1], ["salt", 30]])
+		sfx("choir", -10, null, 1.2)
+		hud.notify("A feast day in %s. You are fed, and given salt; the traders sell cheaper today." % WPlaces.SETTLEMENTS[t].name)
 
 
 ## Everyone, every couple of seconds: gates barred at night where the roads are dangerous.
