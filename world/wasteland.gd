@@ -7670,6 +7670,12 @@ func _rq_hello(by: int) -> void:
 	for bid in boats:
 		if is_instance_valid(boats[bid]) and not boats[bid].riders.is_empty():
 			Net.call_peer(by, "_w_riders", [bid, boats[bid].riders])
+	# The events now under way, so the newcomer sees their smoke and can share what they give
+	if events:
+		for id in events.active:
+			var ev: Dictionary = events.active[id]
+			if not ev.get("done", false):
+				Net.call_peer(by, "_w_event_start", [id, ev.kind, ev.pos])
 
 
 ## A newcomer asks again now and then while nothing of the world has come (a first word may be lost).
@@ -13827,6 +13833,27 @@ func debug_music() -> void:
 	music.beacon_swell()
 	await get_tree().create_timer(1.5).timeout
 	print("MUSIC all=%s bus=%s night=%s town=%s great=%s swell=%s old_loop=%s" % [all, bus, at_night, in_town, great, music.now == "swell", _music == null])
+	get_tree().quit()
+
+
+## Testing aid: a friend's guard, raised just now and facing the foe, turns its blow on the host's side;
+## facing away, or raised long ago, it does not.
+func debug_friendparry() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var c := Companion.new()
+	c.peer_id = 77
+	add_child(c)
+	c.global_position = player.global_position + Vector3(30, 0, 0)
+	c.set("_yaw", 0.0)   # looking toward -z
+	var foe := c.global_position + Vector3(0, 0, -2)
+	_w_guard_up(77)
+	var turned_ok := friend_guarded(c, foe)
+	var behind := not friend_guarded(c, c.global_position + Vector3(0, 0, 2))
+	guard_up[77] = Time.get_ticks_msec() - 2000
+	var stale := not friend_guarded(c, foe)
+	c.queue_free()
+	print("FRIENDPARRY turned=%s behind=%s stale=%s" % [turned_ok, behind, stale])
 	get_tree().quit()
 
 

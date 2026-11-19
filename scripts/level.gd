@@ -2512,6 +2512,29 @@ func _personal_fail(message: String, sound: String) -> void:
 
 
 ## Calls a method of the land for everyone in the fellowship (or just here, when walking alone).
+var guard_up := {}   ## (host) peer -> when a friend last raised their guard, in msec
+
+
+func _w_guard_up(id: int) -> void:
+	if Net.authority():
+		guard_up[id] = Time.get_ticks_msec()
+
+
+## (host) Whether a friend raised their guard just now, facing this foe: a perfect guard, across the wire.
+## A little slack is given for the time the word took to come.
+func friend_guarded(c: Node3D, foe: Vector3) -> bool:
+	if not c is Companion:
+		return false
+	var at: int = int(guard_up.get(c.peer_id, -100000))
+	if Time.get_ticks_msec() - at > int((Arms.PERFECT_GUARD + 0.15) * 1000.0):
+		return false
+	var yaw: float = float(c.get("_yaw"))
+	var cf := Vector3(-sin(yaw), 0.0, -cos(yaw))   # the way the friend looks (their model is turned about)
+	var to := foe - c.global_position
+	to.y = 0.0
+	return cf.dot(to.normalized()) > 0.3
+
+
 func shared(method: String, args := []) -> void:
 	if Net.online:
 		Net.call_shared(method, args)

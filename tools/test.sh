@@ -70,6 +70,7 @@ check hall      debug_hall     "HALL hung=3 eye_hall=0.25 eye_full=1.00 far=true
 check keeping   debug_keeping  "KEEPING low=0.33 high=1.00 mults=true host=far far_in_waste=true roamed=true feast=true total=[0-9]+ done=true writer=true"
 check stages   debug_stages   "STAGES none=true hid=true once=true caught=true"
 check music    debug_music    "MUSIC all=true bus=true night=night town=town great=great swell=true old_loop=true"
+check friendparry debug_friendparry "FRIENDPARRY turned=true behind=true stale=true"
 check farlairs  debug_farlairs "FARLAIRS lairs=5 level=5 named=5 trophies=5"
 check lights    debug_lights   "LIGHTS houses=10 lanes=5 wet=10 kelp=true" "LIGHTS stands=true poured=true one=true half_safe=false safe=true kelp_in=true"
 check boat      debug_boat     "BOAT launched=true boats=1 left_pack=0" "BOAT aboard=true helm=true" "BOAT moved=[1-9][0-9.]* carried=true" "BOAT off=true riders=0" "BOAT sail=2 sloop_speed=([5-9]|1[0-9])\." "BOAT wrecked=true thrown=true"

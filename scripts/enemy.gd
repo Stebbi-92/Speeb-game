@@ -2007,6 +2007,8 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 ## A guard raised just as the blow lands (a quarter of a second): the blow is turned for nothing, and the
 ## foe reels open. A guard held up long before only blunts the blow, for stamina (see damage_player).
 func _perfect_guard(p: Node3D) -> bool:
+	if p is Companion:
+		return level.friend_guarded(p, global_position)
 	if p != level.player or level.player.weapon == null or not level.player.weapon.guarding:
 		return false
 	if float(level.player.weapon.get("guard_age")) > Arms.PERFECT_GUARD:

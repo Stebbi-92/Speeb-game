@@ -1419,6 +1419,8 @@ func _blade_tick(delta: float, holding: bool) -> void:
 	var was := guarding
 	guarding = Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
 	guard_age = (0.0 if not was else guard_age + delta) if guarding else 99.0
+	if guarding and not was and Net.online and not Net.authority() and Game.main and Game.main.level:
+		Game.main.level.shared("_w_guard_up", [Net.me()])   # the host's foes can be turned by a friend's guard too
 	if guarding:
 		_charge = -1.0
 		return
