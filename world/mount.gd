@@ -108,6 +108,7 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D) -> MeshInsta
 ## its own head is drawn small inside a Speeb's, alive, which rides where the head should be.
 const MODEL := "res://assets/models/mounts/sphynx_cat.glb"
 const MODEL_SCALE := 2.7
+const SADDLE := "res://assets/models/mounts/saddle.glb"   ## YaredGmGm's saddle (CC-BY), over the cat's back
 const HEAD_BONE := "head_12"
 const GAITS := ["Cat_Idle", "Cat_Walk", "Cat_Trot", "Cat_Gallop_Run"]
 
@@ -174,10 +175,12 @@ func _refresh() -> void:
 	for c in _bard.get_children():
 		c.queue_free()
 	if not wild:
-		var leather := _mat(Color(0.32, 0.2, 0.12))
-		_box(Vector3(0.66, 0.08, 0.5), Vector3(0, 1.25, -0.05), leather, _bard)
-		_box(Vector3(0.05, 0.32, 0.05), Vector3(0.34, 1.05, -0.05), leather, _bard)
-		_box(Vector3(0.05, 0.32, 0.05), Vector3(-0.34, 1.05, -0.05), leather, _bard)
+		var saddle: Node3D = (load(SADDLE) as PackedScene).instantiate()
+		saddle.scale = Vector3.ONE * 0.78
+		saddle.position = Vector3(0, 1.0, 0.0)
+		for mi in saddle.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		_bard.add_child(saddle)
 		match barding:
 			"hide_barding":
 				_box(Vector3(0.7, 0.4, 0.9), Vector3(0, 1.0, 0.05), _mat(Color(0.45, 0.36, 0.26)), _bard)

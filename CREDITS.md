@@ -60,6 +60,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
 | ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
 | ["Sphynx Cat – Rigged & Animated (10 Anims)"](https://skfb.ly/pOMpF) | [Animal Animator](https://animalanimator.com) ([the sphynx cat reference](https://animalanimator.com/the-ultimate-sphinx-cat-reference-for-animal-animators/)) | The riding cat (`assets/models/mounts`), made big enough to ride, with a Speeb's head |
+| ["Saddle"](https://skfb.ly/oR6Az) | YaredGmGm | The riding cat's saddle (`assets/models/mounts`) |
 | ["black panther"](https://skfb.ly/oREyv) | kenchoo | The lesser forms' bodies (`assets/models/foes/panther`), tinted to each form, with its head |
 | ["Low Poly Apache Gunship"](https://skfb.ly/6uKJq) | Duane's Mind | The Gunship (`assets/models/air`) |
 | ["Low poly A-10 Warthog"](https://skfb.ly/oWQFH) | SIpriv | The Gun Run (`assets/models/air`) |
