@@ -12,7 +12,7 @@ const KINDS := {
 	"spirit_grave": {"name": "Grave-Cat", "face": "moonspeeb", "color": Color(0.55, 0.75, 1.0), "size": 1.5,
 		"life": 60.0, "speed": 7.5, "bite": 46.0, "rate": 1.6, "harm": "blast"},
 }
-const TIER_BITE := [1.0, 1.4, 1.9, 2.5]   ## its bite grows with the danger of the land it is called in
+const TIER_BITE := [1.0, 1.4, 1.9, 2.5, 2.9]   ## its bite grows with the danger of the land it is called in
 const REACH := 26.0                       ## how far from its pilgrim it will go after a form
 
 var w

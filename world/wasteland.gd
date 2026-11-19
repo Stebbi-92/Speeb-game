@@ -2663,8 +2663,9 @@ func eat(id: String) -> bool:
 ## Each land is harder than the one before, and has a hardship that only gear made from the land
 ## before it keeps out (Valheim's lands). The Ash Plains are where everyone starts.
 const LAND_TIER := {"ash": 1, "dunes": 2, "forest": 2, "salt": 3, "marsh": 3, "basalt": 4}
-const TIER_HP := [1.0, 1.5, 2.2, 3.0]       ## a foe's health in a land of each danger
-const TIER_HARM := [1.0, 1.3, 1.6, 1.9]    ## and the harm it does
+const TIER_HP := [1.0, 1.5, 2.2, 3.0, 3.6]       ## a foe's health in a land of each danger (5: the Far Shores)
+const TIER_HARM := [1.0, 1.3, 1.6, 1.9, 2.1]    ## and the harm it does
+const TIER_XP := [1.0, 1.15, 1.3, 1.5, 1.8]     ## a kill there teaches more
 ## land: [ward carried against it, the hardship in a few words]
 const LAND_WARD := {
 	"dunes": ["veil", "The heat: your breath comes back slowly."],
@@ -2708,7 +2709,17 @@ func tier_at(p: Vector3) -> int:
 	if d < GENTLE:
 		return 1
 	var ring := 1 + int(d / 600.0)
+	# Danger 5 is set by place, never by distance: the Far Shores, once the sea has opened
+	if turned() and d > WTerrain.N * WTerrain.CELL * 0.5 and land_at(p) in FAR_SHORE_LANDS:
+		return 5
 	return clampi(ring + (1 if land_tier(land_at(p)) >= 3 else 0), 1, 4)
+
+
+const FAR_SHORE_LANDS := ["frost", "sun", "steppe"]
+
+## How many dangers there are, as the pilgrim knows it: the fifth shows only after the turn.
+func tiers_known() -> int:
+	return 5 if turned() else 4
 
 
 func gentle_at(p: Vector3) -> bool:
@@ -2747,14 +2758,18 @@ const CHAMPION_CHANCE := 1.0 / 15.0
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var land: float = TIER_HP[tier_at(p) - 1]
+		var tp := tier_at(p)
+		# A great one is already made for its own land: it does not take the fifth danger again
+		if LesserSpeeb.BOSSES.has(kind):
+			tp = mini(tp, 4)
+		var land: float = TIER_HP[tp - 1]
 		var m: float = land * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
 		e.hp *= m
 		e.max_hp *= m
 		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
 		e.plate *= land
 		# In the harder lands (every land past the first ring, after the turn), one in fifteen or so stands out
-		if tier_at(p) >= (2 if turned() else 3) and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE:
+		if tier_at(p) >= (2 if turned() else 3) and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE * (2.0 if tier_at(p) >= 5 else 1.0):
 			e.become_champion(LesserSpeeb.CHAMPION.keys()[randi() % LesserSpeeb.CHAMPION.size()])
 	return e
 
@@ -5896,7 +5911,7 @@ func _night_wave(k := 1.0) -> Array:
 			return made
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press() * k)))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15, 1.25][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press() * k)))
 		var roster: Array = forms_at(t.global_position)
 		# The night leans on the heavy and on those that strike from afar
 		var hard: Array = roster.filter(func(f): var sp: Dictionary = LesserSpeeb.KINDS.get(f, {}); return str(sp.get("role", "")) == "gun" or f == "spitter" or float(sp.get("hp", 0.0)) >= 150.0)
@@ -6167,7 +6182,7 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if e.variant == "bellwound":
 		shared("_w_kraken_down", [day])
 		return
-	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
+	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill", TIER_XP[clampi(tier_at(e.global_position), 1, TIER_XP.size()) - 1])
 	var near_town := town_near(e.global_position, SAFETY_REACH)
 	if near_town != "":
 		shared("_w_safety", [near_town, SAFETY_ELITE if e.kind in ["elite", "saucer"] or e.has_meta("champion") or e.max_hp >= 150.0 else SAFETY_KILL, Net.my_name()])
@@ -7023,9 +7038,9 @@ func _visit_check() -> void:
 					sfx("jingle_find", -8)
 					hud.title_card("", il.name)
 					award("settlement")
-				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn) if LAND_WARD.has(bn) else ""])
+				hud.notify("%s (danger %d of %d)\n%s%s" % [il.name, tier_at(player.global_position), tiers_known(), WIsles.THEMES[il.key].text, land_warning(bn) if LAND_WARD.has(bn) else ""])
 			else:
-				hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES.get(bn, region), tier_at(player.global_position), BIOME_TEXT.get(bn, ""), "" if gentle_at(player.global_position) else land_warning(bn)])
+				hud.notify("%s (danger %d of %d)\n%s%s" % [WTerrain.BIOME_NAMES.get(bn, region), tier_at(player.global_position), tiers_known(), BIOME_TEXT.get(bn, ""), "" if gentle_at(player.global_position) else land_warning(bn)])
 		_region = region
 	if bn != _biome:
 		_biome = bn
@@ -12605,6 +12620,33 @@ func debug_fouled() -> void:
 	inv.add("heart_frost", 1)
 	var heart_ok: bool = _key_fits(6, [["heart_frost", 1]]) == false and _has_key([["heart", 1]])
 	print("FOULED want6=%s barred=%s took=%s back=%s lit6=%s want7=%s clean=%s ninth=%s heart=%s bowls=%d" % [want6, barred, took, back, lit6, want7, stays_clean, ninth, heart_ok, shrine_bowls.size()])
+	get_tree().quit()
+
+
+## Testing aid: danger 5 lies on the Far Shores only after the turn, nowhere in the waste; foes there take
+## the fifth tier but their great one does not; kills there teach more.
+func debug_danger5() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var shore: Vector3 = Vector3.INF
+	for il in terrain.isles:
+		if il.key == "frost":
+			var h: Vector2 = terrain.isle_heart(il)
+			shore = gpos(h)
+	flags.erase("turned")
+	var before := tier_at(shore)
+	flags["turned"] = true
+	var after := tier_at(shore)
+	var waste_max := 0
+	for k in 400:
+		var a := k * 0.7
+		var q := Vector3(cos(a), 0, sin(a)) * (k * 9.0)
+		waste_max = maxi(waste_max, tier_at(q))
+	var e := spawn_at("rusher", shore + Vector3(0, 2, 0))
+	var foe_ok: bool = e != null and is_equal_approx(e.max_hp, float(LesserSpeeb.KINDS.rusher.hp) * TIER_HP[4] * WCrowd.hp(self))
+	var b := spawn_at("boss_frost", shore + Vector3(5, 2, 0))
+	var boss_ok: bool = b != null and b.max_hp < float(LesserSpeeb.BOSSES.boss_frost.get("hp", b.max_hp)) * TIER_HP[4] * 0.99
+	print("DANGER5 before=%d after=%d waste_max=%d foe=%s boss=%s lists=%s" % [before, after, waste_max, foe_ok, boss_ok, TIER_HP.size() == 5 and TIER_HARM.size() == 5 and WDread.TIER_RATE.size() == 5 and WSpirits.TIER_BITE.size() == 5])
 	get_tree().quit()
 
 
