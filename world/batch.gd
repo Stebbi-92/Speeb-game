@@ -57,8 +57,25 @@ static func merge(holder: Node3D, roots: Array, keep := {}) -> int:
 		holder.add_child(out)
 		out.transform = inv * Transform3D(Basis.IDENTITY, mid)
 	for mi in found:
+		# A plain body that only gives the piece its solidity stays where it was
+		for b in (mi as Node).get_children():
+			var at: Transform3D = (b as Node3D).global_transform
+			mi.remove_child(b)
+			holder.add_child(b)
+			b.global_transform = at
 		mi.free()
 	return found.size()
+
+
+## A piece with nothing under it but a plain solid body (no script, no marks, only its shapes).
+static func _bare(m: MeshInstance3D) -> bool:
+	for b in m.get_children():
+		if not (b is StaticBody3D) or b.get_script() != null or not b.get_meta_list().is_empty():
+			return false
+		for cs in b.get_children():
+			if not (cs is CollisionShape3D):
+				return false
+	return true
 
 
 static func _collect(n: Node, found: Array, keep: Dictionary) -> void:
@@ -76,7 +93,7 @@ static func _collect(n: Node, found: Array, keep: Dictionary) -> void:
 		return
 	if n is MeshInstance3D:
 		var m := n as MeshInstance3D
-		if m.mesh != null and m.visible and m.get_child_count() == 0 and not (m.mesh is ImmediateMesh) \
+		if m.mesh != null and m.visible and _bare(m) and not (m.mesh is ImmediateMesh) \
 				and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY \
 				and m.transparency == 0.0:
 			found.append(m)
