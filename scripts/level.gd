@@ -229,6 +229,8 @@ func apply_quality() -> void:
 	env.glow_enabled = not low
 	env.glow_intensity = maxf(float(get_meta("glow0")), 0.8) if high else float(get_meta("glow0"))
 	env.glow_bloom = 0.08 if high else 0.0
+	env.adjustment_enabled = absf(Game.brightness - 1.0) > 0.01
+	env.adjustment_brightness = Game.brightness
 	RenderingServer.directional_shadow_atlas_set_size(2048 if low else 4096, true)
 	if sun:
 		if not sun.has_meta("reach0"):

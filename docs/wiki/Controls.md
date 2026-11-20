@@ -84,6 +84,18 @@ In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a
 
 You choose what you carry in the Arms screen, but only at camp (by a lit fire), in a town or at a workbench. Out on the road you fight with what you brought.
 
+## The Settings pages
+
+Settings has six pages: **Display**, **Controls**, **Sound**, **Accessibility**, **Game** and **Playing together**. Click a page's name, or press LB and RB on a controller (Q and E on the keyboard), to move between them.
+
+- **Display** also holds **Brightness** (70% to 140%). After changing the display mode or resolution, the game asks "Keep this display?" and goes back by itself after 15 seconds if you don't answer.
+- **Controls** has the mouse, the controller (**Look speed**, and **Invert stick up and down**, now apart from the mouse) and every key.
+- **Playing together** has your name, and the internet list address under **Advanced**.
+
+### With a controller
+
+Every menu can be used with a controller. The first item is chosen when a page opens, **B** goes back one step (as Escape does), and on a slider the d-pad moves it a twentieth of the way each press.
+
 ## Settings for everyone
 
 - **Hold or press to switch:** Sprint, Sneak and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.

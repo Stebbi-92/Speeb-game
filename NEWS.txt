@@ -4,6 +4,7 @@ Brelm alpha 0.19.0
 - Settings: a Low graphics preset for slower machines (shorter shadows, no glow), and a Render scale (100% to 50%) that draws the world smaller and sharpens it back up.
 - Settings for everyone: Sprint, Sneak and Aim can be set to press-to-switch instead of hold; menus and words can be drawn at 90% to 120%; subtitles for spoken lines; colour-blind friendly road safety colours on the map.
 - Error reports: if the game hit an error or closed suddenly, the title asks whether to send a short report (only the error and the game version). Settings can set it to always send or never.
+- Menus: one look for every list, switch, slider and text box; Settings in six pages (Display, Controls, Sound, Accessibility, Game, Playing together); brightness, controller look speed and a separate controller invert; every menu works with a controller, and B goes back. Display changes ask before they stay. Join by code comes first in Walk Together. Arms for the trials now sit under The Trials, and Appearance has its own place on the title.
 
 Brelm alpha 0.18.0: the polish
 

@@ -241,7 +241,7 @@ func _physics_process(delta: float) -> void:
 			st = st.normalized() * pow((st.length() - 0.15) / 0.85, 1.6)
 			var aimk := 0.45 if Game.held("aim") else 1.0
 			yaw -= st.x * Game.pad_look * aimk * delta
-			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
+			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.pad_invert else 1.0), -1.45, 1.45)
 	rotation.y = yaw
 	head.rotation.x = pitch
 	if grappling:

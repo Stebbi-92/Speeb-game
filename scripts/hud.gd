@@ -77,10 +77,7 @@ func _ready() -> void:
 	root = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var th := Theme.new()
-	th.default_font = serif
-	th.default_font_size = 24
-	root.theme = th
+	root.theme = load("res://scripts/ui_theme.gd").make(serif)   # one look for every control
 	add_child(root)
 	root.add_child(PadWheel.new())   # the controller's quick wheel
 
@@ -1241,6 +1238,10 @@ func _save_now() -> void:
 	get_tree().create_timer(1.5, true, false, true).timeout.connect(func(): _save_btn.text = "Save")
 
 
+var _pause_t: Label
+var _pause_sub: Label
+
+
 func _build_pause() -> void:
 	pause_panel = ColorRect.new()
 	pause_panel.color = Color(0, 0, 0, 0.82)
@@ -1254,10 +1255,12 @@ func _build_pause() -> void:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 10)
 	pause_panel.add_child(v)
-	var t := _label("Stillness", 48, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	var t := _label("Paused", 48, PALE, HORIZONTAL_ALIGNMENT_CENTER)
 	t.add_theme_font_override("font", title_font)
 	v.add_child(t)
-	v.add_child(_label("\"Speeb sees. Speeb is.\"", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	_pause_t = t
+	_pause_sub = _label("\"Speeb sees. Speeb is.\"", 20, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	v.add_child(_pause_sub)
 	v.add_child(Control.new())
 	v.add_child(button("Resume", toggle_pause))
 	v.add_child(button("The Book of Emojis", func(): toggle_codex()))
@@ -1277,8 +1280,9 @@ func _build_pause() -> void:
 	v.add_child(_stuck_btn)
 	_restart_btn = button("Restart this trial", func(): toggle_pause(); Game.main.restart_level())
 	v.add_child(_restart_btn)
-	v.add_child(button("Return to the beginning", func(): toggle_pause(); Game.main.show_title()))
-	v.add_child(button("Leave", func(): ask("Leave the game?", "Leave", func(): get_tree().quit())))
+	v.add_child(button("Main menu", func(): toggle_pause(); Game.main.show_title()))
+	v.add_child(button("Leave the game", func():
+		ask("Leave the game?\nYour world is saved." if Game.wasteland else "Leave the game?", "Leave", func(): get_tree().quit())))
 
 
 ## A question over everything else, answered yes or no. Escape or "Stay" closes it.
@@ -1414,6 +1418,34 @@ func show_rules(current: Dictionary, editable: bool, on_done: Callable, vows_ope
 	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())
 
 
+## One step back in whatever menu is open: a question, the settings, the book, a title page, the pause menu.
+## Returns false when there was nothing to go back from.
+func back_one() -> bool:
+	var open := get_tree().get_nodes_in_group("hud_dialog").filter(func(d): return is_instance_valid(d) and not d.is_queued_for_deletion())
+	if not open.is_empty():
+		open[-1].queue_free()
+		return true
+	if options_panel.visible:
+		hide_options()
+		return true
+	if codex_panel.visible:
+		toggle_codex()
+		return true
+	if not Game.main.in_game():
+		for c in Game.main.get_children():
+			if c.has_method("back"):
+				return c.back()
+		return false
+	if pause_panel.visible:
+		toggle_pause()
+		return true
+	var ui = Game.main.level.get("ui") if Game.main.level else null
+	if ui is Control and ui.has_method("is_open") and ui.is_open():
+		ui.close_all()
+		return true
+	return false
+
+
 func toggle_pause() -> void:
 	if _rules_btn:
 		_rules_btn.visible = Game.wasteland
@@ -1426,8 +1458,12 @@ func toggle_pause() -> void:
 		toggle_codex()
 		return
 	if not Game.main.in_game():
+		back_one()   # on the title, Escape goes back one page
 		return
 	# The world does not stop for one pilgrim of a fellowship
+	_focus_first.call_deferred(pause_panel)
+	_pause_t.text = "Menu" if Net.online else "Paused"
+	_pause_sub.text = "The world goes on while you rest here." if Net.online else "\"Speeb sees. Speeb is.\""
 	if Net.online:
 		var show := not pause_panel.visible
 		pause_panel.visible = show
@@ -1597,6 +1633,21 @@ func _input(e: InputEvent) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	if options_panel.visible and _rebinding.is_empty():
+		var step := 0
+		if e is InputEventJoypadButton and e.pressed:
+			step = -1 if e.button_index == JOY_BUTTON_LEFT_SHOULDER else (1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else 0)
+		elif e is InputEventKey and e.pressed and not e.echo and not get_viewport().gui_get_focus_owner() is LineEdit:
+			step = -1 if e.physical_keycode == KEY_Q else (1 if e.physical_keycode == KEY_E else 0)
+		if step != 0:
+			show_options(wrapi(_opt_page + step, 0, OPT_PAGES.size()))
+			get_viewport().set_input_as_handled()
+			return
+	# B on a controller goes back one step in any menu, as Escape does
+	if e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_B and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		if back_one():
+			get_viewport().set_input_as_handled()
+			return
 	if e.is_action_pressed("pause"):
 		# A question or the world's settings over the menu: Escape closes that, not the menu under it
 		var open := get_tree().get_nodes_in_group("hud_dialog").filter(func(d): return is_instance_valid(d) and not d.is_queued_for_deletion())
@@ -1855,8 +1906,13 @@ func _build_options() -> void:
 	var t := _label("Settings", 46, PALE, HORIZONTAL_ALIGNMENT_CENTER)
 	t.add_theme_font_override("font", title_font)
 	outer.add_child(t)
-	outer.add_child(_label("F11 or Alt+Enter toggles fullscreen at any time", 16, DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	_opt_tabs = HBoxContainer.new()
+	_opt_tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	_opt_tabs.add_theme_constant_override("separation", 6)
+	outer.add_child(_opt_tabs)
+	outer.add_child(_label("LB and RB (or Q and E) change the page", 14, Color(DIM, 0.7), HORIZONTAL_ALIGNMENT_CENTER))
 	var sc := ScrollContainer.new()
+	_opt_scroll = sc
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	outer.add_child(sc)
@@ -1868,46 +1924,119 @@ func _build_options() -> void:
 	_options_list.add_theme_constant_override("separation", 8)
 	center.add_child(_options_list)
 	var back := button("Back  [Esc]", func(): hide_options(), 24)
+	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	outer.add_child(back)
 
 
-func show_options() -> void:
+## The settings, a page at a time, so each is short enough to read at a glance.
+const OPT_PAGES := ["Display", "Controls", "Sound", "Accessibility", "Game", "Playing together"]
+var _opt_page := 0
+var _opt_tabs: HBoxContainer
+var _opt_scroll: ScrollContainer
+
+
+func show_options(page := -1) -> void:
+	if page >= 0:
+		_opt_page = clampi(page, 0, OPT_PAGES.size() - 1)
 	for c in _options_list.get_children():
 		c.queue_free()
-	_section("Display")
-	_choice("Display mode", Game.DISPLAY_MODES, Game.display_mode, func(i): Game.display_mode = i; _apply_display())
+	for c in _opt_tabs.get_children():
+		c.queue_free()
+	for i in OPT_PAGES.size():
+		var idx := i
+		var tb := button(OPT_PAGES[i], func(): show_options(idx), 21)
+		tb.focus_mode = Control.FOCUS_NONE   # pages change with LB and RB; the stick stays in the list
+		if i == _opt_page:
+			tb.add_theme_color_override("font_color", GOLD)
+			tb.add_theme_stylebox_override("normal", tb.get_theme_stylebox("hover"))
+		_opt_tabs.add_child(tb)
+	match OPT_PAGES[_opt_page]:
+		"Display": _page_display()
+		"Controls": _page_controls()
+		"Sound": _page_sound()
+		"Accessibility": _page_access()
+		"Game": _page_game()
+		"Playing together": _page_together()
+	_opt_scroll.scroll_vertical = 0
+	if pause_panel.visible:
+		_from_pause = true
+	options_panel.visible = true
+	pause_panel.visible = false
+	root.move_child(options_panel, root.get_child_count() - 1)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_focus_first.call_deferred(_options_list)
+
+
+## With a controller, the first thing on a new screen is chosen at once
+func _focus_first(n: Node) -> void:
+	var f := get_viewport().gui_get_focus_owner()
+	if f and not f.is_visible_in_tree():
+		f.release_focus()
+	if Game.using_pad and is_instance_valid(n):
+		var b := _first_focusable(n)
+		if b:
+			b.grab_focus()
+
+
+func _first_focusable(n: Node) -> Control:
+	if (n is CanvasItem and not n.visible) or n.is_queued_for_deletion():
+		return null
+	if n is Control and n.focus_mode == Control.FOCUS_ALL and not (n is BaseButton and n.disabled):
+		return n
+	for c in n.get_children():
+		var f := _first_focusable(c)
+		if f:
+			return f
+	return null
+
+
+func _note_line(text: String) -> void:
+	var l := _label(text, 15, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_options_list.add_child(l)
+
+
+func _page_display() -> void:
+	_section("Screen")
+	_choice("Display mode", Game.DISPLAY_MODES, Game.display_mode, func(i): _display_change(func(): Game.display_mode = i))
 	var res_names := []
 	for r in Game.RESOLUTIONS:
 		res_names.append("%d x %d" % [r.x, r.y])
-	_choice("Resolution", res_names, Game.resolution, func(i): Game.resolution = i; _apply_display())
-	_options_list.add_child(_label("In fullscreen, the resolution sets how sharply the world is drawn; the screen is always filled.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_choice("Resolution", res_names, Game.resolution, func(i): _display_change(func(): Game.resolution = i))
+	_note_line("In fullscreen, the resolution sets how sharply the world is drawn; the screen is always filled. F11 or Alt+Enter switches fullscreen at any time.")
 	_toggle("Vertical sync", Game.vsync, func(on): Game.vsync = on; _apply_display())
 	var caps := []
 	for f in Game.FPS_CAPS:
 		caps.append("Unlimited" if f == 0 else "%d" % f)
 	_choice("Frame rate limit", caps, Game.fps_cap, func(i): Game.fps_cap = i; _apply_display())
-	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
-	_choice("Render scale", ["100%", "85%", "70%", "50%"], Game.render_scale, func(i): Game.render_scale = i; _apply_display())
-	_options_list.add_child(_label("Below 100% the world is drawn smaller and sharpened back up: faster, a little softer.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	_choice("Menu and text size", ["90%", "100%", "110%", "120%"], Game.ui_scale, func(i): Game.ui_scale = i; _apply_display())
-	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
-	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
-	_toggle("Blood", Game.blood, func(on): Game.blood = on; Game.save())
-	_toggle("Guiding embers", Game.embers_on, func(on): Game.embers_on = on; Game.save())
+	_section("Picture")
 	_choice("Graphics quality", ["Low (for slower machines)", "Standard", "High (occlusion, bounce light, bloom)"], Game.quality, func(i):
 		Game.quality = i
 		Game.save()
-		if Game.main.level and Game.main.level.has_method("apply_quality"):
-			Game.main.level.apply_quality())
-	if Game.revealed.has("hundred"):
-		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, _set_finish)
-	else:
-		_options_list.add_child(_label("Kill one hundred enemies to earn the gilded finish.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	_section("Controls")
+		_requality())
+	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
+	_choice("Render scale", ["100%", "85%", "70%", "50%"], Game.render_scale, func(i): Game.render_scale = i; _apply_display())
+	_note_line("Below 100% the world is drawn smaller and sharpened back up: faster, a little softer.")
+	_slider("Brightness", 0.7, 1.4, 0.05, Game.brightness, func(x): Game.brightness = x; Game.save(); _requality(), "%d%%", 100.0)
+	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
+
+
+func _requality() -> void:
+	if Game.main.level and Game.main.level.has_method("apply_quality"):
+		Game.main.level.apply_quality()
+
+
+func _page_controls() -> void:
+	_section("Mouse")
 	_slider("Mouse sensitivity", 0.0005, 0.006, 0.0001, Game.sensitivity, func(x): Game.sensitivity = x; Game.save(), "")
 	_slider("Aiming and scope sensitivity", 0.2, 2.0, 0.05, Game.aim_sens, func(x): Game.aim_sens = x; Game.save(), "%d%%", 100.0)
-	_toggle("Invert mouse Y", Game.invert_y, func(on): Game.invert_y = on; Game.save())
-	_options_list.add_child(_label("Click a key to change it, then press the new key or mouse button. Esc leaves it as it was.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_toggle("Invert mouse up and down", Game.invert_y, func(on): Game.invert_y = on; Game.save())
+	_section("Controller")
+	_slider("Look speed", 1.0, 6.0, 0.1, Game.pad_look, func(x): Game.pad_look = x; Game.save(), "%.1f")
+	_toggle("Invert stick up and down", Game.pad_invert, func(on): Game.pad_invert = on; Game.save())
+	_section("Keys")
+	_note_line("Choose a key to change it, then press the new key or mouse button. Esc leaves it as it was.")
 	for c in Game.CONTROLS:
 		var action: String = c[0]
 		var h := _row(c[1])
@@ -1917,47 +2046,100 @@ func show_options() -> void:
 			b.text = Game.key_name(int(ks[slot])) if slot < ks.size() else "—"
 			b.custom_minimum_size.x = 170
 			b.add_theme_font_size_override("font_size", 18)
-			b.focus_mode = Control.FOCUS_NONE
 			b.pressed.connect(func():
 				_rebinding = [action, slot]
 				b.text = "Press a key...")
 			h.add_child(b)
-	_options_list.add_child(_label("While building: the wheel chooses a piece.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_note_line("While building: the wheel chooses a piece.")
 	var rb := button("Restore the default controls", func(): Game.reset_binds(); show_options(), 18)
 	rb.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_options_list.add_child(rb)
-	_section("Sound")
-	_slider("Volume", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
+
+
+func _page_sound() -> void:
+	_section("Volume")
+	_slider("Everything", 0.0, 1.0, 0.01, Game.volume, func(x): Game.volume = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	for k in [["Guns", "Guns and blows"], ["Creatures", "Creatures"], ["World", "The world (wind, towns, footsteps)"], ["Interface", "Menus and bells"], ["Music", "Music"]]:
 		var bus: String = k[0]
 		_slider(k[1], 0.0, 1.0, 0.01, float(Game.bus_vol[bus]), func(x): Game.bus_vol[bus] = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
+	_section("Voice")
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
+
+
+func _page_access() -> void:
+	_section("Reading")
 	_toggle("Subtitles for spoken lines", Game.subtitles, func(on): Game.subtitles = on; Game.save())
+	_choice("Menu and text size", ["90%", "100%", "110%", "120%"], Game.ui_scale, func(i): Game.ui_scale = i; _apply_display())
 	_toggle("Colour-blind friendly map colours", Game.colorblind, func(on): Game.colorblind = on; Game.save())
+	_section("Holding keys")
 	for tg in [["run", "Sprint"], ["soft", "Sneak"], ["aim", "Aim and guard"]]:
 		var act: String = tg[0]
 		_choice(tg[1], ["Hold", "Press to switch"], 1 if Game.toggles[act] else 0, func(i): Game.toggles[act] = i == 1; Game.untoggle(act); Game.save())
-	_choice("Error reports to the game's makers", ["Ask me", "Always send", "Never send"], Game.reports, func(i): Game.reports = i; Game.save())
+	_section("Motion")
+	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
+	_toggle("Guiding embers", Game.embers_on, func(on): Game.embers_on = on; Game.save())
+
+
+func _page_game() -> void:
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())
 	var every := [0, 1, 2, 5, 10]
 	_choice("Autosave", ["Only at key moments", "Every minute", "Every 2 minutes", "Every 5 minutes", "Every 10 minutes"],
 		maxi(every.find(Game.autosave_min), 0), func(i): Game.autosave_min = every[i]; Game.save())
-	_section("Trial")
+	_section("The Trials")
 	if Net.online and not Net.is_host():
-		_options_list.add_child(_label("In a fellowship the host's difficulty holds for everyone.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		_note_line("Playing together, the host's difficulty holds for everyone.")
 	else:
 		_choice("Difficulty", Game.DIFFICULTIES, Game.difficulty, func(i): Game.difficulty = i; Game.save())
+	_section("Look")
 	_choice("Enemy look", ["Flesh: cat heads", "Masks: their emojis"], Game.forms_style, func(i): Game.forms_style = i; Game.save())
-	_section("Playing together")
-	_line("Your name among the fellowship", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
+	_toggle("Blood", Game.blood, func(on): Game.blood = on; Game.save())
+	if Game.revealed.has("hundred"):
+		_choice("Gun finish", ["Iron", "Gilded"], 1 if Game.gilded else 0, _set_finish)
+	else:
+		_note_line("Kill one hundred enemies to earn the gilded gun finish.")
+	_section("Error reports")
+	_choice("Send error reports", ["Ask me", "Always send", "Never send"], Game.reports, func(i): Game.reports = i; Game.save())
+	_note_line("After an error or a sudden close, a short report helps fix it. It holds only the error and the game version.")
+
+
+func _page_together() -> void:
+	_section("You")
+	_line("Your name when playing together", Game.player_name, "Pilgrim", func(t): Game.player_name = t.strip_edges().left(20); Game.save())
+	_section("Advanced")
 	_line("Internet list address", Game.lobby_url, Net.DEFAULT_LOBBY if Net.DEFAULT_LOBBY != "" else "https://... (optional)", func(t): Game.lobby_url = t.strip_edges(); Game.save())
-	if pause_panel.visible:
-		_from_pause = true
-	options_panel.visible = true
-	pause_panel.visible = false
-	root.move_child(options_panel, root.get_child_count() - 1)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_note_line("Leave this empty to use the game's own list.")
+
+
+## After the screen mode or size changes: keep it, or it goes back by itself
+func _display_change(change: Callable) -> void:
+	var before := [Game.display_mode, Game.resolution]
+	change.call()
+	_apply_display()
+	if before == [Game.display_mode, Game.resolution]:
+		return
+	var left := [15]
+	var kept := [false]
+	ask("Keep this display?\nIt goes back in 15 seconds.", "Keep", func(): kept[0] = true, "Go back")
+	var dlg: Node = get_tree().get_nodes_in_group("hud_dialog")[-1]
+	var q: Label = dlg.find_children("*", "Label", true, false)[0]
+	# Anything but Keep (Go back, Escape, B, or the time running out) puts the old display back
+	dlg.tree_exiting.connect(func():
+		if not kept[0]:
+			Game.display_mode = before[0]
+			Game.resolution = before[1]
+			_apply_display()
+			show_options.call_deferred())
+	var tick := Timer.new()
+	tick.wait_time = 1.0
+	tick.process_mode = Node.PROCESS_MODE_ALWAYS
+	dlg.add_child(tick)
+	tick.timeout.connect(func():
+		left[0] -= 1
+		q.text = "Keep this display?\nIt goes back in %d seconds." % left[0]
+		if left[0] <= 0:
+			dlg.queue_free())
+	tick.start()
 
 
 func _set_fov(x: float) -> void:
@@ -2030,6 +2212,16 @@ func _slider(text: String, lo: float, hi: float, step: float, value: float, cb: 
 	s.min_value = lo
 	s.max_value = hi
 	s.step = step
+	# One press of the d-pad or an arrow key moves a twentieth of the way, not one fine step
+	s.gui_input.connect(func(e: InputEvent):
+		var d := 0
+		if e.is_action_pressed("ui_left", true):
+			d = -1
+		elif e.is_action_pressed("ui_right", true):
+			d = 1
+		if d != 0:
+			s.value = clampf(s.value + d * (hi - lo) / 20.0, lo, hi)
+			s.accept_event())
 	s.value = value
 	s.custom_minimum_size.x = 300
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER

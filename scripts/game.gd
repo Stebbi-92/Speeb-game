@@ -60,6 +60,8 @@ var blood := true   ## foes bleed where they are struck
 var embers_on := true   ## in the waste, embers now and then drift toward the goal being followed
 var head_bob := true
 var invert_y := false
+var pad_invert := false   ## the right stick's up and down turned over (apart from the mouse)
+var brightness := 1.0   ## the whole picture lighter or darker, 0.7 to 1.4
 var voice_lines := true
 var subtitles := false   ## spoken lines are also written out on screen
 var toggles := {"run": false, "soft": false, "aim": false}   ## press once to start, again to stop (not hold)
@@ -563,7 +565,7 @@ func tier_of(gun: String) -> int:
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": Net._own_difficulty if Net._own_difficulty >= 0 else difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "reports": reports, "toggles": toggles, "guide": guide,
+			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "pad_invert": pad_invert, "pad_look": pad_look, "brightness": brightness, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "reports": reports, "toggles": toggles, "guide": guide,
 			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "ui_scale": ui_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
@@ -617,6 +619,9 @@ func load_save() -> void:
 		embers_on = bool(d.get("embers", embers_on))
 		head_bob = bool(d.get("head_bob", head_bob))
 		invert_y = bool(d.get("invert_y", invert_y))
+		pad_invert = bool(d.get("pad_invert", invert_y))   # before, one switch turned both over
+		pad_look = clampf(float(d.get("pad_look", pad_look)), 1.0, 6.0)
+		brightness = clampf(float(d.get("brightness", brightness)), 0.7, 1.4)
 		voice_lines = bool(d.get("voice_lines", voice_lines))
 		subtitles = bool(d.get("subtitles", subtitles))
 		colorblind = bool(d.get("colorblind", colorblind))

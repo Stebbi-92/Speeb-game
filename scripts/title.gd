@@ -24,6 +24,9 @@ var _sub: Label
 var _quote: Label
 var _cam_off := 0.0
 
+## Stills of the waste behind the menu (title_backdrop.gd); false shows the White Cat on his stone instead.
+const BACKDROP := true
+
 const PLACES := [
 	"Prologue: The Plateau of Mirrors", "I. The Cliffs of Echoing Cries", "II. The Ruins of the Fallen Kings",
 	"III. The Verdant Wastes", "IV. The Heights of Sorrows", "V. The Fields of Forgetting", "VI. The Mirror Caves",
@@ -101,7 +104,63 @@ func _ready() -> void:
 	drone.volume_db = -10
 	drone.autoplay = true
 	add_child(drone)
+	# Quiet music under the drone, on the Music slider
+	var tune := AudioStreamPlayer.new()
+	var ts = load("res://assets/music/dawn.ogg")
+	if ts:
+		ts.loop = true
+		tune.stream = ts
+		tune.bus = "Music"
+		tune.volume_db = -19
+		tune.autoplay = true
+		add_child(tune)
+	_candles()
 	_build_menu()
+
+
+## Around the White Cat's stone, one small flame for each beacon burning in the last world walked.
+func _candles() -> void:
+	var last := _last_world()
+	if last == "":
+		return
+	var d = Game.read_var_safe(Wasteland.world_path(last))
+	var n: int = d.get("lit", []).size() if d is Dictionary else 0
+	for i in mini(n, 9):
+		var a := TAU * (float(i) / 9.0) + PI * 0.5
+		var c := Node3D.new()
+		c.position = Vector3(cos(a) * 2.3, 0.0, sin(a) * 2.3)
+		add_child(c)
+		var wax := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.07
+		cm.bottom_radius = 0.08
+		cm.height = 0.32
+		wax.mesh = cm
+		var wm := StandardMaterial3D.new()
+		wm.albedo_color = Color(0.85, 0.82, 0.74)
+		wax.material_override = wm
+		wax.position.y = 0.16
+		c.add_child(wax)
+		var flame := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.05
+		sm.height = 0.14
+		flame.mesh = sm
+		var fm := StandardMaterial3D.new()
+		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		fm.albedo_color = Color(1.0, 0.75, 0.35)
+		fm.emission_enabled = true
+		fm.emission = Color(1.0, 0.6, 0.2)
+		fm.emission_energy_multiplier = 3.0
+		flame.material_override = fm
+		flame.position.y = 0.39
+		c.add_child(flame)
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.65, 0.3)
+		l.light_energy = 0.5
+		l.omni_range = 1.6
+		l.position.y = 0.45
+		c.add_child(l)
 
 
 func _build_menu() -> void:
@@ -109,6 +168,8 @@ func _build_menu() -> void:
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.menu_box.add_child(box)
+	if BACKDROP:
+		box.add_child(load("res://scripts/title_backdrop.gd").new())
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	v.position = Vector2(110, -330)
@@ -133,29 +194,26 @@ func _build_menu() -> void:
 	# The waste first: it is where the game is now. The trials and the pilgrim's own things wait one step in.
 	var last := _last_world()
 	if last != "":
-		_menu.add_child(_btn("Continue", func(): _play_world(last)))
+		_menu.add_child(_said(_btn("Continue", func(): _play_world(last), 32), "Back to World %s, where you left it." % _roman(last)))
 		_menu.add_child(_note("World %s   ·   %s" % [_roman(last), Wasteland.describe(last).split(", seed")[0]]))
-	_menu.add_child(_btn("The Ashen Waste", _show_waste))
-	_menu.add_child(_btn("Walk Together", _show_together))
-	_menu.add_child(_btn("The Trials", func(): _open_sub(_trials)))
-	_menu.add_child(_btn("Arms and Appearance", func(): _open_sub(_pilgrim)))
-	_menu.add_child(_btn("Settings", func(): hud.show_options()))
-	_menu.add_child(_btn("Leave", func(): hud.ask("Leave the game?", "Leave", func(): get_tree().quit())))
+	_menu.add_child(_said(_btn("The Ashen Waste", _show_waste), "The open world. Start a new world or go back to one of your three."))
+	_menu.add_child(_said(_btn("Walk Together", _show_together), "Play with friends: host a game, join with a code, or find one."))
+	_menu.add_child(_said(_btn("The Trials", func(): _open_sub(_trials)), "The nine story trials, one after another."))
+	_menu.add_child(_said(_btn("Appearance", _open_look), "Choose how you look: face, colours and clothes."))
+	_menu.add_child(_said(_btn("Settings", func(): hud.show_options()), "Controls, sound, graphics and more."))
+	_menu.add_child(_said(_btn("Leave", func(): hud.ask("Leave the game?", "Leave", func(): get_tree().quit())), "Close the game."))
+	_desc = _small("", Color(0.78, 0.74, 0.66), 18)
+	_desc.custom_minimum_size.y = 30
+	_menu.add_child(_desc)
 	_trials = _submenu(v, "The Trials")
 	_trials.add_child(_btn("Begin the Pilgrimage", func(): Game.main.begin_pilgrimage(), 24))
 	if Game.reached > 0:
 		_trials.add_child(_btn("Return to a Trial", func(): _trials.visible = false; _show_chapters(), 24))
 	if Game.tenth_unlocked():
 		_trials.add_child(_btn("The Tenth Trial", func(): Game.main.start_level(11), 24))
+	_trials.add_child(_btn("Arms for the trials", func(): hud.show_loadout(), 24))
 	_trials.add_child(_btn("The Book of Emojis", func(): hud.toggle_codex(), 24))
 	_trials.add_child(_back(_trials))
-	_pilgrim = _submenu(v, "Arms and Appearance")
-	_pilgrim.add_child(_btn("Arms", func(): hud.show_loadout(), 24))
-	_pilgrim.add_child(_btn("Appearance", func():
-		var a := AppearanceUI.new()
-		a.hud = hud
-		hud.root.add_child(a), 24))
-	_pilgrim.add_child(_back(_pilgrim))
 	_build_update(box)
 	_chapters = VBoxContainer.new()
 	_chapters.visible = false
@@ -185,6 +243,10 @@ func _build_menu() -> void:
 	_lobby.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_lobby)
 	_lobby.visibility_changed.connect(func(): scroll.visible = _lobby.visible)
+	# With a controller, each page opens with its first line chosen
+	for c in [_menu, _trials, _chapters, _waste, _together, _lobby]:
+		var page: Control = c
+		page.visibility_changed.connect(func(): if page.visible: hud._focus_first.call_deferred(page))
 	Net.roster_changed.connect(_on_roster)
 	Net.status_changed.connect(func(t): if _status: _status.text = t)
 	Net.servers_changed.connect(_list_servers)
@@ -211,7 +273,45 @@ func _build_menu() -> void:
 
 
 var _trials: VBoxContainer
-var _pilgrim: VBoxContainer
+
+
+var _desc: Label
+
+
+## A menu line that says what it does, under the menu, while it is pointed at or chosen
+func _said(b: Button, what: String) -> Button:
+	var show := func(): if is_instance_valid(_desc): _desc.text = what
+	b.mouse_entered.connect(show)
+	b.focus_entered.connect(show)
+	b.mouse_exited.connect(func(): if is_instance_valid(_desc) and _desc.text == what and not b.has_focus(): _desc.text = "")
+	return b
+
+
+func _open_look() -> void:
+	var a := AppearanceUI.new()
+	a.hud = hud
+	hud.root.add_child(a)
+
+
+## Escape or B: one page back toward the main menu. A gathering is left only with its own Leave.
+func back() -> bool:
+	if _lobby.visible:
+		return false
+	if _chapters.visible:
+		_chapters.visible = false
+		_trials.visible = true
+		return true
+	if _together.visible:
+		_together.visible = false
+		_menu.visible = true
+		_raise_column(false)
+		return true
+	for sub in [_trials, _waste]:
+		if sub.visible:
+			sub.visible = false
+			_menu.visible = true
+			return true
+	return false
 
 
 func _submenu(parent: Control, title: String) -> VBoxContainer:
@@ -292,7 +392,7 @@ func _show_waste() -> void:
 		_waste.add_child(_world_card(str(i + 1)))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 24)
-	row.add_child(_btn("Open the saves folder", func(): OS.shell_open(ProjectSettings.globalize_path("user://wasteland")), 18))
+	row.add_child(_btn("Open the saves folder (in a new window)", func(): OS.shell_open(ProjectSettings.globalize_path("user://wasteland")), 18))
 	row.add_child(_btn("Back", func(): _waste.visible = false; _menu.visible = true, 20))
 	_waste.add_child(row)
 
@@ -517,18 +617,17 @@ func _build_together() -> void:
 	cards.custom_minimum_size.x = BROWSER_W
 	_together.add_child(cards)
 	# Hosting
-	var hc := _side_card("Host a fellowship", 470)
+	var hc := _side_card("Host a game", 470)
 	cards.add_child(hc[0])
 	var hv: VBoxContainer = hc[1]
 	var hh := HBoxContainer.new()
 	hh.add_theme_constant_override("separation", 8)
-	var sname := _field("", "Name of the fellowship", 330)
+	var sname := _field("", "Name of the game", 430)
 	var port := _field(str(Net.DEFAULT_PORT), "Port", 90)
 	for f in [sname, port]:
 		f.custom_minimum_size.y = 32
 		f.add_theme_font_size_override("font_size", 16)
 	hh.add_child(sname)
-	hh.add_child(port)
 	hv.add_child(hh)
 	# Who may find it: one plain choice, and a line that says what it means
 	var vis := ["public" if Net.lobby_url() != "" else "network"]
@@ -545,7 +644,6 @@ func _build_together() -> void:
 		b.text = opt[1]
 		b.toggle_mode = true
 		b.button_group = group
-		b.focus_mode = Control.FOCUS_NONE
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		b.add_theme_font_size_override("font_size", 15)
 		b.add_theme_color_override("font_color", hud.DIM)
@@ -582,6 +680,19 @@ func _build_together() -> void:
 		else:
 			_status.text = Net.last_error, hud.GOLD, 17))
 	hv.add_child(ph)
+	# Rarely needed: the port, behind "Advanced"
+	var adv := HBoxContainer.new()
+	adv.add_theme_constant_override("separation", 8)
+	adv.visible = false
+	var pl := _plain("Port (only if your router needs a set one)", hud.DIM, 14)
+	pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	adv.add_child(pl)
+	adv.add_child(port)
+	var more := _pill("Advanced", func(): pass, hud.DIM, 14)
+	more.pressed.connect(func(): adv.visible = not adv.visible; more.text = "Fewer options" if adv.visible else "Advanced")
+	more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	hv.add_child(more)
+	hv.add_child(adv)
 	# Joining by code or address
 	var jc := _side_card("Join by code", 336)
 	jc[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -591,10 +702,12 @@ func _build_together() -> void:
 	var jword := _field("", "Its word, if closed", 300)
 	jword.secret = true
 	_jword = jword
-	for f in [addr, jword]:
-		f.custom_minimum_size.y = 32
-		f.add_theme_font_size_override("font_size", 16)
-		jv.add_child(f)
+	addr.custom_minimum_size.y = 46
+	addr.add_theme_font_size_override("font_size", 22)
+	jword.custom_minimum_size.y = 32
+	jword.add_theme_font_size_override("font_size", 16)
+	jv.add_child(addr)
+	jv.add_child(jword)
 	var jl := _small("The host finds the six-letter code in their gathering place.", hud.DIM, 14)
 	jl.custom_minimum_size.x = 300
 	jv.add_child(jl)
@@ -610,6 +723,7 @@ func _build_together() -> void:
 		var hp := Net.split_address(t)
 		Net.join(hp[0], hp[1]), hud.GOLD, 17))
 	jv.get_child(jv.get_child_count() - 1).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	cards.move_child(jc[0], 0)   # joining a friend is what most come here for: it comes first
 	# The list of fellowships: a framed browser, one card to each, with how full it is at a glance
 	_together.add_child(_browser())
 	_status = _small("")
@@ -760,7 +874,6 @@ func _toggle(text: String, on: bool) -> CheckBox:
 	var c := CheckBox.new()
 	c.text = text
 	c.button_pressed = on
-	c.focus_mode = Control.FOCUS_NONE
 	c.add_theme_font_size_override("font_size", 15)
 	c.add_theme_color_override("font_color", hud.DIM)
 	c.add_theme_color_override("font_pressed_color", hud.PALE)
@@ -771,7 +884,6 @@ func _toggle(text: String, on: bool) -> CheckBox:
 func _pill(text: String, cb: Callable, col: Color, size := 15) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.add_theme_font_size_override("font_size", size)
 	b.add_theme_color_override("font_color", col)
