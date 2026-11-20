@@ -13,6 +13,8 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks, the "no" sound |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
+| [Fantasy Game Music Tracks](https://kmontesdev.itch.io/7-fantasy-music-tracks) | kmontesdev (LoreBook) | CC0 | Music: dawn ("Aural"), towns ("Akash Chamber"), night ("Awakening") |
+| [CC0 Game Music, Volume 1](https://duckhive.itch.io/game-music-1) | duckhive | CC0 | Music: the sea ("Unwind"), fights ("JingleWave"), the seventh night ("FadeAway"), great ones ("MoistFlames") |
 
 Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). Those are not CC0, and the game does not use them.
 
@@ -114,7 +116,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 - `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
 - Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the beacon bell, the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
-- The music (`assets/music`: dawn, night, the seventh night, the beacon's swell, towns, the sea and the great ones) is made in code (`tools/make_music.py`) for now, until free recordings take its place.
+- The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 
 ## Engine
 

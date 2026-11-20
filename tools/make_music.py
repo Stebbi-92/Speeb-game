@@ -8,7 +8,7 @@ import sys
 import numpy as np
 
 SR = 44100
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "assets", "music")
+OUT = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else os.path.join(os.path.dirname(__file__), "..", "assets", "music")
 rng = np.random.default_rng(1771)
 
 
@@ -209,5 +209,6 @@ def great():
 
 
 if __name__ == "__main__":
-    for f in (dawn, night, seventh, swell, town, sea, great):
+    # Only the swell is still made here; the rest are CC0 recordings (see CREDITS.md). --all makes every piece.
+    for f in ((dawn, night, seventh, swell, town, sea, great) if "--all" in sys.argv else (swell,)):
         f()

@@ -10,8 +10,8 @@ const REST := [60.0, 150.0]   ## quiet between gentle pieces
 const LOOPS := ["fight", "great", "seventh"]
 ## slot: [file, loudness in dB]
 const PIECES := {
-	"swell": ["swell", -4.0], "great": ["great", -6.0], "seventh": ["seventh", -6.0], "fight": ["combat", -8.0],
-	"sea": ["sea", -8.0], "town": ["town", -9.0], "night": ["night", -8.0], "dawn": ["dawn", -8.0],
+	"swell": ["swell", -4.0], "great": ["great", -5.0], "seventh": ["seventh", -5.0], "fight": ["fight", -6.0],
+	"sea": ["sea", -8.0], "town": ["town", -8.0], "night": ["night", -8.0], "dawn": ["dawn", -6.0],
 }
 
 var w
@@ -51,8 +51,6 @@ static func stream_of(slot: String) -> AudioStream:
 	var f: String = PIECES[slot][0]
 	for ext in ["ogg", "mp3"]:
 		var path := "res://assets/music/%s.%s" % [f, ext]
-		if f == "combat":
-			path = "res://assets/audio/combat.ogg"
 		if ResourceLoader.exists(path):
 			s = load(path)
 			break
