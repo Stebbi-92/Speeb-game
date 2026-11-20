@@ -18,3 +18,10 @@ The waste loads in steps. A bar shows how far it has got, with hints that change
 ## Updates
 
 The game checks for a new version when it starts, downloads it, and restarts into it. Saves are kept. When you join a friend, the game checks you both have the same version. If anything goes wrong, download the latest zip from the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases) and unpack it over the old one.
+
+## Error reports
+
+If Brelm hit an error last time, or closed without you quitting, the title asks once whether to send a short report. A report holds only the error lines and the game version (and the system's name, such as Windows). Nothing else is sent, and file paths have your user name taken out. The reports go to game.speeb.org, which keeps no addresses.
+
+In Settings, **Error reports to the game's makers** can be set to Ask me (the default), Always send, or Never send.
+

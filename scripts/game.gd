@@ -64,6 +64,9 @@ var voice_lines := true
 var subtitles := false   ## spoken lines are also written out on screen
 var toggles := {"run": false, "soft": false, "aim": false}   ## press once to start, again to stop (not hold)
 var _toggled := {}
+var reports := 0   ## error reports: 0 ask, 1 always send, 2 never
+const ErrorReport := preload("res://scripts/report.gd")
+var report: Node
 var colorblind := false  ## colours that tell things apart are chosen to read with red-green colour blindness
 ## Road safety colours, Dangerous to Peaceful: the usual red-to-green, or blue-to-orange that reads for all.
 const SAFETY_TINTS := [Color(0.85, 0.2, 0.15), Color(0.9, 0.6, 0.2), Color(0.35, 0.75, 0.35), Color(0.95, 0.85, 0.5)]
@@ -150,6 +153,8 @@ func _ready() -> void:
 	for e in _json("res://assets/lesser.json"):
 		lesser[e.code] = e
 	load_save()
+	report = ErrorReport.new()
+	add_child(report)
 	if not OS.get_cmdline_user_args().size() > 0:
 		apply_display.call_deferred()
 
@@ -558,7 +563,7 @@ func tier_of(gun: String) -> int:
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": Net._own_difficulty if Net._own_difficulty >= 0 else difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "toggles": toggles, "guide": guide,
+			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "reports": reports, "toggles": toggles, "guide": guide,
 			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "ui_scale": ui_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
@@ -615,6 +620,7 @@ func load_save() -> void:
 		voice_lines = bool(d.get("voice_lines", voice_lines))
 		subtitles = bool(d.get("subtitles", subtitles))
 		colorblind = bool(d.get("colorblind", colorblind))
+		reports = clampi(int(d.get("reports", reports)), 0, 2)
 		var tg = d.get("toggles", {})
 		if tg is Dictionary:
 			for k in toggles:

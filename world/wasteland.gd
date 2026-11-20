@@ -16632,3 +16632,20 @@ func debug_access() -> void:
 	Game.colorblind = false
 	print("ACCESS toggle=%s/%s/%s sub=%s cb=%s" % [on, off, ended, sub, plain != cb and cb_safe.b > cb_safe.g])
 	get_tree().quit()
+
+
+func debug_reports() -> void:
+	var p := "user://test_report.log"
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("Godot Engine v4.3\nSCRIPT ERROR: Invalid access to property 'x' on null.\n   at: _tick (res://scripts/enemy.gd:12)\nSCRIPT ERROR: Invalid access to property 'x' on null.\n   at: _tick (res://scripts/enemy.gd:12)\nERROR: Parameter \"m\" is null.\n   at: mesh_get (x.cpp:1)\nplayer Steve joined\n")
+	f.close()
+	var r := Game.ErrorReport.gather(p, false)
+	var found: bool = r.get("kind", "") == "error" and "enemy.gd:12" in r.text
+	var once: bool = r.text.count("enemy.gd:12") == 1
+	var clean: bool = not "Parameter" in r.text and not "Steve" in r.text
+	var c := Game.ErrorReport.gather("", true)
+	var crash: bool = c.get("kind", "") == "crash"
+	var none: bool = Game.ErrorReport.gather("", false).is_empty()
+	var quiet: bool = not FileAccess.file_exists(Game.ErrorReport.RUNNING) and Game.report.pending.is_empty()
+	DirAccess.remove_absolute(p)
+	print("REPORTS found=%s once=%s clean=%s crash=%s none=%s quiet=%s" % [found, once, clean, crash, none, quiet])

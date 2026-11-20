@@ -1937,6 +1937,7 @@ func show_options() -> void:
 	for tg in [["run", "Sprint"], ["soft", "Sneak"], ["aim", "Aim and guard"]]:
 		var act: String = tg[0]
 		_choice(tg[1], ["Hold", "Press to switch"], 1 if Game.toggles[act] else 0, func(i): Game.toggles[act] = i == 1; Game.untoggle(act); Game.save())
+	_choice("Error reports to the game's makers", ["Ask me", "Always send", "Never send"], Game.reports, func(i): Game.reports = i; Game.save())
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())
 	var every := [0, 1, 2, 5, 10]
