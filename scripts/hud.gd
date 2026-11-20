@@ -139,6 +139,17 @@ func _ready() -> void:
 	narration.modulate.a = 0
 	root.add_child(narration)
 
+	# Subtitles for spoken lines, small, just above the narration
+	subtitle_l = _label("", 22, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	subtitle_l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	subtitle_l.position = Vector2(-560, -390)
+	subtitle_l.size = Vector2(1120, 40)
+	subtitle_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
+	subtitle_l.add_theme_constant_override("shadow_offset_x", 2)
+	subtitle_l.add_theme_constant_override("shadow_offset_y", 2)
+	subtitle_l.modulate.a = 0
+	root.add_child(subtitle_l)
+
 	# Soft shade in the corners, so the words there read against a bright sky or sand
 	for corner in [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0]]:
 		var g := Gradient.new()
@@ -490,6 +501,23 @@ func alert_banner(title: String, sub := "") -> void:
 	tw.tween_interval(4.0)
 	tw.tween_property(box, "modulate:a", 0.0, 1.2)
 	tw.tween_callback(box.queue_free)
+
+
+var subtitle_l: Label
+var _sub_tw: Tween
+
+
+## A spoken line written out, when subtitles are on: who speaks, then what is said.
+func subtitle(who: String, text: String, dur := 2.5) -> void:
+	if not Game.subtitles or subtitle_l == null:
+		return
+	subtitle_l.text = ("%s: %s" % [who, text]) if who != "" else text
+	if _sub_tw:
+		_sub_tw.kill()
+	subtitle_l.modulate.a = 1.0
+	_sub_tw = create_tween()
+	_sub_tw.tween_interval(dur)
+	_sub_tw.tween_property(subtitle_l, "modulate:a", 0.0, 0.4)
 
 
 func say(text: String, dur := 6.0) -> void:
@@ -1861,6 +1889,7 @@ func show_options() -> void:
 	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
 	_choice("Render scale", ["100%", "85%", "70%", "50%"], Game.render_scale, func(i): Game.render_scale = i; _apply_display())
 	_options_list.add_child(_label("Below 100% the world is drawn smaller and sharpened back up: faster, a little softer.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	_choice("Menu and text size", ["90%", "100%", "110%", "120%"], Game.ui_scale, func(i): Game.ui_scale = i; _apply_display())
 	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
 	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
 	_toggle("Blood", Game.blood, func(on): Game.blood = on; Game.save())
@@ -1903,6 +1932,11 @@ func show_options() -> void:
 		var bus: String = k[0]
 		_slider(k[1], 0.0, 1.0, 0.01, float(Game.bus_vol[bus]), func(x): Game.bus_vol[bus] = x; Game.apply_volume(); Game.save(), "%d%%", 100.0)
 	_toggle("Brelm speaks over the fallen", Game.voice_lines, func(on): Game.voice_lines = on; Game.save())
+	_toggle("Subtitles for spoken lines", Game.subtitles, func(on): Game.subtitles = on; Game.save())
+	_toggle("Colour-blind friendly map colours", Game.colorblind, func(on): Game.colorblind = on; Game.save())
+	for tg in [["run", "Sprint"], ["soft", "Sneak"], ["aim", "Aim and guard"]]:
+		var act: String = tg[0]
+		_choice(tg[1], ["Hold", "Press to switch"], 1 if Game.toggles[act] else 0, func(i): Game.toggles[act] = i == 1; Game.untoggle(act); Game.save())
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())
 	var every := [0, 1, 2, 5, 10]

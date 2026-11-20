@@ -452,6 +452,11 @@ func debug_enemy() -> void:
 
 
 var _voice: AudioStreamPlayer
+## What each kill line says (tools/make_kill_lines.py recorded them), for subtitles.
+const KILL_LINES := ["Back to the void.", "Be weighed.", "Balance is restored.", "Speeb sees you.", "Return to the stillness.",
+	"You were judged.", "Not today.", "The scales tip.", "Silence.", "Survive that.",
+	"Another trial.", "Do not whine.", "Unblinking.", "Begone, lesser one.", "Your form is undone.",
+	"I am still standing.", "Judgment is swift.", "Into obscurity.", "Be still.", "The paw has spoken."]
 var _last_line := -1
 
 
@@ -470,6 +475,7 @@ func kill_line() -> void:
 	_voice.stream = load("res://assets/audio/kills/kill_%02d.ogg" % i)
 	_voice.pitch_scale = randf_range(0.88, 1.3)
 	_voice.play()
+	hud.subtitle("Brelm", KILL_LINES[i])
 
 
 func on_enemy_slain(e: LesserSpeeb) -> void:

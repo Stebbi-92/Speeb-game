@@ -2,6 +2,7 @@ Brelm alpha 0.19.0
 
 - Lighter towns: townsfolk and the still, solid parts of a town are drawn together, so a town sends about half as many things to be drawn.
 - Settings: a Low graphics preset for slower machines (shorter shadows, no glow), and a Render scale (100% to 50%) that draws the world smaller and sharpens it back up.
+- Settings for everyone: Sprint, Sneak and Aim can be set to press-to-switch instead of hold; menus and words can be drawn at 90% to 120%; subtitles for spoken lines; colour-blind friendly road safety colours on the map.
 
 Brelm alpha 0.18.0: the polish
 

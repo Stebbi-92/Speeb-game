@@ -239,7 +239,7 @@ func _physics_process(delta: float) -> void:
 		var st := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
 		if st.length() > 0.15:
 			st = st.normalized() * pow((st.length() - 0.15) / 0.85, 1.6)
-			var aimk := 0.45 if Input.is_action_pressed("aim") else 1.0
+			var aimk := 0.45 if Game.held("aim") else 1.0
 			yaw -= st.x * Game.pad_look * aimk * delta
 			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
 	rotation.y = yaw
@@ -268,15 +268,17 @@ func _physics_process(delta: float) -> void:
 	var input := Vector2.ZERO
 	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if input.length() < 0.1:
+		Game.untoggle("run")   # a switched-on sprint ends when the walking does
 	var sp := walk_speed
-	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
+	var running := can_run and Game.held("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
 	if mount:
 		# Riding: the cat's pace, and its own breath for a sprint; the rider's is spared
 		sp = mount.pace(running and input.length() > 0.1, delta)
 		running = false
 	elif running:
 		sp = run_speed
-	if Input.is_action_pressed("soft") and not mount:
+	if Game.held("soft") and not mount:
 		sp = soft_speed
 	if Game.blessed("floofspeeb"):
 		sp *= 1.12
@@ -296,7 +298,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = lerpf(velocity.z, dir.z * stroke, minf(1.0, 3.0 * delta))
 		var float_y := water_y - 1.3 + (0.7 if Input.is_action_pressed("jump") and not input_locked else 0.0)
 		velocity.y = lerpf(velocity.y, clampf((float_y - global_position.y) * 2.5, -4.0, 3.0), minf(1.0, 4.0 * delta))
-		if Input.is_action_pressed("soft") and not input_locked:
+		if Game.held("soft") and not input_locked:
 			velocity.y = -2.5
 		if not _power("tar"):
 			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (1.0 - 0.5 * _power_k("white")) * (0.5 if _boon("deep_diver") else 1.0))

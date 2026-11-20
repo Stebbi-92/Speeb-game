@@ -16572,3 +16572,63 @@ func debug_gfx() -> void:
 	Game.apply_display()
 	print("GFX low=%s back=%s high=%s scaled=%s" % [low, back, high, scaled])
 	get_tree().quit()
+
+
+## Testing aid: at the largest menu size, the pack and every tab still fit on the screen.
+func debug_uiscale() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	Game.ui_scale = Game.UI_SCALES.size() - 1
+	Game.apply_display()
+	await get_tree().process_frame
+	# A 16:9 screen at this size (a headless window is square, so the height is taken from the width)
+	var vr := get_viewport().get_visible_rect()
+	var vp := Rect2(Vector2.ZERO, Vector2(vr.size.x, vr.size.x * 9.0 / 16.0))
+	var bigger: bool = vr.size.x < 1599.0
+	var fit := true
+	for tab in ["pack", "craft", "arms", "wear", "build"]:
+		ui.close_all()
+		ui.open_inventory(tab)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var r: Rect2 = ui._frame.get_global_rect()
+		if r.size.x > vp.size.x + 1.0 or r.size.y > vp.size.y + 1.0:
+			fit = false
+			print("UISCALE out %s %s in %s" % [tab, r, vp])
+	ui.close_all()
+	hud.show_options()
+	await get_tree().process_frame
+	Game.ui_scale = 1
+	Game.apply_display()
+	print("UISCALE bigger=%s fit=%s" % [bigger, fit])
+	get_tree().quit()
+
+
+## Testing aid: Settings for all: a press-to-switch sprint, subtitles for spoken lines, colour-blind safety colours.
+func debug_access() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	Game.toggles["run"] = true
+	var ev := InputEventAction.new()
+	ev.action = "run"
+	ev.pressed = true
+	Game._input(ev)
+	var on: bool = Game.held("run")
+	Game._input(ev)
+	var off: bool = not Game.held("run")
+	Game._input(ev)
+	Game.untoggle("run")
+	var ended: bool = not Game.held("run")
+	Game.toggles["run"] = false
+	Game.subtitles = true
+	Game.voice_lines = true
+	kill_line()
+	var sub: bool = hud.subtitle_l.text.begins_with("Brelm: ") and hud.subtitle_l.modulate.a > 0.9
+	Game.subtitles = false
+	var plain: Color = Game.safety_tint(10.0)
+	Game.colorblind = true
+	var cb: Color = Game.safety_tint(10.0)
+	var cb_safe: Color = Game.safety_tint(70.0)
+	Game.colorblind = false
+	print("ACCESS toggle=%s/%s/%s sub=%s cb=%s" % [on, off, ended, sub, plain != cb and cb_safe.b > cb_safe.g])
+	get_tree().quit()

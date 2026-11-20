@@ -61,10 +61,25 @@ var embers_on := true   ## in the waste, embers now and then drift toward the go
 var head_bob := true
 var invert_y := false
 var voice_lines := true
+var subtitles := false   ## spoken lines are also written out on screen
+var toggles := {"run": false, "soft": false, "aim": false}   ## press once to start, again to stop (not hold)
+var _toggled := {}
+var colorblind := false  ## colours that tell things apart are chosen to read with red-green colour blindness
+## Road safety colours, Dangerous to Peaceful: the usual red-to-green, or blue-to-orange that reads for all.
+const SAFETY_TINTS := [Color(0.85, 0.2, 0.15), Color(0.9, 0.6, 0.2), Color(0.35, 0.75, 0.35), Color(0.95, 0.85, 0.5)]
+const SAFETY_TINTS_CB := [Color(0.84, 0.37, 0.0), Color(0.94, 0.89, 0.26), Color(0.0, 0.45, 0.7), Color(0.34, 0.71, 0.91)]
+
+
+## The colour of a town's road safety (0 to 100), in the palette chosen in Settings.
+func safety_tint(sv: float) -> Color:
+	var i := 0 if sv < 25 else (1 if sv < 60 else (2 if sv < 90 else 3))
+	return (SAFETY_TINTS_CB if colorblind else SAFETY_TINTS)[i]
 var guide := true   ## the first-steps guide in the waste
 var quality := 1          ## 0 Low, 1 Standard, 2 High
 const RENDER_SCALES := [1.0, 0.85, 0.7, 0.5]
 var render_scale := 0     ## how sharply the world is drawn, sharpened back up when below full
+const UI_SCALES := [0.9, 1.0, 1.1, 1.2]
+var ui_scale := 1         ## how large menus, words and the HUD are drawn
 var gilded := false
 var player_name := ""
 var lobby_url := ""
@@ -543,8 +558,8 @@ func tier_of(gun: String) -> int:
 func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": Net._own_difficulty if Net._own_difficulty >= 0 else difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
-			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
+			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "toggles": toggles, "guide": guide,
+			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "ui_scale": ui_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
 			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
@@ -598,9 +613,16 @@ func load_save() -> void:
 		head_bob = bool(d.get("head_bob", head_bob))
 		invert_y = bool(d.get("invert_y", invert_y))
 		voice_lines = bool(d.get("voice_lines", voice_lines))
+		subtitles = bool(d.get("subtitles", subtitles))
+		colorblind = bool(d.get("colorblind", colorblind))
+		var tg = d.get("toggles", {})
+		if tg is Dictionary:
+			for k in toggles:
+				toggles[k] = bool(tg.get(k, false))
 		guide = bool(d.get("guide", guide))
 		quality = clampi(int(d.get("gfx", int(d.get("quality", 0)) + 1)), 0, 2)
 		render_scale = clampi(int(d.get("render_scale", render_scale)), 0, RENDER_SCALES.size() - 1)
+		ui_scale = clampi(int(d.get("ui_scale", ui_scale)), 0, UI_SCALES.size() - 1)
 		gilded = bool(d.get("gilded", gilded))
 		player_name = str(d.get("player_name", player_name)).left(20)
 		lobby_url = str(d.get("lobby_url", lobby_url))
@@ -647,6 +669,7 @@ func apply_display() -> void:
 	sc = clampf(sc * float(RENDER_SCALES[render_scale]), 0.25, 1.0)
 	vp.scaling_3d_scale = sc
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if sc < 0.99 else Viewport.SCALING_3D_MODE_BILINEAR
+	win.content_scale_factor = float(UI_SCALES[ui_scale])
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = FPS_CAPS[fps_cap]
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][aa]
@@ -660,7 +683,22 @@ func toggle_fullscreen() -> void:
 
 ## With a controller in hand and a menu showing, the first button takes the focus so the pad can move
 ## through the menu.
+## Whether an action is held: by the key itself, or, when it is set to toggle, since it was last pressed.
+func held(action: String) -> bool:
+	if toggles.get(action, false):
+		return bool(_toggled.get(action, false))
+	return Input.is_action_pressed(action)
+
+
+## A toggled action stops (the run ends when the walking does, aim when the gun is put away).
+func untoggle(action: String) -> void:
+	_toggled[action] = false
+
+
 func _input(e: InputEvent) -> void:
+	for a in toggles:
+		if toggles[a] and e.is_action_pressed(a) and not e.is_echo():
+			_toggled[a] = not bool(_toggled.get(a, false))
 	if (e is InputEventJoypadButton and e.pressed) or (e is InputEventJoypadMotion and absf(e.axis_value) > 0.6):
 		using_pad = true
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and get_viewport().gui_get_focus_owner() == null:

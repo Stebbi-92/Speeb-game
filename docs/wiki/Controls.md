@@ -83,3 +83,11 @@ In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a
 | 9 | Censer |
 
 You choose what you carry in the Arms screen, but only at camp (by a lit fire), in a town or at a workbench. Out on the road you fight with what you brought.
+
+## Settings for everyone
+
+- **Hold or press to switch:** Sprint, Sneak and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.
+- **Menu and text size:** 90%, 100%, 110% or 120%.
+- **Subtitles for spoken lines:** what Brelm says over the fallen is written out at the bottom of the screen.
+- **Colour-blind friendly map colours:** road safety on the map goes from orange (Dangerous) through yellow and blue to light blue (Peaceful), instead of red to green.
+- **Graphics quality:** Low (shorter shadows, no glow, for slower machines), Standard or High. **Render scale** draws the world at 100% down to 50% and sharpens it back up.

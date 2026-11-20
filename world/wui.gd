@@ -4173,7 +4173,7 @@ class MapDraw extends Control:
 				# How safe its roads are, as a soft ring of colour: red, amber, green, pale gold
 				if w.visited.has(k) and w.staged("standing"):
 					var sv: int = w.safety_of(k)
-					var tint := Color(0.85, 0.2, 0.15) if sv < 25 else (Color(0.9, 0.6, 0.2) if sv < 60 else (Color(0.35, 0.75, 0.35) if sv < 90 else Color(0.95, 0.85, 0.5)))
+					var tint := Game.safety_tint(sv)
 					var rad: float = (_to(p3 + Vector3(w.SAFETY_REACH, 0, 0)) - p).length()
 					draw_circle(p, rad, Color(tint, 0.13))
 					draw_arc(p, rad, 0.0, TAU, 48, Color(tint, 0.5), 1.5)

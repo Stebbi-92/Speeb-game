@@ -2652,7 +2652,7 @@ func sees(p: Node3D) -> bool:
 	var reach := 48.0 if spec.get("role", "") == "gun" else 34.0
 	if level.get("night"):
 		reach *= 0.6
-	if p == level.player and Input.is_action_pressed("soft"):
+	if p == level.player and Game.held("soft"):
 		reach *= 0.55
 	if p == level.player and level.has_method("power_k"):
 		reach *= 1.0 - 0.45 * level.power_k("hush")

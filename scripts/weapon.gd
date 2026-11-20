@@ -553,7 +553,7 @@ func _process(delta: float) -> void:
 			_pump.visible = shells > 0   # the rocket is gone once fired, till the next goes in
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
-	var aiming := not blade_out and (debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
+	var aiming := not blade_out and (debug_aim or Game.held("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
 	_set_aim(1.0 if aiming else 0.0, delta)
 	if Game.main and Game.main.hud:
 		Game.main.hud.ads = _aim > 0.35   # down the sights, the dot on the screen gives way to the gun's own
@@ -1417,7 +1417,7 @@ const HEAVY_COST := 24.0
 ## Aim raises the blade to guard: blows are turned aside for stamina.
 func _blade_tick(delta: float, holding: bool) -> void:
 	var was := guarding
-	guarding = Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
+	guarding = Game.held("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
 	guard_age = (0.0 if not was else guard_age + delta) if guarding else 99.0
 	if guarding and not was and Net.online and not Net.authority() and Game.main and Game.main.level:
 		Game.main.level.shared("_w_guard_up", [Net.me()])   # the host's foes can be turned by a friend's guard too
