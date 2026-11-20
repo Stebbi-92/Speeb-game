@@ -3154,6 +3154,8 @@ func open_map() -> void:
 
 
 var _map_zoom := 1.0
+var _map_seen := false
+var _map_frame: Control
 var _map_off := Vector2.ZERO   ## where the map's top left sits inside its window
 var _map_canvas: Control
 var _map_fog: Control
@@ -3199,7 +3201,16 @@ func _draw_map() -> void:
 	_map_draw.w = w
 	_map_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_canvas.add_child(_map_draw)
+	# Over the map, fixed in place: north, the scale, a thin frame
+	_map_frame = MapFrame.new()
+	_map_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_frame.size = Vector2(MAP_VIEW, MAP_VIEW)
+	holder.add_child(_map_frame)
 	hb.add_child(holder)
+	if not _map_seen:
+		# The first look: close enough to see the land walked so far, not a dot on a sea of dark
+		_map_seen = true
+		_map_zoom = 5.0
 	_map_center_on(w.player.global_position)
 	var side := VBoxContainer.new()
 	side.add_theme_constant_override("separation", 6)
@@ -3244,6 +3255,9 @@ func _map_layout() -> void:
 	_map_fog.size = Vector2(full, full)
 	_map_draw.zoom = _map_zoom
 	_map_draw.queue_redraw()
+	if is_instance_valid(_map_frame):
+		_map_frame.zoom = _map_zoom
+		_map_frame.queue_redraw()
 
 
 func _map_center_on(p: Vector3) -> void:
@@ -3282,6 +3296,10 @@ func _map_input(e: InputEvent) -> void:
 		accept_event()
 
 
+## Land not yet seen: a dark ash ground with a faint grid over it, so it reads as unwalked, not as a fault
+const FOG := Color(0.075, 0.068, 0.06)
+
+
 func _update_fog() -> void:
 	if _fog_img == null:
 		return
@@ -3289,7 +3307,7 @@ func _update_fog() -> void:
 	var n: int = Wasteland.REVEAL_N
 	for j in n:
 		for i in n:
-			_fog_img.set_pixel(i, j, Color(0, 0, 0, 0.0 if w.revealed[j * n + i] != 0 else 1.0))
+			_fog_img.set_pixel(i, j, Color(FOG.r, FOG.g, FOG.b, 0.0 if w.revealed[j * n + i] != 0 else 1.0))
 	_fog_tex.update(_fog_img)
 
 
@@ -4135,6 +4153,33 @@ class Compass extends Control:
 				draw_string(font, Vector2(x - 30, 48), "%d m" % int(Vector2(d.x, d.z).length()), HORIZONTAL_ALIGNMENT_CENTER, 60, 12, Color(0.95, 0.85, 0.6, 0.9))
 
 
+class MapFrame extends Control:
+	var zoom := 1.0
+
+	func _draw() -> void:
+		var gold := Color(0.86, 0.80, 0.66)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(gold, 0.35), false, 1.0)
+		var font := ThemeDB.fallback_font
+		# North
+		var n := Vector2(size.x - 30, 34)
+		draw_colored_polygon(PackedVector2Array([n + Vector2(0, -16), n + Vector2(6, 2), n + Vector2(0, -2), n + Vector2(-6, 2)]), Color(gold, 0.9))
+		draw_string(font, n + Vector2(-6, 18), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(gold, 0.9))
+		# The scale: the longest round length that fits in about a quarter of the view
+		var px_per_m := size.x * zoom / (WIsles.MAP_HALF * 2.0)
+		var m := 100.0
+		for c in [100.0, 250.0, 500.0, 1000.0, 2000.0, 5000.0]:
+			if c * px_per_m <= size.x * 0.28:
+				m = c
+		var len := m * px_per_m
+		var a := Vector2(18, size.y - 22)
+		draw_rect(Rect2(a - Vector2(8, 22), Vector2(len + 16, 34)), Color(0, 0, 0, 0.45))
+		draw_line(a, a + Vector2(len, 0), Color(gold, 0.9), 2.0)
+		draw_line(a + Vector2(0, -5), a + Vector2(0, 5), Color(gold, 0.9), 2.0)
+		draw_line(a + Vector2(len, -5), a + Vector2(len, 5), Color(gold, 0.9), 2.0)
+		var t := ("%d km" % int(m / 1000.0)) if m >= 1000.0 else ("%d m" % int(m))
+		draw_string(font, a + Vector2(0, -8), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(gold, 0.95))
+
+
 class MapDraw extends Control:
 	var w
 	var zoom := 1.0
@@ -4146,6 +4191,19 @@ class MapDraw extends Control:
 		if w == null or w.player == null:
 			return
 		var font := ThemeDB.fallback_font
+		# A faint grid, one square to a kilometre
+		var km := 1000.0 / (WIsles.MAP_HALF * 2.0) * size.x
+		if km > 14.0:
+			var o := _to(Vector3.ZERO)
+			var grid := Color(0.86, 0.80, 0.66, 0.045)
+			var x := fposmod(o.x, km)
+			while x < size.x:
+				draw_rect(Rect2(x - 1.0, 0, 2.0, size.y), grid)
+				x += km
+			var y := fposmod(o.y, km)
+			while y < size.y:
+				draw_rect(Rect2(0, y - 1.0, size.x, 2.0), grid)
+				y += km
 		for il in w.terrain.isles:
 			if not w.is_revealed(Vector3(il.c.x, 0, il.c.y)):
 				continue
