@@ -16547,3 +16547,28 @@ func debug_figjoin() -> void:
 		f.free()
 	print("FIGJOIN few=%s" % (most <= 14))
 	get_tree().quit()
+
+
+## Testing aid: the Low preset shortens the shadows and drops the glow; Standard puts them back.
+func debug_gfx() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var q0: int = Game.quality
+	Game.quality = 0
+	apply_quality()
+	var low: bool = sun.directional_shadow_max_distance <= 45.0 and not env.glow_enabled and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	Game.quality = 1
+	apply_quality()
+	var back: bool = sun.directional_shadow_max_distance == 90.0 and env.glow_enabled and not env.ssao_enabled
+	Game.quality = 2
+	apply_quality()
+	var high: bool = env.ssao_enabled and sun.directional_shadow_max_distance == 90.0
+	Game.quality = q0
+	apply_quality()
+	Game.render_scale = 2
+	Game.apply_display()
+	var scaled: bool = get_viewport().scaling_3d_scale < 0.75 and get_viewport().scaling_3d_mode == Viewport.SCALING_3D_MODE_FSR
+	Game.render_scale = 0
+	Game.apply_display()
+	print("GFX low=%s back=%s high=%s scaled=%s" % [low, back, high, scaled])
+	get_tree().quit()

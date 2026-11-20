@@ -1,3 +1,8 @@
+Brelm alpha 0.19.0
+
+- Lighter towns: townsfolk and the still, solid parts of a town are drawn together, so a town sends about half as many things to be drawn.
+- Settings: a Low graphics preset for slower machines (shorter shadows, no glow), and a Render scale (100% to 50%) that draws the world smaller and sharpens it back up.
+
 Brelm alpha 0.18.0: the polish
 
 - Plain words on screen: prompts, menus and the HUD say kill, enemy and player. Sprint and Sneak are the new names of Hasten and Tread softly. The waste's own voice stays in lore, rumours and talk.

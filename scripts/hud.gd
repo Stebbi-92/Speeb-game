@@ -1859,11 +1859,13 @@ func show_options() -> void:
 		caps.append("Unlimited" if f == 0 else "%d" % f)
 	_choice("Frame rate limit", caps, Game.fps_cap, func(i): Game.fps_cap = i; _apply_display())
 	_choice("Anti-aliasing", Game.AA_MODES, Game.aa, func(i): Game.aa = i; _apply_display())
+	_choice("Render scale", ["100%", "85%", "70%", "50%"], Game.render_scale, func(i): Game.render_scale = i; _apply_display())
+	_options_list.add_child(_label("Below 100% the world is drawn smaller and sharpened back up: faster, a little softer.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	_slider("Field of view", 60.0, 100.0, 1.0, Game.fov, _set_fov, "%d")
 	_toggle("Head bob", Game.head_bob, func(on): Game.head_bob = on; Game.save())
 	_toggle("Blood", Game.blood, func(on): Game.blood = on; Game.save())
 	_toggle("Guiding embers", Game.embers_on, func(on): Game.embers_on = on; Game.save())
-	_choice("Graphics quality", ["Standard", "High (occlusion, bounce light, bloom)"], Game.quality, func(i):
+	_choice("Graphics quality", ["Low (for slower machines)", "Standard", "High (occlusion, bounce light, bloom)"], Game.quality, func(i):
 		Game.quality = i
 		Game.save()
 		if Game.main.level and Game.main.level.has_method("apply_quality"):

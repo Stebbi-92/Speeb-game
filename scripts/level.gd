@@ -214,19 +214,28 @@ func build() -> void:
 	pass
 
 
-## The High preset: ambient occlusion, indirect light, and a richer bloom.
+## The graphics presets. Low: short, coarse shadows and no glow, for slower machines. Standard: the
+## world as made. High: ambient occlusion, indirect light, and a richer bloom.
 func apply_quality() -> void:
 	if env == null:
 		return
-	var high := Game.quality == 1
+	var high := Game.quality == 2
+	var low := Game.quality == 0
 	env.ssao_enabled = high
 	env.ssao_intensity = 1.6
 	env.ssil_enabled = high
-	env.glow_enabled = true
-	env.glow_intensity = maxf(env.glow_intensity, 0.8) if high else env.glow_intensity
+	if not has_meta("glow0"):
+		set_meta("glow0", env.glow_intensity)
+	env.glow_enabled = not low
+	env.glow_intensity = maxf(float(get_meta("glow0")), 0.8) if high else float(get_meta("glow0"))
 	env.glow_bloom = 0.08 if high else 0.0
+	RenderingServer.directional_shadow_atlas_set_size(2048 if low else 4096, true)
 	if sun:
+		if not sun.has_meta("reach0"):
+			sun.set_meta("reach0", sun.directional_shadow_max_distance)
 		sun.shadow_blur = 1.5 if high else 1.0
+		sun.directional_shadow_max_distance = minf(float(sun.get_meta("reach0")), 45.0) if low else float(sun.get_meta("reach0"))
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if low else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
 func intro() -> void:

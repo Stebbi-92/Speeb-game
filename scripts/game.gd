@@ -62,7 +62,9 @@ var head_bob := true
 var invert_y := false
 var voice_lines := true
 var guide := true   ## the first-steps guide in the waste
-var quality := 1
+var quality := 1          ## 0 Low, 1 Standard, 2 High
+const RENDER_SCALES := [1.0, 0.85, 0.7, 0.5]
+var render_scale := 0     ## how sharply the world is drawn, sharpened back up when below full
 var gilded := false
 var player_name := ""
 var lobby_url := ""
@@ -542,7 +544,7 @@ func save() -> void:
 	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": Net._own_difficulty if Net._own_difficulty >= 0 else difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
 			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
-			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
+			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
 			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
 			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
@@ -597,7 +599,8 @@ func load_save() -> void:
 		invert_y = bool(d.get("invert_y", invert_y))
 		voice_lines = bool(d.get("voice_lines", voice_lines))
 		guide = bool(d.get("guide", guide))
-		quality = clampi(int(d.get("quality", quality)), 0, 1)
+		quality = clampi(int(d.get("gfx", int(d.get("quality", 0)) + 1)), 0, 2)
+		render_scale = clampi(int(d.get("render_scale", render_scale)), 0, RENDER_SCALES.size() - 1)
 		gilded = bool(d.get("gilded", gilded))
 		player_name = str(d.get("player_name", player_name)).left(20)
 		lobby_url = str(d.get("lobby_url", lobby_url))
@@ -637,11 +640,13 @@ func apply_display() -> void:
 		2:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 	var vp := get_viewport()
-	if display_mode == 0:
-		vp.scaling_3d_scale = 1.0
-	else:
+	var sc := 1.0
+	if display_mode != 0:
 		var screen_h := DisplayServer.screen_get_size(win.current_screen).y
-		vp.scaling_3d_scale = clampf(float(res.y) / float(maxi(screen_h, 1)), 0.25, 1.0)
+		sc = clampf(float(res.y) / float(maxi(screen_h, 1)), 0.25, 1.0)
+	sc = clampf(sc * float(RENDER_SCALES[render_scale]), 0.25, 1.0)
+	vp.scaling_3d_scale = sc
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if sc < 0.99 else Viewport.SCALING_3D_MODE_BILINEAR
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = FPS_CAPS[fps_cap]
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][aa]
