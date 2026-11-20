@@ -318,8 +318,74 @@ func rebuild() -> void:
 		4:
 			for i in 3:
 				_box(self, Vector3(0.025, 0.07, 0.015), Vector3(-0.1 + i * 0.1, 0.86, 0.14), _mat(Color(0.85, 0.82, 0.74)))
+	# Each part that moves as one (the body, the head, each leg and arm) is joined into one mesh, so
+	# a figure is drawn in a handful of calls instead of thirty: a town full of folk stays light.
+	for part in [self, head] + _legs + _arms:
+		_join(part)
 	for c in find_children("*", "MeshInstance3D", true, false):
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
+static var _matte: StandardMaterial3D
+static var no_join := false   ## testing aid: leave the pieces apart
+
+
+## The plain-coloured pieces right under `p` become one mesh, each keeping its colour in the mesh.
+## Shining, glowing and moving pieces (metal, a lamp, the mouth) stay as they are.
+func _join(p: Node3D) -> void:
+	if no_join:
+		return
+	var parts: Array = []
+	for c in p.get_children():
+		if c is MeshInstance3D and c != _mouth and c.get_child_count() == 0 and c.mesh is PrimitiveMesh:
+			var m = (c as MeshInstance3D).material_override
+			if m is StandardMaterial3D and m.metallic == 0.0 and not m.emission_enabled:
+				parts.append(c)
+	if parts.size() < 2:
+		return
+	if _matte == null:
+		_matte = StandardMaterial3D.new()
+		_matte.vertex_color_use_as_albedo = true
+		_matte.vertex_color_is_srgb = true
+		_matte.roughness = 0.85
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var cols := PackedColorArray()
+	var idx := PackedInt32Array()
+	for c in parts:
+		var mi := c as MeshInstance3D
+		var a: Array = mi.mesh.surface_get_arrays(0)
+		var t: Transform3D = mi.transform
+		var nb: Basis = t.basis.inverse().transposed()
+		var col: Color = (mi.material_override as StandardMaterial3D).albedo_color
+		var base := verts.size()
+		var vv: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var nn: PackedVector3Array = a[Mesh.ARRAY_NORMAL]
+		for i in vv.size():
+			verts.append(t * vv[i])
+			norms.append((nb * nn[i]).normalized())
+			cols.append(col)
+		var ii = a[Mesh.ARRAY_INDEX]
+		if ii == null or (ii as PackedInt32Array).is_empty():
+			for i in vv.size():
+				idx.append(base + i)
+		else:
+			for i in (ii as PackedInt32Array):
+				idx.append(base + i)
+		p.remove_child(mi)
+		mi.free()
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = norms
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_INDEX] = idx
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var out := MeshInstance3D.new()
+	out.mesh = am
+	out.material_override = _matte
+	p.add_child(out)
 
 
 func _process(delta: float) -> void:

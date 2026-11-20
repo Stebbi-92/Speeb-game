@@ -15140,6 +15140,36 @@ func debug_drawcount() -> void:
 				surf += (gi as MeshInstance3D).mesh.get_surface_count()
 			else:
 				surf += 1
+		if OS.get_environment("WHY") != "":
+			var why := {}
+			for g in find_children("*", "GeometryInstance3D", true, false):
+				var gi := g as GeometryInstance3D
+				if gi.get_parent() == self or not gi.is_visible_in_tree() or gi.global_position.distance_to(c) > 150.0:
+					continue
+				var rs := []
+				if gi is MeshInstance3D:
+					var mm := gi as MeshInstance3D
+					if mm.get_child_count() > 0: rs.append("kids")
+					if mm.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY: rs.append("shadowonly")
+					if mm.transparency != 0.0: rs.append("transp")
+					if mm.mesh is ImmediateMesh: rs.append("immediate")
+				else:
+					rs.append(gi.get_class())
+				var q: Node = gi
+				while q != self and q != null:
+					if q.get_script() != null: rs.append("script:" + q.get_script().resource_path.get_file())
+					for mk in q.get_meta_list():
+						if mk == "body":
+							var b = q.get_meta("body")
+							if b is Object and is_instance_valid(b) and (b as Object).has_meta("on_interact"): rs.append("body_interact")
+						else:
+							rs.append("meta:" + str(mk))
+					if q is Node3D and not (q as Node3D).visible: rs.append("hidden")
+					q = q.get_parent()
+				var kk := ",".join(rs)
+				why[kk] = why.get(kk, 0) + 1
+			for kk in why:
+				print("DRAWWHY %s %d" % [kk, why[kk]])
 		var keys := by.keys()
 		keys.sort_custom(func(a, b): return by[a] > by[b])
 		print("DRAW %s instances=%d surfaces=%d" % [k, total, surf])
@@ -16504,4 +16534,16 @@ func debug_nights() -> void:
 	_w_dawn(day + 1)
 	var paid := inv.count("fittings_rare") > r0
 	print("NIGHTS kinds=%d early_plain=%s same=%s themed=%s paid=%s" % [seen.size(), early, same, themed, paid])
+	get_tree().quit()
+
+
+## Testing aid: a figure is drawn in a handful of meshes, not thirty.
+func debug_figjoin() -> void:
+	var most := 0
+	for i in 12:
+		var f := Figure.new().setup(Figure.townsman(i * 977 + 5, "cinderwick") if i % 2 == 0 else Figure.seeded(i * 31 + 2))
+		add_child(f)
+		most = maxi(most, f.find_children("*", "MeshInstance3D", true, false).size())
+		f.free()
+	print("FIGJOIN few=%s" % (most <= 14))
 	get_tree().quit()
