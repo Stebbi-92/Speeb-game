@@ -77,7 +77,19 @@ static func gather(log_path: String, crashed: bool) -> Dictionary:
 	var text := "\n\n".join(blocks)
 	if crashed:
 		text = ("The game closed without quitting.\n" + "\n".join(trace) + ("\n\n" + text if text != "" else "")).strip_edges()
-	return {"kind": "crash" if crashed else "error", "text": text.substr(0, MAX_TEXT)}
+	return {"kind": "crash" if crashed else "error", "text": scrub(text).substr(0, MAX_TEXT)}
+
+
+## Takes the player's name out of any file path in a report: C:\Users\Ann\ or /home/ann/ or
+## /Users/ann/ become <user>, and so does the account name wherever else it shows.
+static func scrub(text: String) -> String:
+	var re := RegEx.create_from_string("(?i)([A-Z]:[\\\\/]Users[\\\\/]|/home/|/Users/)[^\\\\/\\s\"']+")
+	text = re.sub(text, "$1<user>", true)
+	for k in ["USERNAME", "USER"]:
+		var u := OS.get_environment(k)
+		if u.length() >= 3:
+			text = text.replace(u, "<user>")
+	return text
 
 
 ## Called by the title: asks once, or sends at once, as the player chose.

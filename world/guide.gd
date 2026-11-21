@@ -17,7 +17,7 @@ var _box: PanelContainer
 const STEPS := [
 	["walk", "Walk with {move_forward} {move_left} {move_back} {move_right}. Look around with the mouse."],
 	["dodge", "Press {dash} to dodge. When an enemy's head swells and glows, it is about to attack: step aside."],
-	["gather", "Hit a dead tree or a rock with {fire} to gather wood and stone."],
+	["gather", "Hold {interact} at a dead tree or a rock to gather wood and stone."],
 	["pack", "Open your pack with {pack}."],
 	["make", "In your pack, open Make and make a bandage."],
 	["build", "Press {build} to build. Place a campfire: you can rest by it, and it keeps the dark back."],

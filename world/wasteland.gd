@@ -6686,6 +6686,8 @@ func _day_watch() -> void:
 					continue
 				var tr := tier_at(r.pos)
 				var guards: Array = ["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"].filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= tr)
+				if gentle_at(r.pos):
+					guards = GENTLE_FORMS   # the ground about the start is gentle, its ruins too
 				for k in n:
 					_spawn_near(guards[randi() % guards.size()], r.pos, 6.0, 14.0, true)
 
@@ -8057,6 +8059,7 @@ func _load_character() -> void:
 	kindled = []   # a new pilgrim has lit nothing yet, whatever the fellowship has
 	inv.from_data([])
 	inv.add("bandage", 2)
+	inv.add("cloth", 2)   # enough for the first bandage the first steps ask for, wherever the cast-out wake
 	inv.add("meat", 2)
 	inv.add("salt", 12)
 	inv.add("shells", 18)
@@ -11479,6 +11482,135 @@ func debug_lootshot() -> void:
 
 
 ## Testing aid: walks the guide through its steps by doing each thing, and shows it on screen.
+## Testing aid: a new pilgrim's first hour, walked for real (at four times speed) and timed. Says what is
+## near the start, how long each first step takes, what is said on screen and how long each word stays
+## before the next replaces it, and when the first night falls.
+func debug_firsthour() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0 := Time.get_ticks_msec()
+	Engine.time_scale = 4.0
+	var game_s := func() -> float: return (Time.get_ticks_msec() - t0) / 1000.0 * 4.0
+	var start := player.global_position
+	var near := {}
+	for nd in nodes:
+		var d := Vector2(nd.pos.x - start.x, nd.pos.z - start.z).length()
+		if d < 150.0:
+			near[nd.kind] = int(near.get(nd.kind, 0)) + 1
+	var town := gpos(WPlaces.spos("cinderwick"))
+	print("FIRST start=%s clock=%.1f to_town=%.0fm near150=%s pack=%s" % [str(start), clock, Vector2(town.x - start.x, town.z - start.z).length(), near, inv.to_data().filter(func(x): return x != null)])
+	var steps := []
+	var last_step := guide.step
+	var mark := func(what: String): steps.append("%s@%.0fs" % [what, game_s.call()])
+	# Walk, dodge
+	Input.action_press("move_forward")
+	await get_tree().create_timer(1.5).timeout
+	Input.action_release("move_forward")
+	Input.action_press("dash")
+	await get_tree().physics_frame
+	Input.action_release("dash")
+	await get_tree().create_timer(1.0).timeout
+	mark.call("walked step=%d" % guide.step)
+	# Gather from the nearest tree and rock, holding the key as a player would (1.6 s each)
+	var got := 0
+	for kind in ["tree", "rock", "scrap"]:
+		var best := -1
+		var bd := INF
+		for nd in nodes:
+			if nd.kind == kind and nd.charges > 0:
+				var d := Vector2(nd.pos.x - player.global_position.x, nd.pos.z - player.global_position.z).length()
+				if d < bd:
+					bd = d
+					best = nd.id
+		if best < 0:
+			mark.call("no %s anywhere" % kind)
+			continue
+		var walk_s: float = bd / player.walk_speed
+		mark.call("nearest %s %.0fm (%.0fs on foot)" % [kind, bd, walk_s])
+		for k in 2:
+			_gather(best)
+			await get_tree().create_timer(1.6 / 4.0 + 0.3).timeout
+		got += 1
+	mark.call("gathered step=%d wood=%d stone=%d cloth=%d" % [guide.step, inv.count("wood"), inv.count("stone"), inv.count("cloth")])
+	ui.open_inventory("pack")
+	await get_tree().create_timer(0.6).timeout
+	var can_bandage := inv.count("cloth") >= 2
+	mark.call("pack step=%d can_make_bandage=%s" % [guide.step, can_bandage])
+	ui.close_all()
+	print("FIRST steps %s" % [steps])
+	# The walk to Cinderwick, on foot at walking pace, never stopping; foes met are counted and the
+	# pilgrim kept alive so the whole road is seen
+	var met := {}
+	var hurt := 0.0
+	var walk_t0: float = game_s.call()
+	Input.action_press("move_forward")
+	while game_s.call() - walk_t0 < 1200.0:
+		var to := town - player.global_position
+		to.y = 0.0
+		if to.length() < 40.0:
+			break
+		player.yaw = atan2(-to.x, -to.z)
+		player.rotation.y = player.yaw
+		if player.health < player.max_health:
+			hurt += player.max_health - player.health
+			player.health = player.max_health
+		for e in enemies:
+			if is_instance_valid(e) and e.global_position.distance_to(player.global_position) < 25.0:
+				met[e.get_instance_id()] = e.kind
+		await get_tree().create_timer(0.25).timeout
+	Input.action_release("move_forward")
+	var kinds := {}
+	for k in met.values():
+		kinds[k] = int(kinds.get(k, 0)) + 1
+	print("FIRST town arrived=%s walk=%.0fs clock=%.1f foes_met=%s damage_taken=%.0f step=%d visited=%s" % [(town - player.global_position).length() < 60.0, game_s.call() - walk_t0, clock, kinds, hurt, guide.step, visited.has("cinderwick")])
+	print("FIRST dusk_at=%.1f minutes_to_dusk=%.1f" % [weather.dusk(), (weather.dusk() - clock) * DAY_SECONDS / 24.0 / 60.0])
+	# What was said, and how long each stayed before the next took its place
+	var short := 0
+	var lines := []
+	for i in hud.text_log.size():
+		var e: Array = hud.text_log[i]
+		if e[1] == "note":
+			continue   # asked for; what was shown is what counts
+		var stay := -1.0
+		var grew := false   # the next line shown is this one with more picked up added: not cut short
+		for j in range(i + 1, hud.text_log.size()):
+			if hud.text_log[j][1] == e[1]:
+				stay = (hud.text_log[j][0] - e[0]) / 1000.0 * 4.0
+				grew = str(hud.text_log[j][2]).begins_with(str(e[2]))
+				break
+		if stay >= 0.0 and stay < 2.5 and not grew:
+			short += 1
+		lines.append("[%s %.0fs stay=%s] %s" % [e[1], (e[0] - t0) / 1000.0 * 4.0, ("%.1f" % stay) if stay >= 0.0 else "-", str(e[2]).replace("\n", " / ").left(140)])
+	for l in lines:
+		print("FIRST said ", l)
+	print("FIRST summary lines=%d cut_short=%d" % [lines.size(), short])
+	Engine.time_scale = 1.0
+	get_tree().quit()
+
+
+## Testing aid: lines under the compass that come together each get their turn; things picked up
+## together share one line, counted up by kind.
+func debug_toasts() -> void:
+	await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(8.0).timeout   # the start's own words have passed
+	hud.text_log.clear()
+	hud.notify("+3 Deadwood")
+	hud.notify("+2 Stone")
+	hud.notify("+4 Deadwood")
+	hud.notify("First line")
+	hud.notify("Second line")
+	hud.notify("Third line")
+	var seen := {}
+	var t := 0.0
+	while t < 14.0:
+		seen[hud.toast.text] = true
+		await get_tree().create_timer(0.1).timeout
+		t += 0.1
+	var merged: bool = seen.has("+7 Deadwood,  +2 Stone")
+	print("TOASTS merged=%s all_seen=%s" % [merged, seen.has("First line") and seen.has("Second line") and seen.has("Third line")])
+	get_tree().quit()
+
+
 func debug_guide() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -16866,7 +16998,9 @@ func debug_reports() -> void:
 	var none: bool = Game.ErrorReport.gather("", false).is_empty()
 	var quiet: bool = not FileAccess.file_exists(Game.ErrorReport.RUNNING) and Game.report.pending.is_empty()
 	DirAccess.remove_absolute(p)
-	print("REPORTS found=%s once=%s clean=%s crash=%s none=%s quiet=%s" % [found, once, clean, crash, none, quiet])
+	var scrubbed: String = Game.ErrorReport.scrub("at C:\\Users\\Ann Smith\\AppData\\x.gd and /home/bob/.local/x and /Users/carl/Library")
+	var named := scrubbed.contains("Ann") or scrubbed.contains("bob") or scrubbed.contains("carl")
+	print("REPORTS found=%s once=%s clean=%s crash=%s none=%s quiet=%s private=%s" % [found, once, clean, crash, none, quiet, not named])
 
 
 func debug_polish2() -> void:

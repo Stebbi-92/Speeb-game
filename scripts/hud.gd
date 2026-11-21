@@ -517,9 +517,19 @@ func subtitle(who: String, text: String, dur := 2.5) -> void:
 	_sub_tw.tween_property(subtitle_l, "modulate:a", 0.0, 0.4)
 
 
+## The last words put on screen, [msec, "say"/"note", text], for the tests (the first hour's timeline)
+var text_log: Array = []
+
+func _logged(kind: String, text: String) -> void:
+	text_log.append([Time.get_ticks_msec(), kind, text])
+	if text_log.size() > 300:
+		text_log.pop_front()
+
+
 func say(text: String, dur := 6.0) -> void:
 	if reveal_box.modulate.a > 0.05:
 		return
+	_logged("say", text)
 	_narr_id += 1
 	var id := _narr_id
 	narration.text = text
@@ -538,15 +548,80 @@ func clear_say() -> void:
 	narration.modulate.a = 0
 
 
+## A line under the compass. Lines that come close together wait their turn, so none is replaced before
+## it can be read; things picked up together are said on one line.
 func notify(text: String) -> void:
+	_logged("note", text)
+	var now := Time.get_ticks_msec()
+	# "+2 Cloth" just after "+3 Scrap Iron": one line for the lot
+	if text.begins_with("+") and _toast_queue.is_empty() and toast.text.begins_with("+") and now - _toast_at < 1500 \
+			and toast.text.length() + text.length() < 90 and _toast_busy:
+		toast.text = _merge_got(toast.text, text)
+		_toast_at = now
+		_logged("shown", toast.text)
+		_toast_hold()
+		return
+	if text.begins_with("+") and not _toast_queue.is_empty() and _toast_queue[-1].begins_with("+") and _toast_queue[-1].length() + text.length() < 90:
+		_toast_queue[-1] = _merge_got(_toast_queue[-1], text)
+		return
+	if _toast_queue.size() >= 6:
+		_toast_queue.pop_front()   # a flood: the oldest waiting goes unsaid
+	_toast_queue.append(text)
+	if not _toast_busy or now - _toast_at >= int(TOAST_MIN * 1000.0):
+		_toast_next()
+
+
+## "+3 Deadwood,  +2 Stone" and "+4 Deadwood" make "+7 Deadwood,  +2 Stone".
+static func _merge_got(line: String, more: String) -> String:
+	var parts := line.split(",  ")
+	var m := more.substr(1).split(" ", true, 1)
+	if m.size() == 2 and m[0].is_valid_int():
+		for i in parts.size():
+			var p := parts[i].substr(1).split(" ", true, 1)
+			if p.size() == 2 and p[0].is_valid_int() and p[1] == m[1]:
+				parts[i] = "+%d %s" % [int(p[0]) + int(m[0]), m[1]]
+				return ",  ".join(parts)
+	return line + ",  " + more
+
+
+const TOAST_MIN := 2.6   ## seconds a line stays at least, when another waits
+const TOAST_FULL := 5.0  ## and when none does
+var _toast_queue: Array[String] = []
+var _toast_busy := false
+var _toast_at := 0
+
+
+func _toast_next() -> void:
+	if _toast_queue.is_empty():
+		_toast_busy = false
+		return
+	_toast_busy = true
+	toast.text = _toast_queue.pop_front()
+	_toast_at = Time.get_ticks_msec()
+	_logged("shown", toast.text)
+	create_tween().tween_property(toast, "modulate:a", 1.0, 0.25)
+	_toast_hold()
+
+
+## Waits while the line shown is read, then shows the next, or fades when there is none.
+func _toast_hold() -> void:
 	_toast_id += 1
 	var id := _toast_id
-	toast.text = text
+	await get_tree().create_timer(TOAST_MIN, false).timeout
+	if id != _toast_id:
+		return
+	if not _toast_queue.is_empty():
+		_toast_next()
+		return
+	await get_tree().create_timer(TOAST_FULL - TOAST_MIN, false).timeout
+	if id != _toast_id:
+		return
+	if not _toast_queue.is_empty():
+		_toast_next()
+		return
+	_toast_busy = false
 	var tw := create_tween()
-	tw.tween_property(toast, "modulate:a", 1.0, 0.5)
-	await get_tree().create_timer(5.0, false).timeout
-	if id == _toast_id:
-		create_tween().tween_property(toast, "modulate:a", 0.0, 1.5)
+	tw.tween_property(toast, "modulate:a", 0.0, 1.5)
 
 
 func set_prompt(text: String, progress: float) -> void:

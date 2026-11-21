@@ -9,6 +9,10 @@ Brelm alpha 0.19.0
 - Press Reload with a full gun to look it over. A slain enemy falls the way the blow drove it, then sinks into the ash.
 - Controller buttons can be changed in Settings, Controls. With a controller, prompts and the first-steps guide name its buttons instead of keys.
 - The beacon bell is now a recorded bell, deeper and with a long ring.
+- Hosts can send a player away: Pause, Players, Send away. They can't come back under that name until the host closes the game.
+- Messages under the compass wait their turn instead of replacing each other, and things picked up together are counted on one line.
+- Fixes: quitting no longer moves your cat and boats to the middle of the map; a damaged save is kept aside instead of being written over; satchels left lying far from anyone blow away after four days (never your own belongings, or a broken chest's goods); buying makings, making salve or tea and selling it back no longer makes salt; enemy updates in co-op fit in one network packet; a joiner's game can no longer send what only the host may say.
+- First steps: the guide now says to hold E to gather (it said hit), a new pilgrim starts with two cloth for the first bandage, and ruins near the start are guarded only by the weakest enemies, like the land around them.
 
 Brelm alpha 0.18.0: the polish
 
