@@ -2067,7 +2067,7 @@ func focus_pos() -> Vector3:
 
 const FOE_SYNC_NEAR := 170.0    ## a pilgrim is told of the foes within this far (a great one, further)
 const FOE_SYNC_MAX := 48        ## and of at most this many, the nearest first
-const FOE_SYNC_BATCH := 20      ## in packets of this many, so none grows too large to arrive
+const FOE_SYNC_BATCH := 12      ## in packets of this many, so each fits in one network packet (about 80 bytes a foe, under 1392)
 
 ## Host: each pilgrim hears only of the foes near them, nearest first, in small packets. A foe a
 ## pilgrim is not told of for a while fades from their world, and comes back when it is near again.

@@ -15214,6 +15214,8 @@ func debug_soak() -> void:
 	for bk in ["raft", "sloop"]:
 		launch_boat(bk)
 		await get_tree().create_timer(0.6).timeout
+		if boats.is_empty():
+			break   # no shore found here (this world's land lies otherwise)
 		var b: WBoat = boats.values()[boats.size() - 1]
 		b.yaw = atan2(dir2.x, dir2.y)
 		boat_used(b)
@@ -15226,7 +15228,8 @@ func debug_soak() -> void:
 		Input.action_release("move_left")
 		boat_used(b)
 		await get_tree().create_timer(0.5).timeout
-	hurt_boat(boats.values()[0], 9999.0)
+	if not boats.is_empty():
+		hurt_boat(boats.values()[0], 9999.0)
 	await get_tree().create_timer(1.0).timeout
 	step.call("boats left=%d" % boats.size())
 	# A swim far out, until the deep finds you
