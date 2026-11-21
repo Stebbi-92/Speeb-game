@@ -494,6 +494,20 @@ static func save_texts(path: String) -> Array[String]:
 	return out
 
 
+## A save that is there but cannot be read (every copy damaged) is moved aside as .damaged before a
+## new one is begun in its place, so the next saves cannot write over what might still be mended.
+## Returns whether anything was moved.
+static func set_aside_damaged(path: String) -> bool:
+	var moved := false
+	for p in [path, path + ".tmp", path + ".bak"]:
+		if FileAccess.file_exists(p):
+			var to: String = p + ".damaged"
+			if FileAccess.file_exists(to):
+				DirAccess.remove_absolute(to)
+			moved = DirAccess.rename_absolute(p, to) == OK or moved
+	return moved
+
+
 ## Reads a var_to_str save, falling back to the backup if the newest is damaged.
 static func read_var_safe(path: String) -> Variant:
 	for t in save_texts(path):

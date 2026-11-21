@@ -153,6 +153,8 @@ func build() -> void:
 		var d = Game.read_var_safe(world_path(slot))
 		if d is Dictionary:
 			_pending = d
+		elif Game.set_aside_damaged(world_path(slot)):
+			_damaged = true
 		var sd := int(_pending.get("seed", 0)) if not _pending.is_empty() else Game.new_world_seed
 		if sd == 0:
 			sd = randi_range(10000, 99999999)
@@ -169,6 +171,7 @@ func build() -> void:
 
 var world_seed := 0
 var _pending := {}
+var _damaged := false   ## a save was there but could not be read, and was kept aside
 const GEN := 3          ## how the land is raised: 2 keeps the Ash Plains about where the cast-out wake; 3 gives the waste a ragged, rounded coast
 var world_gen := GEN
 
@@ -8037,6 +8040,10 @@ func _load_character() -> void:
 		while world_uid == "" and is_inside_tree():
 			await get_tree().process_frame
 	var d = Game.read_var_safe(_char_path())
+	if not d is Dictionary and Game.set_aside_damaged(_char_path()):
+		_damaged = true
+	if _damaged:
+		hud.say("Your save could not be read. It was kept aside, and a new one begun.", 10.0)
 	# New to a fellowship already on the road: come in beside the others. A returning pilgrim
 	# takes up where they left off.
 	if Net.online and not Net.authority() and not d is Dictionary:
@@ -10109,6 +10116,30 @@ func debug_satchelage() -> void:
 	var left: Array = made.filter(func(k): return satchels.has(k))
 	print("SATCHELAGE made=%d saved_day=%s old_gone=%s grave=%s near=%s fresh=%s" % [made.size(), saved_day,
 		not satchels.has(made[0]), satchels.has(made[1]), satchels.has(made[2]), satchels.has(made[3])])
+	get_tree().quit()
+
+
+## Testing aid: a damaged save is kept aside, not written over; a finished .tmp is read before the .bak.
+func debug_damaged() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var p := world_path("zz_test")
+	for e in ["", ".tmp", ".bak", ".damaged", ".bak.damaged", ".tmp.damaged"]:
+		DirAccess.remove_absolute(p + e)
+	Game.write_safe(p, var_to_str({"n": 1}))
+	Game.write_safe(p, var_to_str({"n": 2}))   # now n=2 is the save and n=1 the .bak
+	DirAccess.rename_absolute(p, p + ".tmp")   # as if stopped between the renames
+	var from_tmp = Game.read_var_safe(p)
+	var tmp_first: bool = from_tmp is Dictionary and int(from_tmp.n) == 2
+	for e in ["", ".tmp", ".bak"]:
+		var f := FileAccess.open(p + e, FileAccess.WRITE)
+		f.store_string("garbage {{{")
+		f.close()
+	var unread: bool = Game.read_var_safe(p) == null
+	var moved := Game.set_aside_damaged(p)
+	var kept: bool = FileAccess.file_exists(p + ".damaged") and FileAccess.file_exists(p + ".bak.damaged") and not FileAccess.file_exists(p)
+	for e in ["", ".tmp", ".bak", ".damaged", ".bak.damaged", ".tmp.damaged"]:
+		DirAccess.remove_absolute(p + e)
+	print("DAMAGED tmp_first=%s unread=%s moved=%s kept=%s" % [tmp_first, unread, moved, kept])
 	get_tree().quit()
 
 

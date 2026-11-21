@@ -462,7 +462,7 @@ func _export_world(slot: String) -> void:
 
 
 func _delete_world(slot: String) -> void:
-	for ext in ["", ".bak", ".tmp"]:
+	for ext in ["", ".bak", ".tmp", ".damaged", ".bak.damaged", ".tmp.damaged"]:
 		DirAccess.remove_absolute(Wasteland.world_path(slot) + ext)
 
 
