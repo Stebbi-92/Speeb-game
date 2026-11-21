@@ -2806,7 +2806,34 @@ func sell_price(id: String) -> int:
 		return 0
 	if AMMO_PRICE.has(id):
 		return maxi(1, int(AMMO_PRICE[id][1] * w.skills.sell_mult()))
-	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
+	var v := maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
+	return mini(v, _made_cap(id))
+
+
+## Never more than it costs to make from goods bought at the cheapest a trader will ever sell them (full
+## standing, a feast day), so buying, making and selling back is never a well of salt.
+func _made_cap(id: String) -> int:
+	var cap := 1 << 30
+	var best: float = (1.0 - 0.3) * w.skills.buy_mult() * Wasteland.FEAST_PRICE
+	var sold := {}
+	for role in Items.STOCK:
+		for k in Items.STOCK[role] + Wasteland.SAFE_STOCK.get(role, []):
+			sold[k] = true
+	for r in Items.RECIPES:
+		if r.id != id:
+			continue
+		var cost := 0.0
+		var bought := true
+		for k in r.cost:
+			if k == "salt":
+				cost += float(r.cost[k])
+			elif sold.has(k) and not AMMO_PRICE.has(k):
+				cost += Items.info(k).value * 2.0 * best * float(r.cost[k])
+			else:
+				bought = false
+		if bought:
+			cap = mini(cap, maxi(1, int(cost / float(r.n))))
+	return cap
 
 
 var _tsel := ""      ## the chosen thing in trade

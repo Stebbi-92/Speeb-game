@@ -439,7 +439,7 @@ func _gone(pid: int) -> void:
 			if s != null:
 				items.append(s)
 		if not items.is_empty():
-			w._rq_satchel(0, pc.pos + Vector3(0, 0.3, 0), items, false)
+			w._rq_satchel(0, pc.pos + Vector3(0, 0.3, 0), items, false, "", true)   # a chest's goods are never blown away
 		w.shared("_w_satchel_gone", [cid])
 	# A door goes with its doorway
 	for other in w.pieces.keys():

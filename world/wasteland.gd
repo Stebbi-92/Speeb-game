@@ -4938,7 +4938,7 @@ func _w_gift(items: Array, by: int) -> void:
 
 # ------------------------------------------------------------------ satchels: what is dropped, or left by the fallen
 
-func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -> void:
+func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "", keep := false) -> void:
 	if not Net.authority():
 		return
 	var sid := "s%d" % satchel_next
@@ -4947,7 +4947,7 @@ func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -
 	for it in items:
 		bag.add(it[0], it[1])
 	shared("_w_cont", [sid, bag.to_data()])
-	shared("_w_satchel", [sid, p, grave, owner, day])
+	shared("_w_satchel", [sid, p, grave, owner, day, keep])
 
 
 ## Loot from a great one or an event falls for each pilgrim of the fellowship, a satchel apiece that
@@ -4971,7 +4971,7 @@ func drop_for_each(at: Vector3, roll: Callable) -> int:
 	return names.size()
 
 
-func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1) -> void:
+func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1, keep := false) -> void:
 	if satchels.has(sid):
 		return
 	if made < 0:
@@ -4982,7 +4982,7 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1) -
 	if owner != "" and owner != Net.my_name() and not Net.dedicated:
 		# Another pilgrim's share: kept, but not seen or touched here
 		n.visible = false
-		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made}
+		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made, "keep": keep}
 		return
 	var body := StaticBody3D.new()
 	body.collision_layer = 16
@@ -5008,7 +5008,7 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1) -
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
 	body.set_meta("on_hold", func(): take_all(sid))
 	body.set_meta("hold_prompt", "Take all")
-	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made}
+	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made, "keep": keep}
 
 
 ## Satchels left lying (a foe's few rounds, a bag no one came back for) are blown away by the ash after
@@ -5030,7 +5030,7 @@ func _age_satchels() -> void:
 	var gone: Array = []
 	for sid in satchels:
 		var s: Dictionary = satchels[sid]
-		if s.grave:
+		if s.grave or s.get("keep", false):
 			continue
 		var by_someone := false
 		for q in near:
@@ -7833,7 +7833,7 @@ func world_data() -> Dictionary:
 			crate_days[id] = crates[id].day
 	var sat := {}
 	for sid in satchels:
-		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day))]
+		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day)), bool(satchels[sid].get("keep", false))]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
@@ -7891,7 +7891,7 @@ func apply_world(d: Dictionary) -> void:
 		_w_crate_day(id, int(d.crates[id]))
 	for sid in d.get("satchels", {}):
 		var sd: Array = d.satchels[sid]
-		_w_satchel(sid, sd[0], sd[1], str(sd[2]) if sd.size() > 2 else "", int(sd[3]) if sd.size() > 3 else int(d.get("day", 1)))
+		_w_satchel(sid, sd[0], sd[1], str(sd[2]) if sd.size() > 2 else "", int(sd[3]) if sd.size() > 3 else int(d.get("day", 1)), bool(sd[4]) if sd.size() > 4 else false)
 	satchel_next = int(d.get("satchel_next", 1))
 	var wd = d.get("weather", [])
 	if wd is Array and wd.size() >= 3:
@@ -10107,15 +10107,18 @@ func debug_satchelage() -> void:
 	_rq_satchel(0, player.global_position + Vector3(3, 0, 0), [["bone", 1]], false)
 	day = 12
 	_rq_satchel(0, far + Vector3(0, 0, 8), [["bone", 1]], false)
+	day = 10
+	_rq_satchel(0, far + Vector3(0, 0, 12), [["bone", 1]], false, "", true)
+	day = 12
 	await get_tree().process_frame
 	var made: Array = satchels.keys().filter(func(k): return not k in before)
-	var saved_day: bool = made.size() == 4 and int(world_data().satchels[made[0]][3]) == 10
+	var saved_day: bool = made.size() == 5 and int(world_data().satchels[made[0]][3]) == 10
 	day = 14
 	_age_satchels()
 	await get_tree().process_frame
 	var left: Array = made.filter(func(k): return satchels.has(k))
 	print("SATCHELAGE made=%d saved_day=%s old_gone=%s grave=%s near=%s fresh=%s" % [made.size(), saved_day,
-		not satchels.has(made[0]), satchels.has(made[1]), satchels.has(made[2]), satchels.has(made[3])])
+		not satchels.has(made[0]), satchels.has(made[1]), satchels.has(made[2]), satchels.has(made[3]) and satchels.has(made[4])])
 	get_tree().quit()
 
 
@@ -10140,6 +10143,82 @@ func debug_damaged() -> void:
 	for e in ["", ".tmp", ".bak", ".damaged", ".bak.damaged", ".tmp.damaged"]:
 		DirAccess.remove_absolute(p + e)
 	print("DAMAGED tmp_first=%s unread=%s moved=%s kept=%s" % [tmp_first, unread, moved, kept])
+	get_tree().quit()
+
+
+## Testing aid: at the best prices a pilgrim can ever get (full standing, three ranks of Haggler, a feast
+## day), nothing bought can be sold back, or made into something sold, for more salt than it cost.
+func debug_arbitrage() -> void:
+	await get_tree().create_timer(1.0).timeout
+	skills.ranks["haggler"] = 3
+	var at := "cinderwick"
+	rep[at] = 99
+	while feast_town(day) != at and day < 400:
+		day += 1
+	var sold := {}
+	for role in Items.STOCK:
+		for id in stock_at(role, at) + SAFE_STOCK.get(role, []):
+			sold[id] = true
+	var bad: Array = []
+	for id in sold:
+		if not Items.DB.has(id) and not WArms.WEAR.has(id):
+			continue
+		var each_buy: float = float(ui.buy_price(id, at)) / (ui._lot(id) if ui.AMMO_PRICE.has(id) else 1)
+		var each_sell: float = float(ui.sell_price(id)) / (ui._lot(id) if ui.AMMO_PRICE.has(id) else 1)
+		if each_sell >= each_buy:
+			bad.append("%s %.2f>=%.2f" % [id, each_sell, each_buy])
+	for r in Items.RECIPES:
+		var cost := 0.0
+		var all_bought := true
+		for k in r.cost:
+			if k == "salt":
+				cost += float(r.cost[k])
+			elif sold.has(k):
+				cost += float(ui.buy_price(k, at)) / (ui._lot(k) if ui.AMMO_PRICE.has(k) else 1) * float(r.cost[k])
+			else:
+				all_bought = false
+		if not all_bought:
+			continue
+		var out: float = float(ui.sell_price(r.id)) / (ui._lot(r.id) if ui.AMMO_PRICE.has(r.id) else 1) * float(r.n)
+		if out > cost:
+			bad.append("make %s %.1f>%.1f" % [r.id, out, cost])
+	print("ARBITRAGE none=%s %s" % [bad.is_empty(), bad])
+	get_tree().quit()
+
+
+## Testing aid: a month in the waste in a hurry. Each day foes fall and leave their satchels, the pilgrim
+## goes somewhere else, and dawn comes; what the world holds is counted as it goes, so anything that only
+## ever grows shows.
+func debug_longrun() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(2.0).timeout
+	var kinds: Array = ["rusher", "spitter", "idol"]
+	var places: Array = WPlaces.SETTLEMENTS.keys()
+	var first := {}
+	for d in 30:
+		var k: String = places[d % places.size()]
+		player.place(gpos(WPlaces.spos(k) + Vector2(120, 40)) + Vector3(0, 0.4, 0), 0.0)
+		await get_tree().create_timer(0.6).timeout
+		for i in 8:
+			var at := player.global_position + Vector3(randf_range(-15, 15), 0, randf_range(10, 20))
+			at.y = terrain.height_at(at.x, at.z) + 0.5
+			var e = spawn_at(kinds[i % kinds.size()], at)
+			if e:
+				e.hurt(9999.0, Vector3.FORWARD)
+			await get_tree().process_frame
+		await get_tree().create_timer(0.8).timeout
+		day += 1
+		_w_dawn(day)
+		await get_tree().create_timer(0.4).timeout
+		var now := {"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), "objs": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+			"orphans": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)), "satchels": satchels.size(), "foes": enemies.size(), "containers": containers.size()}
+		if d == 4:
+			first = now
+		if d % 5 == 4:
+			print("LONG day=%d %s" % [day, now])
+	var last := {"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), "satchels": satchels.size(), "containers": containers.size()}
+	print("LONGRUN nodes_grew=%d satchels=%d containers=%d" % [last.nodes - int(first.nodes), last.satchels, last.containers])
 	get_tree().quit()
 
 
