@@ -4944,7 +4944,7 @@ func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -
 	for it in items:
 		bag.add(it[0], it[1])
 	shared("_w_cont", [sid, bag.to_data()])
-	shared("_w_satchel", [sid, p, grave, owner])
+	shared("_w_satchel", [sid, p, grave, owner, day])
 
 
 ## Loot from a great one or an event falls for each pilgrim of the fellowship, a satchel apiece that
@@ -4968,16 +4968,18 @@ func drop_for_each(at: Vector3, roll: Callable) -> int:
 	return names.size()
 
 
-func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "") -> void:
+func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1) -> void:
 	if satchels.has(sid):
 		return
+	if made < 0:
+		made = day
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = ground_below(p)
 	if owner != "" and owner != Net.my_name() and not Net.dedicated:
 		# Another pilgrim's share: kept, but not seen or touched here
 		n.visible = false
-		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
+		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made}
 		return
 	var body := StaticBody3D.new()
 	body.collision_layer = 16
@@ -5003,7 +5005,47 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "") -> void:
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
 	body.set_meta("on_hold", func(): take_all(sid))
 	body.set_meta("hold_prompt", "Take all")
-	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
+	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made}
+
+
+## Satchels left lying (a foe's few rounds, a bag no one came back for) are blown away by the ash after
+## a few days, so a long world does not fill with them. Your belongings, where you fell, are never taken,
+## and nothing goes while someone stands near it.
+const SATCHEL_DAYS := 4
+const SATCHEL_MAX := 300
+
+func _age_satchels() -> void:
+	if not Net.authority():
+		return
+	var near: Array = []
+	if not Net.dedicated and is_instance_valid(player):
+		near.append(player.global_position)
+	for id in avatars:
+		if is_instance_valid(avatars[id]) and avatars[id].is_inside_tree():
+			near.append(avatars[id].global_position)
+	var keep: Array = []
+	var gone: Array = []
+	for sid in satchels:
+		var s: Dictionary = satchels[sid]
+		if s.grave:
+			continue
+		var by_someone := false
+		for q in near:
+			if Vector2(q.x - s.pos.x, q.z - s.pos.z).length() < 80.0:
+				by_someone = true
+				break
+		if by_someone:
+			continue
+		if day - int(s.get("day", day)) >= SATCHEL_DAYS:
+			gone.append(sid)
+		else:
+			keep.append(sid)
+	# Too many even so: the oldest go first
+	if satchels.size() - gone.size() > SATCHEL_MAX:
+		keep.sort_custom(func(a, b): return int(satchels[a].get("day", 0)) < int(satchels[b].get("day", 0)))
+		gone.append_array(keep.slice(0, satchels.size() - gone.size() - SATCHEL_MAX))
+	for sid in gone:
+		shared("_w_satchel_gone", [sid])
 
 
 ## A soft column of light over something left on the ground, and motes rising from it, so a drop is seen
@@ -6267,6 +6309,7 @@ func _dawn_world() -> void:
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
 	quests.refresh_offers()
 	settlers.host_dawn()
+	_age_satchels()
 
 
 func _w_kraken_down(d: int) -> void:
@@ -7709,6 +7752,8 @@ var _snap_parts: Array = []
 
 
 func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
+	if n <= 0 or n > 4096 or raw <= 0 or raw > 512 * 1024 * 1024:
+		return   # no world is this big: a damaged or hostile message, not to be unpacked
 	if i == 0 or _snap_parts.size() != n:
 		_snap_parts = []
 		_snap_parts.resize(n)
@@ -7785,7 +7830,7 @@ func world_data() -> Dictionary:
 			crate_days[id] = crates[id].day
 	var sat := {}
 	for sid in satchels:
-		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", ""))]
+		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day))]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
@@ -7800,7 +7845,7 @@ func _boats_data() -> Dictionary:
 	for bid in boats:
 		var b: WBoat = boats[bid]
 		if is_instance_valid(b):
-			out[bid] = [b.kind, b.global_position, b.yaw, b.hp]
+			out[bid] = [b.kind, Game.world_pos(b), b.yaw, b.hp]
 	return out
 
 
@@ -7842,7 +7887,8 @@ func apply_world(d: Dictionary) -> void:
 	for id in d.get("crates", {}):
 		_w_crate_day(id, int(d.crates[id]))
 	for sid in d.get("satchels", {}):
-		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1], str(d.satchels[sid][2]) if d.satchels[sid].size() > 2 else "")
+		var sd: Array = d.satchels[sid]
+		_w_satchel(sid, sd[0], sd[1], str(sd[2]) if sd.size() > 2 else "", int(sd[3]) if sd.size() > 3 else int(d.get("day", 1)))
 	satchel_next = int(d.get("satchel_next", 1))
 	var wd = d.get("weather", [])
 	if wd is Array and wd.size() >= 3:
@@ -10042,6 +10088,30 @@ func great_book(land: String) -> String:
 
 
 ## Testing aid: shares of loot that belong to another pilgrim are kept but not seen, and stay theirs through a save.
+## Testing aid: old satchels far from anyone blow away at dawn; fresh ones, your belongings and ones
+## near you stay, and the day they were left is saved.
+func debug_satchelage() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var far := player.global_position + Vector3(400, 0, 0)
+	day = 10
+	var before := satchels.keys()
+	_rq_satchel(0, far, [["bone", 1]], false)
+	_rq_satchel(0, far + Vector3(0, 0, 4), [["bone", 1]], true)
+	_rq_satchel(0, player.global_position + Vector3(3, 0, 0), [["bone", 1]], false)
+	day = 12
+	_rq_satchel(0, far + Vector3(0, 0, 8), [["bone", 1]], false)
+	await get_tree().process_frame
+	var made: Array = satchels.keys().filter(func(k): return not k in before)
+	var saved_day: bool = made.size() == 4 and int(world_data().satchels[made[0]][3]) == 10
+	day = 14
+	_age_satchels()
+	await get_tree().process_frame
+	var left: Array = made.filter(func(k): return satchels.has(k))
+	print("SATCHELAGE made=%d saved_day=%s old_gone=%s grave=%s near=%s fresh=%s" % [made.size(), saved_day,
+		not satchels.has(made[0]), satchels.has(made[1]), satchels.has(made[2]), satchels.has(made[3])])
+	get_tree().quit()
+
+
 func debug_ownloot() -> void:
 	await get_tree().create_timer(1.0).timeout
 	var at := player.global_position + Vector3(3, 0, 0)

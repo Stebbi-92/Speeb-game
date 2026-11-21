@@ -345,4 +345,4 @@ func can_ride() -> bool:
 
 
 func to_data() -> Dictionary:
-	return {"face": face, "name": cat_name, "barding": barding, "hp": hp, "pos": [global_position.x, global_position.z]}
+	return {"face": face, "name": cat_name, "barding": barding, "hp": hp, "pos": [Game.world_pos(self).x, Game.world_pos(self).z]}

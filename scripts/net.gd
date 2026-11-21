@@ -561,6 +561,8 @@ func _call_req(s: int, method: String, args: Array) -> void:
 		return   # not yet one of the fellowship (it has not said hello, or was refused)
 	if not CALL_PREFIXES.any(func(p): return method.begins_with(p)):
 		return   # only the land's shared doings, never its inner workings
+	if method in HOST_ONLY:
+		return   # what only the host may say: the world itself, its rules, its ending, and gifts to one pilgrim
 	# A request names who asks ("by"): it is always the one who sent it, whatever it says
 	if args.size() > 0 and args[0] is int and _takes_by(_here(s), method):
 		args[0] = from
@@ -569,6 +571,9 @@ func _call_req(s: int, method: String, args: Array) -> void:
 
 ## The shared doings a joiner may ask of the land, by the start of their names.
 const CALL_PREFIXES := ["_rq_", "_w_", "_drop", "_sworn", "_part_", "_final", "_broken"]
+## Shared doings that only ever come from the host. A joiner asking for one (a changed or hostile copy of
+## the game) is refused, so it cannot replace the world, change its rules, end it, or hand out goods.
+const HOST_ONLY := ["_w_snapshot", "_w_snap_part", "_w_rules", "_w_ending", "_w_end_votes", "_w_give", "_w_gift"]
 static var _by_cache := {}
 
 ## Whether a land's method takes the asker's id as its first word.

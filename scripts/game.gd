@@ -209,6 +209,19 @@ var pad_look := 3.2   ## how fast the right stick turns you, in radians a second
 var pad_binds := {}
 
 
+## Where a node stands in the world, even after it has left the tree (saves made on quit run then,
+## and global_position would read as the world's middle).
+static func world_pos(n: Node3D) -> Vector3:
+	if n.is_inside_tree():
+		return n.global_position
+	var t := n.transform
+	var up := n.get_parent()
+	while up is Node3D and not n.top_level:
+		t = (up as Node3D).transform * t
+		up = up.get_parent()
+	return t.origin
+
+
 func pad_of(action: String) -> Array:
 	return pad_binds.get(action, PAD.get(action, []))
 
@@ -472,7 +485,8 @@ static func write_safe(path: String, text: String) -> bool:
 ## The texts a save might be read from, newest first: the save itself, then its backup.
 static func save_texts(path: String) -> Array[String]:
 	var out: Array[String] = []
-	for p in [path, path + ".bak", path + ".tmp"]:
+	# A finished .tmp is newer than the .bak: it is only left when the game stopped between the two renames
+	for p in [path, path + ".tmp", path + ".bak"]:
 		if FileAccess.file_exists(p):
 			var t := FileAccess.get_file_as_string(p)
 			if t.strip_edges() != "":
