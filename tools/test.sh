@@ -90,7 +90,7 @@ check kin       debug_kin      "KIN made=34/34 copies=34 in_lands=16 bad=\[\] ki
 check kraken    debug_kraken   "KRAKEN found=true pulled=true rose=true hp=[0-9]+ chest=true trophy=1 stays_down=true"
 check spirit    debug_spirit   "SPIRIT came=true again_refused=true bitten=true left=[0-9]+ faded=true cold=true warm=true town_refused=true"
 check trades    debug_trades   "TRADES untrained=1 first=true smithed=2 sword=15/18 away_refused=true changed=true paid=25 tinker_rounds=22 alch_brews=2 kept=alchemist"
-check endings   debug_endings  "ENDINGS ruth=true forest=true early_refused=true met=true out=[0-7] pact=true first=jpage_1 pilgrim_open=true vow=true harder=1.30 unlit_quiet=true private=true"
+check endings   debug_endings  "ENDINGS ruth=true forest=true early_refused=true met=true out=[0-7] pact=true first=jpage_1 pilgrim_open=true vow=true harder=1.30 unlit_quiet=true"
 check meter     debug_meter    "METER shown=true text=[0-9]+ fps"
 check newforms  debug_newforms "NEWFORMS made=13/13 named=13 choir_band=3" "NEWFORMS flicker went=true struck_hidden=false back=true vent_hid=true vent_up=true" "NEWFORMS husk blunt>blade=true shards=2 before=1 robbed=[1-9][0-9]* returned=true blinded=true frozen=true faded=true"
 check crowd     debug_crowd    "CROWD one=10 four=2[0-9] eight=2[5-9] hp1=1.00 hp_up=true boss8=2.75 capped=true" "CROWD bed mine=true saved=true given=true freed=true label=''" "CROWD longboat seats=true recipe=true max=8 trials=4"

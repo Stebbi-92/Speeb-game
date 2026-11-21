@@ -2,6 +2,16 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.19.0 (settings, menus and a bug hunt)
+
+- **Settings for everyone:** six pages (Display, Controls, Sound, Accessibility, Game, Playing together); press-to-switch Sprint, Sneak and Aim; menu and text size from 90% to 120%; subtitles for spoken lines; colour-blind road colours on the map; brightness; a Low graphics preset and a Render scale for slower machines. Controller buttons can be changed, and prompts name them when a controller is in use.
+- **Menus:** one look for every list, switch and slider; every menu works with a controller, and B goes back. The map shows unseen land as ash with a kilometre grid, a north mark and a scale.
+- **Lighter towns:** a town now sends about half as many things to be drawn.
+- **Error reports:** if the game hit an error or closed suddenly, the title asks whether to send a short report. See [Saves and Updates](Saves-and-Updates).
+- **Playing together:** the host can send a player away from **Players** in the pause menu. See [Playing Together](Playing-Together).
+- **Small things:** press Reload with a full gun to look it over; slain enemies fall the way the blow drove them; the beacon bell is a recorded bell; messages under the compass wait their turn.
+- **Fixes:** quitting no longer moves your cat and boats; a damaged save is kept aside instead of written over; satchels nobody comes near blow away after four days (never your own belongings or a broken chest's goods); no more salt from buying makings and selling what you make; smoother enemies in co-op; the first-steps guide says to hold E to gather, and you start with two cloth for the first bandage.
+
 ## 0.18.0 (the polish)
 
 - **Plain words:** prompts, menus and the HUD say kill, enemy and player. Hasten is now **Sprint** and Tread softly is now **Sneak**. See [Controls](Controls).
