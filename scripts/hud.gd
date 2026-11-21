@@ -1244,7 +1244,7 @@ var _pause_sub: Label
 
 func _build_pause() -> void:
 	pause_panel = ColorRect.new()
-	pause_panel.color = Color(0, 0, 0, 0.82)
+	pause_panel.color = Color(0, 0, 0, 0.9)   # dark enough that words on the screen beneath do not read through
 	pause_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pause_panel.visible = false
 	root.add_child(pause_panel)
@@ -1451,6 +1451,8 @@ func toggle_pause() -> void:
 		_rules_btn.visible = Game.wasteland
 	if _stuck_btn:
 		_stuck_btn.visible = Game.wasteland
+	if _restart_btn:
+		_restart_btn.visible = not Game.wasteland   # the waste is one long life: there is no trial to restart
 	if options_panel.visible:
 		hide_options()
 		return
@@ -1462,6 +1464,7 @@ func toggle_pause() -> void:
 		return
 	# The world does not stop for one pilgrim of a fellowship
 	_focus_first.call_deferred(pause_panel)
+	root.move_child(pause_panel, root.get_child_count() - 1)   # over the waste's guide and panels
 	_pause_t.text = "Menu" if Net.online else "Paused"
 	_pause_sub.text = "The world goes on while you rest here." if Net.online else "\"Speeb sees. Speeb is.\""
 	if Net.online:
@@ -1582,6 +1585,9 @@ func toggle_codex() -> void:
 		codex_count.text = "Meowifestations witnessed: %d of 9    ·    Lesser forms recorded: %d of %d    ·    %s" % [nine_found, shown, Game.lesser.size(),
 			"The Tenth Trial is open" if Game.tenth_unlocked() else "The Tenth Trial opens at %d" % Game.TENTH_NEEDS]
 	codex_panel.visible = show
+	if show:
+		root.move_child(codex_panel, root.get_child_count() - 1)
+		_focus_first.call_deferred(codex_panel)
 	if Game.main.in_game():
 		if show:
 			if not get_tree().paused and not Net.online:
@@ -1618,8 +1624,8 @@ func _input(e: InputEvent) -> void:
 		return
 	if _rebinding_pad != "":
 		var p = null
-		if e is InputEventJoypadButton and e.pressed and e.button_index != Game.PAD_WHEEL:
-			p = e.button_index
+		if e is InputEventJoypadButton and e.pressed and e.button_index != Game.PAD_WHEEL and (e.button_index != JOY_BUTTON_START or _rebinding_pad == "pause"):
+			p = e.button_index   # Start stays the menu's own: it is never taken for something else
 		elif e is InputEventJoypadMotion and e.axis in [JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT] and e.axis_value > 0.6:
 			p = [e.axis, 1.0]
 		elif e is InputEventKey and e.pressed and e.physical_keycode == KEY_ESCAPE:

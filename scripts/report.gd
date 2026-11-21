@@ -89,7 +89,9 @@ func offer(hud: Node) -> void:
 		send()
 		return
 	var what := "closed suddenly" if pending.kind == "crash" else "ran into an error"
-	hud.ask("Brelm %s last time.\nSend a short report? It holds only\nthe error and the game version." % what, "Send", send, "Not now")
+	var found := pending
+	pending = {}   # asked once: coming back to the title later does not ask again
+	hud.ask("Brelm %s last time.\nSend a short report? It holds only\nthe error and the game version." % what, "Send", func(): pending = found; send(), "Not now")
 
 
 func send() -> void:
