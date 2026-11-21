@@ -26,6 +26,7 @@ Type the join code (or an address and port) and press **Join**, or pick a game f
 - Beds can belong to one player. Lie down in a bed to make it yours, give it to a friend or free it. Only its owner wakes there after a fall.
 - With more than four, three in four lying down is enough to sleep through the night.
 - The Longboat seats eight.
+- The host can open **Players** in the pause menu and **Send away** someone. They can't come back under that name until the host closes the game.
 
 ## Walking together
 

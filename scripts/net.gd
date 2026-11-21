@@ -232,6 +232,12 @@ func leave(reason := "") -> void:
 	if was:
 		roster_changed.emit()
 		session_ended.emit(reason)
+	if debug_end_quit and was:
+		print("NETENDED %s" % reason)
+		get_tree().quit()
+
+
+var debug_end_quit := "call=debug_kickclient" in OS.get_cmdline_user_args()   ## (for the tests: a joiner that is sent away says why, and stops)
 
 
 ## The land takes a while to raise when a pilgrim first walks into it, and nothing else moves meanwhile.
@@ -347,6 +353,10 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	pname = pname.strip_edges().left(20)
 	if pname == "":
 		pname = "Pilgrim"
+	if sent_away.has(pname.to_lower()):
+		_refused.rpc_id(id, "The host has sent you away from this fellowship.")
+		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
+		return
 	players[id] = {"name": pname, "slot": slot}
 	if leader == 0:
 		leader = id
@@ -360,6 +370,22 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	var lvl = _level()
 	if lvl:
 		lvl.net_joined(id)
+
+
+## Names the host has sent away, kept until the host's game closes: they cannot come back under it.
+var sent_away := {}
+
+## Host: sends a pilgrim out of the fellowship, and keeps them out for this session.
+func kick(id: int) -> void:
+	if not is_host() or id == 1 or not players.has(id):
+		return
+	var nm := str(players[id].name)
+	sent_away[nm.to_lower()] = true
+	_log("%s was sent away by the host." % nm)
+	_refused.rpc_id(id, "The host has sent you away from this fellowship.")
+	_on_peer_disconnected(id)   # out of the fellowship now: nothing more they ask is heard
+	# The word goes behind whatever is still being sent them, so give it time to arrive before the link is cut
+	get_tree().create_timer(3.0).timeout.connect(func(): if peer and peer.get_peer(id): peer.disconnect_peer(id))
 
 
 @rpc("authority", "call_remote", "reliable")

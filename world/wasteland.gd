@@ -9096,6 +9096,41 @@ func debug_snaphost() -> void:
 	get_tree().quit()
 
 
+## Testing aid (host): sends the first joiner away once their world has arrived, then waits for them
+## to try again under the same name.
+func debug_kickhost() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	print("KICKHOST ready")
+	var seen := {}
+	var done := false
+	for t in 150:
+		await get_tree().create_timer(1.0).timeout
+		for id in Net.players:
+			if int(id) == 1:
+				continue
+			seen[id] = int(seen.get(id, 0)) + 1
+			if Net.brisk_links.has(int(id)) and seen[id] >= 3:   # their world has arrived
+				Net.kick(int(id))
+				print("KICKHOST sent=true away=%s" % Net.sent_away.keys())
+				done = true
+				break
+		if done:
+			break
+	await get_tree().create_timer(60.0).timeout
+	print("KICKHOST after players=%d" % Net.players.size())
+	get_tree().quit()
+
+
+## Testing aid (joiner): waits to be sent away and says why.
+func debug_kickclient() -> void:
+	var t := 0
+	while not ready_world and t < 120:
+		await get_tree().create_timer(1.0).timeout
+		t += 1
+	print("KICKCLIENT in=%s" % ready_world)
+
+
 ## Testing aid (newcomer): the world arrived whole, and what happened meanwhile was played after.
 func debug_snapclient() -> void:
 	var t := 0

@@ -1224,6 +1224,7 @@ func clear_all() -> void:
 
 var _save_btn: Button
 var _restart_btn: Button
+var _people_btn: Button   ## the host's list of who is here, with a way to send someone away
 var _rules_btn: Button
 var _stuck_btn: Button
 
@@ -1272,6 +1273,8 @@ func _build_pause() -> void:
 		if lvl and lvl.has_method("set_rules"):
 			show_rules(lvl.rules, Net.authority(), func(r): lvl.set_rules(r)))
 	v.add_child(_rules_btn)
+	_people_btn = button("Players", show_fellowship)
+	v.add_child(_people_btn)
 	_stuck_btn = button("I'm stuck", func():
 		var lvl = Game.main.level
 		if lvl and lvl.has_method("unstick"):
@@ -1325,6 +1328,54 @@ func ask(question: String, yes: String, on_yes: Callable, no := "Stay") -> void:
 	row.add_child(go)
 	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())
 	stay.grab_focus.call_deferred()
+
+
+## The host's list of who walks with them, each with a way to send them away (for strangers in a game
+## listed on the internet). Someone sent away cannot come back under that name until the host's game closes.
+func show_fellowship() -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.6)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.add_to_group("hud_dialog")
+	root.add_child(shade)
+	var box := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.055, 0.05, 0.96)
+	sb.border_color = Color(GOLD, 0.5)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(32)
+	box.add_theme_stylebox_override("panel", sb)
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	shade.add_child(box)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	box.add_child(v)
+	var t := _label("Players", 32, PALE, HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_override("font", title_font)
+	v.add_child(t)
+	for id in Net.players:
+		if int(id) == 1:
+			continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 24)
+		var nm := str(Net.players[id].name)
+		var l := _label(nm, 24, PALE, HORIZONTAL_ALIGNMENT_LEFT)
+		l.custom_minimum_size.x = 260
+		row.add_child(l)
+		var pid := int(id)
+		row.add_child(button("Send away", func():
+			ask("Send %s away?\nThey cannot come back\nuntil you close the game." % nm, "Send away", func():
+				Net.kick(pid)
+				shade.queue_free()), 20))
+		v.add_child(row)
+	var close := button("Close", func(): shade.queue_free(), 22)
+	v.add_child(close)
+	shade.gui_input.connect(func(e): if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE: shade.queue_free())
+	_focus_first(v)
 
 
 ## A world's settings in a dialog: one row of choices for each, with a line on what the chosen
@@ -1451,6 +1502,8 @@ func toggle_pause() -> void:
 		_rules_btn.visible = Game.wasteland
 	if _stuck_btn:
 		_stuck_btn.visible = Game.wasteland
+	if _people_btn:
+		_people_btn.visible = Net.is_host() and Net.online and Net.players.size() > (1 if not Net.dedicated else 0)
 	if _restart_btn:
 		_restart_btn.visible = not Game.wasteland   # the waste is one long life: there is no trial to restart
 	if options_panel.visible:
