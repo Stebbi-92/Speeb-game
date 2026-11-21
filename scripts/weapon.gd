@@ -313,7 +313,10 @@ func _unhandled_input(e: InputEvent) -> void:
 	if not enabled or player.input_locked or get_tree().paused:
 		return
 	if e.is_action_pressed("reload"):
-		_start_reload()
+		if not blade_out and not _reloading and shells >= capacity() and _inspect <= 0.0:
+			inspect()
+		else:
+			_start_reload()
 	elif e.is_action_pressed("swap_gun"):
 		swap()
 	elif e.is_action_pressed("melee"):
@@ -387,7 +390,31 @@ func swap(to := -1) -> void:
 	_ui()
 
 
+## Reload with a full gun: it is brought up and turned over in the hands, one side and then the other.
+const INSPECT_LEN := 2.6
+var _inspect := 0.0
+
+
+func inspect() -> void:
+	_inspect = INSPECT_LEN
+	player.get_parent().sfx("mag_grab", -16, null, randf_range(0.9, 1.0))
+
+
+func _inspect_pose(delta: float) -> void:
+	var k := 1.0 - _inspect / INSPECT_LEN
+	_inspect = maxf(0.0, _inspect - delta)
+	var e := smoothstep(0.0, 0.16, k) * (1.0 - smoothstep(0.82, 1.0, k))
+	var turn := smoothstep(0.42, 0.66, k)
+	_holder.position += Vector3(-0.1, 0.07, 0.1) * e
+	_holder.rotation.x += 0.18 * e
+	_holder.rotation.y = lerpf(-0.55, 0.75, turn) * e
+	_holder.rotation.z = lerpf(0.85, -0.3, turn) * e
+	if _inspect <= 0.0:
+		_holder.rotation.y = 0.0
+
+
 func _start_reload() -> void:
+	_stop_inspect()
 	if blade_out or shells >= capacity() or reserve <= 0 or _reloading:
 		return
 	_reloading = true
@@ -604,7 +631,11 @@ func _process(delta: float) -> void:
 		player.carry_slow = float(s.get("slow", 1.0))
 	else:
 		player.carry_slow = 1.0
-	if _reloading:
+	if _inspect > 0.0 and (holding or _aim > 0.05 or _reloading or blade_out or _switch > 0.0 or _swing > 0.0):
+		_stop_inspect()
+	if _inspect > 0.0:
+		_inspect_pose(delta)
+	elif _reloading:
 		_reload_pose(1.0 - _reload_t / maxf(_reload_len, 0.01), delta)
 		_reload_t -= delta
 		if _reload_t <= 0.0:
@@ -689,6 +720,12 @@ func _reload_pose(k: float, delta: float) -> void:
 	# Working the action home after the fresh one is in
 	if _pump and s.mode in ["auto", "semi", "bolt"] and k > 0.84:
 		_pump.position.z = sin(clampf((k - 0.84) / 0.16, 0.0, 1.0) * PI) * (0.06 if s.mode == "bolt" else 0.04)
+
+
+func _stop_inspect() -> void:
+	if _inspect > 0.0:
+		_inspect = 0.0
+		_holder.rotation.y = 0.0
 
 
 ## Back to rest once a reload is over or broken off: the magazine in its place, the gun upright.

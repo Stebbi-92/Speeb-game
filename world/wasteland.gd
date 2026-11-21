@@ -16649,3 +16649,40 @@ func debug_reports() -> void:
 	var quiet: bool = not FileAccess.file_exists(Game.ErrorReport.RUNNING) and Game.report.pending.is_empty()
 	DirAccess.remove_absolute(p)
 	print("REPORTS found=%s once=%s clean=%s crash=%s none=%s quiet=%s" % [found, once, clean, crash, none, quiet])
+
+
+func debug_polish2() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	# A controller button moved: Y now jumps, and reload no longer has it
+	Game.rebind_pad("jump", JOY_BUTTON_Y)
+	var has := func(action: String, btn: int) -> bool:
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventJoypadButton and ev.button_index == btn:
+				return true
+		return false
+	var pad: bool = has.call("jump", JOY_BUTTON_Y) and not has.call("reload", JOY_BUTTON_Y) and not has.call("jump", JOY_BUTTON_A)
+	Game.reset_binds()
+	var reset: bool = has.call("jump", JOY_BUTTON_A) and has.call("reload", JOY_BUTTON_Y)
+	# A full gun, reload pressed: it is turned over in the hands, then back at rest
+	player.weapon.shells = player.weapon.capacity()
+	player.weapon.inspect()
+	await get_tree().create_timer(1.2).timeout
+	var turned: bool = absf(player.weapon._holder.rotation.y) > 0.05
+	await get_tree().create_timer(2.0).timeout
+	var rest: bool = player.weapon._inspect <= 0.0 and absf(player.weapon._holder.rotation.y) < 0.01
+	# A slain form falls over rather than flattening
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	var e := spawn_at("unlit_blade", player.global_position + f.normalized() * 8.0 + Vector3(0, 1.0, 0))
+	await get_tree().create_timer(0.5).timeout
+	e.flinch(30.0, f)
+	e.die(true)
+	await get_tree().create_timer(0.9).timeout
+	var fell: bool = is_instance_valid(e) and absf(e.rotation.x) > 1.0 and e.scale.y > 0.9
+	await get_tree().create_timer(3.0).timeout
+	var gone: bool = not is_instance_valid(e)
+	print("POLISH2 pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [pad, reset, turned, rest, fell, gone])

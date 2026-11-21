@@ -1607,6 +1607,7 @@ func _process(d: float) -> void:
 
 
 var _rebinding: Array = []
+var _rebinding_pad := ""   ## the action waiting for a controller button
 var _from_pause := false
 
 
@@ -1614,6 +1615,23 @@ var _from_pause := false
 func _input(e: InputEvent) -> void:
 	if _streak_keys(e):
 		get_viewport().set_input_as_handled()
+		return
+	if _rebinding_pad != "":
+		var p = null
+		if e is InputEventJoypadButton and e.pressed and e.button_index != Game.PAD_WHEEL:
+			p = e.button_index
+		elif e is InputEventJoypadMotion and e.axis in [JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT] and e.axis_value > 0.6:
+			p = [e.axis, 1.0]
+		elif e is InputEventKey and e.pressed and e.physical_keycode == KEY_ESCAPE:
+			p = false
+		if p == null:
+			return
+		get_viewport().set_input_as_handled()
+		var act := _rebinding_pad
+		_rebinding_pad = ""
+		if not (p is bool):
+			Game.rebind_pad(act, p)
+		show_options.call_deferred()
 		return
 	if _rebinding.is_empty():
 		return
@@ -1633,7 +1651,7 @@ func _input(e: InputEvent) -> void:
 
 
 func _unhandled_input(e: InputEvent) -> void:
-	if options_panel.visible and _rebinding.is_empty():
+	if options_panel.visible and _rebinding.is_empty() and _rebinding_pad == "":
 		var step := 0
 		if e is InputEventJoypadButton and e.pressed:
 			step = -1 if e.button_index == JOY_BUTTON_LEFT_SHOULDER else (1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else 0)
@@ -2051,6 +2069,22 @@ func _page_controls() -> void:
 				b.text = "Press a key...")
 			h.add_child(b)
 	_note_line("While building: the wheel chooses a piece.")
+	_section("Controller buttons")
+	_note_line("Choose one, then press the new button or trigger. Esc leaves it as it was. The sticks always walk and look, and Back holds the quick wheel.")
+	for c in Game.CONTROLS:
+		var action: String = c[0]
+		if action.begins_with("move_"):
+			continue
+		var h := _row(c[1])
+		var ps: Array = Game.pad_of(action)
+		var b := Button.new()
+		b.text = " or ".join(ps.map(func(p): return Game.pad_name(p))) if not ps.is_empty() else "—"
+		b.custom_minimum_size.x = 200
+		b.add_theme_font_size_override("font_size", 18)
+		b.pressed.connect(func():
+			_rebinding_pad = action
+			b.text = "Press a button...")
+		h.add_child(b)
 	var rb := button("Restore the default controls", func(): Game.reset_binds(); show_options(), 18)
 	rb.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_options_list.add_child(rb)
@@ -2152,6 +2186,7 @@ func _set_fov(x: float) -> void:
 func hide_options() -> void:
 	options_panel.visible = false
 	_rebinding = []
+	_rebinding_pad = ""
 	if Game.main.in_game() and (get_tree().paused or _from_pause):
 		pause_panel.visible = true
 	_from_pause = false

@@ -96,6 +96,10 @@ Settings has six pages: **Display**, **Controls**, **Sound**, **Accessibility**,
 
 Every menu can be used with a controller. The first item is chosen when a page opens, **B** goes back one step (as Escape does), and on a slider the d-pad moves it a twentieth of the way each press.
 
+Controller buttons can be changed under **Settings, Controls, Controller buttons**: choose an action, then press the new button or trigger. The sticks always walk and look, and Back always holds the quick wheel.
+
+Press **Reload** with a full gun to look it over in your hands.
+
 ## Settings for everyone
 
 - **Hold or press to switch:** Sprint, Sneak and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.

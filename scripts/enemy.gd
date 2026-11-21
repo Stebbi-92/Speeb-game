@@ -1915,16 +1915,37 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain:
+	if _fb and slain and _fb.clips.has("die"):
 		_fb.act("die")
 		var tf := create_tween()
 		tf.tween_interval(1.6)
 		tf.tween_property(self, "scale", Vector3.ONE * 0.01, 0.6)
 		tf.tween_callback(queue_free)
 		return
+	if slain and not kind in ["saucer", "wisp", "mite"] and not (_fb and _fb._float):
+		_topple()
+		return
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash.
+func _topple() -> void:
+	if _fb and _fb.anim:
+		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+	var side := 1.0 if _flinch.x >= 0.0 else -1.0
+	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
+	var big := float(spec.get("size", 1.0)) >= 1.5
+	var fall := 0.75 if big else 0.5
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "rotation:x", rotation.x + side * 1.45, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
+	tw.chain().tween_property(self, "rotation:x", rotation.x + side * 1.33, 0.12).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_interval(1.3)
+	tw.chain().tween_property(self, "position:y", position.y - 1.2 * float(spec.get("size", 1.0)), 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)
 
 
 ## The ember sack bursts: fire on everything near, the forms included.

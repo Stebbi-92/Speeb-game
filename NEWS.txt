@@ -6,6 +6,9 @@ Brelm alpha 0.19.0
 - Error reports: if the game hit an error or closed suddenly, the title asks whether to send a short report (only the error and the game version). Settings can set it to always send or never.
 - Menus: one look for every list, switch, slider and text box; Settings in six pages (Display, Controls, Sound, Accessibility, Game, Playing together); brightness, controller look speed and a separate controller invert; every menu works with a controller, and B goes back. Display changes ask before they stay. Join by code comes first in Walk Together. Arms for the trials now sit under The Trials, and Appearance has its own place on the title.
 - Map: land not yet seen is dark ash with a faint kilometre grid instead of black; a north mark and a scale; the first look opens close in on you.
+- Press Reload with a full gun to look it over. A slain enemy falls the way the blow drove it, then sinks into the ash.
+- Controller buttons can be changed in Settings, Controls.
+- The beacon bell is now a recorded bell, deeper and with a long ring.
 
 Brelm alpha 0.18.0: the polish
 

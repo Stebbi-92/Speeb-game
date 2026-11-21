@@ -115,7 +115,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 ## Made for the game
 
 - `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
-- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the beacon bell, the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- The beacon bell (`assets/audio/bell.ogg`) is a recorded bell strike from Kenney's Impact Sounds (CC0), deepened and given a hall tail by `tools/make_bell.py`.
 - The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 
 ## Engine

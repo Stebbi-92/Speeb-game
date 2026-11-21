@@ -205,10 +205,44 @@ const PAD_WHEEL := JOY_BUTTON_BACK
 var pad_look := 3.2   ## how fast the right stick turns you, in radians a second at full tilt
 
 
+## Controller buttons the player has changed: action -> [button, or [axis, direction]]. The rest follow PAD.
+var pad_binds := {}
+
+
+func pad_of(action: String) -> Array:
+	return pad_binds.get(action, PAD.get(action, []))
+
+
+## A controller button or trigger as words, Xbox style: "A", "RB", "LT", "D-pad up".
+static func pad_name(p) -> String:
+	if p is Array:
+		var names := {JOY_AXIS_TRIGGER_LEFT: "LT", JOY_AXIS_TRIGGER_RIGHT: "RT"}
+		if names.has(int(p[0])):
+			return names[int(p[0])]
+		return "%s stick %s" % ["Left" if int(p[0]) < 2 else "Right", ["left", "right", "up", "down"][(int(p[0]) % 2) * 2 + (1 if float(p[1]) > 0.0 else 0)]]
+	return {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y",
+		JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB", JOY_BUTTON_LEFT_STICK: "Left stick press",
+		JOY_BUTTON_RIGHT_STICK: "Right stick press", JOY_BUTTON_START: "Start", JOY_BUTTON_BACK: "Back",
+		JOY_BUTTON_DPAD_UP: "D-pad up", JOY_BUTTON_DPAD_DOWN: "D-pad down", JOY_BUTTON_DPAD_LEFT: "D-pad left",
+		JOY_BUTTON_DPAD_RIGHT: "D-pad right", JOY_BUTTON_GUIDE: "Guide"}.get(int(p), "Button %d" % int(p))
+
+
+## Sets an action's controller button, taking it away from any other action that had it.
+func rebind_pad(action: String, p) -> void:
+	for c in CONTROLS:
+		if c[0] != action and pad_of(c[0]).has(p):
+			var other: Array = pad_of(c[0]).duplicate()
+			other.erase(p)
+			pad_binds[c[0]] = other
+	pad_binds[action] = [p]
+	_setup_input()
+	save()
+
+
 func _setup_input() -> void:
 	for c in CONTROLS:
 		_bind(c[0], binds.get(c[0], c[2]))
-		for p in PAD.get(c[0], []):
+		for p in pad_of(c[0]):
 			if p is Array:
 				var m := InputEventJoypadMotion.new()
 				m.axis = p[0]
@@ -274,6 +308,7 @@ func rebind(action: String, slot: int, code: int) -> void:
 
 func reset_binds() -> void:
 	binds.clear()
+	pad_binds.clear()
 	_setup_input()
 	save()
 
@@ -568,7 +603,7 @@ func save() -> void:
 			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "pad_invert": pad_invert, "pad_look": pad_look, "brightness": brightness, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "reports": reports, "toggles": toggles, "guide": guide,
 			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "ui_scale": ui_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
-			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
+			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds, "pad_binds": pad_binds,
 			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
 
 
@@ -642,6 +677,12 @@ func load_save() -> void:
 			for a in d.binds:
 				if d.binds[a] is Array:
 					binds[str(a)] = d.binds[a].map(func(k): return int(k))
+			_setup_input()
+		if d.get("pad_binds") is Dictionary:
+			pad_binds.clear()
+			for a in d.pad_binds:
+				if d.pad_binds[a] is Array:
+					pad_binds[str(a)] = d.pad_binds[a].map(func(k): return [int(k[0]), float(k[1])] if k is Array else int(k))
 			_setup_input()
 		for r in d.get("revealed", []):
 			revealed[r] = true
