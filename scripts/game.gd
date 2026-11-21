@@ -276,6 +276,10 @@ static func key_name(code: int) -> String:
 
 ## What to press, as words: "E", or "E or F".
 func key_text(action: String, all := false) -> String:
+	# Playing with a controller, prompts name its buttons
+	if using_pad and not pad_of(action).is_empty():
+		var ps := pad_of(action)
+		return " or ".join(ps.map(func(p): return pad_name(p))) if all else pad_name(ps[0])
 	var ks := keys_of(action)
 	if ks.is_empty():
 		return "unset"

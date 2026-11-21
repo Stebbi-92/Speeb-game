@@ -16667,6 +16667,10 @@ func debug_polish2() -> void:
 	var pad: bool = has.call("jump", JOY_BUTTON_Y) and not has.call("reload", JOY_BUTTON_Y) and not has.call("jump", JOY_BUTTON_A)
 	Game.reset_binds()
 	var reset: bool = has.call("jump", JOY_BUTTON_A) and has.call("reload", JOY_BUTTON_Y)
+	Game.using_pad = true
+	var words: bool = Game.key_text("jump") == "A" and Game.key_text("fire") == "RT"
+	Game.using_pad = false
+	words = words and Game.key_text("jump") == "Space"
 	# A full gun, reload pressed: it is turned over in the hands, then back at rest
 	player.weapon.shells = player.weapon.capacity()
 	player.weapon.inspect()
@@ -16685,4 +16689,4 @@ func debug_polish2() -> void:
 	var fell: bool = is_instance_valid(e) and absf(e.rotation.x) > 1.0 and e.scale.y > 0.9
 	await get_tree().create_timer(3.0).timeout
 	var gone: bool = not is_instance_valid(e)
-	print("POLISH2 pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [pad, reset, turned, rest, fell, gone])
+	print("POLISH2 words=%s pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [words, pad, reset, turned, rest, fell, gone])
