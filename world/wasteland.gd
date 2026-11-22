@@ -8573,7 +8573,23 @@ func debug_glitchfix() -> void:
 	player.weapon._aim = 1.0
 	player.weapon._show_dots()
 	var aimed := not dots.is_empty() and dots.all(func(q): return q.visible)
-	print("GLITCHFIX trees=%s stray=%d hound_own_head=%s dots=%s hip=%s aimed=%s" % [trees > 0, stray, own, not dots.is_empty(), hip, aimed])
+	player.weapon._aim = 0.0
+	# A wall right ahead draws the gun back; with it gone the gun comes forward again
+	var cam: Camera3D = player.cam
+	var wall := StaticBody3D.new()
+	var wcs := CollisionShape3D.new()
+	var wb := BoxShape3D.new()
+	wb.size = Vector3(3, 3, 0.2)
+	wcs.shape = wb
+	wall.add_child(wcs)
+	add_child(wall)
+	wall.global_transform = Transform3D(cam.global_transform.basis, cam.global_position - cam.global_transform.basis.z * 0.45)
+	await get_tree().create_timer(0.8).timeout
+	var tucked: bool = player.weapon._tuck > 0.6
+	wall.queue_free()
+	await get_tree().create_timer(0.8).timeout
+	var back: bool = player.weapon._tuck < 0.05
+	print("GLITCHFIX trees=%s stray=%d hound_own_head=%s dots=%s hip=%s aimed=%s tucked=%s back=%s" % [trees > 0, stray, own, not dots.is_empty(), hip, aimed, tucked, back])
 	get_tree().quit()
 
 

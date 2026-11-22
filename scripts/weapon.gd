@@ -73,6 +73,7 @@ var _charge := -1.0          ## seconds the fire button has been held with the b
 var _heavy := false          ## the swing under way is a heavy one
 var _swing := 0.0
 var _switch := 0.0
+var _tuck := 0.0   ## 0..1: how far the gun is drawn back from a wall or anything else right ahead
 var _aim := 0.0
 var _climb := 0.0
 var _bloom := 0.0     ## how far shots wander from firing in a string (mostly from the hip)
@@ -590,8 +591,13 @@ func _process(delta: float) -> void:
 	var ease_aim := smoothstep(0.0, 1.0, _aim)
 	position = Vector3(0.16, -0.19, -0.5).lerp(Vector3(float(_model.get_meta("eye_x", 0.0)), -float(_model.get_meta("eye", 0.07)), float(_model.get_meta("eye_z", -0.6))), ease_aim)
 	rotation = Vector3(0.02, 0.05, 0) * (1.0 - ease_aim) + (_model.get_meta("eye_rot", Vector3.ZERO) as Vector3) * ease_aim
-	_holder.position = Vector3(_sway.x, bob - _kick * 0.04 + _sway.y - _switch * 0.5, _kick * 0.12 * (1.0 - _aim * 0.6)) + aim_off
-	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4
+	# Close to a wall (or a tree, a rock, a crate) the gun is drawn back and tipped up, so it does not
+	# pass through it
+	_tuck = move_toward(_tuck, _wall_tuck(), delta * 5.0)
+	var tk := smoothstep(0.0, 1.0, _tuck)
+	_holder.position = Vector3(_sway.x - tk * 0.05, bob - _kick * 0.04 + _sway.y - _switch * 0.5 - tk * 0.04, _kick * 0.12 * (1.0 - _aim * 0.6) + tk * 0.3) + aim_off
+	_holder.rotation.x = _kick * 0.35 * (1.0 - _aim * 0.7) - _switch * 1.4 + tk * 0.75
+	_holder.rotation.y = tk * 0.35
 	if _swing > 0.0:
 		_swing = maxf(0.0, _swing - delta)
 		var len := 0.5 if _heavy else 0.35
@@ -1661,6 +1667,25 @@ func _show_model() -> void:
 	_flash.position = tip
 	_flash_mesh.position = tip
 	_ui()
+
+
+## How near something solid stands ahead of the gun: 0 clear, 1 right at the muzzle's root.
+func _wall_tuck() -> float:
+	if player == null or player.cam == null or not is_inside_tree() or blade_out:
+		return 0.0
+	var reach := 0.95 if _model == null else clampf(0.35 + float((_model.get_meta("bb") as AABB).size.z if _model.has_meta("bb") else 0.6), 0.6, 1.4)
+	var cam: Camera3D = player.cam
+	var from := cam.global_position
+	var near := reach
+	var space := get_world_3d().direct_space_state
+	for off in [Vector3.ZERO, Vector3(0.16, -0.19, 0.0)]:
+		var a: Vector3 = from + cam.global_transform.basis * off
+		var q := PhysicsRayQueryParameters3D.create(a, a - cam.global_transform.basis.z * reach, 1)
+		q.exclude = [player.get_rid()]
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			near = minf(near, a.distance_to(hit.position))
+	return clampf((reach - near) / (reach * 0.65), 0.0, 1.0)
 
 
 func _show_dots() -> void:
