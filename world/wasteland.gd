@@ -4401,7 +4401,6 @@ var _scans := {}
 
 
 var _cut_wood: StandardMaterial3D
-var _cut_notch: StandardMaterial3D
 
 func _cut_wood_mat() -> StandardMaterial3D:
 	if _cut_wood == null:
@@ -4410,24 +4409,6 @@ func _cut_wood_mat() -> StandardMaterial3D:
 		_cut_wood.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_cut_wood.roughness = 0.9
 	return _cut_wood
-
-
-var _cut_rag: StandardMaterial3D
-
-func _cut_rag_mat() -> StandardMaterial3D:
-	if _cut_rag == null:
-		_cut_rag = StandardMaterial3D.new()
-		_cut_rag.albedo_color = Color(0.72, 0.16, 0.1)
-		_cut_rag.roughness = 1.0
-	return _cut_rag
-
-
-func _cut_notch_mat() -> StandardMaterial3D:
-	if _cut_notch == null:
-		_cut_notch = StandardMaterial3D.new()
-		_cut_notch.albedo_color = Color(0.93, 0.8, 0.58)
-		_cut_notch.roughness = 0.8
-	return _cut_notch
 
 
 func _add_scan(parent: Node3D, key: String, size: float, at := Vector3.ZERO, turn := 0.0, reach := 420.0) -> Node3D:
@@ -5426,12 +5407,11 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 			tr.rotation.x = r.randf_range(-0.08, 0.08)
 			if r.randf() < 0.5:
 				_add_scan(n, "dead_quiver_branch_01", r.randf_range(2.0, 3.0), Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)), r.randf() * TAU)
-			# Wood you can cut stands out from the dead trees you cannot: warm, sound wood, with a
-			# pale axe-notch at the base and a band of rag tied round it by whoever marked it
+			# Wood you can cut stands out from the dead trees you cannot: warm, sound wood
+			# (A red rag band and a pale axe-notch box once marked it too: on the thin, leaning trunks they
+			# stood off the wood as a floating red disc and a yellow box, so they are gone)
 			for mi in n.find_children("*", "MeshInstance3D", true, false):
 				(mi as MeshInstance3D).material_overlay = _cut_wood_mat()
-			_add(n, box(Vector3.ZERO, Vector3(0.42, 0.28, 0.2), _cut_notch_mat(), false), Vector3(0, 0.55, 0.22)).rotation.y = tr.rotation.y
-			_add(n, cyl(Vector3.ZERO, 0.4, 0.14, _cut_rag_mat(), false, -1.0, 10), Vector3(0, 1.5, 0))
 			var cap := CapsuleShape3D.new()
 			cap.radius = 0.35
 			cap.height = h
@@ -8557,6 +8537,44 @@ func debug_facetalk() -> void:
 	ui.close_all()
 	await get_tree().create_timer(3.5).timeout
 	print("BACK now %.2f yaw0 %.2f mouth %.2f" % [e.node.rotation.y, e.yaw, e.fig._mouth.scale.y])
+
+
+
+## Testing aid: cuttable dead trees wear nothing stuck on (no red band, no notch box), the fire hound
+## wears its own head, and a red dot shows only down the sight.
+func debug_glitchfix() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var trees := 0
+	var stray := 0
+	for nd in nodes:
+		if nd.kind != "tree" or not is_instance_valid(nd.node):
+			continue
+		trees += 1
+		for mi in nd.node.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).mesh is BoxMesh or (mi as MeshInstance3D).mesh is CylinderMesh:
+				stray += 1
+	var e := LesserSpeeb.new().setup(Game.lesser.keys()[3], "boss_ash", self)
+	add_child(e)
+	e.global_position = player.global_position + Vector3(0, 0, -14)
+	await get_tree().create_timer(0.5).timeout
+	var own: bool = e._sk == "boss_ash" and not e.head.visible
+	e.queue_free()
+	var g: String = player.weapon.gun()
+	var am: Dictionary = Game.arms_now()
+	if not am.has("mounts") or not (am.mounts is Dictionary):
+		am["mounts"] = {}
+	am.mounts[g] = ["holo"]
+	player.weapon.refinish()
+	player.weapon._aim = 0.0
+	player.weapon._show_dots()
+	var dots: Array = player.weapon._dots
+	var hip := dots.any(func(q): return q.visible)
+	player.weapon._aim = 1.0
+	player.weapon._show_dots()
+	var aimed := not dots.is_empty() and dots.all(func(q): return q.visible)
+	print("GLITCHFIX trees=%s stray=%d hound_own_head=%s dots=%s hip=%s aimed=%s" % [trees > 0, stray, own, not dots.is_empty(), hip, aimed])
+	get_tree().quit()
 
 
 func debug_nightshot() -> void:

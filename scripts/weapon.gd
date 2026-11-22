@@ -88,6 +88,7 @@ var _models := {}
 var _melee_models := {}
 var _model: Node3D
 var _pump: Node3D
+var _dots: Array = []   ## the red-dot reticles on the gun in hand: shown only down the sight
 var _flash: OmniLight3D
 var _flash_mesh: Node3D   ## the muzzle flash: a burst seen from behind, and flames along the barrel seen from the side
 var _flash_sides: Array = []
@@ -827,6 +828,7 @@ func _set_aim(target: float, delta: float) -> void:
 	scoped_now = scoped
 	_scope_drift(delta, scoped, enabled and _aim > 0.85)
 	_holder.visible = not scoped and not blade_out
+	_show_dots()
 
 
 func _ui() -> void:
@@ -1650,12 +1652,21 @@ func _show_model() -> void:
 				var rt: Array = q.get_meta("reticle")
 				(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
 	_model = _models[g]
+	# Drawn over all else, the dot showed through the sight's body from the hip: it is seen only down the sight
+	_dots = _model.find_children("*", "MeshInstance3D", true, false).filter(func(q): return q.has_meta("reticle"))
+	_show_dots()
 	_model.visible = true
 	_pump = _model.get_meta("pump") if _model.has_meta("pump") else null
 	var tip: Vector3 = _model.transform * (_model.get_meta("tip") as Vector3)
 	_flash.position = tip
 	_flash_mesh.position = tip
 	_ui()
+
+
+func _show_dots() -> void:
+	for q in _dots:
+		if is_instance_valid(q):
+			q.visible = _aim > 0.7
 
 
 func _show_melee() -> void:

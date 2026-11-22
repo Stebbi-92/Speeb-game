@@ -168,5 +168,6 @@ check safety    debug_safety   "SAFETY up=true nearest=true slipped=true dug=tru
 check roads     debug_roads    "ROADS stock=true plain=true dear=true shut=true stranger=true known=true plea=true friend=true gift=true once=true grumble=true watch=true route=true robbed=true"
 check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
+check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=true dots=true hip=false aimed=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
