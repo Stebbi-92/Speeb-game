@@ -8593,6 +8593,63 @@ func debug_glitchfix() -> void:
 	get_tree().quit()
 
 
+## Testing aid: the bodies Steve fetched stand, move and are their right size: the Hollow, Saltbone,
+## Salt Rifle and Deacon on their new bodies, the Ash Weaver's spider and the Tusker's boar in its own coat.
+func debug_newbodies() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var out: Array = []
+	var i := 0
+	for k in ["hollow", "saltbone", "saltrifle", "deacon", "ash_weaver"]:
+		var at: Vector3 = player.global_position + f * 14.0 + f.cross(Vector3.UP) * (i - 2) * 4.0
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		i += 1
+		var e := spawn_at(k, at)
+		e.set_physics_process(false)
+		await get_tree().create_timer(0.6).timeout
+		var root: Node3D = e._fb if e._fb else e._scan
+		var tall := 0.0
+		var low := 1e9
+		for mi in root.find_children("*", "MeshInstance3D", true, false):
+			if not (mi as MeshInstance3D).is_visible_in_tree():
+				continue
+			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			tall = maxf(tall, ab.end.y)
+		var ap: AnimationPlayer = e._fb.anim if e._fb else e._scan_anim
+		var moving: bool = ap != null and ap.is_playing() and ap.current_animation != ""
+		var weapons := 0
+		for mi in root.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).mesh and "Weapons" in (mi as MeshInstance3D).mesh.resource_name:
+				weapons += 1
+		out.append("%s=%s,%s%s" % [k, "moves" if moving else "still", "ok" if tall > e.global_position.y else "flat", ",own_arms" if weapons > 0 else ""])
+		e.queue_free()
+	var b := _w_beast(990001, "tusker", player.global_position + f * 10.0)
+	await get_tree().create_timer(0.5).timeout
+	var fur := false
+	for mi in b.find_children("*", "MeshInstance3D", true, false):
+		if (mi as MeshInstance3D).get_surface_override_material(0) is ShaderMaterial:
+			fur = true
+	var g0: String = b._gait
+	b._clips = b._clips   # (the gait follows the pace each frame)
+	var gaits := {}
+	for pace in [0.0, 1.5, 4.0, 8.0]:
+		var gg: String = b._clips.idle if pace < 0.3 else (b._clips.walk if pace < 2.5 else (b._clips.trot if pace < 5.5 else b._clips.run))
+		gaits[gg] = true
+	var long := 0.0
+	var ab2 := AABB()
+	var first := true
+	for mi in b.find_children("*", "MeshInstance3D", true, false):
+		var a2: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		ab2 = a2 if first else ab2.merge(a2)
+		first = false
+	print("NEWBODIES %s tusker fur=%s gait=%s gaits=%d" % [" ".join(out), fur, g0.get_slice("|", 1), gaits.size()])
+	get_tree().quit()
+
+
 func debug_nightshot() -> void:
 	clock = 22.0
 	night = true

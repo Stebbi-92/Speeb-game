@@ -132,7 +132,8 @@ func matter() -> String:
 ## Scanned bodies (CC-BY 4.0, see CREDITS): [model, height in metres, animation, pace the walk is made for (0: it stands),
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
-	"ash_weaver": ["res://assets/models/foes/spiderthing/spiderthing.glb", 1.5, 0, 4.0, Vector2(0.55, 0.55)],
+	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
+		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
 	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn

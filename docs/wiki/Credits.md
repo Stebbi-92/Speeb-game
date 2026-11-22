@@ -59,7 +59,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Free Ammo Set Ver.2 ULTRA"](https://skfb.ly/pIyTC) | Rotten Design | Rounds, spent cases and shotgun shells |
 | ["Box Cat"](https://skfb.ly/o9JHT) | mellting | The Box Cat |
-| ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
+| ["Animated Spider"](https://skfb.ly/opX7T) | Shadocks | The Ash Weaver (`assets/models/foes/weaver`) |
 | ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
 | ["Sphynx Cat – Rigged & Animated (10 Anims)"](https://skfb.ly/pOMpF) | [Animal Animator](https://animalanimator.com) ([the sphynx cat reference](https://animalanimator.com/the-ultimate-sphinx-cat-reference-for-animal-animators/)) | The riding cat (`assets/models/mounts`), made big enough to ride, with a Speeb's head |
 | ["Saddle"](https://skfb.ly/oR6Az) | YaredGmGm | The riding cat's saddle (`assets/models/mounts`) |
@@ -76,15 +76,15 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Drugdör The Golem Animated"](https://skfb.ly/6RvzE) | Phons | The Basalt Idol (`assets/models/foes/golem`) |
 | ["Criatura"](https://skfb.ly/6XvPB) | Mardukblake | The Long Watcher (`assets/models/foes/criatura`) |
 | ["Black widow (Animated, downloadable)"](https://skfb.ly/pwQCG) | Andrey | The Tar Mother (`assets/models/foes/widow`) |
-| ["Zombie"](https://skfb.ly/6zG9q) | DJMaesen | The Hollowed, the Drowned and the Hollow Colossus (`assets/models/foes/folk`) |
+| ["ANIMATION ZOMBIE"](https://skfb.ly/pNsAw) | MUD | The Hollowed, the Drowned and the Hollow Colossus (`assets/models/foes/folk`) |
 | ["Black Knight Walking"](https://skfb.ly/oXUQo) | HreshkoIvan | The Gravewarden and the Ashen Knight |
-| ["Lich"](https://skfb.ly/oxPOn) | Spinnee | The Pale Deacon |
+| ["Lich"](https://skfb.ly/6XNDv) | guigodead | The Pale Deacon |
 | ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
-| ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
+| ["Skelet_warrior"](https://skfb.ly/oxZI6) | EvgeshQa | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
 | ["Rabbit Rigged"](https://skfb.ly/6V6FS) | FourthGreen | The Ash Hare (`assets/models/beasts`) |
 | ["Goat"](https://skfb.ly/6YXHz) | sambasivarao | The Dune Goat |
-| ["Wild Boar"](https://skfb.ly/6nyQK) | jbnotjeebe | The Ash Tusker |
+| ["Wild Boar - Male"](https://skfb.ly/p9UvE) | Dakta.Grower.Nzl | The Ash Tusker (its coat is drawn in the game) |
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
 | ["Prowler Dragon Variant Rig"](https://skfb.ly/o8IRS) | DM-913 | Kulshedra, the she-dragon (`assets/models/foes/drake`) |

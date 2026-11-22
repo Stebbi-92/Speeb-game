@@ -118,7 +118,7 @@ check polish2   debug_polish2  "POLISH2 words=true pad=true reset=true turned=tr
 check gfx       debug_gfx      "GFX low=true back=true high=true scaled=true"
 check drawcount debug_drawcount "DRAW cinderwick instances=[1-5][0-9][0-9] "
 check folk      debug_folk     "FOLK hrafn=true kala=true named=4 drinks=true"
-check scanfoes  debug_scanfoes "SCANFOES ok=4/4 ash_weaver=0\.[5-9] harrow=1\.[6-9] gaunt=(1\.[89]|2\.[0-2])"
+check scanfoes  debug_scanfoes "SCANFOES ok=4/4 ash_weaver=0\.[3-9] harrow=1\.[6-9] gaunt=(1\.[89]|2\.[0-2])"
 check feel      debug_feel     "FEEL rocked=true back=true heard=flesh,bone,glass told=burrow,choir,phase,ravens,stealth,vent"
 check carry    debug_carry    "CARRY road=true town=true three=true keys=shotgun,sniper,pistol traded=true kept=true down=2"
 check fog       debug_fog      "FOG isle_dark=true little=true beacon=true carried=true"
@@ -169,5 +169,6 @@ check roads     debug_roads    "ROADS stock=true plain=true dear=true shut=true 
 check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
 check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=true dots=true hip=false aimed=true tucked=true back=true"
+check newbodies debug_newbodies "NEWBODIES hollow=moves,ok saltbone=moves,ok,own_arms saltrifle=moves,ok deacon=moves,ok ash_weaver=moves,ok tusker fur=true gait=[A-Za-z_0-9]+ gaits=4"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

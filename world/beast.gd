@@ -91,10 +91,14 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D = null) -> Me
 const MODELS := {
 	"hare": ["res://assets/models/beasts/rabbit_rigged.glb", 0.62, "long"],
 	"goat": ["res://assets/models/beasts/goat.glb", 1.3, "tall"],
-	"tusker": ["res://assets/models/beasts/wild_boar.glb", 1.7, "long"],
+	"tusker": ["res://assets/models/beasts/boar_male.glb", 1.7, "long", PI / 2,
+		{"idle": "Arm_Boar|Idle_1", "walk": "Arm_Boar|Walk_F_IP", "trot": "Arm_Boar|Trot_F_IP", "run": "Arm_Boar|Run_F_IP"}, "fur"],
 }
+## [file, size, measured "long" or "tall", turn to face ahead, clips {idle, walk, trot, run}, a coat made for it]
 static var _bounds := {}
 var _anim: AnimationPlayer
+var _clips := {}    ## the body's own gaits by name, when it has more than one
+var _gait := ""
 var _bob := 0.0
 
 
@@ -116,11 +120,13 @@ func _build_real() -> bool:
 				bb = a if first else bb.merge(a)
 				first = false
 		_bounds[kind] = bb
-	var b: AABB = _bounds[kind]
+	var turn := Basis(Vector3.UP, float(spec_m[3]) if spec_m.size() > 3 else 0.0)
+	var b: AABB = Transform3D(turn, Vector3.ZERO) * (_bounds[kind] as AABB)
 	var want: float = float(spec_m[1]) * (float(spec.size) / float({"hare": 0.45, "goat": 0.9, "tusker": 1.0}[kind]))
 	var k := want / maxf(b.size.z if spec_m[2] == "long" else b.size.y, 0.001)
 	var c := b.get_center()
-	m.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), Vector3(-c.x * k, -b.position.y * k, -c.z * k))
+	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), Vector3(-c.x * k, -b.position.y * k, -c.z * k))
+	_clips = spec_m[4] if spec_m.size() > 4 else {}
 	_body.add_child(m)
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
@@ -129,6 +135,9 @@ func _build_real() -> bool:
 			continue
 		for si in mm.mesh.get_surface_count():
 			var sm := mm.mesh.surface_get_material(si)
+			if spec_m.size() > 5 and spec_m[5] == "fur":
+				mm.set_surface_override_material(si, _fur_mat())
+				continue
 			if sm is StandardMaterial3D:
 				var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
 				t.albedo_color = t.albedo_color * Color(1, 1, 1).lerp(Color(spec.color).lightened(0.35), 0.35)
@@ -137,11 +146,38 @@ func _build_real() -> bool:
 	if not aps.is_empty():
 		_anim = aps[0]
 		var names := _anim.get_animation_list()
-		if not names.is_empty():
-			_anim.get_animation(names[0]).loop_mode = Animation.LOOP_LINEAR
-			_anim.play(names[0])
+		for cn in _clips.values():
+			if _anim.has_animation(cn):
+				_anim.get_animation(cn).loop_mode = Animation.LOOP_LINEAR
+		var first: String = str(_clips.get("idle", names[0] if not names.is_empty() else ""))
+		if first != "" and _anim.has_animation(first):
+			_anim.get_animation(first).loop_mode = Animation.LOOP_LINEAR
+			_anim.play(first)
+			_gait = first
 			_anim.seek(randf(), true)
 	return true
+
+
+static var _fur: ShaderMaterial
+
+
+## A coat for a body that came without one (see boar_fur.gdshader).
+static func _fur_mat() -> ShaderMaterial:
+	if _fur == null:
+		_fur = ShaderMaterial.new()
+		_fur.shader = load("res://world/boar_fur.gdshader")
+		for k in [["bristle", 0.35, FastNoiseLite.TYPE_CELLULAR], ["patch", 0.02, FastNoiseLite.TYPE_SIMPLEX_SMOOTH]]:
+			var nt := NoiseTexture2D.new()
+			var fn := FastNoiseLite.new()
+			fn.noise_type = k[2]
+			fn.frequency = k[1]
+			nt.noise = fn
+			nt.seamless = true
+			nt.width = 256
+			nt.height = 256
+			nt.generate_mipmaps = true
+			_fur.set_shader_parameter(k[0], nt)
+	return _fur
 
 
 ## Plain shapes: a body, a head, legs, and what marks the kind.
@@ -251,7 +287,14 @@ func _physics_process(delta: float) -> void:
 		moving = _think(delta)
 	# Legs stride with the pace
 	_step += delta * clampf(moving, 0.0, 10.0) * 2.2
-	if _anim:
+	if _anim and not _clips.is_empty():
+		# Its own gaits: standing, walking, trotting and running, each at the pace it was made for
+		var g: String = _clips.idle if moving < 0.3 else (_clips.walk if moving < 2.5 else (_clips.trot if moving < 5.5 else _clips.run))
+		if g != _gait and _anim.has_animation(g):
+			_gait = g
+			_anim.play(g, 0.25)
+		_anim.speed_scale = 1.0 if moving < 0.3 else clampf(moving / (1.3 if g == _clips.walk else (3.8 if g == _clips.trot else 7.0)), 0.6, 1.6)
+	elif _anim:
 		# Its own gait, quick as it runs; all but still when it stands
 		_anim.speed_scale = clampf(moving / maxf(float(spec.walk), 0.5), 0.05, 3.0)
 	elif MODELS.has(kind) and _body.get_child_count() == 1:
