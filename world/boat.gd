@@ -332,6 +332,8 @@ func _steer(delta: float) -> void:
 			want = -input.y * float(spec.row) * rowing
 	else:
 		want = -input.y * float(spec.row) * w.boat_speed_mult() * rowing
+	if w.lights and w.lights.in_kelp(global_position):
+		want *= WLights.KELP_SLOW   # the kelp drags at the hull
 	speed = lerpf(speed, want, minf(1.0, delta * (0.6 if float(spec.sail) > 0.0 else 1.5)))
 	yaw -= input.x * float(spec.turn) * delta * clampf(absf(speed) / 3.0 + 0.4, 0.4, 1.2)
 	var f := Vector3(sin(yaw), 0, cos(yaw))

@@ -9,12 +9,28 @@ var music: AudioStreamPlayer
 var _busy := false
 var _state := "title"
 var _click: AudioStreamPlayer
+var _press: AudioStreamPlayer
 
 
-## Every button in every menu gives a soft click when pressed.
+## Every button in every menu gives a soft click when pressed, and with a controller a fainter tick
+## as the choice moves from one thing to the next.
 func _on_node_added(n: Node) -> void:
 	if n is BaseButton and not n.has_meta("quiet"):
 		n.pressed.connect(_play_click)
+	if n is Control and n.focus_mode == Control.FOCUS_ALL and not n.has_meta("quiet"):
+		n.focus_entered.connect(_play_focus)
+
+
+var _focus_snd: AudioStreamPlayer
+var _focus_t := 0
+
+
+func _play_focus() -> void:
+	if not Game.using_pad or not is_instance_valid(_focus_snd) or Time.get_ticks_msec() - _focus_t < 40:
+		return
+	_focus_t = Time.get_ticks_msec()
+	_focus_snd.pitch_scale = randf_range(0.95, 1.05)
+	_focus_snd.play()
 
 
 func _play_click() -> void:
@@ -24,6 +40,10 @@ func _play_click() -> void:
 	_click.stream = takes[randi() % takes.size()]
 	_click.pitch_scale = randf_range(0.96, 1.04)
 	_click.play()
+	# Under the click, a low soft knock, so a choice lands with some weight
+	if is_instance_valid(_press):
+		_press.pitch_scale = randf_range(0.9, 1.0)
+		_press.play()
 
 
 func _ready() -> void:
@@ -37,6 +57,16 @@ func _ready() -> void:
 	_click.bus = "Interface"
 	_click.volume_db = -16
 	add_child(_click)
+	_press = AudioStreamPlayer.new()
+	_press.bus = "Interface"
+	_press.volume_db = -22
+	_press.stream = load("res://assets/audio/ui_press.ogg")
+	add_child(_press)
+	_focus_snd = AudioStreamPlayer.new()
+	_focus_snd.bus = "Interface"
+	_focus_snd.volume_db = -24
+	_focus_snd.stream = load("res://assets/audio/ui_focus.ogg")
+	add_child(_focus_snd)
 	get_tree().node_added.connect(_on_node_added)
 	var args := OS.get_cmdline_user_args()
 	Net.session_ended.connect(_on_session_ended)
@@ -414,4 +444,4 @@ func _server_window() -> void:
 func server_idle() -> void:
 	_state = "lobby"
 	await _swap(null)
-	Net._log("Waiting for pilgrims. The first to join chooses the trial.")
+	Net._log("Waiting for players. The first to join chooses the trial.")

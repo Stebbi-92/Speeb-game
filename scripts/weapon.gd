@@ -313,7 +313,10 @@ func _unhandled_input(e: InputEvent) -> void:
 	if not enabled or player.input_locked or get_tree().paused:
 		return
 	if e.is_action_pressed("reload"):
-		_start_reload()
+		if not blade_out and not _reloading and shells >= capacity() and _inspect <= 0.0:
+			inspect()
+		else:
+			_start_reload()
 	elif e.is_action_pressed("swap_gun"):
 		swap()
 	elif e.is_action_pressed("melee"):
@@ -387,7 +390,31 @@ func swap(to := -1) -> void:
 	_ui()
 
 
+## Reload with a full gun: it is brought up and turned over in the hands, one side and then the other.
+const INSPECT_LEN := 2.6
+var _inspect := 0.0
+
+
+func inspect() -> void:
+	_inspect = INSPECT_LEN
+	player.get_parent().sfx("mag_grab", -16, null, randf_range(0.9, 1.0))
+
+
+func _inspect_pose(delta: float) -> void:
+	var k := 1.0 - _inspect / INSPECT_LEN
+	_inspect = maxf(0.0, _inspect - delta)
+	var e := smoothstep(0.0, 0.16, k) * (1.0 - smoothstep(0.82, 1.0, k))
+	var turn := smoothstep(0.42, 0.66, k)
+	_holder.position += Vector3(-0.1, 0.07, 0.1) * e
+	_holder.rotation.x += 0.18 * e
+	_holder.rotation.y = lerpf(-0.55, 0.75, turn) * e
+	_holder.rotation.z = lerpf(0.85, -0.3, turn) * e
+	if _inspect <= 0.0:
+		_holder.rotation.y = 0.0
+
+
 func _start_reload() -> void:
+	_stop_inspect()
 	if blade_out or shells >= capacity() or reserve <= 0 or _reloading:
 		return
 	_reloading = true
@@ -406,12 +433,13 @@ func _eject() -> void:
 	if not is_instance_valid(_model) or not _model.is_inside_tree():
 		return
 	var gt := _model.global_transform
-	Arms.throw_case(player.get_parent(), gun(), gt * SIDE.get(gun(), Vector3(0.03, 0.01, 0.0)), gt.basis, player.velocity)
+	Arms.throw_case(player.get_parent(), gun(), gt * SIDE.get(ArmsDB.look(gun()), Vector3(0.03, 0.01, 0.0)), gt.basis, player.velocity)
 
 
 ## When a gun throws its spent case after a shot: a pump or a bolt when worked; a revolver keeps them (-1).
 static func case_delay(g: String) -> float:
 	var s: Dictionary = ArmsDB.GUNS.get(g, {})
+	g = ArmsDB.look(g)
 	if g == "revolver" or AmmoLook.spent_of(g) == "":
 		return -1.0
 	match str(s.get("mode", "")):
@@ -552,7 +580,7 @@ func _process(delta: float) -> void:
 			_pump.visible = shells > 0   # the rocket is gone once fired, till the next goes in
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
-	var aiming := not blade_out and (debug_aim or Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
+	var aiming := not blade_out and (debug_aim or Game.held("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
 	_set_aim(1.0 if aiming else 0.0, delta)
 	if Game.main and Game.main.hud:
 		Game.main.hud.ads = _aim > 0.35   # down the sights, the dot on the screen gives way to the gun's own
@@ -603,7 +631,11 @@ func _process(delta: float) -> void:
 		player.carry_slow = float(s.get("slow", 1.0))
 	else:
 		player.carry_slow = 1.0
-	if _reloading:
+	if _inspect > 0.0 and (holding or _aim > 0.05 or _reloading or blade_out or _switch > 0.0 or _swing > 0.0):
+		_stop_inspect()
+	if _inspect > 0.0:
+		_inspect_pose(delta)
+	elif _reloading:
 		_reload_pose(1.0 - _reload_t / maxf(_reload_len, 0.01), delta)
 		_reload_t -= delta
 		if _reload_t <= 0.0:
@@ -688,6 +720,12 @@ func _reload_pose(k: float, delta: float) -> void:
 	# Working the action home after the fresh one is in
 	if _pump and s.mode in ["auto", "semi", "bolt"] and k > 0.84:
 		_pump.position.z = sin(clampf((k - 0.84) / 0.16, 0.0, 1.0) * PI) * (0.06 if s.mode == "bolt" else 0.04)
+
+
+func _stop_inspect() -> void:
+	if _inspect > 0.0:
+		_inspect = 0.0
+		_holder.rotation.y = 0.0
 
 
 ## Back to rest once a reload is over or broken off: the magazine in its place, the gun upright.
@@ -855,7 +893,7 @@ func _scope_drift(delta: float, scoped: bool, aiming := false) -> void:
 ## How far the aim sways down the sights (radians): by the gun's weight, the glass, the legs and the lungs,
 ## and the hand that has used this gun: each rank of practice takes some off, nine ranks near halve it.
 func sway_amp(scoped: bool) -> float:
-	var g := gun()
+	var g := ArmsDB.look(gun())
 	var s := spec()
 	var amp := 0.0016 if scoped else 0.0007
 	if g in ["minigun", "rocket"] or s.mode == "bolt":
@@ -1102,7 +1140,7 @@ func _try_fire() -> void:
 		_flash.light_energy = 4.0 if s.mode != "spin" else 2.5
 		_flash_mesh.visible = true
 		_flash_mesh.rotation.z = randf() * TAU
-		_flash_mesh.scale = Vector3.ONE * float(FLASH_SIZE.get(gun(), 0.18)) * randf_range(0.85, 1.15)
+		_flash_mesh.scale = Vector3.ONE * float(FLASH_SIZE.get(ArmsDB.look(gun()), 0.18)) * randf_range(0.85, 1.15)
 		for q in _flash_sides:
 			(q as MeshInstance3D).material_override = _flash_mats[randi() % _flash_mats.size()]
 		get_tree().create_timer(0.04, false).timeout.connect(func():
@@ -1154,8 +1192,8 @@ func _try_fire() -> void:
 				b.gun_id = gun()
 				b.origin = origin
 				b.dir = dir
-				b.speed = float(MUZZLE.get(gun(), 340.0))
-				b.grav = GRAVITY * float(CALIBER.get(gun(), ["", 1.0])[1])
+				b.speed = float(MUZZLE.get(gun(), MUZZLE.get(ArmsDB.look(gun()), 340.0)))
+				b.grav = GRAVITY * float(CALIBER.get(ArmsDB.look(gun()), ["", 1.0])[1])
 				b.left = float(s.range) - near
 				b.dmg = float(s.dmg) * dmg_m
 				b.falloff = float(s.falloff)
@@ -1185,8 +1223,10 @@ func _try_fire() -> void:
 	if not hits.is_empty():
 		lvl.hits += 1
 	LesserSpeeb.harm_pierce = float(s.get("pierce", 1.0))
+	LesserSpeeb.harm_arm = gun()
 	Arms.deal(hits, fwd, "shot" if int(s.pellets) > 1 else "bullet", crits)
 	LesserSpeeb.harm_pierce = 1.0
+	LesserSpeeb.harm_arm = ""
 	_impact_sounds(hits)
 	_practise(gun(), hits)
 
@@ -1257,7 +1297,7 @@ func _make_flash() -> Node3D:
 	return root
 
 
-const MUZZLE := {"shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
+const MUZZLE := {"carbine": 640.0, "shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 ## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
 ## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
 const CALIBER := {"shotgun": ["12 gauge", 1.6], "pistol": [".45", 1.25], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
@@ -1271,7 +1311,19 @@ static func _ray_near(o: Vector3, d: Vector3, c: Vector3, r: float) -> bool:
 	return (o + d * t).distance_to(c) < r
 
 
+static var _toll := 0   ## blows landed toward the Bell's Toll
+
 static func deal(hits: Dictionary, dir: Vector3, harm := "", crits := {}) -> void:
+	# The Bell-Wound's power: every eighth blow or shot that lands rings, and strikes twice as hard
+	var lv = Game.main.level if Game.main else null
+	var bell_k: float = lv.power_k("bell") if lv and lv.has_method("power_k") else 0.0
+	if not hits.is_empty() and bell_k > 0.0:
+		_toll += 1
+		if _toll >= int(round(8.0 / bell_k)):
+			_toll = 0
+			for t in hits:
+				hits[t] = float(hits[t]) * 2.0
+			lv.sfx("bell", -8, null, 1.6)
 	LesserSpeeb.harm_kind = harm
 	var marked := 0
 	var crit := false
@@ -1402,8 +1454,10 @@ const HEAVY_COST := 24.0
 ## Aim raises the blade to guard: blows are turned aside for stamina.
 func _blade_tick(delta: float, holding: bool) -> void:
 	var was := guarding
-	guarding = Input.is_action_pressed("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
+	guarding = Game.held("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and _swing <= 0.0 and not player.get("winded")
 	guard_age = (0.0 if not was else guard_age + delta) if guarding else 99.0
+	if guarding and not was and Net.online and not Net.authority() and Game.main and Game.main.level:
+		Game.main.level.shared("_w_guard_up", [Net.me()])   # the host's foes can be turned by a friend's guard too
 	if guarding:
 		_charge = -1.0
 		return
@@ -1469,9 +1523,11 @@ func _melee_hit(m: Dictionary, heavy := false) -> void:
 		player.shake(0.3 if heavy else 0.15)
 		LesserSpeeb.harm_pierce = float(m.get("pierce", 1.0))
 		LesserSpeeb.harm_heavy = heavy
+		LesserSpeeb.harm_arm = melee
 		Arms.deal(hits, fwd, str(m.get("harm", "blade")))
 		LesserSpeeb.harm_pierce = 1.0
 		LesserSpeeb.harm_heavy = false
+		LesserSpeeb.harm_arm = ""
 		_practise("blade", hits)
 		_hit_stop(0.09 if heavy else 0.05, hits.keys())
 	elif not r.is_empty():
@@ -1672,6 +1728,8 @@ static func built_glass(g: String, fit: Array) -> bool:
 func _build(g: String, mnts = null) -> Node3D:
 	var n := Node3D.new()
 	var fit: Array = Game.mounts_of(g) if mnts == null else mnts
+	var far_tint: Color = FAR_TINT.get(g, Color(0, 0, 0, 0))
+	g = ArmsDB.look(g)   # a far arm wears the body of the gun it borrows
 	var ext: bool = "ext_mag" in fit
 	var metal := _metal()
 	var dark := _mat(Color(0.07, 0.07, 0.075), 0.5, 0.5)
@@ -1987,13 +2045,19 @@ func _build(g: String, mnts = null) -> Node3D:
 	n.set_meta("eye", eye)
 	if Game.gilded:
 		gild(n)
+	elif far_tint.a > 0.0:
+		gild(n, far_tint)
 	return n
 
 
 ## The gilded finish: the gun keeps its own model and is washed over in gold.
-static func gild(n: Node) -> void:
+## The sheen of the far lands' stuff on the arms made of it.
+const FAR_TINT := {"carbine": Color(1.0, 0.72, 0.3, 0.3), "hand_cannon": Color(0.55, 0.52, 0.5, 0.45), "war_pick": Color(0.62, 0.8, 0.95, 0.45)}
+
+
+static func gild(n: Node, tint := Color(0.95, 0.72, 0.28, 0.6)) -> void:
 	var gold := StandardMaterial3D.new()
-	gold.albedo_color = Color(0.95, 0.72, 0.28, 0.6)
+	gold.albedo_color = tint
 	gold.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	gold.metallic = 1.0
 	gold.roughness = 0.25
@@ -2736,10 +2800,14 @@ static func scanned(key: String, turn: Vector3, grip_y: float, length: float, le
 
 
 func _build_melee(id: String) -> Node3D:
+	var far_tint: Color = FAR_TINT.get(id, Color(0, 0, 0, 0))
+	id = ArmsDB.look(id)
 	if SCANNED_MELEE.has(id):
 		var sm: Array = SCANNED_MELEE[id]
 		var sn := scanned(sm[0], sm[1], sm[2], sm[3], sm[4], sm[5])
 		if sn:
+			if far_tint.a > 0.0:
+				gild(sn, far_tint)
 			return sn
 	var n := Node3D.new()
 	var wood := _mat(Color(0.3, 0.19, 0.11))

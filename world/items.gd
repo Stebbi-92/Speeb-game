@@ -14,7 +14,35 @@ const DB := {
 	"fittings_fine": {"name": "Fine Fittings", "kind": "part", "stack": 10, "value": 25, "color": Color(0.45, 0.8, 0.4), "text": "Springs, pins and good steel. At a workbench, rework a gun part into a Fine one."},
 	"fittings_rare": {"name": "Rare Fittings", "kind": "part", "stack": 10, "value": 60, "color": Color(0.4, 0.62, 0.95), "text": "Machined before the fall. At a workbench, rework a gun part into a Rare one."},
 	"fittings_storied": {"name": "Storied Fittings", "kind": "part", "stack": 5, "value": 150, "color": Color(0.95, 0.75, 0.3), "text": "Fittings with a name and a past. At a workbench, rework a gun part into a Storied one."},
+	"fit_kraken": {"name": "Bell-Wound's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Bell-Wound. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deep trait."},
+	"fit_ash": {"name": "Cinder Matron's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Cinder Matron. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Keen trait."},
+	"fit_dunes": {"name": "Sand Choir's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Sand Choir. At a workbench, rework a gun part into a Storied one that bears its name, and always has the True trait."},
+	"fit_salt": {"name": "White Disc's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the White Disc. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Far-reaching trait."},
+	"fit_forest": {"name": "Long Watcher's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Long Watcher. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deadeye trait."},
+	"fit_basalt": {"name": "Basalt Idol's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Basalt Idol. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Steady trait."},
+	"fit_marsh": {"name": "Tar Mother's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Tar Mother. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Deep trait."},
+	"fit_quiet": {"name": "Archivist's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Archivist. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Ready trait."},
+	"fit_domes": {"name": "Lantern-Breaker's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Lantern-Breaker. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Swift trait."},
+	"fit_frost": {"name": "Glacier Mother's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Glacier Mother. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Nimble trait."},
+	"fit_sun": {"name": "Dry River's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Dry River. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Far-reaching trait."},
+	"fit_steppe": {"name": "Spine-King's Fittings", "kind": "part", "stack": 5, "value": 180, "color": Color(0.95, 0.75, 0.3), "text": "Left by the Spine-King. At a workbench, rework a gun part into a Storied one that bears its name, and always has the Keen trait."},
 	"oil": {"name": "Lamp Oil", "kind": "material", "stack": 20, "value": 6, "color": Color(0.75, 0.55, 0.2), "text": "Drawn from the Well. It burns yellow and smoky."},
+	"bell_ichor": {"name": "Bell-Wound Ichor", "kind": "material", "stack": 10, "value": 60, "color": Color(0.25, 0.5, 0.42), "text": "Green and slow, from the thing in the Kraken-Bell. Rendered with lamp oil, it makes Deep Oil."},
+	"deep_oil": {"name": "Deep Oil", "kind": "quest", "stack": 5, "value": 80, "color": Color(0.35, 0.75, 0.6), "text": "Lamp oil and the Bell-Wound's ichor. A bowl the Mouth has fouled takes it: the key to the sixth fire."},
+	"fleet_log": {"name": "The Fleet Log", "kind": "quest", "stack": 5, "value": 80, "color": Color(0.55, 0.42, 0.3), "text": "The Drowned Fleet's last log, kept in Quietglass. Its last page names the bowls. The key to the seventh fire."},
+	"heart_quiet": {"name": "Heart of the Archivist", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.75, 0.85, 1.0), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_domes": {"name": "Heart of the Lantern-Breaker", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.5, 0.45, 0.4), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_frost": {"name": "Heart of the Glacier Mother", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.65, 0.85, 1.0), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_sun": {"name": "Heart of the Dry River", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.85, 0.45, 0.25), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"heart_steppe": {"name": "Heart of the Spine-King", "kind": "quest", "stack": 5, "value": 90, "color": Color(0.9, 0.86, 0.75), "text": "A far great one's heart. Any one of them is the key to the eighth fire."},
+	"coal_frost": {"name": "Frostmark Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.6, 0.8, 1.0), "text": "A coal from the shrine-bowl of the Frostmark. With one from each Far Shore, the ninth bowl will take."},
+	"coal_sun": {"name": "Sunward Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(1.0, 0.55, 0.25), "text": "A coal from the shrine-bowl of the Sunward Reach. With one from each Far Shore, the ninth bowl will take."},
+	"coal_steppe": {"name": "Steppe Coal", "kind": "quest", "stack": 3, "value": 60, "color": Color(0.95, 0.9, 0.7), "text": "A coal from the shrine-bowl of the Pale Steppe. With one from each Far Shore, the ninth bowl will take."},
+	"ice_iron": {"name": "Ice Iron", "kind": "material", "stack": 40, "value": 30, "color": Color(0.62, 0.78, 0.9), "text": "Iron frozen into the Frostmark's stone. Far-forged blades, far plate and the war-pick want it."},
+	"sunglass": {"name": "Sunglass", "kind": "material", "stack": 40, "value": 30, "color": Color(1.0, 0.72, 0.3), "text": "Sand of the Sunward Reach, fused clear by the sun. The carbine's sights are ground from it."},
+	"steppe_horn": {"name": "Steppe Horn", "kind": "material", "stack": 40, "value": 30, "color": Color(0.9, 0.85, 0.7), "text": "Horn of the Pale Steppe's great beasts. Light and hard: hafts, grips and far plate."},
+	"lens_glass": {"name": "Lens Glass", "kind": "material", "stack": 40, "value": 30, "color": Color(0.75, 0.88, 1.0), "text": "Ground glass from the Archive of Quietglass. Far-forged guns want it."},
+	"dome_steel": {"name": "Dome Steel", "kind": "material", "stack": 40, "value": 30, "color": Color(0.5, 0.48, 0.46), "text": "Steel from the Thousand Domes, made before the fall. Far-forged guns and the hand cannon want it."},
 	"beacon_oil": {"name": "Beacon Oil", "kind": "quest", "stack": 5, "value": 40, "color": Color(1.0, 0.95, 0.75), "text": "Oil rendered in the old measure. It burns white, and the night draws back from it."},
 	"raw_meat": {"name": "Raw Meat", "kind": "food", "stack": 10, "value": 3, "color": Color(0.7, 0.28, 0.26), "heal": -4.0, "food": 10.0, "text": "From a hunted beast. Cook it first."},
 	"roast": {"name": "Roast Meat", "kind": "food", "stack": 10, "value": 7, "color": Color(0.5, 0.3, 0.18), "heal": 15.0, "food": 50.0, "meal": {"hp": 20, "mins": 20}, "text": "Cooked over a cooking station. A meal: more health for a while."},
@@ -36,8 +64,8 @@ const DB := {
 	"rounds": {"name": "Pistol Rounds", "kind": "ammo", "stack": 150, "value": 1, "color": Color(0.8, 0.65, 0.3), "text": "Short brass rounds. For the pistol, the auto pistol and the revolver."},
 	"rifle": {"name": "Rifle Rounds", "kind": "ammo", "stack": 300, "value": 1, "color": Color(0.6, 0.55, 0.35), "text": "For the machine gun, belt gun, sniper rifle and minigun."},
 	"fuel": {"name": "Lamp Fuel", "kind": "ammo", "stack": 400, "value": 1, "color": Color(0.55, 0.4, 0.15), "text": "Thinned oil and tar. For the flamethrower."},
-	"tempered": {"name": "Tempered Steel", "kind": "material", "stack": 30, "value": 12, "color": Color(0.62, 0.66, 0.72), "text": "Only a smith can make it. The best blades and plate need it."},
-	"clockwork": {"name": "Clockwork", "kind": "material", "stack": 30, "value": 12, "color": Color(0.8, 0.65, 0.3), "text": "Only a tinker can make it. The great guns and the finer fittings need it."},
+	"tempered": {"name": "Tempered Steel", "kind": "material", "stack": 30, "value": 12, "color": Color(0.62, 0.66, 0.72), "text": "A smith makes it cheaply; anyone else pays three times over. The best blades and plate need it."},
+	"clockwork": {"name": "Clockwork", "kind": "material", "stack": 30, "value": 12, "color": Color(0.8, 0.65, 0.3), "text": "A tinker makes it cheaply; anyone else pays three times over. The great guns and the finer fittings need it."},
 	"feast": {"name": "Wayfarer's Feast", "kind": "food", "stack": 10, "value": 30, "color": Color(0.85, 0.55, 0.3), "heal": 40.0, "food": 100.0, "meal": {"hp": 40, "stam": 25, "regen": 0.8, "mins": 40}, "text": "Only a cook can make it. The best meal there is: much more health and breath, and wounds close."},
 	"elixir": {"name": "Restoring Elixir", "kind": "medicine", "stack": 10, "value": 25, "color": Color(0.55, 0.9, 0.7), "heal": 60.0, "text": "Only an alchemist can make it. Heals a great deal, and ends burning and tar."},
 	"jpage_1": {"name": "Brelm's Journal, leaf 1", "kind": "book", "stack": 1, "value": 20, "color": Color(0.7, 0.62, 0.48), "text": "I took the Vow today. I own a coat, a bowl and this book. It is enough."},
@@ -83,11 +111,22 @@ const DB := {
 	"t_forest": {"name": "Watcher's Eye", "kind": "trophy", "stack": 5, "value": 260, "color": Color(0.5, 0.55, 0.6), "text": "Glass, or something like it. Do not look into it for long."},
 	"t_basalt": {"name": "Idol's Gilt", "kind": "trophy", "stack": 5, "value": 280, "color": Color(0.95, 0.78, 0.3), "text": "Gold leaf from the Basalt Idol's face. The face beneath was not stone."},
 	"t_marsh": {"name": "Tar Pearl", "kind": "trophy", "stack": 5, "value": 220, "color": Color(0.15, 0.12, 0.1), "text": "Black, smooth, warm. Found where the Tar Mother's heart was."},
+	"t_quiet": {"name": "The Archivist's Lens", "kind": "trophy", "stack": 5, "value": 320, "color": Color(0.8, 0.9, 1.0), "text": "A round of clear glass. Through it, faces you have never seen look back."},
+	"t_domes": {"name": "The Keeper's Hook", "kind": "trophy", "stack": 5, "value": 300, "color": Color(0.35, 0.33, 0.3), "text": "A long iron hook from a lighthouse. It still smells of oil."},
+	"t_frost": {"name": "Glacier Heart", "kind": "trophy", "stack": 5, "value": 340, "color": Color(0.7, 0.85, 1.0), "text": "Blue ice that does not melt in the hand."},
+	"t_sun": {"name": "Dry River Scale", "kind": "trophy", "stack": 5, "value": 320, "color": Color(0.8, 0.4, 0.25), "text": "Red, hard and warm, like a stone left in the sun."},
+	"t_steppe": {"name": "Spine-King's Horn", "kind": "trophy", "stack": 5, "value": 340, "color": Color(0.9, 0.88, 0.8), "text": "Old white horn, light as a bird's bone. Cats follow it."},
 	"raft": {"name": "Raft", "kind": "boat", "stack": 1, "value": 30, "color": Color(0.45, 0.35, 0.24), "text": "Logs and rope, ready to lash together. Launch it from the shore. Two can ride; paddle it with the walking keys."},
 	"longboat": {"name": "Longboat", "kind": "boat", "stack": 1, "value": 220, "color": Color(0.3, 0.22, 0.16), "text": "A long boat in pieces, with oars and a mast. Launch it from the shore. Eight can ride."},
 	"sloop": {"name": "Sloop", "kind": "boat", "stack": 1, "value": 120, "color": Color(0.32, 0.24, 0.18), "text": "A small boat with a mast, in pieces. Launch it from the shore. Four can ride, and it runs before the wind."},
 	# Lost books (0.8): found in ruins, read once to teach the whole fellowship something
-	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "Drawings of hulls and masts, salt-stained. Teaches the Sloop and the Longboat."},
+	"book_frost": {"name": "The Ice-Smith's Notes", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Glacier Mother. Teaches the Ice-iron War-pick."},
+	"book_sun": {"name": "The Glass-Grinder's Book", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Dry River. Teaches the Sunglass Carbine."},
+	"book_steppe": {"name": "The Horn-Wright's Pattern", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Spine-King. Teaches Far Plate."},
+	"book_domes": {"name": "The Dome Foundry Book", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Lantern-Breaker. Teaches the Dome-steel Hand Cannon."},
+	"book_quiet": {"name": "The Archive of Forging", "kind": "book", "stack": 1, "value": 80, "color": Color(0.5, 0.62, 0.75), "text": "Left by the Archivist. Teaches the fifth step of work on arms: Far-forged."},
+	"book_ship": {"name": "The Shipwright's Folio", "kind": "book", "stack": 1, "value": 40, "color": Color(0.3, 0.38, 0.5), "text": "The Sloop-wright's drawings, salt-stained. Teaches the Sloop. The fifth fire brings it."},
+	"book_longboat": {"name": "The Longboat-wright's Book", "kind": "book", "stack": 1, "value": 60, "color": Color(0.28, 0.34, 0.46), "text": "Eight oars and a long keel. Teaches the Longboat. The sixth fire brings it."},
 	"book_rigging": {"name": "Storm Rigging", "kind": "book", "stack": 1, "value": 40, "color": Color(0.35, 0.45, 0.55), "text": "Knots and sail plans for heavy weather. Your boats run a fifth faster."},
 	"book_furrier": {"name": "The Furrier's Pattern", "kind": "book", "stack": 1, "value": 40, "color": Color(0.5, 0.38, 0.26), "text": "How to cut and sew hides fur-side in. Teaches the Fur Coat and Fur Hood."},
 	"book_herbal": {"name": "The Herbwife's Notes", "kind": "book", "stack": 1, "value": 40, "color": Color(0.4, 0.5, 0.32), "text": "Pressed flowers and careful measures. Teaches a cheaper salve."},
@@ -160,8 +199,9 @@ const RECIPES := [
 	{"id": "fittings_fine", "n": 2, "cost": {"scrap": 8, "salt_crystal": 2}, "bench": true, "needs": "book_engine"},
 	{"id": "raft", "n": 1, "cost": {"wood": 16, "cloth": 4}, "bench": true},
 	{"id": "sloop", "n": 1, "cost": {"wood": 30, "heartwood": 6, "cloth": 10, "scrap": 6}, "bench": true, "needs": "book_ship"},
-	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_ship"},
+	{"id": "longboat", "n": 1, "cost": {"wood": 50, "heartwood": 12, "cloth": 14, "scrap": 10, "salt_crystal": 2}, "bench": true, "needs": "book_longboat"},
 	{"id": "beacon_oil", "n": 1, "cost": {"oil": 2, "salt": 10, "herb": 4}, "bench": true, "needs": "oilcraft"},
+	{"id": "deep_oil", "n": 1, "cost": {"oil": 2, "bell_ichor": 1}, "bench": true, "needs": "oilcraft"},
 ]
 
 ## The pieces of a shelter. Size and cost; hp is how long it holds against the night.
@@ -175,15 +215,16 @@ const PIECES := {
 	"door": {"name": "Door", "group": "Frame", "cost": {"wood": 4, "scrap": 1}, "hp": 300.0, "text": "Set into a doorway."},
 	"roof": {"name": "Roof", "group": "Frame", "cost": {"wood": 4}, "hp": 300.0, "text": "Sits atop the walls."},
 	"stairs": {"name": "Stairs", "group": "Frame", "cost": {"wood": 6}, "hp": 300.0, "text": "Up to a roof or a second floor."},
-	"campfire": {"name": "Campfire", "group": "Camp", "cost": {"wood": 3, "stone": 3}, "hp": 200.0, "text": "Makes a camp. While lit, no forms rise within 40 paces. Sleep here."},
+	"campfire": {"name": "Campfire", "group": "Camp", "cost": {"wood": 3, "stone": 3}, "hp": 200.0, "text": "Makes a camp. While lit, no enemies spawn within 40 paces. Sleep here."},
 	"cookpot": {"name": "Cooking Station", "group": "Camp", "cost": {"wood": 4, "stone": 4, "scrap": 2}, "hp": 160.0, "text": "Cook raw food here."},
-	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "While lit, no forms rise within 15 paces."},
+	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "While lit, no enemies spawn within 15 paces."},
 	"bedroll": {"name": "Bedroll", "group": "Camp", "cost": {"cloth": 3}, "hp": 120.0, "text": "Rest here. You wake here if you fall."},
 	"chest": {"name": "Storage Chest", "group": "Camp", "cost": {"wood": 8}, "hp": 250.0, "text": "Sixteen places to keep things."},
-	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "text": "Plant seeds here. Come back in a day."},
+	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "fires": 3, "text": "Plant seeds here. Come back in a day."},
 	"bench": {"name": "Workbench", "group": "Camp", "cost": {"wood": 6, "scrap": 4}, "hp": 300.0, "text": "Make guns, parts, ammunition and tools."},
 	"lamp": {"name": "Oil Lamp", "group": "Camp", "cost": {"scrap": 2, "oil": 1}, "hp": 150.0, "text": "A tall light."},
-	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "text": "Name it. Two waystones of one name lead to each other."},
+	"portal": {"name": "Waystone", "group": "Camp", "cost": {"stone": 12, "scrap": 6, "oil": 2}, "hp": 600.0, "fires": 4, "text": "Name it. Two waystones of one name lead to each other."},
+	"trophy_hall": {"name": "Trophy Hall", "group": "Camp", "cost": {"stone": 16, "wood": 10, "scrap": 4, "cloth": 4}, "hp": 600.0, "text": "Hang up to three great ones' trophies, one of each. Each gives a third of its power to all at this base."},
 	"shrine": {"name": "Trophy Shrine", "group": "Camp", "cost": {"stone": 10, "bone": 4, "scrap": 2}, "hp": 400.0, "text": "Lay a great one's trophy here once. After that, kneel to take its power for a while."},
 	"spikes": {"name": "Spike Barricade", "group": "Defence", "cost": {"wood": 4}, "hp": 220.0, "text": "Hurts what walks into it."},
 	"bed": {"name": "Bed", "group": "Home", "cost": {"wood": 6, "cloth": 4}, "hp": 160.0, "text": "Sleep here. You wake here if you fall. Snugger than a bedroll."},
@@ -198,7 +239,7 @@ const PIECES := {
 	"anvil": {"name": "Anvil", "group": "Camp", "cost": {"scrap": 8, "stone": 4}, "hp": 500.0, "text": "Work here as at a workbench. Hard to break."},
 	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
 }
-const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine",
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine", "trophy_hall",
 	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
 	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]
@@ -213,7 +254,7 @@ const MODELS := {
 	"book_engine": ["furn", "books", true], "book_furrier": ["furn", "books", true], "book_gunwright": ["furn", "books", true],
 	"book_herbal": ["furn", "books", true], "book_hymnal": ["furn", "books", true], "book_kanun": ["furn", "books", true],
 	"book_lamp": ["furn", "books", true], "book_rigging": ["furn", "books", true], "book_saga": ["furn", "books", true],
-	"book_salter": ["furn", "books", true], "book_ship": ["furn", "books", true],
+	"book_salter": ["furn", "books", true], "book_ship": ["furn", "books", true], "book_longboat": ["furn", "books", true],
 	"meat": ["food", "meat-ribs"], "raw_meat": ["food", "meat-raw"], "roast": ["food", "whole-ham"],
 	"broth": ["food", "bowl-broth"], "stew": ["food", "pot-stew"], "pie": ["food", "pie"], "tea": ["food", "cup-tea"],
 	"tuber": ["food", "beet"], "milk": ["food", "bowl"], "salt": ["food", "bag-flat"],
@@ -223,12 +264,18 @@ const MODELS := {
 
 ## The great ones' powers, taken up at a Trophy Shrine (see the waste's take_power).
 const POWERS := {
+	"t_kraken": {"key": "bell", "name": "The Bell's Toll", "text": "Every eighth blow or shot you land rings, and strikes twice as hard."},
 	"t_ash": {"key": "ember", "name": "Ember Heart", "text": "The cold does not bite you, and ash does not choke you."},
-	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Forms see you at little more than half the distance."},
+	"t_dunes": {"key": "hush", "name": "The Choir's Hush", "text": "Enemies see you at little more than half the distance."},
 	"t_salt": {"key": "white", "name": "White Breath", "text": "Running, swinging and swimming cost far less breath."},
 	"t_forest": {"key": "eye", "name": "The Watcher's Eye", "text": "Your blows and shots strike a fifth harder."},
 	"t_basalt": {"key": "gilt", "name": "Gilded Skin", "text": "Every blow you take is a fifth lighter."},
 	"t_marsh": {"key": "tar", "name": "Tar Lungs", "text": "You swim without tiring, and the sea cannot drown you."},
+	"t_quiet": {"key": "lens", "name": "The Lens", "text": "Enemies near you show on your compass, through walls and hills."},
+	"t_domes": {"key": "hook", "name": "The Keeper's Calm", "text": "Your lamp draws nothing: the dread does not rise about you."},
+	"t_frost": {"key": "rime", "name": "Rime Touch", "text": "Your blows freeze weaker enemies where they stand, a moment."},
+	"t_sun": {"key": "dry", "name": "Dry Blood", "text": "No heat touches you: not the sun, the dunes or the burning stone."},
+	"t_steppe": {"key": "horn", "name": "The Rider's Horn", "text": "Your cat never tires."},
 }
 
 ## Loot tables: [item, weight, min, max]
@@ -242,7 +289,9 @@ const LOOT := {
 }
 
 ## Lost books found in the waste's ruins, in the order they turn up; and the one each isle keeps.
-const LAND_BOOKS := ["book_ship", "book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
+## The book each far great one leaves the first time it falls in a world.
+const GREAT_BOOKS := {"frost": "book_frost", "sun": "book_sun", "steppe": "book_steppe", "domes": "book_domes", "quiet": "book_quiet"}
+const LAND_BOOKS := ["book_furrier", "book_herbal", "book_rigging", "book_salter", "book_lamp", "book_gunwright"]
 const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_kanun", "cog": "book_engine"}
 
 ## What each trader keeps for sale, beyond what reputation opens.
@@ -256,7 +305,7 @@ const STOCK := {
 
 
 ## Which ammunition each gun takes.
-const AMMO := {"shotgun": "shells", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel"}
+const AMMO := {"shotgun": "shells", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel", "carbine": "rifle", "hand_cannon": "shells"}
 
 
 static func info(id: String) -> Dictionary:

@@ -13,7 +13,7 @@ const START := {
 ## Relics a survivor can make at a workbench. The lantern and the praying hands are carried from the start.
 const RELICS := {
 	"claw": {"name": "Claw of Ascent", "cost": {"scrap": 14, "cloth": 4, "oil": 1}, "text": "Cast it at a wall, rock or roof to pull yourself up."},
-	"censer": {"name": "Censer", "cost": {"scrap": 8, "salt": 12, "oil": 2}, "text": "Its smoke shows nearby forms, slows them and draws lurkers out."},
+	"censer": {"name": "Censer", "cost": {"scrap": 8, "salt": 12, "oil": 2}, "text": "Its smoke shows nearby enemies, slows them and draws lurkers out."},
 }
 
 ## What may be worn: head, body and feet. "guard" is the share of harm it turns aside.
@@ -33,12 +33,16 @@ const WEAR := {
 	"scrap_plate": {"name": "Scrap Plate", "slot": "body", "guard": 0.24, "speed": 0.92, "weary": 1.15, "plate": 120, "cost": {"scrap": 18, "cloth": 4, "red_iron": 3}, "look": {"coat": 1}, "text": "Iron from before the fall, hammered to fit. It weighs on you."},
 	"salt_plate": {"name": "Salt-crust Plate", "slot": "body", "guard": 0.3, "speed": 0.94, "weary": 1.1, "plate": 200, "cost": {"scrap": 24, "stone": 8, "hide": 4, "salt_crystal": 6}, "look": {"coat": 1}, "text": "Iron plates cured in salt until they turn a blade. The best the waste can make."},
 	"obsidian_plate": {"name": "Obsidian Plate", "slot": "body", "guard": 0.34, "speed": 0.95, "weary": 1.1, "plate": 260, "cost": {"scrap": 26, "obsidian": 8, "salt_crystal": 2, "hide": 4, "tempered": 3}, "look": {"coat": 1}, "text": "Black glass set in iron. Nothing the waste has will make it."},
+	"far_plate": {"name": "Far Plate", "slot": "body", "warm": 1.5, "guard": 0.36, "plate": 340, "cost": {"ice_iron": 6, "dome_steel": 4, "steppe_horn": 3, "hide": 4, "tempered": 3}, "look": {"coat": 1}, "needs": "book_steppe", "text": "Ice iron on a frame of steppe horn, lined for the cold. The best plate there is, and it does not weigh on you."},
 	"ember_cloak": {"name": "Ember Cloak", "slot": "cloak", "warm": 1.0, "guard": 0.03, "ward": "basalt", "cost": {"salt_crystal": 5, "tar": 4, "hide": 4}, "look": {"cloak": 1}, "text": "Wear it on the Basalt Heights. The heat of the stone no longer burns."},
 	"travel_cloak": {"name": "Travelling Cloak", "slot": "cloak", "warm": 1.0, "guard": 0.03, "hunger": 0.92, "cost": {"cloth": 6, "hide": 2}, "look": {"cloak": 2}, "text": "Heavy wool against wind and ash. You hunger a little more slowly."},
 	"fur_coat": {"name": "Fur Coat", "slot": "body", "warm": 2.0, "guard": 0.07, "cost": {"hide": 8, "cloth": 3, "bone": 2}, "look": {"coat": 2}, "needs": "book_furrier", "text": "Hides sewn fur-side in. Warm enough for the salt frost on its own."},
 	"fur_hood": {"name": "Fur Hood", "slot": "head", "warm": 1.0, "guard": 0.03, "cost": {"hide": 3, "cloth": 1}, "look": {"head": 1}, "needs": "book_furrier", "text": "Lined with fur. Warm."},
 	"hide_gloves": {"name": "Hide Gloves", "slot": "hands", "warm": 0.5, "guard": 0.02, "gather": 1.15, "cost": {"hide": 3, "cloth": 1}, "look": {"hands": 1}, "text": "Tough hands. You gather a little more."},
 	"tar_boots": {"name": "Tar Boots", "slot": "feet", "guard": 0.03, "ward": "marsh", "cost": {"heartwood": 4, "red_iron": 2, "hide": 3}, "text": "Wear them in the Tar Marsh. The tar no longer holds your feet."},
+	"sheepskin": {"name": "Frostfolk Sheepskin", "slot": "cloak", "warm": 2.0, "guard": 0.04, "ward": "frost", "cost": {"hide": 6, "cloth": 2, "bone": 2}, "look": {"cloak": 2}, "text": "Wear it on the Frostmark. The cold no longer bites."},
+	"water_gourd": {"name": "Water Gourd", "slot": "neck", "ward": "sun", "cost": {"hide": 3, "salt": 6, "herb": 2}, "look": {"neck": 1}, "text": "Wear it on the Sunward Reach. You no longer go thirsty by day."},
+	"bone_compass": {"name": "Rider's Bone Compass", "slot": "hands", "ward": "steppe", "cost": {"bone": 6, "scrap": 3, "salt_crystal": 1}, "look": {"hands": 1}, "text": "Carry it on the Pale Steppe. It points true, and you are never lost."},
 	"wraps": {"name": "Foot Wraps", "slot": "feet", "guard": 0.01, "speed": 1.03, "cost": {"cloth": 2}, "text": "Better than bare feet on hot ash."},
 	"boots": {"name": "Hobnail Boots", "slot": "feet", "warm": 0.5, "guard": 0.04, "speed": 1.05, "cost": {"cloth": 2, "bone": 2, "scrap": 3}, "text": "Sure footing. You walk faster."},
 }
@@ -121,6 +125,10 @@ const MAKE := {
 	"sledge": {"scrap": 20, "stone": 14, "wood": 6, "red_iron": 2},
 	"glaive": {"scrap": 30, "obsidian": 6, "heartwood": 3, "hide": 2, "tempered": 3},
 	"battle_axe": {"scrap": 28, "heartwood": 4, "salt_crystal": 4, "hide": 2, "tempered": 2},
+	# The far arms: only the far lands' stuff will make them
+	"carbine": {"scrap": 60, "sunglass": 6, "dome_steel": 2, "tempered": 2, "clockwork": 3},
+	"hand_cannon": {"scrap": 40, "dome_steel": 6, "lens_glass": 2, "tempered": 2, "clockwork": 1},
+	"war_pick": {"scrap": 30, "ice_iron": 6, "steppe_horn": 3, "hide": 2, "tempered": 3},
 	"incendiary": {"oil": 2, "cloth": 2, "scrap": 3},
 	"flare": {"oil": 1, "cloth": 2, "scrap": 2},
 	"mine": {"scrap": 8, "salt": 12},
@@ -167,6 +175,8 @@ const FRAME := {
 	"pistol9": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator", "flash_hider"],
 	"revolver": ["long_barrel", "sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator"],
 	"flamer": ["long_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver"],
+	"carbine": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "heavy_suppressor", "angled_grip", "slim_grip"],
+	"hand_cannon": ["sawn_barrel", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator"],
 }
 
 ## Grades of a part. A part made plainly at the bench is Plain; fittings found in the waste rework it
@@ -216,20 +226,36 @@ static func part_name(a: Dictionary, g: String, m: String) -> String:
 	return "%s %s" % [gr.n, nm] if str(gr.get("n", "")) != "" else nm
 
 
-## Draws a new grade for a part: its traits, and a name if it is storied.
-static func roll_grade(r: int, rng: RandomNumberGenerator = null) -> Dictionary:
+## A great one's own fittings ("fit_<land>"): the name a part reworked with them bears, and the trait it always has.
+const NAMED := {
+	"kraken": ["Bell-Wound's", "deep"], "ash": ["Matron's", "keen"], "dunes": ["Choir's", "true"], "salt": ["White Disc's", "far"],
+	"forest": ["Watcher's", "deadeye"], "basalt": ["Idol's", "steady"], "marsh": ["Tar Mother's", "deep"], "quiet": ["Archivist's", "ready"],
+	"domes": ["Lantern-Breaker's", "swift"], "frost": ["Glacier", "nimble"], "sun": ["Dry River", "far"], "steppe": ["Spine-King's", "keen"],
+}
+## What the far arms and the fifth step of work need read first (the far great ones leave the books).
+const MAKE_NEEDS := {"carbine": "book_sun", "hand_cannon": "book_domes", "war_pick": "book_frost"}
+const TIER_NEEDS := {4: "book_quiet"}
+
+
+## Draws a new grade for a part: its traits, and a name if it is storied. With a great one's
+## fittings (named: its land), it is storied, bears that great one's name and always has its trait.
+static func roll_grade(r: int, rng: RandomNumberGenerator = null, named := "") -> Dictionary:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
 	var pool: Array = TRAITS.keys()
 	var t: Array = []
-	for i in int(GRADES[r].traits):
+	if NAMED.has(named):
+		r = 3
+		t.append(NAMED[named][1])
+		pool.erase(NAMED[named][1])
+	for i in int(GRADES[r].traits) - t.size():
 		var k: String = pool[rng.randi() % pool.size()]
 		pool.erase(k)
 		t.append(k)
 	var out := {"r": r, "t": t}
 	if r >= 3:
-		out["n"] = STORIED[rng.randi() % STORIED.size()]
+		out["n"] = NAMED[named][0] if NAMED.has(named) else STORIED[rng.randi() % STORIED.size()]
 	return out
 
 
@@ -268,11 +294,13 @@ static func mods_text(md: Dictionary) -> String:
 		parts.append("%+d%% %s" % [int(round(pct)), words[k]])
 	return ", ".join(parts)
 
-const TIERS := ["Worn", "Cleaned", "Tempered", "Master-worked"]
+const TIERS := ["Worn", "Cleaned", "Tempered", "Master-worked", "Far-forged"]
+## The stuff of the far lands. Far-forged work, far plate and the far arms want it; none of it is ever cheapened.
+const FAR_STUFF := ["ice_iron", "sunglass", "steppe_horn", "lens_glass", "dome_steel"]
 const KINDS := [["blades", "melee", "Blade"], ["thrown", "grenade", "Thrown"], ["kits", "gadget", "Kit"]]
 
 
-## Each step of work adds 15% to a gun's or a blade's harm (Master-worked: x1.45).
+## Each step of work adds 15% to a gun's or a blade's harm (Master-worked: x1.45, Far-forged: x1.60).
 static func tier_mult(t: int) -> float:
 	return 1.0 + 0.15 * t
 
@@ -283,13 +311,24 @@ static func tier_cost(t: int, id := "") -> Dictionary:
 	var c := {"scrap": 20 * t, "salt": 40 * t}
 	if t >= 2:
 		c["red_iron"] = 3 * (t - 1)
-	if t >= 3:
+	if t == 3:
 		c["oil"] = 4
 		c["obsidian"] = 2
+	if t >= 4:
+		# Far-forged: the far lands' stuff, guns from the isles, blades from the Far Shores
+		c["oil"] = 6
+		c["tempered"] = 2
 	var k := craft_k(id)
 	if k != 1.0:
 		for key in c:
 			c[key] = int(ceil(int(c[key]) * k))
+	if t >= 4:
+		if ArmsDB.GUNS.has(id):
+			c["dome_steel"] = 3
+			c["lens_glass"] = 2
+		else:
+			c["ice_iron"] = 3
+			c["steppe_horn"] = 2
 	return c
 
 
@@ -299,6 +338,9 @@ static func craft_k(id: String) -> float:
 	if not MAKE.has(id):
 		return 1.0
 	var m: Dictionary = MAKE[id]
+	for key in FAR_STUFF:
+		if m.has(key):
+			return 2.5
 	if m.has("obsidian") or m.has("salt_crystal") or int(m.get("clockwork", 0)) >= 3:
 		return 2.0
 	for key in m:
@@ -374,7 +416,7 @@ static func clean(d) -> Dictionary:
 	if t is Dictionary:
 		for g in t:
 			if ArmsDB.GUNS.has(g) or ArmsDB.MELEE.has(g):
-				a.tier[g] = clampi(int(t[g]), 0, 3)
+				a.tier[g] = clampi(int(t[g]), 0, TIERS.size() - 1)
 	# Before 0.6 the sniper carried its glass built in; a rifle from then keeps it, now as a fitted scope
 	if not d.has("glass") and "sniper" in a.owned:
 		var parts: Array = a.parts.get("sniper", [])

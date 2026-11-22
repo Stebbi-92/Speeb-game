@@ -350,7 +350,7 @@ func _process(delta: float) -> void:
 		"claw":
 			hint = "[LMB]  Cast the claw" if _find_anchor() != null else ("Nothing in reach to hold" if Game.wasteland else "")
 		"hands":
-			hint = "[LMB]  Pray" if faith >= 1.0 else "Faith gathers as the lesser forms are undone"
+			hint = "[LMB]  Pray" if faith >= 1.0 else "Faith gathers as you kill enemies"
 		"lantern":
 			hint = "[LMB]  " + ("Quench the lantern" if lantern_lit else "Light the lantern")
 		"censer":

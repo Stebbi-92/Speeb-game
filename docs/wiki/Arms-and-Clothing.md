@@ -38,7 +38,7 @@ Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases 
 - **Iron sights.** Every gun has its own sights, lined up so the shot goes where they point.
 - **Sway.** Down the sights your aim sways a little. Heavy guns sway more, pistols less. A foregrip and practice steady it.
 - **Bullet drop.** Past about 25 metres a round falls. Shot and pistol rounds fall most, rifle rounds least. Rockets fall too.
-- **Hold your breath.** Behind a scope, hold Hasten (Shift) to steady it for a few seconds.
+- **Hold your breath.** Behind a scope, hold Sprint (Shift) to steady it for a few seconds.
 - **Practice.** Each gun and the blade get better the more you hit with them, through ten ranks.
 
 ### Sights
@@ -140,3 +140,21 @@ Eight places to wear things: head, eyes, face, neck, body, cloak, hands and feet
 | **Tar Boots** | Feet | 4 Heartwood, 2 Red Iron, 3 Hide | Wear them in the Tar Marsh. The tar no longer holds your feet. |
 | **Foot Wraps** | Feet | 2 Cloth | Better than bare feet on hot ash. |
 | **Hobnail Boots** | Feet | 2 Cloth, 2 Bone, 3 Scrap Iron | Sure footing. You walk faster. |
+
+## Far arms
+
+Three arms are made only from the far shores' materials. Each is taught by a book that a far great one leaves the first time it falls.
+
+| Arm | Kind | Notes |
+|---|---|---|
+| **Sunglass Carbine** | long gun | One fast, flat rifle round. Taught by the Glass-Grinder's Book (the Dry River). |
+| **Dome-steel Hand Cannon** | side arm | Two shells, seven pellets each. Staggers heavy forms. Taught by the Dome Foundry Book (the Lantern-Breaker). |
+| **Ice-iron War-pick** | blade | Goes through any plate, and freezes lesser forms a moment. Taught by the Ice-Smith's Notes (the Glacier Mother). |
+
+## Far-forged
+
+The fifth step of work on arms, after Master-worked: x1.60 harm. Taught by the Archive of Forging (the Archivist). Guns take dome steel and lens glass; blades take ice iron and steppe horn.
+
+## Far Plate
+
+The most plate of any clothing, warm, and no weight. Taught by the Horn-Wright's Pattern (the Spine-King). Far Barding does the same for the cat.

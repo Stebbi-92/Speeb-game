@@ -15,6 +15,18 @@ const JOBS := {
 	"hunter": {"name": "hunter", "goods": {"hide": 1, "raw_meat": 2}, "line": "Hide and meat. The beasts are thinner every year."},
 	"keeper": {"name": "fire-keeper", "goods": {}, "line": "I'll keep the fire. Go on, I've got it."},
 }
+## What each trade teaches the fellowship when one of its kind settles (a recipe's "needs").
+const TEACHES := {"woodcutter": "book_rigging", "salter": "book_salter", "scavenger": "book_gunwright", "hunter": "book_herbal", "keeper": "book_lamp"}
+## What each asks for, now and then: [item, how many]. Leave it in the base's chest; at dawn it is taken
+## and paid for.
+const WANTS := {
+	"woodcutter": [["cloth", 4], ["scrap", 3], ["meat", 3]],
+	"salter": [["wood", 12], ["cloth", 3], ["bandage", 2]],
+	"scavenger": [["oil", 2], ["meat", 4], ["shells", 20]],
+	"hunter": [["salt", 20], ["rounds", 30], ["bandage", 2]],
+	"keeper": [["wood", 20], ["oil", 2], ["tar", 3]],
+}
+const PAYS := [["fittings_fine", 1], ["coin", 4], ["tempered", 1], ["clockwork", 1], ["salve", 2]]
 const NAMES := ["Oda", "Brann", "Mira", "Tobben", "Selk", "Ivo", "Hesse", "Rook", "Anwen", "Dagny", "Petr", "Ulla", "Corran", "Fenn", "Yrsa", "Malin"]
 
 var w
@@ -71,11 +83,57 @@ func host_dawn(chance := CHANCE) -> void:
 			w.shared("_w_settler_gone", [int(s.id), "%s has gone. The fire was cold." % s.name])
 			continue
 		_work(s)
+		_want_dawn(s)
 	for pid in w.pieces.keys():
 		if room_at(pid) and randf() < chance:
 			var job: String = JOBS.keys()[randi() % JOBS.size()]
 			var nm: String = NAMES[randi() % NAMES.size()]
-			w.shared("_w_settler", [{"id": _next, "fire": pid, "job": job, "name": nm, "seed": randi()}])
+			var wl: Array = WANTS[job]
+			w.shared("_w_settler", [{"id": _next, "fire": pid, "job": job, "name": nm, "seed": randi(), "want": wl[randi() % wl.size()]}])
+
+
+## A settler's want: if what they asked for is in the base's chests at dawn, they take it and pay,
+## and ask for something else.
+func _want_dawn(s: Dictionary) -> void:
+	var want = s.get("want")
+	if not want is Array or want.size() < 2:
+		# One who came before settlers asked for things: give them something to ask for
+		var wl0: Array = WANTS[s.job]
+		w.shared("_w_settler_paid", [int(s.id), "", 0, wl0[randi() % wl0.size()]])
+		return
+	var cids := chests_at(int(s.fire))
+	var id := str(want[0])
+	var n := int(want[1])
+	var have := 0
+	for cid in cids:
+		for it in w.containers[cid]:
+			if it != null and it[0] == id:
+				have += int(it[1])
+	if have < n:
+		return
+	for cid in cids:
+		var data: Array = w.containers[cid]
+		for i in data.size():
+			if n > 0 and data[i] != null and data[i][0] == id:
+				var t := mini(n, int(data[i][1]))
+				data[i][1] = int(data[i][1]) - t
+				n -= t
+				if int(data[i][1]) <= 0:
+					data[i] = null
+		w.shared("_w_cont", [cid, data])
+	var pay: Array = PAYS[randi() % PAYS.size()]
+	_put(cids, str(pay[0]), int(pay[1]))
+	var wl: Array = WANTS[s.job]
+	var next: Array = wl[randi() % wl.size()]
+	w.shared("_w_settler_paid", [int(s.id), str(pay[0]), int(pay[1]), next])
+
+
+## What this settler asks for now, in words, or "".
+static func want_text(s: Dictionary) -> String:
+	var want = s.get("want")
+	if not want is Array or want.size() < 2:
+		return ""
+	return "%s the %s asks for %d %s. Leave it in your base's chest; it is taken and paid for at dawn." % [s.name, JOBS[s.job].name, int(want[1]), Items.iname(str(want[0])).to_lower()]
 
 
 func _work(s: Dictionary) -> void:
@@ -141,6 +199,9 @@ func _show(s: Dictionary) -> void:
 	var fp: Vector3 = w.pieces[int(s.fire)].pos
 	var f := WTownsfolk.new().setup(w, fp + Vector3(2.5, 0, 2.5), 7.0, int(s.seed))
 	f.lines = ["I'm %s. I'm the %s here now." % [s.name, JOBS[s.job].name], JOBS[s.job].line]
+	var want = s.get("want")
+	if want is Array and want.size() >= 2:
+		f.lines.append("If you've %d %s to spare, leave it in the chest. I'll make it worth your while." % [int(want[1]), Items.iname(str(want[0])).to_lower()])
 	w.add_child(f)
 	f.global_position = Vector3(fp.x + 2.5, w.terrain.height_at(fp.x + 2.5, fp.z + 2.5), fp.z + 2.5)
 	_nodes[int(s.id)] = f
@@ -158,4 +219,7 @@ func from_data(d) -> void:
 		return
 	for s in d:
 		if s is Dictionary and JOBS.has(str(s.get("job", ""))):
-			add({"id": int(s.id), "fire": int(s.fire), "job": str(s.job), "name": str(s.name), "seed": int(s.get("seed", 0))})
+			var one := {"id": int(s.id), "fire": int(s.fire), "job": str(s.job), "name": str(s.name), "seed": int(s.get("seed", 0))}
+			if s.get("want") is Array:
+				one["want"] = (s.want as Array).duplicate()   # what they asked for is kept, and joiners see it too
+			add(one)

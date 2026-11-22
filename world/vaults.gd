@@ -148,6 +148,9 @@ func build(id: String) -> void:
 		WIsleLife.put(holder, "castle", "stairs-stone", Vector3(0, k * 1.5 - 1.0, first[0] - first[2] + 1.2), PI, 2.2, false, Vector3.ZERO, stone, 80.0)
 	var up: Area3D = w.interact_area(holder.position + Vector3(0, 1.4, first[0] - first[2] + 2.0), 2.4, "Climb out of the vault", func(): go_up(id), 0.0, false)
 	up.set_meta("prompt", "Climb out of the vault")
+	holder.tree_exiting.connect(func():
+		if is_instance_valid(up):
+			up.queue_free())
 	var last: Array = rooms[rooms.size() - 1]
 	WDress.kp(holder, "grave", "altar-stone", Vector3(0, 0, last[0] + last[2] - 3.0), PI, 2.8, true)
 	built[id] = {"rooms": rooms, "gates": gates, "holder": holder, "winches": winches}
@@ -374,12 +377,14 @@ func done(id: String, d: int, shares: Array) -> void:
 	w.flags["vault_done_" + id] = d
 	w.flags.erase("vault_open_" + id)
 	state.erase(id)
+	# One lying fallen below is still below: they climb out with the rest, and take their share
+	var below: bool = w.player != null and built.has(id) and inside(id, w.player.global_position)
 	if built.has(id):
 		var holder: Node3D = built[id].holder
 		built.erase(id)
 		# Freed once those below have climbed out
 		holder.get_tree().create_timer(1.0).timeout.connect(holder.queue_free)
-	if Net.me() in shares:
+	if Net.me() in shares or below:
 		var rr := RandomNumberGenerator.new()
 		rr.randomize()
 		var items: Array = Items.roll("vault", 3, rr)

@@ -1,7 +1,5 @@
 # Controls
 
-_This page is made from the game's own data by `tools/wiki.gd`. Edit the game, not this page._
-
 Every control can be changed in **Settings**. These are the defaults.
 
 | Action | Keys |
@@ -11,9 +9,9 @@ Every control can be changed in **Settings**. These are the defaults.
 | Step left | A or Left |
 | Step right | D or Right |
 | Jump | Space |
-| Hasten | Shift |
-| Tread softly | Ctrl or C |
-| Interact | E or F |
+| Sprint | Shift |
+| Sneak | Ctrl or C |
+| Interact | E |
 | Fire, use, or build | Left mouse |
 | Aim, or take down a built piece | Right mouse |
 | Reload, or turn a piece | R |
@@ -25,7 +23,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Dodge (the waste), Swift Cast | Q |
 | Riftwalk | V |
 | Whistle for your cat (the waste) | N |
-| Use your best healing (the waste) | T |
+| Use your best healing (the waste) | F |
 | Use smelling salts on a fallen friend | Y |
 | Relic 1 (arms) | 1 |
 | Relic 2 | 2 |
@@ -37,7 +35,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Claw (the waste) | 8 |
 | Censer (the waste) | 9 |
 | The Book of Emojis | Tab |
-| Fellowship list (together) | L |
+| Player list (together) | L |
 | Pack (the waste) | I |
 | Map (the waste) | M |
 | Journal (the waste) | J |
@@ -52,7 +50,7 @@ A controller works too: the left stick walks, the right stick looks.
 | Action | Button |
 |---|---|
 | Jump | A |
-| Hasten | Left stick press |
+| Sprint | Left stick press |
 | Interact | X |
 | Fire, use, or build | RT |
 | Aim, or take down a built piece | LT |
@@ -61,7 +59,7 @@ A controller works too: the left stick walks, the right stick looks.
 | Melee | Right stick press |
 | Grenade | LB |
 | Dodge (the waste), Swift Cast | B |
-| Fellowship list (together) | Back |
+| Quick wheel: hold, point a stick, let go. Best healing, whistle, smelling salts, relics 1 to 9 and the fellowship list | Back |
 | Pack (the waste) | D-pad down |
 | Map (the waste) | D-pad up |
 | Journal (the waste) | D-pad left |
@@ -85,3 +83,27 @@ In menus: **Esc** closes. In a chest, **R** takes everything. Holding **E** on a
 | 9 | Censer |
 
 You choose what you carry in the Arms screen, but only at camp (by a lit fire), in a town or at a workbench. Out on the road you fight with what you brought.
+
+## The Settings pages
+
+Settings has six pages: **Display**, **Controls**, **Sound**, **Accessibility**, **Game** and **Playing together**. Click a page's name, or press LB and RB on a controller (Q and E on the keyboard), to move between them.
+
+- **Display** also holds **Brightness** (70% to 140%). After changing the display mode or resolution, the game asks "Keep this display?" and goes back by itself after 15 seconds if you don't answer.
+- **Controls** has the mouse, the controller (**Look speed**, and **Invert stick up and down**, now apart from the mouse) and every key.
+- **Playing together** has your name, and the internet list address under **Advanced**.
+
+### With a controller
+
+Every menu can be used with a controller. The first item is chosen when a page opens, **B** goes back one step (as Escape does), and on a slider the d-pad moves it a twentieth of the way each press.
+
+Controller buttons can be changed under **Settings, Controls, Controller buttons**: choose an action, then press the new button or trigger. The sticks always walk and look, and Back always holds the quick wheel.
+
+Press **Reload** with a full gun to look it over in your hands.
+
+## Settings for everyone
+
+- **Hold or press to switch:** Sprint, Sneak and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.
+- **Menu and text size:** 90%, 100%, 110% or 120%.
+- **Subtitles for spoken lines:** what Brelm says over the fallen is written out at the bottom of the screen.
+- **Colour-blind friendly map colours:** road safety on the map goes from orange (Dangerous) through yellow and blue to light blue (Peaceful), instead of red to green.
+- **Graphics quality:** Low (shorter shadows, no glow, for slower machines), Standard or High. **Render scale** draws the world at 100% down to 50% and sharpens it back up.

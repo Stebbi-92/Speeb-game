@@ -15,6 +15,8 @@ const BARDING := {
 	"hide_barding": {"name": "Hide Barding", "guard": 0.2, "cost": {"hide": 6, "cloth": 2}},
 	"bone_barding": {"name": "Bone Barding", "guard": 0.35, "cost": {"bone": 10, "hide": 4}},
 	"iron_barding": {"name": "Iron Barding", "guard": 0.5, "cost": {"scrap": 20, "hide": 4}},
+	"far_barding": {"name": "Far Barding", "guard": 0.6, "cost": {"steppe_horn": 6, "ice_iron": 2, "hide": 4}},
+	"renown_barding": {"name": "Barding of Renown", "guard": 0.5, "cost": {"cloth": 4, "hide": 4}, "renown": true},
 }
 const WALK := 1.8         ## times the rider's walking pace
 const SPRINT := 2.8       ## times the rider's walking pace, on the cat's breath
@@ -108,6 +110,7 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D) -> MeshInsta
 ## its own head is drawn small inside a Speeb's, alive, which rides where the head should be.
 const MODEL := "res://assets/models/mounts/sphynx_cat.glb"
 const MODEL_SCALE := 2.7
+const SADDLE := "res://assets/models/mounts/saddle.glb"   ## YaredGmGm's saddle (CC-BY), over the cat's back
 const HEAD_BONE := "head_12"
 const GAITS := ["Cat_Idle", "Cat_Walk", "Cat_Trot", "Cat_Gallop_Run"]
 
@@ -174,10 +177,13 @@ func _refresh() -> void:
 	for c in _bard.get_children():
 		c.queue_free()
 	if not wild:
-		var leather := _mat(Color(0.32, 0.2, 0.12))
-		_box(Vector3(0.66, 0.08, 0.5), Vector3(0, 1.25, -0.05), leather, _bard)
-		_box(Vector3(0.05, 0.32, 0.05), Vector3(0.34, 1.05, -0.05), leather, _bard)
-		_box(Vector3(0.05, 0.32, 0.05), Vector3(-0.34, 1.05, -0.05), leather, _bard)
+		var saddle: Node3D = (load(SADDLE) as PackedScene).instantiate()
+		saddle.scale = Vector3.ONE * 0.78
+		saddle.position = Vector3(0, 1.0, 0.12)   # under the rider's seat
+		saddle.rotation.y = PI                    # the pommel to the cat's head
+		for mi in saddle.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		_bard.add_child(saddle)
 		match barding:
 			"hide_barding":
 				_box(Vector3(0.7, 0.4, 0.9), Vector3(0, 1.0, 0.05), _mat(Color(0.45, 0.36, 0.26)), _bard)
@@ -190,6 +196,15 @@ func _refresh() -> void:
 				iron.metallic = 0.6
 				_box(Vector3(0.72, 0.5, 1.2), Vector3(0, 0.98, 0.05), iron, _bard)
 				_box(Vector3(0.6, 0.2, 0.3), Vector3(0, 1.62, 0.95), iron, _bard)
+			"far_barding":
+				var horn := _mat(Color(0.9, 0.86, 0.72))
+				var ice := _mat(Color(0.62, 0.78, 0.9))
+				_box(Vector3(0.72, 0.46, 1.15), Vector3(0, 0.98, 0.05), ice, _bard)
+				for i in 3:
+					_box(Vector3(0.78, 0.12, 0.14), Vector3(0, 1.22, 0.4 - i * 0.35), horn, _bard)
+			"renown_barding":
+				_box(Vector3(0.74, 0.44, 1.0), Vector3(0, 1.0, 0.05), _mat(Color(0.5, 0.12, 0.1)), _bard)
+				_box(Vector3(0.76, 0.06, 1.02), Vector3(0, 0.8, 0.05), _mat(Color(0.9, 0.72, 0.3)), _bard)
 	_label.text = cat_name if not wild else ("A stray cat" + (" (fed %d of 3)" % fed if fed > 0 else ""))
 	_label.modulate = Color(0.95, 0.85, 0.55) if not wild else Color(0.85, 0.82, 0.75)
 	_label.visible = not ridden
@@ -212,7 +227,7 @@ func pace(sprint: bool, delta: float) -> float:
 	var base: float = w.player.walk_speed
 	if sprint and not winded and breath > 0.0:
 		_sprint_t = 0.6
-		breath = maxf(0.0, breath - delta * (3.5 if w.skills.has_boon("cat_kin") else 7.0))
+		breath = maxf(0.0, breath - delta * 7.0 * (1.0 - w.power_k("horn")))
 		if breath <= 0.0:
 			winded = true
 		return base * SPRINT
@@ -330,4 +345,4 @@ func can_ride() -> bool:
 
 
 func to_data() -> Dictionary:
-	return {"face": face, "name": cat_name, "barding": barding, "hp": hp, "pos": [global_position.x, global_position.z]}
+	return {"face": face, "name": cat_name, "barding": barding, "hp": hp, "pos": [Game.world_pos(self).x, Game.world_pos(self).z]}

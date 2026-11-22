@@ -8,6 +8,11 @@
 //   (ip4 is the host's public IPv4 as its router told it; same/lan say whether the asker shares the host's network)
 //   GET  /code/XXXXXX -> {name, ip, port, players, max, level, proto, version, locked}   (a fellowship by its join code)
 //   GET  /latest    -> {version, tag, name, notes, published, page, assets: {name: url}, news}
+//   POST /report    {version, platform, kind, text}   (an error report the player chose to send)
+//   GET  /reports   -> {reports: [{version, platform, kind, text, count, first, last}]}   (newest first)
+//
+// Reports keep only what the game sends: the error text and the game version. No address is stored;
+// the sender's IP is used only in memory to stop one machine from flooding the list.
 //
 // /latest reads the newest release of the game's GitHub repository (GITHUB_REPO in wrangler.toml) and
 // keeps it for ten minutes, so thousands of players asking for updates cost GitHub one request.
@@ -139,6 +144,74 @@ export class Lobby {
   }
 }
 
+// Error reports: one Durable Object holding the last few hundred distinct errors, counted
+const MAX_REPORTS = 200;
+const REPORTS_PER_IP_HOUR = 10;
+
+// Take user names out of file paths, in case a log line carries one
+function scrub(s) {
+  return String(s ?? "")
+    .replace(/[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s]+/gi, "~")
+    .replace(/\/(home|Users)\/[^/\s]+/g, "~")
+    .replace(/[\u0000-\u0008\u000b-\u001f]/g, "");
+}
+
+async function hash(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export class Reports {
+  constructor(state, env) {
+    this.state = state;
+    this.recent = new Map(); // ip -> [times], memory only
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/reports" && request.method === "GET") {
+      const all = await this.state.storage.list({ prefix: "r:" });
+      const out = [...all.values()].sort((a, b) => b.last - a.last);
+      return json({ reports: out });
+    }
+    if (url.pathname === "/report" && request.method === "POST") {
+      const ip = request.headers.get("x-brelm-ip") || "";
+      const now = Date.now();
+      const times = (this.recent.get(ip) || []).filter((t) => now - t < 3_600_000);
+      if (times.length >= REPORTS_PER_IP_HOUR) return json({ ok: false, error: "too many" }, 429);
+      times.push(now);
+      this.recent.set(ip, times);
+      if (this.recent.size > 5000) this.recent.clear();
+
+      let body;
+      try { body = JSON.parse(await request.text()); } catch { return json({ ok: false, error: "bad json" }, 400); }
+      const r = {
+        version: clean(body.version, 40),
+        platform: clean(body.platform, 40),
+        kind: clean(body.kind, 20) === "crash" ? "crash" : "error",
+        text: scrub(body.text).slice(0, 4000),
+      };
+      if (!r.text.trim()) return json({ ok: false, error: "empty" }, 400);
+      const key = "r:" + (await hash(r.version + "|" + r.kind + "|" + r.text));
+      const old = await this.state.storage.get(key);
+      if (old) {
+        old.count += 1;
+        old.last = now;
+        await this.state.storage.put(key, old);
+      } else {
+        await this.state.storage.put(key, { ...r, count: 1, first: now, last: now });
+        const all = await this.state.storage.list({ prefix: "r:" });
+        if (all.size > MAX_REPORTS) {
+          const drop = [...all.entries()].sort((a, b) => a[1].last - b[1].last).slice(0, all.size - MAX_REPORTS);
+          await this.state.storage.delete(drop.map((e) => e[0]));
+        }
+      }
+      return json({ ok: true });
+    }
+    return json({ error: "not found" }, 404);
+  }
+}
+
 const LATEST_TTL_S = 600;
 
 async function latest(request, env, ctx) {
@@ -183,7 +256,9 @@ export default {
     const ip = request.headers.get("cf-connecting-ip") || "";
     const headers = new Headers(request.headers);
     headers.set("x-brelm-ip", ip);
-    const stub = env.LOBBY.get(env.LOBBY.idFromName("lobby"));
+    const path = new URL(request.url).pathname;
+    const ns = path === "/report" || path === "/reports" ? env.REPORTS : env.LOBBY;
+    const stub = ns.get(ns.idFromName(ns === env.REPORTS ? "reports" : "lobby"));
     return stub.fetch(new Request(request.url, {
       method: request.method,
       headers,

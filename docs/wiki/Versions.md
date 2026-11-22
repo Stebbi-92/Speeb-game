@@ -2,6 +2,59 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.19.0 (settings, menus and a bug hunt)
+
+- **Settings for everyone:** six pages (Display, Controls, Sound, Accessibility, Game, Playing together); press-to-switch Sprint, Sneak and Aim; menu and text size from 90% to 120%; subtitles for spoken lines; colour-blind road colours on the map; brightness; a Low graphics preset and a Render scale for slower machines. Controller buttons can be changed, and prompts name them when a controller is in use.
+- **Menus:** one look for every list, switch and slider; every menu works with a controller, and B goes back. The map shows unseen land as ash with a kilometre grid, a north mark and a scale.
+- **Lighter towns:** a town now sends about half as many things to be drawn.
+- **Error reports:** if the game hit an error or closed suddenly, the title asks whether to send a short report. See [Saves and Updates](Saves-and-Updates).
+- **Playing together:** the host can send a player away from **Players** in the pause menu. See [Playing Together](Playing-Together).
+- **Small things:** press Reload with a full gun to look it over; slain enemies fall the way the blow drove them; the beacon bell is a recorded bell; messages under the compass wait their turn.
+- **Fixes:** quitting no longer moves your cat and boats; a damaged save is kept aside instead of written over; satchels nobody comes near blow away after four days (never your own belongings or a broken chest's goods); no more salt from buying makings and selling what you make; smoother enemies in co-op; the first-steps guide says to hold E to gather, and you start with two cloth for the first bandage.
+
+## 0.18.0 (the polish)
+
+- **Plain words:** prompts, menus and the HUD say kill, enemy and player. Hasten is now **Sprint** and Tread softly is now **Sneak**. See [Controls](Controls).
+- **Systems show up when you need them:** fear at the first night, hardships at the first hard land, trades at the first town, road safety at the first plea, seasons from day five. Someone who joins later sees everything the world has reached.
+- **Music:** a small score for dawn, night, the seventh night, towns, the sea and great ones, with a swell when a beacon catches. It has its own **Music** slider in Settings.
+- **Together:** a friend's perfect guard works as yours does, a newcomer sees events already under way, and two players spending the same chest at once can no longer both get the goods.
+
+## 0.17.0 (the long road and the keeping)
+
+- **Fouled bowls:** after the turn, the last four beacons each want a key from beyond the shore. See [The Ashen Waste](The-Ashen-Waste).
+- **Danger 5** on the Far Shores, five far materials, three far arms, Far-forged arms and Far Plate.
+- **Every fire opens something:** strays, survey, planters, waystones, boats, Discern, Bulwark and the Ferryman's Way.
+- **Six new boons** that you use, and waystones with rules.
+- **Great ones** leave named fittings and books. The Trophy Hall and Renown.
+- **After an ending:** roaming great ones, feast days and completion rewards. The Second Vow adds guttering fires and the Far Host.
+- **Together:** fairer beacon credit, an ending vote, and anyone can make tempered steel and clockwork (at a cost).
+- **Controls:** one key per action, and a quick wheel on the controller.
+- Worlds and characters from 0.16 may not carry over cleanly.
+
+## 0.16.0 (the far lands)
+
+- **The turn:** the fifth beacon opens the sea. The whirlpool and the far isles show, the seventh night's raid comes out of the water, and champions rise past the first ring. See [The Grey Sea](The-Grey-Sea).
+- **The far sea:** Quietglass and the Thousand Domes, then the Far Shores (each about 2 km across): the Frostmark, the Sunward Reach and the Pale Steppe.
+- **New hardships** with their wards: cold, thirst by day and getting lost.
+- **Three far towns** (Hearthholm, the Hanging Town, Stillwater) with six new people.
+- **Five far great ones,** each with a trophy and a power.
+- **The Lighthouse chain:** ten lighthouses; light both on a way for a safe sea lane.
+- **The Kelp Forest:** slow boats and weed eels.
+- **Fixes** from a full sweep: no item copies when quitting during the death countdown, no waking on a boat after dying, drowning spares armour, friends can always be raised, refused joins say why, old saves keep their gathered spots, quest keepsakes no longer lock errands, settlers remember their wants, and more (see the release notes).
+
+## 0.15.0 (the living waste)
+
+- **Road safety:** each town knows how safe its roads are: Dangerous, Uneasy, Safe or Peaceful. Slay foes near it, put down road bands and break nearby raid camps to make them safer; run and leave camps standing and they grow worse. See [The Ashen Waste](The-Ashen-Waste).
+- **Bounties** on the raid camp nearest each town, paid in coin and standing.
+- **Safe towns** sell more, and trade caravans run between them. Save one, or rob it, and both towns hear of it.
+- **Dangerous towns** shut their gates at night (knock if they know you) and charge more.
+- **Peaceful towns** raise a militia that shoots foes near the walls.
+- **Standing:** towns that know you well call you Friend or Warden, give a gift, and let you sleep at the inn for free. Rival towns grumble when you favour one.
+- **The map** shows each town's road safety as a coloured ring.
+- **Seasons** are named at dawn a day before they turn.
+- **The seventh night** brings a great host chosen by how many beacons are lit.
+- **Settlers** want things, pay for them, and teach their trade.
+
 ## 0.14.0 (walk together)
 
 - **Walking together:** players who keep together fall into squads of two to four, and learn from each other's kills. Loot from great ones and road events falls as a satchel for each player. Late joiners come with kit to match the beacons lit. What now names a friend to ask for what only their trade makes. See [Playing Together](Playing-Together).

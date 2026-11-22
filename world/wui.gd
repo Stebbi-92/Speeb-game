@@ -215,10 +215,13 @@ func skills_changed() -> void:
 	if _xp_bar == null:
 		return
 	var s: WSkills = w.skills
-	_xp_bar.max_value = WSkills.need(s.level)
-	_xp_bar.value = s.xp
+	var top_level: bool = s.level >= WSkills.MAX_LEVEL
+	_xp_bar.max_value = WSkills.RENOWN_STEP if top_level else WSkills.need(s.level)
+	_xp_bar.value = s.renown_xp if top_level else s.xp
 	var extra := "    %d to spend  [%s]" % [s.points, Game.key_text("skills")] if s.points > 0 else ""
-	_xp_text.text = ("Level %d" % s.level) + ("   (the most there is)" if s.level >= WSkills.MAX_LEVEL else "") + extra
+	if s.renown_picks > 0:
+		extra += "    a renown reward to choose  [%s]" % Game.key_text("skills")
+	_xp_text.text = ("Level %d" % s.level) + ("   Renown %d" % s.renown if top_level else "") + extra
 	if _panel_name == "skills":
 		_draw_skills()
 
@@ -253,12 +256,12 @@ func _draw_skills() -> void:
 	var lv := VBoxContainer.new()
 	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lv.add_theme_constant_override("separation", 4)
-	lv.add_child(_label(("Level %d    %d of %d toward the next" % [s.level, s.xp, WSkills.need(s.level)]) if s.level < WSkills.MAX_LEVEL else "Level %d, the most there is" % s.level, 17, PALE))
+	lv.add_child(_label(("Level %d    %d of %d toward the next" % [s.level, s.xp, WSkills.need(s.level)]) if s.level < WSkills.MAX_LEVEL else "Level %d    Renown %d    %d of %d toward the next" % [s.level, s.renown, s.renown_xp, WSkills.RENOWN_STEP], 17, PALE))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(0, 6)
 	bar.max_value = 1.0
-	bar.value = float(s.xp) / maxf(1.0, WSkills.need(s.level)) if s.level < WSkills.MAX_LEVEL else 1.0
+	bar.value = float(s.xp) / maxf(1.0, WSkills.need(s.level)) if s.level < WSkills.MAX_LEVEL else float(s.renown_xp) / WSkills.RENOWN_STEP
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(1, 1, 1, 0.1)
 	var fg := StyleBoxFlat.new()
@@ -267,12 +270,29 @@ func _draw_skills() -> void:
 	bar.add_theme_stylebox_override("fill", fg)
 	lv.add_child(bar)
 	top.add_child(lv)
-	top.add_child(_chip("Trade: %s" % (w.trades.tname(w.trades.trade) if w.trades.trade != "" else "choose one"), w.trades.trade == "", func(): open_trade()))
+	if w.staged("trades") or w.trades.trade != "":
+		top.add_child(_chip("Trade: %s" % (w.trades.tname(w.trades.trade) if w.trades.trade != "" else "choose one"), w.trades.trade == "", func(): open_trade()))
 	top.add_child(_chip("%d point%s to spend" % [s.points, "" if s.points == 1 else "s"], s.points > 0, func(): pass))
 	_body.add_child(top)
 	_close_and_rule(top)
+	if s.renown_picks > 0:
+		# A step of renown: choose its reward
+		var rr := HBoxContainer.new()
+		rr.add_theme_constant_override("separation", 10)
+		rr.add_child(_label("Renown reward:", 16, GOLD))
+		for r in WSkills.RENOWN_REWARDS:
+			var rw: Dictionary = WSkills.RENOWN_REWARDS[r]
+			var can: bool = not (r == "barding" and s.has_reward("barding")) and not (r == "hall" and s.rewards.count("hall") >= 2)
+			var b := _secondary(rw.name, func():
+				if s.take_reward(r):
+					w._apply_skills()
+					w.char_save_soon()
+				_redraw(), can, 14)
+			b.tooltip_text = rw.text
+			rr.add_child(b)
+		_body.add_child(rr)
 	if s.points == 0:
-		_body.add_child(_label("Experience comes from what you undo, make, build and find, and from the beacons you light.", 15, DIM))
+		_body.add_child(_label("Experience comes from kills, making, building and finding things, and from the beacons you light.", 15, DIM))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	_body.add_child(row)
@@ -352,7 +372,7 @@ func _skill_card(id: String) -> Button:
 	tx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tx.custom_minimum_size.x = 210
 	v.add_child(tx)
-	if not can and why != "Mastered" and why != "No points to spend":
+	if not can and not why in [WSkills.MASTERED, WSkills.NO_POINTS]:
 		v.add_child(_label(why, 12, Color(0.85, 0.5, 0.4, 0.85)))
 	b.add_child(v)
 	b.pressed.connect(func(): _learn(id))
@@ -704,6 +724,8 @@ func _redraw_now() -> void:
 			_draw_cat()
 		"shrine":
 			_draw_shrine()
+		"hall":
+			_draw_hall()
 		"page":
 			_draw_page()
 		"ending":
@@ -720,7 +742,9 @@ func _process(_delta: float) -> void:
 	var part := "Night" if w.night else ("Dawn" if w.clock < 7.0 else ("Dusk" if w.clock >= 18.0 else "Day"))
 	_clock.text = "Day %d   %02d:%02d   %s" % [w.day, h, mn, part]
 	if w.weather:
-		_clock.text += "\n" + w.weather.label()
+		var wl: String = w.weather.label(w.staged("seasons"))
+		if wl != "":
+			_clock.text += "\n" + wl
 	_compass.w = w
 	_compass.queue_redraw()
 	_keys.visible = _panel == null and not w.builder.active
@@ -1332,6 +1356,8 @@ func _draw_arms() -> void:
 					rows.append([g, sp.name, "%s  ·  %s" % [["Carried  ·  long gun 1", "Carried  ·  long gun 2", "Carried  ·  side arm"][place], WArms.TIERS[t]], GOLD, {}, "", Callable(), false])
 				elif owned:
 					rows.append([g, sp.name, "%s  ·  %s" % ["Long gun" if sp.slot == "primary" else "Side arm", WArms.TIERS[t]], DIM, {}, "Carry", func(): _carry(g, _free_place(g)), home])
+				elif not _arm_known(g):
+					rows.append([g, sp.name, "Needs %s" % Items.iname(WArms.MAKE_NEEDS[g]), Color(DIM, 0.5), {}, "", Callable(), false])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[g])
 					rows.append([g, sp.name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[g], func(): a.owned.append(g); WArms.carry(a, g, _free_place(g))), bench and w.stock_has_all(c)])
@@ -1345,6 +1371,8 @@ func _draw_arms() -> void:
 				if id in a[k[0]]:
 					var on: bool = a[k[1]] == id
 					rows.append([id, tb[id].name, "Carried" if on else "Owned", GOLD if on else DIM, {}, "" if on else "Carry", func(): a[k[1]] = id; w.rearm(); _redraw(), home])
+				elif not _arm_known(id):
+					rows.append([id, tb[id].name, "Needs %s" % Items.iname(WArms.MAKE_NEEDS[id]), Color(DIM, 0.5), {}, "", Callable(), false])
 				else:
 					var c: Dictionary = _acost(WArms.MAKE[id])
 					rows.append([id, tb[id].name, "Not made", Color(DIM, 0.7), c, "Make", func(): _arms_pay(WArms.MAKE[id], func(): a[k[0]].append(id); a[k[1]] = id), bench and w.stock_has_all(c)])
@@ -1418,7 +1446,9 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		var hd := float(info.dmg) * (WArms.tier_mult(bt) if ArmsDB.MELEE.has(id) else 1.0)
 		_stat(side, "Harm", str(int(round(hd))), clampf(hd / 150.0, 0.05, 1.0))
 	# A blade one owns can be worked up at a bench like a gun
-	if ArmsDB.MELEE.has(id) and id in a.blades and bt < 3:
+	if ArmsDB.MELEE.has(id) and id in a.blades and bt < WArms.TIERS.size() - 1 and not _tier_known(bt + 1):
+		side.add_child(_label("%s needs %s." % [WArms.TIERS[bt + 1], Items.iname(WArms.TIER_NEEDS[bt + 1])], 14, DIM))
+	elif ArmsDB.MELEE.has(id) and id in a.blades and bt < WArms.TIERS.size() - 1:
 		var tc: Dictionary = _acost(WArms.tier_cost(bt + 1, id))
 		side.add_child(_secondary("Work on it: %s" % WArms.TIERS[bt + 1], func(): _arms_pay(WArms.tier_cost(bt + 1, id), func(): a.tier[id] = bt + 1), bench and w.stock_has_all(tc)))
 		side.add_child(_cost_line(tc))
@@ -1513,7 +1543,9 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	_stat(left, "Steadiness", "%d" % int(round(100.0 / maxf(0.2, float(sp.kick)))), clampf(0.6 / maxf(0.2, float(sp.kick)), 0.05, 1.0))
 	_stat(left, "Aim speed", "%d%%" % int(round(float(sp.aim) * 100.0)), clampf(float(sp.aim) / 1.6, 0.05, 1.0))
 	_stat(left, "Holds", str(Arms.mag_of(g)), clampf(Arms.mag_of(g) / 60.0, 0.05, 1.0))
-	if t < 3:
+	if t < WArms.TIERS.size() - 1 and not _tier_known(t + 1):
+		left.add_child(_label("%s needs %s." % [WArms.TIERS[t + 1], Items.iname(WArms.TIER_NEEDS[t + 1])], 14, DIM))
+	elif t < WArms.TIERS.size() - 1:
 		var c: Dictionary = _acost(WArms.tier_cost(t + 1, g))
 		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1, g), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
 		left.add_child(wb)
@@ -1618,6 +1650,14 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 			var b := _secondary("%s %s  (%d)" % ["Rework" if rr == r2 else "Make", WArms.GRADES[rr].name, n], func(): _rework(g, m2, rr), bench and n > 0, 14)
 			b.tooltip_text = "Uses one %s." % Items.iname(fid)
 			acts.add_child(b)
+		# A great one's own fittings, where there are any
+		for land in WArms.NAMED:
+			var nf: int = w.stock_count("fit_" + land)
+			if nf <= 0:
+				continue
+			var nb := _secondary("Make %s  (%d)" % [WArms.NAMED[land][0], nf], func(): _rework(g, m2, 3, land), bench, 14)
+			nb.tooltip_text = "Uses one %s: Storied, with the %s trait." % [Items.iname("fit_" + land), WArms.TRAITS[WArms.NAMED[land][1]].name]
+			acts.add_child(nb)
 	else:
 		var c: Dictionary = _acost(WArms.PARTS[m2])
 		acts.add_child(_primary("Make", func(): _arms_pay(WArms.PARTS[m2], func():
@@ -1656,12 +1696,23 @@ func _practice_line(id: String) -> Control:
 	return row
 
 
-## Reworks a part with fittings: a new grade and fresh traits.
-func _rework(g: String, m: String, r: int) -> void:
-	var fid: String = WArms.FITTINGS[r]
+## Whether the fellowship has read what a far arm needs (every other arm is known).
+func _arm_known(id: String) -> bool:
+	return not WArms.MAKE_NEEDS.has(id) or w.flags.has(WArms.MAKE_NEEDS[id])
+
+
+## Whether the fellowship has read what a step of work needs.
+func _tier_known(t: int) -> bool:
+	return not WArms.TIER_NEEDS.has(t) or w.flags.has(WArms.TIER_NEEDS[t])
+
+
+## Reworks a part with fittings: a new grade and fresh traits. A great one's fittings
+## (named: its land) make it storied, with that great one's name and trait.
+func _rework(g: String, m: String, r: int, named := "") -> void:
+	var fid: String = "fit_" + named if named != "" else WArms.FITTINGS[r]
 	if not w.stock_pay({fid: 1}):
 		return
-	w.arms.grade["%s/%s" % [g, m]] = WArms.roll_grade(r)
+	w.arms.grade["%s/%s" % [g, m]] = WArms.roll_grade(r, null, named)
 	w.sfx("carve", -4, null, 1.2)
 	if r >= 3:
 		w.sfx("bell", -10)
@@ -2161,7 +2212,7 @@ func _draw_craft() -> void:
 		if not station_shows(r, bench, pot >= 0):
 			continue
 		var here: bool = (not r.bench or bench) and (not r.get("fire", false) or fire) and w.trades.can_make(r)
-		var ok: bool = here and w.stock_has_all(w.skills.cost(r.cost))
+		var ok: bool = here and w.stock_has_all(w.trades.recipe_cost(r))
 		var grp := _make_group(r)
 		if ok:
 			ready_in[grp] = int(ready_in.get(grp, 0)) + 1
@@ -2197,7 +2248,7 @@ func _draw_craft() -> void:
 		return
 	_rhere = chosen[1]
 	var rr: Dictionary = Items.RECIPES[chosen[0]]
-	var cost2: Dictionary = w.skills.cost(rr.cost)
+	var cost2: Dictionary = w.trades.recipe_cost(rr)
 	var n: int = int(rr.n) + w.skills.make_bonus(rr.id) + w.trades.bonus(rr)
 	side.add_child(_icon(rr.id, 72))
 	side.add_child(_label(Items.iname(rr.id) + ("" if n == 1 else "  × %d" % n), 23, PALE))
@@ -2279,14 +2330,14 @@ func _recipe_card(i: int, here: bool, ok: bool) -> PanelContainer:
 	hv.add_child(_label(Items.iname(r.id) + ("" if n == 1 else "  × %d" % n), 17, PALE if here else DIM))
 	var where := "Workbench" if r.bench else ("Cooking station" if r.get("fire", false) else "By hand")
 	if r.has("trade"):
-		where = "%s's work · %s" % [w.trades.tname(r.trade), where]
+		where = "%s's work%s · %s" % [w.trades.tname(r.trade), " (x%d without it)" % WTrades.OPEN_MULT if w.trades.dear(r) else "", where]
 	hv.add_child(_label(where, 13, Color(DIM, 0.85) if here else NO_C))
 	head.add_child(hv)
 	v.add_child(head)
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 10)
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cost: Dictionary = w.skills.cost(r.cost)
+	var cost: Dictionary = w.trades.recipe_cost(r)
 	for k in cost:
 		var have: int = w.stock_count(k)
 		var c := HBoxContainer.new()
@@ -2413,7 +2464,7 @@ func _make(r: Dictionary, times := 1) -> void:
 		return
 	var made := 0
 	for t in times:
-		if not w.stock_pay(w.skills.cost(r.cost)):
+		if not w.stock_pay(w.trades.recipe_cost(r)):
 			break
 		made += 1
 	if made == 0:
@@ -2639,11 +2690,30 @@ func _speaker_head(pd: Dictionary) -> void:
 	nv.add_child(_label(pd.title, 17, DIM))
 	top.add_child(nv)
 	var st := int(w.rep.get(pd.at, 0))
+	var sv: int = w.safety_of(pd.at) if WPlaces.SETTLEMENTS.has(pd.at) and w.staged("standing") else -1
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 0)
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if st > 0:
 		var c := _label("Standing in %s: %d" % [WPlaces.SETTLEMENTS[pd.at].name, st], 16, GOLD)
-		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		top.add_child(c)
+		cv.add_child(c)
+	if sv >= 0:
+		var r := _label("Its roads: %s (%d)" % [Wasteland.safety_word(sv), sv], 15, DIM)
+		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cv.add_child(r)
+		var ttl: String = w.honour_title(pd.at)
+		if ttl != "":
+			var tl := _label(ttl, 15, GOLD)
+			tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			cv.add_child(tl)
+		var bty: Dictionary = w.bounty_of(pd.at)
+		if not bty.is_empty():
+			var me3: Vector3 = w.player.global_position
+			var bl := _label("Bounty: the raid camp %d m %s (%d coin)" % [int(me3.distance_to(bty.pos)), WPlaces.dir_word(Vector2(me3.x, me3.z), Vector2(bty.pos.x, bty.pos.z)), w.BOUNTY_COIN], 15, Color(0.95, 0.5, 0.4))
+			bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			cv.add_child(bl)
+	top.add_child(cv)
 	_body.add_child(top)
 	_close_and_rule(top)
 
@@ -2723,9 +2793,10 @@ const AMMO_PRICE := {"shells": [12, 3], "rounds": [6, 1], "rifle": [6, 1], "fuel
 
 ## The price of one (or of one lot, for ammunition).
 func buy_price(id: String, at: String) -> int:
+	var road: float = w.price_mult_at(at)   # dearer where the roads are dangerous
 	if AMMO_PRICE.has(id):
-		return maxi(1, ceili(AMMO_PRICE[id][0] * (1.0 - _discount(at)) * w.skills.buy_mult()))
-	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult()))
+		return maxi(1, ceili(AMMO_PRICE[id][0] * (1.0 - _discount(at)) * w.skills.buy_mult() * road))
+	return maxi(1, ceili(Items.info(id).value * 2.0 * (1.0 - _discount(at)) * w.skills.buy_mult() * road))
 
 
 ## What one fetches (or one lot, for ammunition).
@@ -2735,7 +2806,34 @@ func sell_price(id: String) -> int:
 		return 0
 	if AMMO_PRICE.has(id):
 		return maxi(1, int(AMMO_PRICE[id][1] * w.skills.sell_mult()))
-	return maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
+	var v := maxi(1, int(info.value * (1.0 if info.kind == "trinket" else 0.6) * w.skills.sell_mult()))
+	return mini(v, _made_cap(id))
+
+
+## Never more than it costs to make from goods bought at the cheapest a trader will ever sell them (full
+## standing, a feast day), so buying, making and selling back is never a well of salt.
+func _made_cap(id: String) -> int:
+	var cap := 1 << 30
+	var best: float = (1.0 - 0.3) * w.skills.buy_mult() * Wasteland.FEAST_PRICE
+	var sold := {}
+	for role in Items.STOCK:
+		for k in Items.STOCK[role] + Wasteland.SAFE_STOCK.get(role, []):
+			sold[k] = true
+	for r in Items.RECIPES:
+		if r.id != id:
+			continue
+		var cost := 0.0
+		var bought := true
+		for k in r.cost:
+			if k == "salt":
+				cost += float(r.cost[k])
+			elif sold.has(k) and not AMMO_PRICE.has(k):
+				cost += Items.info(k).value * 2.0 * best * float(r.cost[k])
+			else:
+				bought = false
+		if bought:
+			cap = mini(cap, maxi(1, int(cost / float(r.n))))
+	return cap
 
 
 var _tsel := ""      ## the chosen thing in trade
@@ -2762,14 +2860,14 @@ func _trade() -> void:
 	_body.add_child(split)
 	# What they sell
 	var buy_ids: Array = []
-	for id in Items.STOCK[pd.role]:
+	for id in w.stock_at(pd.role, pd.at):
 		if id == "beacon_oil" and not w.flags.has("oilcraft"):
 			continue
 		buy_ids.append(id)
 	var lb := _list_col(split, "%s sells" % pd.name.split(" ")[0])
 	for id in buy_ids:
 		var n := _lot(id)
-		var cost := buy_price(id, pd.at) * n
+		var cost := buy_price(id, pd.at)   # ammunition is priced by the lot already; all else comes by one
 		lb.add_child(_trade_row(id, "buy", "%d" % cost, w.inv.count("salt") >= cost, n))
 	# What you can sell
 	var ls := _list_col(split, "You can sell")
@@ -2809,7 +2907,7 @@ func _trade() -> void:
 		var id: String = _tsel
 		if _tside == "buy":
 			var lot := _lot(id)
-			var price := buy_price(id, pd.at) * lot
+			var price := buy_price(id, pd.at)
 			var can: int = w.inv.count("salt") / maxi(1, price)
 			side.add_child(_label("%d salt for %d" % [price, lot], 18, GOLD))
 			for k in [1, 5]:
@@ -2896,10 +2994,13 @@ func _junk_value() -> int:
 
 func _sell_junk() -> void:
 	var got := 0
-	for s in w.inv.slots.duplicate():
+	var ids := {}
+	for s in w.inv.slots:
 		if s != null and Items.info(s.id).kind == "trinket":
-			var n: int = w.inv.take(s.id, int(s.n))
-			got += sell_price(s.id) * n
+			ids[s.id] = true
+	for id in ids:
+		var n: int = w.inv.take(id, w.inv.count(id))   # every stack of it, wherever they lie
+		got += sell_price(id) * n
 	if got > 0:
 		w.give([["salt", got]])
 		w.sfx("shell", -6)
@@ -3080,6 +3181,8 @@ func open_map() -> void:
 
 
 var _map_zoom := 1.0
+var _map_seen := false
+var _map_frame: Control
 var _map_off := Vector2.ZERO   ## where the map's top left sits inside its window
 var _map_canvas: Control
 var _map_fog: Control
@@ -3125,7 +3228,16 @@ func _draw_map() -> void:
 	_map_draw.w = w
 	_map_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_canvas.add_child(_map_draw)
+	# Over the map, fixed in place: north, the scale, a thin frame
+	_map_frame = MapFrame.new()
+	_map_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_frame.size = Vector2(MAP_VIEW, MAP_VIEW)
+	holder.add_child(_map_frame)
 	hb.add_child(holder)
+	if not _map_seen:
+		# The first look: close enough to see the land walked so far, not a dot on a sea of dark
+		_map_seen = true
+		_map_zoom = 5.0
 	_map_center_on(w.player.global_position)
 	var side := VBoxContainer.new()
 	side.add_theme_constant_override("separation", 6)
@@ -3170,6 +3282,9 @@ func _map_layout() -> void:
 	_map_fog.size = Vector2(full, full)
 	_map_draw.zoom = _map_zoom
 	_map_draw.queue_redraw()
+	if is_instance_valid(_map_frame):
+		_map_frame.zoom = _map_zoom
+		_map_frame.queue_redraw()
 
 
 func _map_center_on(p: Vector3) -> void:
@@ -3189,7 +3304,7 @@ func _map_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		var at: Vector2 = e.position
 		var before := (at - _map_off) / _map_zoom
-		_map_zoom = clampf(_map_zoom * (1.25 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 1.0, 6.0)
+		_map_zoom = clampf(_map_zoom * (1.25 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 1.0, 12.0)
 		_map_off = at - before * _map_zoom
 		_map_layout()
 		accept_event()
@@ -3208,6 +3323,10 @@ func _map_input(e: InputEvent) -> void:
 		accept_event()
 
 
+## Land not yet seen: a dark ash ground with a faint grid over it, so it reads as unwalked, not as a fault
+const FOG := Color(0.075, 0.068, 0.06)
+
+
 func _update_fog() -> void:
 	if _fog_img == null:
 		return
@@ -3215,7 +3334,7 @@ func _update_fog() -> void:
 	var n: int = Wasteland.REVEAL_N
 	for j in n:
 		for i in n:
-			_fog_img.set_pixel(i, j, Color(0, 0, 0, 0.0 if w.revealed[j * n + i] != 0 else 1.0))
+			_fog_img.set_pixel(i, j, Color(FOG.r, FOG.g, FOG.b, 0.0 if w.revealed[j * n + i] != 0 else 1.0))
 	_fog_tex.update(_fog_img)
 
 
@@ -3234,7 +3353,7 @@ func _draw_trade() -> void:
 	top.add_child(_title("Your Trade"))
 	_body.add_child(top)
 	_close_and_rule(top)
-	var lead := "Each pilgrim keeps one trade. Each makes something no other can, so friends lean on one another."
+	var lead := "Each player keeps one trade. Each makes something no other can, so friends lean on one another."
 	if tr.trade != "":
 		lead += " To change it, go to a town and pay %d coin." % WTrades.CHANGE_COST
 	_body.add_child(_wrap(lead, 18, DIM, 900))
@@ -3520,7 +3639,7 @@ func _draw_rest() -> void:
 		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(w.player.global_position) < 40.0:
 			near += 1
 	if near > 0:
-		_body.add_child(_wrap("You cannot rest with forms so close.", 20, PALE))
+		_body.add_child(_wrap("You cannot rest with enemies so close.", 20, PALE))
 	elif w.night:
 		var t := "Sleep until dawn?" if not Net.online else ("Sleep until dawn? Everyone must lie down by a fire or a bedroll before the night passes." if Net.pilgrims().size() <= 4 else "Sleep until dawn? Three in four of the fellowship must lie down by a fire or a bedroll.")
 		_body.add_child(_wrap(t, 20, PALE))
@@ -3557,14 +3676,14 @@ func _bed_rows() -> void:
 	row.add_theme_constant_override("h_separation", 8)
 	row.add_theme_constant_override("v_separation", 6)
 	if owner != me:
-		row.add_child(_bed_chip("Make it mine", func(): w.shared("_rq_bed_owner", [pid, me, Net.me()]), GOLD))
+		row.add_child(_bed_chip("Make it mine", func(): w.shared("_rq_bed_owner", [Net.me(), pid, me]), GOLD))
 	if Net.online:
 		for id in Net.players:
 			var nm: String = Net.name_of(id)
 			if nm != owner and nm != me:
-				row.add_child(_bed_chip("Give to %s" % nm, func(): w.shared("_rq_bed_owner", [pid, nm, Net.me()]), Net.color_of(id).lightened(0.3)))
+				row.add_child(_bed_chip("Give to %s" % nm, func(): w.shared("_rq_bed_owner", [Net.me(), pid, nm]), Net.color_of(id).lightened(0.3)))
 	if owner != "":
-		row.add_child(_bed_chip("Free it", func(): w.shared("_rq_bed_owner", [pid, "", Net.me()]), DIM))
+		row.add_child(_bed_chip("Free it", func(): w.shared("_rq_bed_owner", [Net.me(), pid, ""]), DIM))
 	_body.add_child(row)
 
 
@@ -3612,7 +3731,7 @@ func open_planter(pid: int) -> void:
 
 
 func planter_changed(pid: int) -> void:
-	if pid == _pid and _panel_name in ["planter", "portal"]:
+	if pid == _pid and _panel_name in ["planter", "portal", "hall"]:
 		_redraw()
 
 
@@ -3719,6 +3838,50 @@ func open_shrine(pid: int) -> void:
 	_open("shrine")
 
 
+func open_hall(pid: int) -> void:
+	_pid = pid
+	_open("hall")
+
+
+func _draw_hall() -> void:
+	_clear()
+	var top := HBoxContainer.new()
+	top.add_child(_title("Trophy Hall"))
+	_body.add_child(top)
+	_close_and_rule(top)
+	var pc: Dictionary = w.pieces.get(_pid, {})
+	if pc.is_empty():
+		return
+	var hung: Array = pc.get("hung", [])
+	var places: int = w.skills.hall_places()
+	_body.add_child(_wrap("%d of %d places hung. Each trophy gives a third of its power to all within %d m. One who takes up a power at the shrine has that instead, never both." % [hung.size(), maxi(places, hung.size()), int(w.HALL_REACH)], 17, DIM))
+	for t in hung:
+		var pw: Dictionary = w.POWERS[t]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var nm := _label("%s:  %s" % [Items.iname(t), w.HALL_FORMS.get(pw.key, pw.text)], 17, GOLD)
+		nm.custom_minimum_size.x = 520
+		row.add_child(nm)
+		row.add_child(_secondary("Take down", func(): w.hang_trophy(_pid, t, false), true, 14))
+		_body.add_child(row)
+	var any := false
+	for t in w.POWERS:
+		if t in hung or w.inv.count(t) <= 0:
+			continue
+		any = true
+		var pw2: Dictionary = w.POWERS[t]
+		var row2 := HBoxContainer.new()
+		row2.add_theme_constant_override("separation", 12)
+		var nm2 := _label("%s:  %s" % [Items.iname(t), w.HALL_FORMS.get(pw2.key, pw2.text)], 17, PALE)
+		nm2.custom_minimum_size.x = 520
+		row2.add_child(nm2)
+		row2.add_child(_secondary("Hang it", func(): w.hang_trophy(_pid, t, true), hung.size() < places, 14))
+		_body.add_child(row2)
+	if hung.is_empty() and not any:
+		_body.add_child(_wrap("The hall is bare. Bring a great one's trophy, and hang it here.", 18, DIM))
+	_body.add_child(_action("Close", close_all, "Esc", DIM))
+
+
 func _draw_shrine() -> void:
 	_clear()
 	var top := HBoxContainer.new()
@@ -3790,6 +3953,8 @@ func _draw_cat() -> void:
 		if id == "":
 			continue
 		var b: Dictionary = WCat.BARDING[id]
+		if b.get("renown", false) and not w.skills.has_reward("barding"):
+			continue   # a renown step's cosmetic
 		var on: bool = c.barding == id
 		var cost: Dictionary = b.cost
 		var row := HBoxContainer.new()
@@ -3821,7 +3986,7 @@ func _draw_portal() -> void:
 	var pc: Dictionary = w.pieces.get(_pid, {})
 	if pc.is_empty():
 		return
-	_body.add_child(_wrap("Two waystones of the same name lead to each other.", 18, DIM))
+	_body.add_child(_wrap("Two waystones of the same name lead to each other. One must stand in a lit beacon's ground or a town. People pass; cargo, ore and keys go by road and sea.", 18, DIM))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 12)
 	var field := LineEdit.new()
@@ -3836,9 +4001,14 @@ func _draw_portal() -> void:
 	hb.add_child(_chip("Name it", false, save))
 	_body.add_child(hb)
 	var to: int = w.portal_pair(_pid)
-	if to >= 0:
+	if to >= 0 and w.waystone_why(_pid, to) != "":
+		_body.add_child(_wrap(w.waystone_why(_pid, to), 18, Color(0.95, 0.6, 0.45)))
+	elif to >= 0:
 		var d := int(pc.pos.distance_to(w.pieces[to].pos))
 		_body.add_child(_action("Step through  (%d m)" % d, func(): close_all(); w.step_through(_pid), "", GOLD))
+		var cw: String = w.waystone_carry_why()
+		if cw != "":
+			_body.add_child(_wrap(cw, 16, Color(0.95, 0.6, 0.45)))
 	elif str(pc.name) != "":
 		_body.add_child(_wrap("No other waystone bears this name yet.", 18, DIM))
 	var names := {}
@@ -3895,7 +4065,10 @@ func _draw_build_guide() -> void:
 				w.builder.toggle()
 				w.player.set_armed(false)
 			w.builder._hint()
-		grid.add_child(_card("pc_" + k, pc.name, "Holds well" if float(pc.hp) >= 600.0 else pc.group, DIM, cost, "Build", go, w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick))
+		var fires := int(pc.get("fires", 0))
+		var known: bool = w.has_verb(fires)
+		var sub: String = ("Holds well" if float(pc.hp) >= 600.0 else pc.group) if known else "After fire %d" % fires
+		grid.add_child(_card("pc_" + k, pc.name, sub, DIM, cost, "Build", go, known and w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick))
 	if chosen == "":
 		return
 	var pcs: Dictionary = Items.PIECES[chosen]
@@ -3929,7 +4102,29 @@ class Compass extends Control:
 		var cx := wd * 0.5
 		var fwd: Vector3 = -w.player.global_transform.basis.z
 		var heading := atan2(fwd.x, -fwd.z)
+		if w.lost:
+			# Lost on the Pale Steppe: the needle wanders
+			var tt := Time.get_ticks_msec() * 0.001
+			heading += sin(tt * 0.37) * 1.1 + sin(tt * 1.3) * 0.25
 		draw_rect(Rect2(0, 18, wd, 1), Color(1, 1, 1, 0.18))
+		var discern: bool = w.has_verb(7)
+		var lens_k: float = w.power_k("lens")
+		if lens_k > 0.0 or discern:
+			# The Archivist's Lens: forms near you, as red marks on the band. Discern (the seventh fire):
+			# the hidden and the unseen near you
+			# How far each sees: the Lens taken up 90 m; a hung Lens 20 m; Discern, the hidden only, 50 m
+			var all_reach: float = 90.0 if lens_k >= 1.0 else (20.0 if lens_k > 0.0 else 0.0)
+			for e in w.enemies:
+				if not is_instance_valid(e) or not e.is_alive():
+					continue
+				var dv: Vector3 = e.global_position - w.player.global_position
+				var hid: bool = e.get("hidden") == true or e.get("kind") == "unseen" or (e.get("_buried") is float and e.get("_buried") > 0.5)
+				if dv.length() > maxf(all_reach, 50.0 if discern and hid else 0.0):
+					continue
+				var dxe := wrapf(atan2(dv.x, -dv.z) - heading, -PI, PI)
+				if absf(dxe) <= 1.2:
+					var xe := cx + dxe / 1.2 * cx
+					draw_rect(Rect2(xe - 2, 12, 4, 13), Color(0.95, 0.25, 0.2, 1.0 - dv.length() / 110.0))
 		var font := ThemeDB.fallback_font
 		for k in 8:
 			var ang := k * TAU / 8.0
@@ -3985,6 +4180,33 @@ class Compass extends Control:
 				draw_string(font, Vector2(x - 30, 48), "%d m" % int(Vector2(d.x, d.z).length()), HORIZONTAL_ALIGNMENT_CENTER, 60, 12, Color(0.95, 0.85, 0.6, 0.9))
 
 
+class MapFrame extends Control:
+	var zoom := 1.0
+
+	func _draw() -> void:
+		var gold := Color(0.86, 0.80, 0.66)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(gold, 0.35), false, 1.0)
+		var font := ThemeDB.fallback_font
+		# North
+		var n := Vector2(size.x - 30, 34)
+		draw_colored_polygon(PackedVector2Array([n + Vector2(0, -16), n + Vector2(6, 2), n + Vector2(0, -2), n + Vector2(-6, 2)]), Color(gold, 0.9))
+		draw_string(font, n + Vector2(-6, 18), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(gold, 0.9))
+		# The scale: the longest round length that fits in about a quarter of the view
+		var px_per_m := size.x * zoom / (WIsles.MAP_HALF * 2.0)
+		var m := 100.0
+		for c in [100.0, 250.0, 500.0, 1000.0, 2000.0, 5000.0]:
+			if c * px_per_m <= size.x * 0.28:
+				m = c
+		var len := m * px_per_m
+		var a := Vector2(18, size.y - 22)
+		draw_rect(Rect2(a - Vector2(8, 22), Vector2(len + 16, 34)), Color(0, 0, 0, 0.45))
+		draw_line(a, a + Vector2(len, 0), Color(gold, 0.9), 2.0)
+		draw_line(a + Vector2(0, -5), a + Vector2(0, 5), Color(gold, 0.9), 2.0)
+		draw_line(a + Vector2(len, -5), a + Vector2(len, 5), Color(gold, 0.9), 2.0)
+		var t := ("%d km" % int(m / 1000.0)) if m >= 1000.0 else ("%d m" % int(m))
+		draw_string(font, a + Vector2(0, -8), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(gold, 0.95))
+
+
 class MapDraw extends Control:
 	var w
 	var zoom := 1.0
@@ -3996,6 +4218,19 @@ class MapDraw extends Control:
 		if w == null or w.player == null:
 			return
 		var font := ThemeDB.fallback_font
+		# A faint grid, one square to a kilometre
+		var km := 1000.0 / (WIsles.MAP_HALF * 2.0) * size.x
+		if km > 14.0:
+			var o := _to(Vector3.ZERO)
+			var grid := Color(0.86, 0.80, 0.66, 0.045)
+			var x := fposmod(o.x, km)
+			while x < size.x:
+				draw_rect(Rect2(x - 1.0, 0, 2.0, size.y), grid)
+				x += km
+			var y := fposmod(o.y, km)
+			while y < size.y:
+				draw_rect(Rect2(0, y - 1.0, size.x, 2.0), grid)
+				y += km
 		for il in w.terrain.isles:
 			if not w.is_revealed(Vector3(il.c.x, 0, il.c.y)):
 				continue
@@ -4020,6 +4255,13 @@ class MapDraw extends Control:
 			var p3: Vector3 = w.gpos(WPlaces.spos(k))
 			if w.visited.has(k) or w.is_revealed(p3):
 				var p := _to(p3)
+				# How safe its roads are, as a soft ring of colour: red, amber, green, pale gold
+				if w.visited.has(k) and w.staged("standing"):
+					var sv: int = w.safety_of(k)
+					var tint := Game.safety_tint(sv)
+					var rad: float = (_to(p3 + Vector3(w.SAFETY_REACH, 0, 0)) - p).length()
+					draw_circle(p, rad, Color(tint, 0.13))
+					draw_arc(p, rad, 0.0, TAU, 48, Color(tint, 0.5), 1.5)
 				draw_circle(p, 6.0, Color(0.85, 0.6, 0.35))
 				draw_string(font, p + Vector2(9, 5), s.name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.95, 0.9, 0.8))
 		for i in WPlaces.BEACONS.size():
@@ -4028,6 +4270,24 @@ class MapDraw extends Control:
 				var p := _to(p3)
 				var c := Color(1, 0.97, 0.8) if i in w.lit else Color(0.45, 0.42, 0.4)
 				draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(7, 5), p + Vector2(-7, 5)]), c)
+		if w.lights:
+			# The Lighthouse chain: a lit lane as a gold line over the water, each light as a small tower
+			for lane in w.lights.lanes:
+				if w.lights.lane_lit(lane):
+					var ln: Array = w.lights.lanes[lane]
+					draw_dashed_line(_to(Vector3(ln[0].x, 0, ln[0].y)), _to(Vector3(ln[1].x, 0, ln[1].y)), Color(0.95, 0.82, 0.45, 0.8), 2.0, 8.0)
+			for i in w.lights.houses.size():
+				var hp: Vector3 = w.lights.houses[i].pos
+				if w.is_revealed(hp) or w.lights.lit(i):
+					var p := _to(hp)
+					var hc := Color(1.0, 0.9, 0.55) if w.lights.lit(i) else Color(0.5, 0.48, 0.45)
+					draw_rect(Rect2(p + Vector2(-2.5, -7), Vector2(5, 10)), hc)
+					draw_circle(p + Vector2(0, -8), 3.0, hc)
+			if w.lights.kelp != Vector3.INF and w.is_revealed(w.lights.kelp):
+				var kp := _to(w.lights.kelp)
+				var kr: float = (_to(w.lights.kelp + Vector3(WLights.KELP_R, 0, 0)) - kp).length()
+				draw_circle(kp, kr, Color(0.25, 0.4, 0.2, 0.35))
+				draw_string(font, kp + Vector2(-40, 4), "Kelp Forest", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.75, 0.85, 0.65))
 		if w.bedroll is Vector3:
 			var p := _to(w.bedroll)
 			draw_line(p - Vector2(5, 0), p + Vector2(5, 0), Color(0.6, 0.85, 1.0), 2.0)
@@ -4069,6 +4329,14 @@ class MapDraw extends Control:
 			var dist := int(Vector2(m[0].x - w.player.global_position.x, m[0].z - w.player.global_position.z).length())
 			draw_string(font, mp + Vector2(13, -6), "%d m" % dist, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.95, 0.92, 0.85, 0.9))
 		var me := _to(w.player.global_position)
+		if w.lost:
+			# The map cannot find you: only somewhere on the grass
+			var lr := (_to(w.player.global_position + Vector3(400, 0, 0)) - me).length()
+			var off := Vector2(sin(w.day * 1.7), cos(w.day * 2.3)) * lr * 0.5
+			draw_circle(me + off, lr, Color(1, 1, 1, 0.08))
+			draw_arc(me + off, lr, 0.0, TAU, 40, Color(1, 1, 1, 0.35), 1.5)
+			draw_string(font, me + off + Vector2(-30, 4), "Lost", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.7))
+			return
 		var f: Vector3 = -w.player.global_transform.basis.z
 		var dir := Vector2(f.x, f.z).normalized()
 		var side := Vector2(-dir.y, dir.x)

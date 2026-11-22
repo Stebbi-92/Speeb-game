@@ -16,8 +16,8 @@ var _box: PanelContainer
 ## [id, what to do]. Keys are written as {action}.
 const STEPS := [
 	["walk", "Walk with {move_forward} {move_left} {move_back} {move_right}. Look around with the mouse."],
-	["dodge", "Press {dash} to dodge. When a form's head swells and glows, it is about to bite: step aside."],
-	["gather", "Hit a dead tree or a rock with {fire} to gather wood and stone."],
+	["dodge", "Press {dash} to dodge. When an enemy's head swells and glows, it is about to attack: step aside."],
+	["gather", "Hold {interact} at a dead tree or a rock to gather wood and stone."],
 	["pack", "Open your pack with {pack}."],
 	["make", "In your pack, open Make and make a bandage."],
 	["build", "Press {build} to build. Place a campfire: you can rest by it, and it keeps the dark back."],
@@ -94,7 +94,13 @@ func _enter() -> void:
 	create_tween().tween_property(self, "modulate:a", 1.0, 0.6)
 
 
+var _pad_shown := false
+
+
 func _keys(t: String) -> String:
+	_pad_shown = Game.using_pad
+	if Game.using_pad and t.begins_with("Walk with {move_forward}"):
+		return "Walk with the left stick. Look around with the right stick."
 	var re := RegEx.create_from_string("\\{([a-z_]+)\\}")
 	for m in re.search_all(t):
 		t = t.replace(m.get_string(0), "[%s]" % Game.key_text(m.get_string(1)))
@@ -129,6 +135,8 @@ func _done() -> bool:
 
 
 func _process(delta: float) -> void:
+	if visible and step >= 0 and step < STEPS.size() and _pad_shown != Game.using_pad:
+		_text.text = _keys(STEPS[step][1])   # a controller picked up, or put down: the words follow it
 	if step < 0 or w == null or w.player == null:
 		return
 	if not Game.guide:

@@ -14,7 +14,7 @@ const FIRE_KINDS := ["campfire", "cookpot", "torch", "stove"]
 const WOOD_HOURS := 24.0     ## one piece of wood keeps a fire for a whole day
 const FUEL_MAX := 240.0      ## a fire holds ten days of wood at most
 const FUEL_START := 72.0     ## a new fire is laid with three days' wood
-const REVEAL_N := 320
+const REVEAL_N := 660
 const REVEAL_HALF := WIsles.MAP_HALF   ## the fog lies over the whole map, the sea and its isles too: 20 m to a cell
 const BEACON_SIGHT := 520.0            ## a lit beacon shows the land about it on the map, this far
 
@@ -36,6 +36,7 @@ var alchemy: WAlchemy    ## what the pilgrim knows of brewing, and the draughts 
 var dread: WDread        ## fear of the open dark, and what it draws
 var settlers: WSettlers  ## wanderers who have settled at a base
 var kraken: WKraken      ## the whirlpool out past the Sunk Fen
+var lights: WLights      ## the Lighthouse chain over the far sea, its lanes, and the Kelp Forest
 var events: WEvents      ## roaming events: short goals between the long ones
 var spirits: WSpirits    ## spirit-cat relics, and the one running with you
 var trades: WTrades      ## the pilgrim's trade: smith, cook, alchemist or tinker
@@ -72,6 +73,7 @@ const MAX_MARKS := 16
 var people := {}
 var settle_nodes := {}
 var beacon_nodes: Array = []
+var music: WMusic = null       ## the one music director
 var lairs: Array = []           ## one to a land: {id, land, boss, name, pos}
 var _lair_boss := {}            ## lair id -> the great one now awake there
 const LAIR_RETURN_DAYS := 3
@@ -151,6 +153,8 @@ func build() -> void:
 		var d = Game.read_var_safe(world_path(slot))
 		if d is Dictionary:
 			_pending = d
+		elif Game.set_aside_damaged(world_path(slot)):
+			_damaged = true
 		var sd := int(_pending.get("seed", 0)) if not _pending.is_empty() else Game.new_world_seed
 		if sd == 0:
 			sd = randi_range(10000, 99999999)
@@ -167,6 +171,7 @@ func build() -> void:
 
 var world_seed := 0
 var _pending := {}
+var _damaged := false   ## a save was there but could not be read, and was kept aside
 const GEN := 3          ## how the land is raised: 2 keeps the Ash Plains about where the cast-out wake; 3 gives the waste a ragged, rounded coast
 var world_gen := GEN
 
@@ -183,6 +188,7 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	if gen >= 2:
 		terrain.home = WPlaces.start
 	WPlaces.lay_out_far(sd, func(p: Vector2) -> Vector2: return Vector2(terrain._raw(p.x, p.y), terrain_probe(p)))
+	WPlaces.lay_out_shores(terrain.isles)
 	for k in WPlaces.SETTLEMENTS:
 		terrain.add_flat(WPlaces.spos(k), WPlaces.SETTLEMENTS[k].radius + 8.0)
 	for bp in WPlaces.beacon_points():
@@ -220,6 +226,8 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 		var th: Dictionary = WIsles.THEMES[il.key]
 		ruins.append({"id": "isle_" + str(il.key), "name": th.ruin[0], "kind": th.ruin[1], "pos": Vector3(hp.x, terrain.height_at(hp.x, hp.y), hp.y), "guard_day": 0, "isle": il.key})
 		WPlaces.ruin_at["isle_" + str(il.key)] = hp
+	_plan_far_lairs()
+	_plan_far_ruins()
 	await _step("The sea is poured", 0.27)
 	sea = WSea.new().setup(self)
 	add_child(sea)
@@ -243,12 +251,14 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	await _step("The lairs are dug", 0.67)
 	for l in lairs:
 		_build_lair(l)
+	_build_shrine_bowls()
 	await _step("Stores are hidden", 0.67)
 	_scatter_nodes()
 	await _step("Stores are hidden", 0.82)
-	_scatter_isle_nodes()
+	_scatter_isle_nodes(false)
 	await _step("Stores are hidden", 0.84)
 	_scatter_ammo()
+	_scatter_isle_nodes(true)   # the far lands last, so older saves keep their node ids
 	await _step("The isles wake", 0.85)
 	sea.build_isles()
 	life = WIsleLife.new().setup(self)
@@ -270,6 +280,9 @@ func _make_world(sd: int, gen := GEN, steps := false) -> void:
 	hall = WHall.new(self)
 	hall.build()
 	deep = WDeep.new(self)
+	lights = WLights.new(self)
+	lights.plan()
+	lights.build()
 	vaults = WVaults.new(self)
 	kraken.build()
 	endings.build()
@@ -432,6 +445,12 @@ func _process(delta: float) -> void:
 		var cam := get_viewport().get_camera_3d()
 		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
 		_ground_laid = true
+	if Net.dedicated and ready_world:
+		# No one plays here, but the towns' watch still walks and shoots
+		_gate_t -= delta
+		if _gate_t <= 0.0:
+			_gate_t = 1.0
+			_militia_tick(1.0)
 	if player and hud and not Net.dedicated:
 		_stuck_tick(delta)
 		_boss_watch()
@@ -440,8 +459,14 @@ func _process(delta: float) -> void:
 			_bed_t = 0.5
 			_place_sounds()
 			_landmarks_tick()
+			_lair_hint()
 		_cat_tick(delta)
 		_trade_tell_tick(delta)
+		_gate_t -= delta
+		if _gate_t <= 0.0:
+			_gate_t = 1.0
+			_gates_tick(1.0)
+			_militia_tick(1.0)
 		_radio_tick(delta)
 		_power_tick(delta)
 		if hall:
@@ -533,6 +558,56 @@ func _plan_ruins() -> void:
 				continue
 		ruins.append({"id": "r%d" % ruins.size(), "name": nm, "kind": kinds[fr.randi() % kinds.size()], "pos": Vector3(p.x, 0, p.y), "guard_day": 0})
 		far += 1
+
+
+# ------------------------------------------------------------------ the Lighthouse chain (see WLights)
+
+func _rq_house(by: int, i: int) -> void:
+	if lights:
+		lights.start(by, i)
+
+
+func _w_house_hold(i: int, by: int) -> void:
+	if lights:
+		lights.holding(i, by)
+
+
+func _w_house(i: int, ok: bool) -> void:
+	if lights:
+		lights.done(i, ok)
+
+
+## The far isles and the Far Shores: nameless ruins over the whole of each, about one every 300 m,
+## so there is always something to walk to (gameplay bible, rule 4). Their own dice and ids.
+const FAR_RUINS := {"quiet": 8, "domes": 9, "frost": 40, "sun": 40, "steppe": 42}
+
+func _plan_far_ruins() -> void:
+	var kinds := ["wreck", "shrine", "tower", "camp", "stones", "camp", "shrine"]
+	for il in terrain.isles:
+		if not FAR_RUINS.has(il.key):
+			continue
+		var r := RandomNumberGenerator.new()
+		r.seed = world_seed + 8808 + hash(str(il.key))
+		var want: int = FAR_RUINS[il.key]
+		var made := 0
+		for tries in want * 40:
+			if made >= want:
+				break
+			var a := r.randf() * TAU
+			var q: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.82
+			var y: float = terrain.height_at(q.x, q.y)
+			if y < WIsles.SEA_Y + 1.5 or terrain.normal_at(q.x, q.y).y < 0.86:
+				continue
+			if not _clear_of_places(q, 110.0, 190.0 if float(il.r) > 800.0 else 120.0):
+				continue
+			if lairs.any(func(l): return q.distance_to(Vector2(l.pos.x, l.pos.z)) < 60.0):
+				continue
+			var wd: Array = WIsles.THEMES[il.key].words
+			var nm: String = str(wd[0][r.randi() % wd[0].size()]) + " " + str(wd[1][r.randi() % wd[1].size()])
+			if ruins.any(func(o): return o.name == nm):
+				continue
+			ruins.append({"id": "fs_%s_%d" % [il.key, made], "name": nm, "kind": kinds[r.randi() % kinds.size()], "pos": Vector3(q.x, y, q.y), "guard_day": 0, "far": il.key})
+			made += 1
 
 
 ## Shader warm-up: under the opening fade, the first fire, blast, burst and muzzle flash are drawn once
@@ -719,6 +794,24 @@ func _build_settlement(k: String) -> void:
 		p.y = terrain.height_at(p.x, p.z)
 		var hgt := rr.randf_range(3.2, 4.2)
 		cyl(p + Vector3(0, hgt * 0.5 - 0.4, 0), 0.22, hgt, wall, true, 0.14, 6)
+	# The gates themselves: two heavy leaves in each gap, open by day; barred at night when the roads are dangerous
+	var leaves: Array = []
+	for g in [-1.0, 1.0]:
+		var ga: float = PI * 0.5 * g
+		var gp := c + Vector3(cos(ga) * r, 0, sin(ga) * r)
+		gp.y = terrain.height_at(gp.x, gp.z)
+		var gw := 2.0 * r * sin(0.12)
+		var leaf: MeshInstance3D = box(gp + Vector3(0, 1.8, 0), Vector3(gw, 3.6, 0.3), _m.darkwood, true)
+		leaf.rotation.y = -ga + PI * 0.5
+		leaf.visible = false
+		var lb = leaf.get_child(0) if leaf.get_child_count() > 0 else null
+		if lb is CollisionObject3D:
+			lb.collision_layer = 0
+		var gi := leaves.size()
+		var ka := k
+		var knock: Area3D = interact_area(gp + Vector3(cos(ga), 0, sin(ga)) * 1.8 + Vector3(0, 1.0, 0), 2.2, "", func(): _knock(ka, gi), 0.0, false)
+		leaves.append({"leaf": leaf, "body": lb, "knock": knock})
+	gates[k] = leaves
 	# Gate posts with lanterns
 	for g in [-1.0, 1.0]:
 		for side in [-1.0, 1.0]:
@@ -758,7 +851,7 @@ func _build_settlement(k: String) -> void:
 		p.y = terrain.height_at(p.x, p.z)
 		_person(pid, p, yaw_to(p, c))
 	# And the folk who live there, about their day
-	for i in (3 if s.get("far", false) else 5):
+	for i in (3 if s.get("far", false) or s.has("shore") else 5):
 		var f := WTownsfolk.new().setup(self, c, r * 0.6, hash(k) + i * 101)
 		add_child(f)
 		var a := i * TAU / 5.0 + 0.4
@@ -1001,7 +1094,7 @@ func _town_plan(k: String) -> Array:
 			homes += 1
 	# And what a town has besides: a smithy, a well, market stalls, a watchtower by the wall
 	var extras := [["smithy", 3.2], ["well", 1.6], ["stall", 1.8], ["stall", 1.8], ["tower", 1.8]]
-	if s.get("far", false):
+	if s.get("far", false) or s.has("shore"):
 		extras = [["well", 1.6], ["stall", 1.8], ["tower", 1.8]]
 	# A yard on the open side: a pen, a patch of ground worked for what will grow, the town's stores
 	if style in ["crescent", "quarters", "terrace"]:
@@ -1371,7 +1464,7 @@ func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
 	personal_interactable(talk, "Listen to the talk", func(): inn_talk(k))
 	for x in [-W * 0.5 + 1.0, -W * 0.5 + 3.2]:
 		var bed := _furnish(n, "bed", Vector3(x, 0, -D * 0.5 + 1.2), 0.0)
-		personal_interactable(bed, "Rent a bed (4 salt)", func(): inn_bed())
+		personal_interactable(bed, "Rent a bed (4 salt)", func(): inn_bed(k))
 		inn_beds.append(n.to_global(Vector3(x, 0, -D * 0.5 + 1.2)) if n.is_inside_tree() else n.position)
 
 
@@ -1412,7 +1505,11 @@ func inn_talk(k: String) -> void:
 
 
 ## A night in an inn's bed: the snuggest rest in the waste. You do not wake here if you fall.
-func inn_bed() -> void:
+func inn_bed(k := "") -> void:
+	if k != "" and int(rep.get(k, 0)) >= HONOUR_BED:
+		hud.notify("\"No salt from you, %s. The bed is yours.\"" % honour_title(k))
+		ui.ask_rest("inn")
+		return
 	if inv.count("salt") < 4:
 		hud.notify("A bed costs 4 salt.")
 		return
@@ -1565,10 +1662,14 @@ func _beacon_prompt(i: int) -> void:
 	if ember_by == Net.me() and not i in lit and not vigils.has(i):
 		a.set_meta("prompt", "Kindle the beacon with the ember")
 		return
-	if i in lit:
+	if i in lit and flame_of(i) < 0.95 and i in my_kindled():
+		a.set_meta("prompt", "Tend the flame (lamp oil): it burns low")
+	elif i in lit:
 		a.set_meta("prompt", "Walk the beacon road" if i in my_kindled() else "Keep a vigil here (its boon is yours)")
 	elif vigils.has(i):
 		a.set_meta("prompt", "")
+	elif not key_for(i).is_empty():
+		a.set_meta("prompt", "The bowl is fouled: it wants %s" % ["Deep Oil", "the Fleet Log", "a far great one's heart", "three far coals"][fire_for(i) - 6])
 	else:
 		a.set_meta("prompt", "Kindle the beacon (Beacon Oil)")
 
@@ -1586,38 +1687,98 @@ func _beacon_touched(i: int) -> void:
 		if not skills.boon_offer.is_empty():
 			ui.open_boons(WPlaces.BEACONS[i].name)
 			return
+		if flame_of(i) < 0.95:
+			tend_beacon(i)   # the Second Vow: a guttering fire is fed, not kindled again
+			return
 		ui.open_travel()
 		return
 	if vigils.has(i):
 		return
-	if ember_by == Net.me():
-		if i == 8 and lit.size() < 8:
-			hud.say("The ninth bowl will not take even an ember while any other beacon stands dark.", 5.0)
-			return
-		shared("_rq_ember_kindle", [Net.me(), i])
-		return
 	if i == 8 and lit.size() < 8:
-		hud.say("The ninth bowl is choked with black earth. It will not take a flame while any other beacon stands dark.", 5.0)
+		hud.say("The ninth bowl will not take even an ember while any other beacon stands dark." if ember_by == Net.me() else "The ninth bowl is choked with black earth. It will not take a flame while any other beacon stands dark.", 5.0)
+		return
+	# After the turn the Mouth's breath fouls the dark bowls: each wants a key from beyond the shore
+	var key := key_for(i)
+	if not key.is_empty() and not _has_key(key):
+		hud.say("The Mouth has breathed on this bowl. It is fouled, and will not take %s until %s goes in first." % ["an ember" if ember_by == Net.me() else "oil", key_text(i)], 6.0)
+		return
+	var paid: Array = _pay_key(key)
+	if ember_by == Net.me():
+		shared("_rq_ember_kindle", [Net.me(), i, paid])
 		return
 	if inv.count("beacon_oil") <= 0:
+		give(paid)
 		hud.say("The bowl is cold and dry. It wants beacon oil, rendered in the old measure.", 4.5)
 		return
 	inv.take("beacon_oil", 1)
-	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult()])
+	shared("_rq_kindle", [Net.me(), i, skills.vigil_mult(), paid])
 
 
-func _rq_kindle(_by: int, i: int, vm := 1.0) -> void:
-	if not Net.authority() or i in lit or vigils.has(i):
+func _rq_kindle(by: int, i: int, vm := 1.0, key: Array = []) -> void:
+	if not Net.authority():
 		return
-	shared("_w_vigil", [i, (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)])
-	second_front(beacon_nodes[i].pos)
+	var paid: Array = [["beacon_oil", 1]] + key
+	if i in lit or vigils.has(i) or not _key_fits(i, key):
+		Net.call_peer(by, "_w_give", [paid])   # someone was there first, or the key is not the one: it all goes back
+		return
+	var t := (90.0 if i < 8 else 150.0) * clampf(vm, 0.7, 1.0)
+	vigil_paid[i] = {"by": by, "items": paid}
+	if second_front(beacon_nodes[i].pos, false, i) != null:
+		t = maxf(t, FRONT_VIGIL)   # both halves need time: the defenders to ride back, the bowl to hold
+	shared("_w_vigil", [i, t])
 
 
-const FRONT_AT := 5   ## pilgrims in the fellowship before a vigil opens a second front
+const FRONT_AT := 5
+const FRONT_VIGIL := 240.0   ## a vigil with a second front lasts at least this long
+const FRONT_CAP := 480.0     ## and a front is held after this long whatever is left of it
+var fronts := {}             ## host: vigil (beacon) -> {at, t, want, came, fought}
+var vigil_paid := {}         ## host: vigil (beacon) -> {by, items}: given back if the flame gutters
+
+## Host: which pilgrim a target is (the host's own player, or a friend's avatar).
+func pid_of(t: Node3D) -> int:
+	if t == player:
+		return Net.me()
+	for id in avatars:
+		if avatars[id] == t:
+			return int(id)
+	return 0
+
+
+## Host: a front is held once its raid has all come and no raider stands in the camp's ground, or at the cap.
+func _front_held(i: int) -> bool:
+	if not fronts.has(i):
+		return true
+	var f: Dictionary = fronts[i]
+	if float(f.t) >= FRONT_CAP:
+		return true
+	if int(f.came) < int(f.want):
+		return false
+	for e in enemies:
+		if is_instance_valid(e) and e.is_alive() and e.has_meta("raid") and e.global_position.distance_to(f.at) < BASE_SAFE + 30.0:
+			return false
+	return true
+
+
+## Host: those in the camp's ground while its front is fought share in the beacon's credit.
+func _front_tick(i: int, delta: float) -> void:
+	if not fronts.has(i):
+		return
+	var f: Dictionary = fronts[i]
+	f.t = float(f.t) + delta
+	if _front_held(i):
+		if not f.get("held", false):
+			f.held = true
+			shared("_w_note", ["The camp is held. Back to the beacon."])
+		return
+	for t in targets():
+		if t.global_position.distance_to(f.at) < BASE_SAFE + 30.0:
+			var id := pid_of(t)
+			if id != 0:
+				f.fought[id] = true   ## pilgrims in the fellowship before a vigil opens a second front
 
 ## A fellowship of five or more is big enough to split: while the vigil burns, the forms fall on the
 ## camp nearest it as well, so some must ride back to hold it. Returns the camp's place, or null.
-func second_front(vigil_at: Vector3, force := false):
+func second_front(vigil_at: Vector3, force := false, vi := -1):
 	if not Net.authority() or (Net.pilgrims().size() < FRONT_AT and not force):
 		return null
 	var best := -1
@@ -1636,9 +1797,14 @@ func second_front(vigil_at: Vector3, force := false):
 	raiding[best] = 120.0
 	shared("_w_front", [c])
 	var roster: Array = forms_at(c)
-	for k in WCrowd.scale(self, 6 + mini(nights, 6)):
+	var want: int = WCrowd.scale(self, 6 + mini(nights, 6))
+	var f := {"at": c, "t": 0.0, "want": want, "came": 0, "fought": {}}
+	if vi >= 0:
+		fronts[vi] = f
+	for k in want:
 		get_tree().create_timer(randf_range(8.0, 40.0), false).timeout.connect(func():
 			if is_instance_valid(self):
+				f.came = int(f.came) + 1
 				var e = _spawn_near(roster[randi() % roster.size()], c, BASE_SAFE - 12.0, BASE_SAFE + 6.0, true)
 				if e:
 					e.set_meta("raid", true))
@@ -1666,14 +1832,22 @@ func _w_vigil(i: int, t: float) -> void:
 		hud.say("The ninth flame takes, and the ground beneath it groans. Something is climbing out of the mouth to put it out.", 7.0)
 
 
-func _w_vigil_end(i: int, ok: bool) -> void:
+## who: the pilgrims the host credits (near the bowl as it caught, or fought at its front); null for the old reckoning.
+func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 	vigils.erase(i)
 	if ok:
 		award("beacon")
+		if music:
+			music.beacon_swell()
 	var b: Dictionary = beacon_nodes[i]
 	if ok:
+		var most0 := most_lit()
 		if not i in lit:
 			lit.append(i)
+		flags["clean_%d" % i] = true   # its key went in: it stays clean, even if the fire goes out
+		flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
+		if most_lit() > most0:
+			_verb_gained(most_lit())
 		_light_beacon(i, true)
 		sfx("choir", 0, b.pos)
 		if player.global_position.distance_to(b.pos) < 200.0:
@@ -1683,25 +1857,626 @@ func _w_vigil_end(i: int, ok: bool) -> void:
 		quests.on_event("lit", {"beacon": i})
 		if Net.authority():
 			_clear_near(b.pos, WPlaces.BEACON_SAFE)
-		_beacon_payoff(i)
+		_beacon_payoff(i, who)
+		if lit.size() >= TURN_AT and not flags.has("turned"):
+			get_tree().create_timer(9.0, false).timeout.connect(_the_turn)
 	else:
 		b.flame.visible = false
 		b.light.light_energy = 0.0
-		hud.notify("The flame at %s guttered out. The oil is spent." % WPlaces.BEACONS[i].name)
+		hud.notify("The flame at %s guttered out. What was poured goes back to the one who poured it." % WPlaces.BEACONS[i].name)
 	_beacon_prompt(i)
+
+
+# ------------------------------------------------------------------ what each fire lets you do
+
+## Each fire, counted by the most that have ever burned in the world, opens a new thing to do (gameplay
+## bible: "every milestone pays with a new verb"). World things go by the world's count; boons stay personal.
+const FIRE_VERBS := {
+	1: ["Ride", "Strays come near the towns. Feed one meat three times and it is yours to ride."],
+	2: ["Survey", "From a high place you see ruins and lairs far off, and they go on your map."],
+	3: ["Grow", "Planter boxes can be built: seeds, and fields of your own."],
+	4: ["Travel", "Waystones can be built: two of one name lead to each other."],
+	5: ["Sail", "The Sloop-wright's book: the sloop can be made at a bench."],
+	6: ["Voyage", "The Longboat-wright's book: eight seats, for long voyages."],
+	7: ["Discern", "Hidden and unseen enemies near you show on your compass."],
+	8: ["Bulwark", "Each night, the beacons' blessing takes the first blow that would land on you."],
+	9: ["Choose", "The Ferryman's Way is open: go down to the Tenth Hall."],
+}
+const VERB_BOOKS := {5: "book_ship", 6: "book_longboat"}
+var bulwark_spent := false
+var quick_camp_spent := false
+
+
+func has_verb(fire: int) -> bool:
+	return most_lit() >= fire
+
+
+# ------------------------------------------------------------------ the Second Vow and the Keeping
+
+## Under the Second Vow the lit fires gutter: each burns down over three days to a third, never lower, and
+## its ground shrinks with it. A pilgrim tends it with lamp oil: no vigil, no gift, no key.
+const TEND_HOURS := 72.0
+
+func flame_of(i: int) -> float:
+	if not flags.has("second_vow") or not i in lit:
+		return 1.0
+	var since: float = world_hours() - float(flags.get("tended_%d" % i, flags.get("vow_at", world_hours())))
+	return clampf(1.0 - since / TEND_HOURS * (2.0 / 3.0), 1.0 / 3.0, 1.0)
+
+
+## The vow's weight: lighter on the Far Shores, which are already hard enough.
+func vow_mult(p: Vector3, m: float) -> float:
+	if not flags.has("second_vow"):
+		return 1.0
+	return 1.15 if land_at(p) in FAR_SHORE_LANDS else m
+
+
+func tend_beacon(i: int) -> void:
+	if inv.count("oil") <= 0:
+		hud.notify("The flame wants lamp oil.")
+		return
+	inv.take("oil", 1)
+	shared("_w_tended", [i, world_hours(), Net.me()])
+
+
+func _w_tended(i: int, at: float, by: int) -> void:
+	flags["tended_%d" % i] = at
+	if i < beacon_nodes.size():
+		sfx("choir", -10, beacon_nodes[i].pos, 1.3)
+		_beacon_prompt(i)
+	if by == Net.me():
+		hud.notify("You tend %s. It burns high again." % WPlaces.BEACONS[i].name)
+		award("beacon", 0.1)
+	autosave_soon(3.0)
+
+
+## After an ending, or under the Second Vow, the waste is kept, not finished: now and then at dawn a great
+## one leaves its ring and walks abroad in its own land, and the fellowship hears of it.
+const ROAM_CHANCE := 0.35
+
+func keeping() -> bool:
+	return flags.has("ending") or flags.has("second_vow")
+
+
+func _roam_great() -> void:
+	if not Net.authority() or not keeping() or randf() > ROAM_CHANCE:
+		return
+	var ready: Array = lairs.filter(func(l): return lair_ready(l) and _lair_boss.get(l.id) == null)
+	if ready.is_empty():
+		return
+	var l: Dictionary = ready[randi() % ready.size()]
+	var land := land_at(l.pos)
+	for tries in 30:
+		var a := randf() * TAU
+		var q: Vector3 = l.pos + Vector3(cos(a), 0, sin(a)) * randf_range(200.0, 350.0)
+		q = gpos(Vector2(q.x, q.z))
+		if terrain.is_water(q.x, q.z, 0.3) or land_at(q) != land or gentle_at(q) or settlement_at(q, 120.0) != "" or base_at(q, 60.0) >= 0:
+			continue
+		var b := spawn_at(l.boss, q + Vector3(0, 2.0, 0))
+		if b:
+			_lair_boss[l.id] = b
+			shared("_w_roam_great", [l.boss, q])
+		return
+
+
+func _w_roam_great(b: String, at: Vector3) -> void:
+	reveal_place(Vector2(at.x, at.z), 60.0)
+	if Net.dedicated:
+		return
+	hud.alert_banner("%s walks abroad" % LesserSpeeb.BOSSES[b].name, "It has left its ring and walks its own land. It is on your map.")
+
+
+# ------------------------------------------------------------------ completion: the bestiary and the map
+
+## Every quarter of the bestiary filled, and of the map walked, pays (the Keeping: something to finish).
+const COMPLETE_GIFTS := {25: [["fittings_rare", 1], ["salt", 100]], 50: [["fittings_storied", 1], ["salt", 200]],
+	75: [["fittings_storied", 2], ["salt", 300]], 100: [["fittings_storied", 3], ["tempered", 4], ["clockwork", 4]]}
+var _bestiary_total := 0
+
+func bestiary_total() -> int:
+	if _bestiary_total == 0:
+		var all := {}
+		for b in BIOME_FORMS:
+			for k in BIOME_FORMS[b]:
+				all[k] = true
+		for il in WIsles.THEMES:
+			for k in WIsles.THEMES[il].get("forms", []):
+				all[k] = true
+		_bestiary_total = all.size()
+	return maxi(1, _bestiary_total)
+
+
+func bestiary_pct() -> int:
+	return mini(100, int(100.0 * slain_kinds.size() / bestiary_total()))
+
+
+## The share of the map walked or seen, as a percentage of the land (the sea is most of it, so it is
+## counted against the land the waste and its isles hold: about a third of the whole).
+func map_pct() -> int:
+	if revealed.is_empty():
+		return 0
+	var seen := revealed.size() - revealed.count(0)
+	return mini(100, int(100.0 * seen / (revealed.size() * 0.33)))
+
+
+func _completion_check() -> void:
+	if Net.dedicated or not ready_world:
+		return
+	for what in [["beast", bestiary_pct(), "the bestiary"], ["map", map_pct(), "the map"]]:
+		for q in COMPLETE_GIFTS:
+			var key := "%s_%d" % [what[0], q]
+			if int(what[1]) >= int(q) and not rewards_had.has(key):
+				rewards_had[key] = true
+				give(COMPLETE_GIFTS[q])
+				hud.alert_banner("%d%% of %s" % [q, what[2]], "A reward for it is in your pack.")
+				char_save_soon()
+
+
+var rewards_had := {}   ## the completion rewards this pilgrim has had
+
+
+## A fire beyond any before it: what it opens, for everyone.
+func _verb_gained(n: int) -> void:
+	_verb_books()
+	if not FIRE_VERBS.has(n) or Net.dedicated:
+		return
+	var v: Array = FIRE_VERBS[n]
+	get_tree().create_timer(7.0, false).timeout.connect(func():
+		if is_instance_valid(hud):
+			hud.alert_banner("A new way: %s" % v[0], v[1]))
+
+
+## The books the fires bring are known to the world, also in a world lit before they were.
+func _verb_books() -> void:
+	for f in VERB_BOOKS:
+		if has_verb(f) and not flags.has(VERB_BOOKS[f]):
+			flags[VERB_BOOKS[f]] = true
+			flags["found_" + VERB_BOOKS[f]] = true
+
+
+## The Rallying Cry: those near get their breath back and a burst of speed.
+var _rally_cd := 0.0
+const RALLY_REACH := 20.0
+const RALLY_CD := 60.0
+
+func rally() -> void:
+	if _rally_cd > 0.0:
+		hud.notify("Your voice is spent. Again in %d seconds." % ceili(_rally_cd))
+		return
+	_rally_cd = RALLY_CD
+	shared("_w_rally", [Net.me(), player.global_position])
+
+
+var rally_burst := 0.0   ## seconds of the rally's speed left
+func _w_rally(by: int, at: Vector3) -> void:
+	if Net.dedicated or player.global_position.distance_to(at) > RALLY_REACH:
+		return
+	sfx("choir", -8, at, 1.6)
+	player.stamina = player.stamina_max
+	rally_burst = 6.0
+	player.walk_speed = 3.4 * skills.speed_mult() * 1.25
+	player.run_speed = 5.8 * skills.speed_mult() * 1.25
+	hud.notify("You rally to %s." % ("the cry" if by == Net.me() else Net.name_of(by)))
+
+
+## The Lantern-bearer: who carries a lit lantern and the boon (peer -> true); the dread does not rise near them.
+var bearers := {}
+var _bearing := false
+const BEARER_REACH := 15.0
+
+func _w_bearer(by: int, on: bool) -> void:
+	if on:
+		bearers[by] = true
+	else:
+		bearers.erase(by)
+
+
+func near_bearer(p: Vector3) -> bool:
+	for id in bearers:
+		var who: Node3D = player if id == Net.me() else avatars.get(id)
+		if who and is_instance_valid(who) and who.global_position.distance_to(p) < BEARER_REACH:
+			return true
+	return false
+
+
+## Survey (the second fire): from a high place, ruins and lairs within sight go on the map.
+var _renown_t := 0.0
+var _renown_sent := -1
+var _hall_t := 0.0
+var _hall_keys := {}   ## the powers the trophy halls about you give, key -> true
+
+
+# ------------------------------------------------------------------ the trophy hall
+
+## Up to three trophies hang in a hall (five with renown), one of each kind; each gives a third of its
+## power to anyone at that base. Never both: a pilgrim who takes up the power at the shrine has that
+## instead (the stronger), not the two together. Gilded Skin and the Watcher's Eye are weaker still here.
+const HALL_REACH := 60.0
+const HALL_K := {"eye": 0.25, "gilt": 0.25}
+const HALL_FORMS := {
+	"ember": "The frost bites less: a coat is warm enough.",
+	"hush": "Enemies see you a little less far.",
+	"white": "Running and swinging cost a sixth less breath.",
+	"eye": "Your blows strike a twentieth harder.",
+	"gilt": "Blows on you are a twentieth lighter.",
+	"tar": "You drown more slowly.",
+	"lens": "Enemies within 20 m show on your compass.",
+	"hook": "The dread rises a third more slowly.",
+	"rime": "A third of your blows freeze weaker enemies a moment.",
+	"dry": "Heat harms you half as much.",
+	"horn": "Your cat tires a third more slowly.",
+	"bell": "Every twenty-fourth blow you land rings, twice as hard.",
+}
+
+## The powers the halls near a point give, as key -> true.
+func halls_here(p: Vector3) -> Dictionary:
+	var out := {}
+	for pid in pieces:
+		var pc: Dictionary = pieces[pid]
+		if pc.kind != "trophy_hall" or pc.pos.distance_to(p) > HALL_REACH:
+			continue
+		for t in pc.get("hung", []):
+			if POWERS.has(t):
+				out[str(POWERS[t].key)] = true
+	return out
+
+
+## How strongly a power works on this pilgrim: 1 with it taken up at the shrine, a third (or less) from a
+## hall nearby, else 0. The stronger, never the sum.
+func power_k(k: String) -> float:
+	if power_is(k):
+		return 1.0
+	return float(HALL_K.get(k, 1.0 / 3.0)) if _hall_keys.has(k) else 0.0
+
+
+## A pilgrim hangs a trophy from their pack (on), or takes one down into it.
+func hang_trophy(pid: int, t: String, on: bool) -> void:
+	if on:
+		if inv.take(t, 1) < 1:
+			return
+	shared("_rq_hang", [Net.me(), pid, t, on, skills.hall_places()])
+
+
+func _rq_hang(by: int, pid: int, t: String, on: bool, places: int) -> void:
+	if not Net.authority():
+		return
+	var pc: Dictionary = pieces.get(pid, {})
+	if pc.is_empty() or pc.kind != "trophy_hall" or not POWERS.has(t):
+		if on:
+			Net.call_peer(by, "_w_give", [[[t, 1]]])
+		return
+	var hung: Array = pc.get("hung", []).duplicate()
+	if on:
+		if t in hung or hung.size() >= clampi(places, 3, 5):
+			Net.call_peer(by, "_w_give", [[[t, 1]]])   # one of each, and only so many places
+			return
+		hung.append(t)
+	else:
+		if not t in hung:
+			return
+		hung.erase(t)
+		Net.call_peer(by, "_w_give", [[[t, 1]]])
+	shared("_w_hang", [pid, hung])
+
+
+func _w_hang(pid: int, hung: Array) -> void:
+	if not pieces.has(pid):
+		return
+	pieces[pid]["hung"] = hung.duplicate()
+	var n: Node3D = pieces[pid].node
+	if is_instance_valid(n) and n.has_meta("marks"):
+		var marks: Array = n.get_meta("marks")
+		for i in marks.size():
+			var g: MeshInstance3D = marks[i]
+			g.visible = i < hung.size()
+			if g.visible:
+				var gm := StandardMaterial3D.new()
+				gm.albedo_color = Items.info(hung[i]).color
+				gm.emission_enabled = true
+				gm.emission = Items.info(hung[i]).color
+				gm.emission_energy_multiplier = 0.6
+				g.material_override = gm
+		(n.get_meta("light") as OmniLight3D).light_energy = 0.8 if not hung.is_empty() else 0.0
+	_hall_keys = halls_here(player.global_position) if player else {}
+	if is_instance_valid(ui):
+		ui.planter_changed(pid)
+	autosave_soon(3.0)
+
+
+var _survey_t := 0.0
+var _surveyed := {}
+var _books_checked := false
+var _map_t := 30.0
+const SURVEY_SIGHT := 600.0
+
+func _verbs_tick(delta: float) -> void:
+	if rally_burst > 0.0:
+		rally_burst -= delta
+		if rally_burst <= 0.0:
+			_apply_skills()
+	_rally_cd = maxf(0.0, _rally_cd - delta)
+	_renown_t -= delta
+	if _renown_t <= 0.0 or _renown_sent != skills.renown:
+		_renown_t = 30.0   # now and then, for those who joined since
+		_renown_sent = skills.renown
+		if Net.online:
+			shared("_w_renown", [Net.me(), skills.renown])
+	_hall_t -= delta
+	if _hall_t <= 0.0:
+		_hall_t = 1.0
+		_hall_keys = halls_here(player.global_position)
+	if ready_world and not _books_checked:
+		_books_checked = true
+		_verb_books()   # a world lit before the books came with the fires
+	var bear: bool = skills.has_boon("lantern") and player.relics != null and player.relics.lantern_lit
+	if bear != _bearing:
+		_bearing = bear
+		shared("_w_bearer", [Net.me(), bear])
+	_survey_t -= delta
+	if _survey_t > 0.0:
+		return
+	_survey_t = 3.0
+	_feast_tick()
+	_map_t -= 3.0
+	if _map_t <= 0.0:
+		_map_t = 60.0
+		_completion_check()
+	if not has_verb(2) or Net.dedicated or player.vessel != null:
+		return
+	for pid in pieces:
+		if pieces[pid].kind == "portal":
+			_portal_look(pid)   # a link wakes or dims as beacons and lanes are lit or go dark
+	var p := player.global_position
+	var cell := Vector2i(int(p.x / 250.0), int(p.z / 250.0))
+	if _surveyed.has(cell) or not high_point(p):
+		return
+	_surveyed[cell] = true
+	var n := 0
+	for r in ruins:
+		var q: Vector3 = r.pos
+		if q.distance_to(p) < SURVEY_SIGHT and not is_revealed(q):
+			reveal_place(Vector2(q.x, q.z), 40.0)
+			n += 1
+	for l in lairs:
+		if l.pos.distance_to(p) < SURVEY_SIGHT and not is_revealed(l.pos):
+			reveal_place(Vector2(l.pos.x, l.pos.z), 50.0)
+			n += 1
+	if n > 0:
+		sfx("bell", -16, null, 1.8)
+		hud.notify("From the height you survey the land: %d place%s marked on your map." % [n, "" if n == 1 else "s"])
+
+
+## A high place: well above the ground all round, 150 m out.
+func high_point(p: Vector3) -> bool:
+	if terrain == null:
+		return false
+	var h: float = terrain.height_at(p.x, p.z)
+	var sum := 0.0
+	for k in 8:
+		var a := k * TAU / 8.0
+		sum += terrain.height_at(p.x + cos(a) * 150.0, p.z + sin(a) * 150.0)
+	return h - sum / 8.0 >= 16.0
+
+
+# ------------------------------------------------------------------ the turn
+
+## The fifth beacon is the turn of the game (Terraria's Hardmode): the sea opens. The whirlpool of the
+## Kraken-Bell stands on the horizon, the far isles show through the fog, the seventh night comes up out
+## of the water, and the waste's own forms grow bolder (champions in every land past the first ring).
+const TURN_AT := 5
+var _turn_col: MeshInstance3D = null
+
+func turned() -> bool:
+	return flags.has("turned")
+
+
+func _the_turn() -> void:
+	if not is_instance_valid(self) or turned():
+		return
+	flags["turned"] = true
+	sfx("choir", 0)
+	hud.alert_banner("The sea opens", "Five fires burn, and the dark has turned to face the sea. The whirlpool and the far isles show on the horizon. From now on the seventh night comes up out of the water.")
+	_turn_marks()
+	autosave_soon(1.0)
+
+
+## The fouled bowls. After the turn the Mouth breathes on every bowl that has never burned; each takes oil only
+## once its key goes in. Keys go by the most fires that have ever burned in the world, never by which beacon.
+const HEARTS := ["heart_quiet", "heart_domes", "heart_frost", "heart_sun", "heart_steppe"]
+const COALS := ["coal_frost", "coal_sun", "coal_steppe"]
+
+func most_lit() -> int:
+	return maxi(int(flags.get("most_lit", 0)), lit.size())
+
+
+func fouled(i: int) -> bool:
+	return turned() and not i in lit and not flags.has("clean_%d" % i)
+
+
+## The fire a fouled bowl would be: the next after the most that ever burned (six to nine).
+func fire_for(i: int) -> int:
+	return 9 if i == 8 else clampi(most_lit() + 1, TURN_AT + 1, 8)
+
+
+## What a bowl wants before its oil: [] for none, else a list of [item, n] (a heart is any one of five).
+func key_for(i: int) -> Array:
+	if not fouled(i):
+		return []
+	match fire_for(i):
+		6:
+			return [["deep_oil", 1]]
+		7:
+			return [["fleet_log", 1]]
+		8:
+			return [["heart", 1]]
+	return COALS.map(func(c): return [c, 1])
+
+
+func key_text(i: int) -> String:
+	match fire_for(i):
+		6:
+			return "Deep Oil (lamp oil and the Bell-Wound's ichor, rendered at a bench)"
+		7:
+			return "the Fleet Log from Quietglass"
+		8:
+			return "the heart of a far great one"
+	return "three far coals, one from the shrine-bowl of each Far Shore"
+
+
+func _has_key(key: Array) -> bool:
+	for k in key:
+		if k[0] == "heart":
+			if not HEARTS.any(func(h): return inv.count(h) > 0):
+				return false
+		elif inv.count(k[0]) < int(k[1]):
+			return false
+	return true
+
+
+## Takes the key from the pack; returns what was taken, to be given back if the vigil fails.
+func _pay_key(key: Array) -> Array:
+	var out: Array = []
+	for k in key:
+		var id: String = k[0]
+		if id == "heart":
+			for h in HEARTS:
+				if inv.count(h) > 0:
+					id = h
+					break
+		inv.take(id, int(k[1]))
+		out.append([id, int(k[1])])
+	return out
+
+
+## Host: whether what was paid is the key this bowl wants.
+func _key_fits(i: int, paid: Array) -> bool:
+	var want := key_for(i)
+	if want.is_empty():
+		return true
+	for k in want:
+		var ok := false
+		for p in paid:
+			if (k[0] == "heart" and p[0] in HEARTS) or p[0] == k[0]:
+				ok = int(p[1]) >= int(k[1])
+		if not ok:
+			return false
+	return true
+
+
+## What a pilgrim holding nothing for it is told to fetch, and where (for What now and the compass).
+func key_hint(i: int) -> Array:
+	match fire_for(i):
+		6:
+			if inv.count("bell_ichor") > 0:
+				return ["Render Deep Oil at a workbench: two lamp oil and the Bell-Wound's ichor.", null]
+			return ["Bring down the Bell-Wound at the Kraken-Bell for its ichor.", kraken.spot if kraken and kraken.spot != Vector3.INF else null]
+		7:
+			for il in terrain.isles:
+				if il.key == "quiet":
+					return ["Light the lane to Quietglass and search it for the Fleet Log." if lights == null or not lights.lane_lit("quiet") else "Search the ruins of Quietglass for the Fleet Log.", gpos(il.c)]
+		8:
+			var best = null
+			for l in lairs:
+				if l.land in ["quiet", "domes", "frost", "sun", "steppe"] and (best == null or player.global_position.distance_to(l.pos) < player.global_position.distance_to(best)):
+					best = l.pos
+			return ["Bring down a far great one for its heart.", best]
+	for c in COALS:
+		if inv.count(c) <= 0:
+			for sb in shrine_bowls:
+				if sb.coal == c:
+					return ["Carry a coal home from the shrine-bowl of %s." % sb.name, sb.pos]
+	return ["", null]
+
+
+## The shrine-bowls of the Far Shores: lit once with lamp oil, each gives a coal to carry home (one of each is the
+## ninth fire's key). Taking one again later is free, so the key can always be had again.
+var shrine_bowls: Array = []   ## {land, coal, name, pos, flame}
+
+func _build_shrine_bowls() -> void:
+	for il in terrain.isles:
+		var coal := "coal_" + str(il.key)
+		if not coal in COALS:
+			continue
+		var h: Vector2 = terrain.isle_heart(il)
+		var q: Vector2 = h + (Vector2(il.c) - h).normalized().rotated(1.2) * 22.0 if Vector2(il.c).distance_to(h) > 1.0 else h + Vector2(22, 0)
+		var at := gpos(q)
+		var n := Node3D.new()
+		add_child(n)
+		n.global_position = at
+		var stone := mat(Color(0.42, 0.4, 0.38), 0.9)
+		_add(n, cyl(Vector3.ZERO, 0.7, 1.0, stone), Vector3(0, 0.5, 0))
+		_add(n, cyl(Vector3.ZERO, 1.1, 0.25, stone, false), Vector3(0, 1.1, 0))
+		var flame := OmniLight3D.new()
+		flame.light_color = Color(1.0, 0.6, 0.3)
+		flame.omni_range = 9.0
+		flame.position = Vector3(0, 1.8, 0)
+		n.add_child(flame)
+		var a := Area3D.new()
+		a.collision_layer = 16
+		a.collision_mask = 0
+		var cs := CollisionShape3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = 2.0
+		cs.shape = sh
+		a.add_child(cs)
+		n.add_child(a)
+		a.position = Vector3(0, 1.0, 0)
+		var sb := {"land": str(il.key), "coal": coal, "name": str(il.name), "pos": at, "flame": flame, "area": a}
+		shrine_bowls.append(sb)
+		personal_interactable(a, "", func(): _shrine_bowl_used(sb))
+		_shrine_bowl_show(sb)
+
+
+func _shrine_bowl_show(sb: Dictionary) -> void:
+	var on := flags.has("shrine_" + str(sb.land))
+	(sb.flame as OmniLight3D).light_energy = 2.5 if on else 0.0
+	(sb.area as Area3D).set_meta("prompt", "Take a coal from the shrine-bowl" if on else "Light the shrine-bowl (1 lamp oil)")
+
+
+func _shrine_bowl_used(sb: Dictionary) -> void:
+	if not flags.has("shrine_" + str(sb.land)):
+		if inv.count("oil") < 1:
+			hud.notify("The shrine-bowl is cold. It wants lamp oil.")
+			return
+		inv.take("oil", 1)
+		shared("_w_flag", ["shrine_" + str(sb.land)])
+		sfx("bell", -4, sb.pos)
+		hud.say("The old bowl takes the oil, and a white coal wakes in the ash.", 4.0)
+		for b in shrine_bowls:
+			_shrine_bowl_show(b)
+	if inv.count(sb.coal) > 0:
+		hud.notify("You carry one of its coals already.")
+		return
+	give([[sb.coal, 1]])
+	hud.notify("You take a coal from the shrine-bowl of %s. Carry it home across the sea." % sb.name)
+
+
+## What the turn shows: the whirlpool's spray on the horizon, and the far sea on the map.
+func _turn_marks() -> void:
+	if not turned() or Net.dedicated:
+		return
+	if kraken and kraken.spot != Vector3.INF:
+		reveal_place(Vector2(kraken.spot.x, kraken.spot.z), 120.0)
+		if _turn_col == null:
+			_turn_col = landmark_column(Color(0.55, 0.62, 0.66, 0.18), 240.0, 1.8)
+			add_child(_turn_col)
+			_turn_col.global_position = kraken.spot + Vector3(0, 110.0, 0)
+	for il in terrain.isles:
+		if WIsles.THEMES.has(il.key) and bool(WIsles.THEMES[il.key].get("far", false)):
+			reveal_place(il.c, float(il.r) * 0.6)
 
 
 ## What a kindled beacon gives every pilgrim: a gift from its bowl, a boon to choose, and the way
 ## to the next dark beacon shown on the map.
 const BEACON_GIFT := [["tempered", 1], ["clockwork", 1], ["fittings_fine", 2], ["salt", 40]]
 
-func _beacon_payoff(i: int) -> void:
+func _beacon_payoff(i: int, who = null) -> void:
 	if Net.dedicated or _pfail:
 		return
 	var n := lit.size()
 	# World credit and personal credit: the beacon burns for everyone, but its boon and full gift
 	# are for those who stood near when it caught
-	var there: bool = player.global_position.distance_to(beacon_nodes[i].pos) < BEACON_THERE
+	var there: bool = (Net.me() in (who as Array)) if who is Array else player.global_position.distance_to(beacon_nodes[i].pos) < BEACON_THERE
 	var gift: Array = []
 	for g in BEACON_GIFT:
 		gift.append([g[0], maxi(1, int(int(g[1]) * (1 + n / 3) * (2 if WRules.sworn("vow_tithe") else 1) * (1.0 if there else 0.5)))])
@@ -1780,12 +2555,20 @@ func _w_ember(by: int, i: int) -> void:
 		_beacon_prompt(k)
 
 
-func _rq_ember_kindle(by: int, i: int) -> void:
-	if not Net.authority() or by != ember_by or i in lit or vigils.has(i):
+func _rq_ember_kindle(by: int, i: int, key: Array = []) -> void:
+	if not Net.authority():
 		return
+	if by != ember_by or i in lit or vigils.has(i) or not _key_fits(i, key):
+		if not key.is_empty():
+			Net.call_peer(by, "_w_give", [key])
+		return
+	if not key.is_empty():
+		vigil_paid[i] = {"by": by, "items": key}
 	shared("_w_ember_end", [true])
-	shared("_w_vigil", [i, EMBER_VIGIL])
-	second_front(beacon_nodes[i].pos)
+	var t := EMBER_VIGIL
+	if second_front(beacon_nodes[i].pos, false, i) != null:
+		t = FRONT_VIGIL
+	shared("_w_vigil", [i, t])
 
 
 func _w_ember_end(delivered: bool) -> void:
@@ -2060,7 +2843,7 @@ func safe_at(p: Vector3) -> bool:
 	if hall and hall.inside(p):
 		return true   # the night does not come down the Lake Stair: only the hall's own answer
 	for i in lit:
-		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
+		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE * flame_of(i):
 			return true
 	return settlement_at(p, TOWN_SAFE) != "" or base_at(p) >= 0
 
@@ -2151,6 +2934,21 @@ func _rq_spend(_by: int, cids: Array, item: String, n: int) -> void:
 				if int(data[i][1]) <= 0:
 					data[i] = null
 		shared("_w_cont", [cid, data])
+	if n > 0:
+		if _by == Net.me():
+			_w_spend_short(item, n)
+		else:
+			Net.call_peer(_by, "_w_spend_short", [item, n])
+
+
+## The host found the chests short: two spent the same things at once. The spender pays the rest from
+## the pack if they can, and is told.
+func _w_spend_short(item: String, n: int) -> void:
+	var t := mini(n, inv.count(item))
+	if t > 0:
+		inv.take(item, t)
+	if n - t > 0 and hud:
+		hud.notify("Someone took the last %s from the chests first." % Items.iname(item))
 
 
 func _spend_local(cids: Array, item: String, n: int) -> void:
@@ -2285,8 +3083,9 @@ func eat(id: String) -> bool:
 ## Each land is harder than the one before, and has a hardship that only gear made from the land
 ## before it keeps out (Valheim's lands). The Ash Plains are where everyone starts.
 const LAND_TIER := {"ash": 1, "dunes": 2, "forest": 2, "salt": 3, "marsh": 3, "basalt": 4}
-const TIER_HP := [1.0, 1.5, 2.2, 3.0]       ## a foe's health in a land of each danger
-const TIER_HARM := [1.0, 1.3, 1.6, 1.9]    ## and the harm it does
+const TIER_HP := [1.0, 1.5, 2.2, 3.0, 3.6]       ## a foe's health in a land of each danger (5: the Far Shores)
+const TIER_HARM := [1.0, 1.3, 1.6, 1.9, 2.1]    ## and the harm it does
+const TIER_XP := [1.0, 1.15, 1.3, 1.5, 1.8]     ## a kill there teaches more
 ## land: [ward carried against it, the hardship in a few words]
 const LAND_WARD := {
 	"dunes": ["veil", "The heat: your breath comes back slowly."],
@@ -2294,6 +3093,9 @@ const LAND_WARD := {
 	"salt": ["goggles", "The glare burns you by day."],
 	"marsh": ["tar_boots", "The tar holds your feet."],
 	"basalt": ["ember_cloak", "The stone's heat burns you."],
+	"frost": ["sheepskin", "The cold bites: it eats at your health."],
+	"sun": ["water_gourd", "Thirst: by day your water runs out, and your health with it."],
+	"steppe": ["bone_compass", "You are lost: the compass wanders, and the map cannot find you."],
 }
 ## What each land yields besides the common stuff: [node kind, item, chance]
 const LAND_STUFF := {
@@ -2327,7 +3129,34 @@ func tier_at(p: Vector3) -> int:
 	if d < GENTLE:
 		return 1
 	var ring := 1 + int(d / 600.0)
+	# Danger 5 is set by place, never by distance: the Far Shores, once the sea has opened
+	if turned() and d > WTerrain.N * WTerrain.CELL * 0.5 and land_at(p) in FAR_SHORE_LANDS:
+		return 5
 	return clampi(ring + (1 if land_tier(land_at(p)) >= 3 else 0), 1, 4)
+
+
+const FAR_SHORE_LANDS := ["frost", "sun", "steppe"]
+## The stuff each far land yields, gathered there or found in its ruins (see WArms.FAR_STUFF).
+const FAR_FINDS := {"quiet": "lens_glass", "domes": "dome_steel", "frost": "ice_iron", "sun": "sunglass", "steppe": "steppe_horn"}
+
+## The far land's own stuff at this spot, or "" in the waste and on the near isles.
+func far_find(p: Vector3) -> String:
+	if terrain == null:
+		return ""
+	var il := terrain.isle_at(p.x, p.z, 1.0)
+	return str(FAR_FINDS.get(str(il.get("key", "")), "")) if not il.is_empty() else ""
+
+
+## The same, for a far ruin's or an isle's crate by its id.
+static func far_find_id(id: String) -> String:
+	for k in FAR_FINDS:
+		if id.begins_with("fs_%s_" % k) or id.begins_with("isle_%s" % k):
+			return FAR_FINDS[k]
+	return ""
+
+## How many dangers there are, as the pilgrim knows it: the fifth shows only after the turn.
+func tiers_known() -> int:
+	return 5 if turned() else 4
 
 
 func gentle_at(p: Vector3) -> bool:
@@ -2339,11 +3168,18 @@ func gentle_at(p: Vector3) -> bool:
 func land_at(p: Vector3) -> String:
 	if terrain and terrain.is_water(p.x, p.z, 0.8):
 		return "sea"   # no land's hardship out on the water
+	if terrain and maxf(absf(p.x), absf(p.z)) > WTerrain.N * WTerrain.CELL * 0.5:
+		# A Far Shore is a land of its own, with its own hardship
+		var il := terrain.isle_at(p.x, p.z, 1.2)
+		if not il.is_empty() and WIsles.THEMES[il.key].has("land"):
+			return str(WIsles.THEMES[il.key].land)
 	return terrain.biome_name(p.x, p.z) if terrain else "ash"
 
 
 ## Whether this pilgrim carries the ward against a land's hardship (or the land has none).
 func warded(bn: String) -> bool:
+	if power_is("dry") and bn in ["sun", "dunes", "basalt"]:
+		return true   # the Dry River's power: no heat touches you
 	return not LAND_WARD.has(bn) or bn in WArms.worn(arms).wards
 
 
@@ -2359,39 +3195,52 @@ const CHAMPION_CHANCE := 1.0 / 15.0
 func spawn_at(kind: String, p: Vector3) -> LesserSpeeb:
 	var e := super(kind, p)
 	if e and Game.wasteland and terrain:
-		var land: float = TIER_HP[tier_at(p) - 1]
-		var m: float = land * (1.3 if flags.has("second_vow") else 1.0) * (WCrowd.hp(self) if e.boss == "" else 1.0)
+		var tp := tier_at(p)
+		# A great one is already made for its own land: it does not take the fifth danger again
+		if LesserSpeeb.BOSSES.has(kind):
+			tp = mini(tp, 4)
+		var land: float = TIER_HP[tp - 1]
+		var m: float = land * vow_mult(p, 1.3) * (WCrowd.hp(self) if e.boss == "" else 1.0)
 		e.hp *= m
 		e.max_hp *= m
 		# Plate thickens with the land too, so piercing rounds and the Sledge stay worth carrying
 		e.plate *= land
-		# In the harder lands, one in fifteen or so stands out from its kind
-		if tier_at(p) >= 3 and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE:
+		# In the harder lands (every land past the first ring, after the turn), one in fifteen or so stands out
+		if tier_at(p) >= (2 if turned() else 3) and e.boss == "" and not kind in ["saucer", "unseen", "elite", "box_cat"] and randf() < CHAMPION_CHANCE * (2.0 if tier_at(p) >= 5 else 1.0):
 			e.become_champion(LesserSpeeb.CHAMPION.keys()[randi() % LesserSpeeb.CHAMPION.size()])
 	return e
 
 
 ## The hardship of the land underfoot, for one without its ward.
+var lost := false   ## on the Pale Steppe without a compass: the map cannot find you, the compass wanders
+
 func _land_tick(delta: float) -> void:
 	var bn := land_at(player.global_position)
-	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn == "salt" and night):
+	lost = bn == "steppe" and not warded(bn)
+	if warded(bn) or gentle_at(player.global_position) or settlement_at(player.global_position, 4.0) != "" or base_at(player.global_position, 0.0, true) >= 0 or not LAND_WARD.has(bn) or (bn in ["salt", "sun"] and night):
+		lost = false   # a town or a home knows where it is
 		if ui:
 			# The weather may still ask something, out in the open
 			var why := weather.hardship(player.global_position) if not gentle_at(player.global_position) and base_at(player.global_position, 0.0) < 0 and settlement_at(player.global_position, 0.0) == "" and not weather.sheltered else ""
 			ui.set_hazard(why)
 		return
+	reach_stage("wards")
 	if ui:
 		ui.set_hazard("%s  Wear %s." % [LAND_WARD[bn][1], Items.info(LAND_WARD[bn][0]).name])
 	match bn:
 		"dunes":
 			player.stamina_mult *= 0.5
-		"forest", "salt", "basalt":
-			if bn == "salt" and night:
+		"forest", "salt", "basalt", "frost", "sun":
+			if bn in ["salt", "sun"] and night:
 				return
 			_land_t -= delta
 			if _land_t <= 0.0:
 				_land_t = 5.0
-				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0}[bn] as float
+				var loss := {"forest": 2.0, "salt": 2.5, "basalt": 4.0, "frost": 4.0, "sun": 3.0}[bn] as float
+				if bn in ["sun", "basalt"]:
+					loss *= 1.0 - 0.5 * power_k("dry")
+				if bn == "frost" and near_fire(player.global_position):
+					return   # a fire keeps the cold off
 				player.health = maxf(1.0, player.health - loss)
 				hud.set_health(player.health / player.max_health, true)
 				_regen_wait = maxf(_regen_wait, 4.0)
@@ -2930,7 +3779,7 @@ func bed_mine_or_free(pid: int) -> bool:
 
 ## Asked by a pilgrim: a bed is given to someone (by name), or freed (""). Only one whose bed it is,
 ## anyone while it is no one's, or the host, may give it.
-func _rq_bed_owner(pid: int, to: String, by: int) -> void:
+func _rq_bed_owner(by: int, pid: int, to: String) -> void:
 	if not Net.authority() or not pieces.has(pid) or WBuilder.acts(pieces[pid].kind) != "bedroll":
 		return
 	var o := bed_owner(pid)
@@ -3039,11 +3888,71 @@ func _chest_label(pid: int) -> void:
 	lab.text = str(pc.name)
 
 
+## The waystone rules (gameplay bible): people travel fast, cargo goes by road and sea.
+## Waystones wake with the fourth fire; one end must stand in a lit beacon's ground or a town; both on one
+## land (the waste and each isle are lands of their own), save that a far isle links to the waste along a
+## lit sea lane. A waystone whose anchor beacon goes dark dims and says why; it is never taken down.
+const WAY_CARGO := ["beacon_oil", "deep_oil", "fleet_log", "bell_ichor", "red_iron", "salt_crystal", "obsidian"]
+
+func waystone_land(p: Vector3) -> String:
+	if terrain == null:
+		return "waste"
+	var il := terrain.isle_at(p.x, p.z, 1.2)
+	return str(il.key) if not il.is_empty() else "waste"
+
+
+## Whether a waystone stands where it may anchor a link: in a lit beacon's ground or a town.
+func waystone_anchored(p: Vector3) -> bool:
+	for i in lit:
+		if Vector2(p.x, p.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE:
+			return true
+	return settlement_at(p, TOWN_SAFE) != ""
+
+
+## Why two waystones of one name do not link, or "" if they do.
+func waystone_why(a: int, b: int) -> String:
+	if not pieces.has(a) or not pieces.has(b):
+		return "?"
+	if not has_verb(4):
+		return "The waystones sleep until the fourth fire burns."
+	var pa: Vector3 = pieces[a].pos
+	var pb: Vector3 = pieces[b].pos
+	if not waystone_anchored(pa) and not waystone_anchored(pb):
+		for i in WPlaces.BEACONS.size():
+			if not i in lit and (Vector2(pa.x, pa.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE or Vector2(pb.x, pb.z).distance_to(WPlaces.bpos(i)) < WPlaces.BEACON_SAFE):
+				return "Dim: %s has gone dark. Light it again to wake this link." % WPlaces.BEACONS[i].name
+		return "Dim: one of the pair must stand in a lit beacon's ground or a town."
+	var la := waystone_land(pa)
+	var lb := waystone_land(pb)
+	if la == lb:
+		return ""
+	var far := lb if la == "waste" else (la if lb == "waste" else "")
+	if far != "" and lights and lights.houses.any(func(h): return h.lane == far):
+		return "" if lights.lane_lit(far) else "Dim: the waste links to that isle only when both lights on its sea lane burn."
+	return "Dim: the two stand on different lands. Go by boat."
+
+
+## Why this pilgrim may not step through now, or "".
+func waystone_carry_why() -> String:
+	if player.mount != null:
+		return "Get down first: a cat will not pass a waystone."
+	if ember_by == Net.me():
+		return "An ember will not pass a waystone. Carry it by road."
+	for slot in inv.slots:
+		if slot == null:
+			continue
+		var id := str(slot.id) if slot is Dictionary else str(slot[0])
+		if id in WAY_CARGO or id in WArms.FAR_STUFF or id.begins_with("heart_") or id.begins_with("coal_"):
+			return "%s will not pass a waystone. Cargo goes by road and sea." % Items.iname(id)
+	return ""
+
+
 func _portal_look(pid: int) -> void:
 	var pc: Dictionary = pieces[pid]
 	if pc.kind != "portal" or not pc.node.has_meta("veil"):
 		return
-	var on := portal_pair(pid) >= 0
+	var pair := portal_pair(pid)
+	var on := pair >= 0 and waystone_why(pid, pair) == ""
 	(pc.node.get_meta("veil") as StandardMaterial3D).albedo_color.a = 0.45 if on else 0.0
 	(pc.node.get_meta("light") as OmniLight3D).light_energy = 1.4 if on else 0.0
 	(pc.node.get_meta("label") as Label3D).text = str(pc.name)
@@ -3052,6 +3961,13 @@ func _portal_look(pid: int) -> void:
 func step_through(pid: int) -> void:
 	var to := portal_pair(pid)
 	if to < 0:
+		return
+	var why := waystone_why(pid, to)
+	if why == "":
+		why = waystone_carry_why()
+	if why != "":
+		hud.notify(why)
+		sfx("deny", -10)
 		return
 	var pc: Dictionary = pieces[to]
 	var fwd := Vector3(sin(pc.yaw), 0, cos(pc.yaw))
@@ -3195,8 +4111,55 @@ func lay_trophy(t: String) -> void:
 	hud.notify("You lay %s on the shrine. Its power is yours to take up now." % Items.iname(t))
 
 
+# ------------------------------------------------------------------ stages
+## Each system is shown when its land first needs it, once in a world. What has been shown is kept in
+## the world's flags, so one who joins late sees every system the world has reached, without the cards.
+const STAGES := {
+	"dread": ["Fear", "In the open dark your fear rises and the edges of sight darken. A fire, a town or a lit lantern eases it."],
+	"wards": ["Hardships", "This land bites. Gear made from the land's own stuff wards it off. Towns and roofs are safe."],
+	"trades": ["Trades", "Each player keeps one trade and makes something no one else can. Choose yours in the pack."],
+	"standing": ["Road safety", "Every town knows how safe its roads are. Kill enemies near it and break nearby camps to make them safer. The map shows each as a ring."],
+	"seasons": ["Seasons", "The seasons turn every five days. Each changes the night and the weather. You hear of it a day ahead."],
+}
+
+
+func staged(k: String) -> bool:
+	return flags.has("stage_" + k)
+
+
+## A system is needed here for the first time: everyone in the world is shown it.
+func reach_stage(k: String) -> void:
+	if not staged(k) and STAGES.has(k):
+		shared("_w_stage", [k])
+
+
+func _w_stage(k: String) -> void:
+	if staged(k) or not STAGES.has(k):
+		return
+	flags["stage_" + k] = true
+	if not Net.dedicated and hud:
+		hud.alert_banner(STAGES[k][0], STAGES[k][1])
+	autosave_soon(3.0)
+
+
+## An older world has gone past some stages already: mark them, without the cards.
+func _stages_catch_up() -> void:
+	if nights > 0 or day > 1:
+		flags["stage_dread"] = true
+	if day >= WWeather.SEASON_DAYS:
+		flags["stage_seasons"] = true
+	for k in WPlaces.SETTLEMENTS:
+		if visited.has(k):
+			flags["stage_trades"] = true
+		if safety_of(k) < 25:
+			flags["stage_standing"] = true
+
+
 func _w_flag(f: String) -> void:
 	flags[f] = true
+	if f.begins_with("shrine_"):
+		for sb in shrine_bowls:
+			_shrine_bowl_show(sb)
 	autosave_soon(3.0)
 
 
@@ -3240,9 +4203,9 @@ func _great_warning() -> void:
 		0:
 			hud.alert_banner("The seventh night", "The great raid comes at dusk. Hold your camp, or find a wall.")
 		1:
-			hud.notify("The great raid comes tomorrow night. Mend your walls and lay in shells.")
+			hud.notify("The great raid comes tomorrow night: %s. Mend your walls and lay in shells." % GREAT_HOSTS[great_host()].name.to_lower())
 		2:
-			hud.notify("Two nights to the great raid. The forms are gathering.")
+			hud.notify("Two nights to the great raid. Enemies are gathering.")
 
 
 ## The seventh night: three waves fall on every camp a pilgrim is keeping, or on the pilgrims themselves.
@@ -3266,20 +4229,30 @@ func _great_raid() -> void:
 			spots.append(c)
 	if spots.is_empty():
 		return
-	great = {"spawned": 0, "spots": spots}
+	var host := great_host()
+	great = {"spawned": 0, "spots": spots, "host": host}
 	for c in spots:
-		shared("_w_great", [c])
+		shared("_w_great", [c, host])
 	var per := WCrowd.scale(self, 8 + mini(nights / 2, 8))
 	for wave in 3:
 		get_tree().create_timer(wave * 100.0 + 1.0, false).timeout.connect(func():
 			if not is_instance_valid(self) or not night:
 				return
 			for c in spots:
+				# Half of each wave is the night's own host, the rest the land's forms; the last wave brings its lead
 				var roster: Array = forms_at(c)
+				var band: Array = GREAT_HOSTS[host].band
+				if wave == 2:
+					for lead in GREAT_HOSTS[host].leads:
+						var le = _spawn_near(lead, c, 40.0, 55.0, true)
+						if le:
+							le.set_meta("raid", true)
+							le.set_meta("great", true)
+							great.spawned = int(great.get("spawned", 0)) + 1
 				for k in per + wave * 2:
 					get_tree().create_timer(randf_range(0.0, 25.0), false).timeout.connect(func():
 						if is_instance_valid(self) and night:
-							var kind: String = "elite" if randf() < 0.06 + wave * 0.04 else roster[randi() % roster.size()]
+							var kind: String = "elite" if randf() < 0.06 + wave * 0.04 else (band[randi() % band.size()] if randf() < 0.5 else roster[randi() % roster.size()])
 							var e = _spawn_near(kind, c, 38.0, 55.0, true)
 							if e:
 								e.set_meta("raid", true)
@@ -3287,12 +4260,41 @@ func _great_raid() -> void:
 								great.spawned = int(great.get("spawned", 0)) + 1))
 
 
-func _w_great(at: Vector3) -> void:
+## The seventh night's host changes as the lands are lit: the dead come first, then the Unlit march
+## to put the beacons out again, then (after the turn) the sea itself, and at last the old iron of the deep lands.
+const GREAT_HOSTS := {
+	"far": {"name": "The Far Host", "band": ["rime_walker", "canyon_strider", "grass_stalker", "dust_choir", "geyser_wight"], "leads": ["mound_guard", "sand_maw"],
+		"text": "The Far Shores have crossed the sea: rime-walkers, striders and stalkers, and the mound-guards behind them."},
+	"pilgrims": {"name": "The Hollow Pilgrimage", "band": ["hollow", "hollow", "vigil", "saltbone"], "leads": ["warden"],
+		"text": "The dead walk on your camp, a Gravewarden behind them."},
+	"unlit": {"name": "The Unlit War Band", "band": ["unlit_gun", "unlit_gun", "unlit_blade", "unlit_mark", "unlit_flame"], "leads": ["unlit_brute", "unlit_brute"],
+		"text": "The Unlit march to put out what you have lit. Mind their marksmen, and their breakers."},
+	"tide": {"name": "The Drowned Tide", "band": ["drowned", "drowned", "kelp_drowner", "nykur", "lurker"], "leads": ["draugr", "draugr", "tar_giant"],
+		"text": "The sea comes up the shore after you: the drowned, the kelp-wound and the grey horses of the water."},
+	"iron": {"name": "The Iron Host", "band": ["deacon", "drowned", "unlit_blade", "hollow"], "leads": ["knight", "colossus"],
+		"text": "Old iron comes out of the deep lands: knights, and a colossus."},
+}
+
+## Which host comes on the seventh night, by how many beacons burn.
+func great_host() -> String:
+	if flags.has("second_vow"):
+		return "far"   # the Second Vow: what lives beyond the sea comes for the camp
+	if lit.size() >= 7:
+		return "iron"
+	if lit.size() >= 5:
+		return "tide"   # the turn: once five burn, the seventh night comes up out of the sea
+	if lit.size() >= 3:
+		return "unlit"
+	return "pilgrims"
+
+
+func _w_great(at: Vector3, host := "pilgrims") -> void:
 	sfx("bell", 0)
 	for k in 3:
 		get_tree().create_timer(0.8 * (k + 1), false).timeout.connect(func(): sfx("bell", -3, null, 0.75))
 	var d := int(player.global_position.distance_to(at))
-	hud.alert_banner("The great raid", ("They are coming for your camp, %d m away." % d) if d > 40 else "Three waves. Hold until dawn.")
+	var gh: Dictionary = GREAT_HOSTS.get(host, GREAT_HOSTS.pilgrims)
+	hud.alert_banner(gh.name, ("They are coming for your camp, %d m away. " % d if d > 40 else "Three waves. Hold until dawn. ") + gh.text)
 
 
 ## Dawn after the seventh night: if the raid was beaten back, the fellowship shares what it carried.
@@ -3318,7 +4320,7 @@ func _great_dawn() -> void:
 
 func _w_great_spoils(spoils: Array) -> void:
 	hud.title_card("", "The raid is broken")
-	hud.notify("The forms leave what they carried. The fellowship shares it.")
+	hud.notify("The enemies leave what they carried. Everyone shares it.")
 	give(spoils)
 	award("beacon", 0.6)
 
@@ -3339,7 +4341,8 @@ func _vigil_tick(delta: float) -> void:
 			if t.global_position.distance_to(b.pos) < 50.0:
 				near = true
 		if not near:
-			vigils[i] -= delta * 4.0
+			vigils[i] -= delta * 4.0   # with no keeper at the bowl it burns down fast
+		_front_tick(i, delta)
 		b.flame.scale = Vector3.ONE * clampf(1.0 - vigils[i] / 150.0, 0.3, 1.0)
 		_vigil_t -= delta
 		if _vigil_t <= 0.0 and alive_count() < WCrowd.scale(self, 9):
@@ -3350,7 +4353,22 @@ func _vigil_tick(delta: float) -> void:
 			if i == 8 and randf() < 0.35:
 				_spawn_near("elite", b.pos, 30.0, 40.0)
 		if vigils[i] <= 0.0:
-			shared("_w_vigil_end", [i, near])
+			if near and not _front_held(i):
+				vigils[i] = 0.0   # the bowl holds, and waits for the camp
+				continue
+			# Credit: everyone near the bowl as it catches, and everyone who fought at its front
+			var who := {}
+			for t in targets():
+				if t.global_position.distance_to(b.pos) < BEACON_THERE:
+					who[pid_of(t)] = true
+			if fronts.has(i):
+				who.merge(fronts[i].fought)
+				fronts.erase(i)
+			var paid: Dictionary = vigil_paid.get(i, {})
+			vigil_paid.erase(i)
+			if not near and not paid.is_empty():
+				Net.call_peer(int(paid.by), "_w_give", [paid.items])   # nothing on the road is lost for good
+			shared("_w_vigil_end", [i, near, who.keys()])
 
 
 # ------------------------------------------------------------------ ruins
@@ -3524,8 +4542,13 @@ func _rq_open(by: int, id: String) -> void:
 			var rr := RandomNumberGenerator.new()
 			rr.randomize()
 			var bag := Inventory.new(12)
+			if containers.has(id):
+				bag.from_data(containers[id])   # what was left or stored here stays; the new finds go in beside it
 			for it in Items.roll(c.table, maxi(1, int(round((rr.randi_range(2, 4) + (2 if c.sealed else 0)) * WRules.yield_mult()))), rr):
 				bag.add(it[0], it[1])
+			var far_stuff := far_find_id(id)
+			if far_stuff != "":
+				bag.add(far_stuff, rr.randi_range(1, 3))
 			var book := _book_for(id, rr)
 			if book != "":
 				bag.add(book, 1)
@@ -3542,6 +4565,18 @@ func _rq_open(by: int, id: String) -> void:
 				shared("_w_flag", ["found_" + relic])
 			containers[id] = bag.to_data()
 			shared("_w_crate_day", [id, day])
+		# The keys of the road: the Bell-Wound's ichor in the tower, the Fleet Log in Quietglass once its lane is lit
+		var key_find := ""
+		if id.begins_with("kraken_"):
+			key_find = "bell_ichor"
+		elif (id.begins_with("fs_quiet_") or id.begins_with("isle_quiet")) and lights and lights.lane_lit("quiet"):
+			key_find = "fleet_log"
+		if key_find != "" and containers.has(id):
+			var kb := Inventory.new(14)
+			kb.from_data(containers[id])
+			if kb.count(key_find) <= 0:
+				kb.add(key_find, 1)
+				containers[id] = kb.to_data()
 		var cache := quests.cache_items(id)
 		if not cache.is_empty():
 			var bag := Inventory.new(14)
@@ -3622,15 +4657,77 @@ func _rq_ending(by: int, kind: String) -> void:
 		return
 	if not kind in ["writer", "unlit", "pilgrim"]:
 		kind = "keeper"
+	# A vote: everyone at the page chooses; the hall waits a minute for those still on the stair
+	if end_votes.is_empty():
+		end_t = END_WAIT
+		_end_first = by
+	end_votes[by] = kind
+	var all_in := Net.pilgrims().all(func(id): return end_votes.has(int(id))) if Net.online else true
+	if all_in or (Net.online and Net.pilgrims().size() <= 1):
+		_end_settle()
+	else:
+		shared("_w_end_votes", [end_votes.duplicate(), end_t])
+
+
+const END_WAIT := 60.0
+var end_votes := {}     ## host: pilgrim -> the ending they chose at the page
+var end_t := -1.0
+var _end_first := 0
+
+
+## Host: the page answers the most votes; a tie goes to the host (or, with no host at the page, the first to choose).
+func _end_settle() -> void:
+	var q: Dictionary = quests.quests.get("story_ferryway", {})
+	if end_votes.is_empty() or flags.has("ending") or q.is_empty():
+		end_votes.clear()
+		end_t = -1.0
+		return
+	var breaker: int = Net.me() if end_votes.has(Net.me()) and not Net.dedicated else _end_first
+	var kind := end_tally(end_votes, breaker)
+	var by: int = breaker if end_votes.get(breaker, "") == kind else end_votes.keys().filter(func(id): return end_votes[id] == kind)[0]
+	end_votes.clear()
+	end_t = -1.0
 	shared("_w_ending", [kind, by])
 	quests.advance(q.id, int(q.stage))
+
+
+## The most votes win; a tie goes to the breaker's choice, if theirs is among the tied.
+static func end_tally(votes: Dictionary, breaker: int) -> String:
+	var count := {}
+	for id in votes:
+		count[votes[id]] = int(count.get(votes[id], 0)) + 1
+	var top := 0
+	for k in count:
+		top = maxi(top, int(count[k]))
+	var tied: Array = count.keys().filter(func(k): return int(count[k]) == top)
+	tied.sort()
+	if tied.size() > 1 and votes.has(breaker) and votes[breaker] in tied:
+		return votes[breaker]
+	return tied[0]
+
+
+func _end_vote_tick(delta: float) -> void:
+	if end_t < 0.0:
+		return
+	end_t -= delta
+	if end_t <= 0.0:
+		_end_settle()
+
+
+func _w_end_votes(votes: Dictionary, left: float) -> void:
+	if Net.dedicated:
+		return
+	var names: Array = []
+	for id in votes:
+		names.append("%s: %s" % [Net.name_of(int(id)), ENDINGS.get(votes[id], ENDINGS.keeper)[0]])
+	hud.notify("At the page. %s. The hall waits %d seconds for the rest." % [", ".join(names), int(left)])
 
 
 const ENDINGS := {
 	"keeper": ["The Keeper", "You leave the page white. The pen stays where it lay.\n\nUp in the waste the nine fires burn. The Mouth is held for as long as someone keeps them.\n\nThe waste is not saved. It is kept. And now you keep it."],
 	"unlit": ["The Unlit", "You leave the page. Behind the table there is a stair, and Ruth's people are waiting on it with their lamps put out.\n\nYou go down into the Mouth, and you are not seen again.\n\nUp in the waste the forms stop coming at night. The fires burn on. No one can quite remember your name."],
 	"pilgrim": ["The Pilgrim", "A thin man stands at the end of the table. He has no face you can keep hold of. He holds out a book, worn soft, its last page blank.\n\n\"He walked it once,\" he says. \"Now you.\"\n\nYou take Brelm's journal, and the vow with it. The road begins again: the same waste, harder, and you are its hermit now. This is the Second Vow."],
-	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nBut the stars are gone. The waste is safe, and very empty, as if no one is looking any more."],
+	"writer": ["The Writer", "You take up the pen, and write what the five could not: that you were seen, and it was enough.\n\nThe page stays written. The Mouth closes, and does not open again. The nights grow quiet, and no great raid comes.\n\nThe stars are gone. But the waste goes on: great ones still walk abroad, the towns still keep their feasts, and there is work for anyone who wants it."],
 }
 
 
@@ -3638,6 +4735,7 @@ func _w_ending(kind: String, by: int) -> void:
 	flags["ending"] = kind
 	if kind == "pilgrim":
 		flags["second_vow"] = true
+		flags["vow_at"] = world_hours()   # from now the lit fires gutter, and must be tended
 	sfx("choir", -4)
 	var e: Array = ENDINGS.get(kind, ENDINGS.keeper)
 	hud.title_card(e[0], "The end of the road")
@@ -3840,7 +4938,7 @@ func _w_gift(items: Array, by: int) -> void:
 
 # ------------------------------------------------------------------ satchels: what is dropped, or left by the fallen
 
-func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -> void:
+func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "", keep := false) -> void:
 	if not Net.authority():
 		return
 	var sid := "s%d" % satchel_next
@@ -3849,7 +4947,7 @@ func _rq_satchel(_by: int, p: Vector3, items: Array, grave: bool, owner := "") -
 	for it in items:
 		bag.add(it[0], it[1])
 	shared("_w_cont", [sid, bag.to_data()])
-	shared("_w_satchel", [sid, p, grave, owner])
+	shared("_w_satchel", [sid, p, grave, owner, day, keep])
 
 
 ## Loot from a great one or an event falls for each pilgrim of the fellowship, a satchel apiece that
@@ -3873,16 +4971,18 @@ func drop_for_each(at: Vector3, roll: Callable) -> int:
 	return names.size()
 
 
-func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "") -> void:
+func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1, keep := false) -> void:
 	if satchels.has(sid):
 		return
+	if made < 0:
+		made = day
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = ground_below(p)
 	if owner != "" and owner != Net.my_name() and not Net.dedicated:
 		# Another pilgrim's share: kept, but not seen or touched here
 		n.visible = false
-		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
+		satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made, "keep": keep}
 		return
 	var body := StaticBody3D.new()
 	body.collision_layer = 16
@@ -3908,7 +5008,47 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "") -> void:
 	personal_interactable(body, "Your belongings" if grave else "Satchel", func(): shared("_rq_open", [Net.me(), sid]))
 	body.set_meta("on_hold", func(): take_all(sid))
 	body.set_meta("hold_prompt", "Take all")
-	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner}
+	satchels[sid] = {"node": n, "pos": p, "grave": grave, "owner": owner, "day": made, "keep": keep}
+
+
+## Satchels left lying (a foe's few rounds, a bag no one came back for) are blown away by the ash after
+## a few days, so a long world does not fill with them. Your belongings, where you fell, are never taken,
+## and nothing goes while someone stands near it.
+const SATCHEL_DAYS := 4
+const SATCHEL_MAX := 300
+
+func _age_satchels() -> void:
+	if not Net.authority():
+		return
+	var near: Array = []
+	if not Net.dedicated and is_instance_valid(player):
+		near.append(player.global_position)
+	for id in avatars:
+		if is_instance_valid(avatars[id]) and avatars[id].is_inside_tree():
+			near.append(avatars[id].global_position)
+	var keep: Array = []
+	var gone: Array = []
+	for sid in satchels:
+		var s: Dictionary = satchels[sid]
+		if s.grave or s.get("keep", false):
+			continue
+		var by_someone := false
+		for q in near:
+			if Vector2(q.x - s.pos.x, q.z - s.pos.z).length() < 80.0:
+				by_someone = true
+				break
+		if by_someone:
+			continue
+		if day - int(s.get("day", day)) >= SATCHEL_DAYS:
+			gone.append(sid)
+		else:
+			keep.append(sid)
+	# Too many even so: the oldest go first
+	if satchels.size() - gone.size() > SATCHEL_MAX:
+		keep.sort_custom(func(a, b): return int(satchels[a].get("day", 0)) < int(satchels[b].get("day", 0)))
+		gone.append_array(keep.slice(0, satchels.size() - gone.size() - SATCHEL_MAX))
+	for sid in gone:
+		shared("_w_satchel_gone", [sid])
 
 
 ## A soft column of light over something left on the ground, and motes rising from it, so a drop is seen
@@ -4096,7 +5236,7 @@ func _scatter_ammo() -> void:
 	r.seed = world_seed + 9393
 	var spots: Array = []
 	for ru in ruins:
-		if ru.has("isle") or r.randf() < 0.3:
+		if ru.has("isle") or ru.has("far") or r.randf() < 0.3:
 			continue
 		var rp: Vector3 = ru.pos
 		var a := r.randf() * TAU
@@ -4112,20 +5252,39 @@ func _scatter_ammo() -> void:
 		_make_node(nodes.size(), "ammo", p, r)
 
 
+## Off the far lands' towns, lairs and ruins.
+func _far_clear(p2: Vector2, il: Dictionary) -> bool:
+	if p2.distance_to(WIsles.lair_spot(il)) < 30.0:
+		return false
+	for k in WPlaces.SETTLEMENTS:
+		var st: Dictionary = WPlaces.SETTLEMENTS[k]
+		if st.has("shore") and p2.distance_to(WPlaces.spos(k)) < float(st.radius) + 8.0:
+			return false
+	for ru in ruins:
+		if ru.get("far", "") == il.key and p2.distance_to(Vector2(ru.pos.x, ru.pos.z)) < 12.0:
+			return false
+	return true
+
+
 ## What grows and lies on the isles, by their own dice, after everything on the mainland.
-func _scatter_isle_nodes() -> void:
+func _scatter_isle_nodes(far_ones: bool) -> void:
 	for il in terrain.isles:
+		if WIsles.far(il) != far_ones:
+			continue
 		var th: Dictionary = WIsles.THEMES[il.key]
 		var r := RandomNumberGenerator.new()
 		r.seed = world_seed + 6060 + hash(il.key)
 		var heart: Vector2 = terrain.isle_heart(il)
 		var made := 0
-		for tries in 600:
-			if made >= 70:
+		var want := int(70.0 * clampf(pow(float(il.r) / 300.0, 2.0), 1.0, 4.0)) if far_ones else 70   # the far shores are wide, but each node costs
+		for tries in (want * 9 if far_ones else 600):   # the near isles roll as they always did, for old saves
+			if made >= want:
 				break
 			var a := r.randf() * TAU
 			var p2: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.85
 			if p2.distance_to(heart) < 30.0:
+				continue
+			if far_ones and not _far_clear(p2, il):
 				continue
 			var p := gpos(p2)
 			if p.y < WIsles.SEA_Y + 0.6 or terrain.normal_at(p.x, p.z).y < 0.8:
@@ -4197,7 +5356,20 @@ func forms_at(p: Vector3) -> Array:
 	var all: Array = WIsles.THEMES[il.key].forms if not il.is_empty() else BIOME_FORMS[terrain.biome_name(p.x, p.z)]
 	var t := tier_at(p)
 	var out: Array = all.filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= t)
+	# The Second Vow: the Far Shores' forms walk the waste too (never in the gentle ground, or a town)
+	if flags.has("second_vow") and il.is_empty() and t >= 2 and settlement_at(p, 40.0) == "":
+		out += far_forms().filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= t + 1)
 	return out if not out.is_empty() else GENTLE_FORMS
+
+
+## The forms of the Far Shores, once each.
+func far_forms() -> Array:
+	var out: Array = []
+	for land in FAR_SHORE_LANDS:
+		for k in WIsles.THEMES[land].forms:
+			if not k in out:
+				out.append(k)
+	return out
 
 
 static func _form_spec(k: String) -> Dictionary:
@@ -4468,6 +5640,10 @@ func _rq_gather(by: int, id: int) -> void:
 	var ls: Array = LAND_STUFF.get(land_at(np), [])
 	if not ls.is_empty() and ls[0] == nd.kind and rr.randf() < float(ls[2]):
 		out.append([ls[1], rr.randi_range(1, 2)])
+	# Out past the sea, the land's own stuff comes up with whatever else is taken
+	var ff := far_find(np)
+	if ff != "" and nd.kind != "herb" and rr.randf() < 0.3:
+		out.append([ff, rr.randi_range(1, 2)])
 	shared("_w_node", [id, nd.charges - 1, day + 2])
 	Net.call_peer(by, "_w_gathered", [id, out])
 
@@ -4824,7 +6000,7 @@ func _serpent_watch() -> void:
 		return
 	for t in targets():
 		var p: Vector3 = t.global_position
-		if not terrain.is_water(p.x, p.z, 4.0) or sea.open_water(p, 240.0) < 160.0:
+		if not terrain.is_water(p.x, p.z, 4.0) or sea.open_water(p, 240.0) < 160.0 or (lights and lights.lane_safe(p)):
 			continue
 		if randf() > 0.15:
 			continue
@@ -4846,12 +6022,12 @@ func _serpent_watch() -> void:
 func _sea_tick(delta: float) -> void:
 	var p := player.global_position
 	player.water_y = sea.surface(p.x, p.z) if terrain.is_water(p.x, p.z, 1.0) else -INF
-	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated and not power_is("tar"):
+	if player.swimming and player.stamina <= 0.0 and not downed and not Net.dedicated and power_k("tar") < 1.0:
 		_drown_t -= delta
 		if _drown_t <= 0.0:
 			_drown_t = 1.0
 			hud.notify("You are drowning. Get to shore.")
-		player.health = maxf(1.0, player.health - 7.0 * delta)
+		player.health = maxf(1.0, player.health - 7.0 * delta * (1.0 - 0.5 * power_k("tar")))
 		hud.set_health(player.health / player.max_health, true)
 		_regen_wait = maxf(_regen_wait, 3.0)
 		if player.health <= 1.0:
@@ -4872,6 +6048,8 @@ func _sea_tick(delta: float) -> void:
 				deep.host_tick(1.0)
 			if kraken:
 				kraken.host_tick()
+			if lights:
+				lights.host_tick()
 			if events:
 				events.host_tick(1.0)
 			_ember_tick(1.0)
@@ -4882,6 +6060,7 @@ func _sea_tick(delta: float) -> void:
 
 
 func _world_tick(delta: float) -> void:
+	_end_vote_tick(delta)
 	_sync_t -= delta
 	if _sync_t <= 0.0 and Net.online:
 		_sync_t = 10.0
@@ -4905,6 +6084,10 @@ func _world_tick(delta: float) -> void:
 		hall.host_tick(delta)
 	if vaults:
 		vaults.host_tick(delta)
+	_band_t -= delta
+	if _band_t <= 0.0:
+		_band_t = 10.0
+		_bands_tick()
 	_squad_t -= delta
 	if _squad_t <= 0.0 and Net.online:
 		_squad_t = SQUAD_STEP
@@ -4952,7 +6135,7 @@ func near_fire(at: Vector3, reach := 8.0) -> bool:
 func _w_clock(c: float, d: int, n: int) -> void:
 	if Net.authority():
 		return
-	if absf(c - clock) > 0.05:
+	if absf(wrapf(c - clock, -12.0, 12.0)) > 0.05:   # across midnight, the two clocks are a moment apart, not a day
 		clock = c
 	day = d
 	nights = n
@@ -4962,8 +6145,8 @@ func _w_clock(c: float, d: int, n: int) -> void:
 ## morning gives something for it. Every pilgrim works out the same night from the world and its count.
 const NIGHT_THEMES := {
 	"screaming": {"name": "The Screaming Night", "text": "Box cats run in packs tonight. Hold until dawn.", "many": 1.0, "gives": [["fittings_fine", 2], ["meat", 3]]},
-	"long": {"name": "The Long Dark", "text": "More forms walk tonight than any night before. Hold until dawn.", "many": 1.4, "gives": [["fittings_rare", 1], ["salt", 40]]},
-	"hunt": {"name": "The Hunter's Moon", "text": "Greater forms walk among the rest tonight. Hold until dawn.", "many": 1.0, "gives": [["tempered", 2], ["clockwork", 1]]},
+	"long": {"name": "The Long Dark", "text": "More enemies come tonight than any night before. Hold until dawn.", "many": 1.4, "gives": [["fittings_rare", 1], ["salt", 40]]},
+	"hunt": {"name": "The Hunter's Moon", "text": "Stronger enemies walk among the rest tonight. Hold until dawn.", "many": 1.0, "gives": [["tempered", 2], ["clockwork", 1]]},
 	"quiet": {"name": "A Quiet Night", "text": "Few walk tonight. Rest, or build.", "many": 0.5, "gives": []},
 }
 var night_theme := ""
@@ -5026,6 +6209,7 @@ func _w_nightfall(_d: int) -> void:
 					_maybe_raid())
 	sfx("drone", -6)
 	hud.say("The sun goes down behind the ridges. Night comes to the waste, and the forms come with it.", 6.0)
+	_w_stage("dread")
 	if WCrowd.describe(self) != "":
 		hud.notify(WCrowd.describe(self))
 	quests.on_event("nightfall", {})
@@ -5033,6 +6217,10 @@ func _w_nightfall(_d: int) -> void:
 
 func _w_dawn(d: int) -> void:
 	night = false
+	if Net.authority():
+		_roam_great.call_deferred()
+	bulwark_spent = false
+	quick_camp_spent = false
 	day = d
 	nights += 1
 	raiding.clear()
@@ -5040,6 +6228,12 @@ func _w_dawn(d: int) -> void:
 	_my_vote = false
 	sfx("choir", -10)
 	hud.say("Dawn. You have lived through %s." % _nth_night(nights), 5.0)
+	if feast_town(d) != "":
+		var ft := feast_town(d)
+		reveal_place(WPlaces.spos(ft), 80.0)
+		get_tree().create_timer(6.0, false).timeout.connect(func():
+			if is_instance_valid(hud):
+				hud.notify("Today is a feast day in %s. Come by day: food, salt and cheap trade." % WPlaces.SETTLEMENTS[ft].name))
 	if night_theme != "" and not Net.dedicated:
 		var nt: Dictionary = NIGHT_THEMES[night_theme]
 		if not _fell_tonight and not nt.gives.is_empty():
@@ -5054,6 +6248,10 @@ func _w_dawn(d: int) -> void:
 		var se: Dictionary = WWeather.SEASONS[WWeather.season_of(d)]
 		hud.title_card("", se.name)
 		hud.notify(se.text)
+	elif season_ahead(d) != "":
+		hud.notify(season_ahead(d))
+	if d >= WWeather.SEASON_DAYS:
+		_w_stage("seasons")
 	if Net.authority():
 		_director_dawn()
 		_great_dawn()
@@ -5061,10 +6259,19 @@ func _w_dawn(d: int) -> void:
 			if is_instance_valid(e) and e.is_alive():
 				e.die(false)
 		_dawn_world()
+	_safety_dawn()
+	_rivals_dawn()
 	_great_warning()
 	quests.on_event("dawn", {})
 	award("dawn")
 	save_all()
+
+
+## Said at dawn on the last day of a season: what the next one brings, so there is a day to prepare.
+func season_ahead(d: int) -> String:
+	if WWeather.season_of(d + 1) == WWeather.season_of(d):
+		return ""
+	return str(WWeather.SEASONS[WWeather.season_of(d + 1)].get("ahead", ""))
 
 
 func _nth_night(n: int) -> String:
@@ -5105,6 +6312,7 @@ func _dawn_world() -> void:
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
 	quests.refresh_offers()
 	settlers.host_dawn()
+	_age_satchels()
 
 
 func _w_kraken_down(d: int) -> void:
@@ -5128,8 +6336,24 @@ func _w_spirit(peer: int, id: String, on: bool) -> void:
 
 func _w_settler(s: Dictionary) -> void:
 	settlers.add(s)
+	# Each trade brings its know-how: the fellowship learns a recipe the first time one of its kind settles
+	var book: String = WSettlers.TEACHES.get(str(s.job), "")
+	var taught := book != "" and not flags.has(book)
+	if taught:
+		flags[book] = true
 	if not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
 		hud.notify("A wanderer, %s, has come to stay at your fire. A %s." % [s.name, WSettlers.JOBS[s.job].name])
+		if taught:
+			hud.notify("%s teaches you what is in %s." % [s.name, Items.iname(book)])
+
+
+func _w_settler_paid(id: int, pay: String, n: int, next: Array) -> void:
+	for s in settlers.list:
+		if int(s.id) == id:
+			if pay != "" and not Net.dedicated and pieces.has(int(s.fire)) and player and player.global_position.distance_to(pieces[int(s.fire)].pos) < 200.0:
+				hud.notify("%s took what they asked for and left %d %s in the chest." % [s.name, n, Items.iname(pay).to_lower()])
+			s.want = next
+			return
 
 
 func _w_settler_gone(id: int, why: String) -> void:
@@ -5198,7 +6422,7 @@ func _apply_skills() -> void:
 	player.walk_speed = 3.4 * skills.speed_mult()
 	player.run_speed = 5.8 * skills.speed_mult()
 	player.weapon.reserve_max = skills.reserve_max()
-	player.weapon.damage_mult = skills.damage_mult() * (1.2 if power_is("eye") else 1.0) * (alchemy.damage_mult() if alchemy else 1.0)
+	player.weapon.damage_mult = skills.damage_mult() * (1.0 + 0.2 * power_k("eye")) * (alchemy.damage_mult() if alchemy else 1.0)
 	player.weapon.reload_mult = skills.reload_mult()
 	inv.grow(skills.pack_size())
 	if not Net.dedicated:
@@ -5319,7 +6543,7 @@ func _night_wave(k := 1.0) -> Array:
 			return made
 		# Fewer come near home, more in the far lands
 		var tier := tier_at(t.global_position)
-		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press() * k)))
+		var n := maxi(1, int(round((2 + int(nights * 0.5) + randi() % 2) * [0.6, 0.85, 1.0, 1.15, 1.25][tier - 1] * WCrowd.share(self, t.global_position) * float(NIGHT_THEMES.get(night_theme, {}).get("many", 1.0)) * float(WRules.pace()[0]) * night_press() * k)))
 		var roster: Array = forms_at(t.global_position)
 		# The night leans on the heavy and on those that strike from afar
 		var hard: Array = roster.filter(func(f): var sp: Dictionary = LesserSpeeb.KINDS.get(f, {}); return str(sp.get("role", "")) == "gun" or f == "spitter" or float(sp.get("hp", 0.0)) >= 150.0)
@@ -5454,14 +6678,16 @@ func _day_watch() -> void:
 			if int(r.guard_day) != day and p.distance_to(r.pos) < 55.0:
 				r.guard_day = day
 				var n := WCrowd.scale_near(self, r.pos, 2 + randi() % 3)
-				if r.has("isle"):
-					# An isle's heart is kept more fiercely, by its own kind
+				if r.has("isle") or r.has("far"):
+					# An isle's heart is kept more fiercely, by its own kind (and the far ruins by theirs)
 					var roster: Array = forms_at(r.pos)
-					for k in n + 2:
+					for k in n + (2 if r.has("isle") else 0):
 						_spawn_near(roster[randi() % roster.size()], r.pos, 8.0, 18.0, true)
 					continue
 				var tr := tier_at(r.pos)
 				var guards: Array = ["rusher", "spitter", "spider", "idol", "brute", "howler", "hollow", "saltbone", "hollow", "warden"].filter(func(k): return int(LesserSpeeb.FORM_TIER.get(k, 1)) <= tr)
+				if gentle_at(r.pos):
+					guards = GENTLE_FORMS   # the ground about the start is gentle, its ruins too
 				for k in n:
 					_spawn_near(guards[randi() % guards.size()], r.pos, 6.0, 14.0, true)
 
@@ -5545,11 +6771,12 @@ func _combat_tick(delta: float) -> void:
 		hud.set_health(player.health / player.max_health, true)
 	enemies = enemies.filter(func(e): return is_instance_valid(e))
 	if _music:
-		var near := 0
-		for e in enemies:
-			if e.global_position.distance_to(player.global_position) < 26.0:
-				near += 1
-		_music.volume_db = move_toward(_music.volume_db, -10.0 if near > 0 else -60.0, delta * (30.0 if near > 0 else 8.0))
+		# The waste's music director plays the fight loop in its place
+		_music.queue_free()
+		_music = null
+	if music == null and not Net.dedicated:
+		music = WMusic.new(self)
+		add_child(music)
 
 
 ## Spikes bite whatever presses against them.
@@ -5590,7 +6817,10 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	if e.variant == "bellwound":
 		shared("_w_kraken_down", [day])
 		return
-	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill")
+	award("kill_elite" if e.kind in ["elite", "saucer"] else "kill", TIER_XP[clampi(tier_at(e.global_position), 1, TIER_XP.size()) - 1])
+	var near_town := town_near(e.global_position, SAFETY_REACH)
+	if near_town != "":
+		shared("_w_safety", [near_town, SAFETY_ELITE if e.kind in ["elite", "saucer"] or e.has_meta("champion") or e.max_hp >= 150.0 else SAFETY_KILL, Net.my_name()])
 	if not squadmates().is_empty():
 		shared("_w_squad_kill", [Net.me(), "kill_elite" if e.kind in ["elite", "saucer"] else "kill", e.global_position])
 	_ammo_drop(e)
@@ -5652,7 +6882,8 @@ func _bestiary(e: LesserSpeeb) -> void:
 		text += " Weak to %s." % ", ".join(weak)
 	if not hard.is_empty():
 		text += " Hard against %s." % ", ".join(hard)
-	hud.revelation("Bestiary: %s (%d known)" % [str(e.spec.name), slain_kinds.size()], text)
+	hud.revelation("Bestiary: %s (%d of %d known)" % [str(e.spec.name), slain_kinds.size(), bestiary_total()], text)
+	_completion_check()
 	WPlaylog.note("First %s slain" % str(e.spec.name))
 
 
@@ -5786,7 +7017,7 @@ func mend_boat(b: WBoat) -> void:
 		hud.notify("You need 4 wood to mend it.")
 		return
 	inv.take("wood", 4)
-	shared("_rq_boat_hp", [b.id, minf(float(b.spec.hp), b.hp + float(b.spec.hp) * 0.4)])
+	shared("_rq_boat_hp", [b.id, float(b.spec.hp) * 0.4])
 	hud.notify("You mend the %s." % str(b.spec.name).to_lower())
 	sfx("carve", -6, b.global_position)
 
@@ -5912,9 +7143,11 @@ func _w_boat_move(bid: int, p: Vector3, yaw: float, sp: float, sl: int) -> void:
 	b.net_set(p, yaw, sp, sl)
 
 
-func _rq_boat_hp(bid: int, hp: float) -> void:
+## A change to a boat's hull, by how much: the host adds up several at once (two serpents in one breath) rightly.
+func _rq_boat_hp(bid: int, change: float) -> void:
 	if Net.authority() and boats.has(bid):
-		shared("_w_boat_hp", [bid, hp])
+		var b: WBoat = boats[bid]
+		shared("_w_boat_hp", [bid, minf(float(b.spec.hp), b.hp + change)])
 
 
 func _w_boat_hp(bid: int, hp: float) -> void:
@@ -5929,7 +7162,7 @@ func _w_boat_hp(bid: int, hp: float) -> void:
 
 ## Harm to a boat (only the host's count of it matters).
 func hurt_boat(b: WBoat, amount: float) -> void:
-	shared("_rq_boat_hp", [b.id, b.hp - amount])
+	shared("_rq_boat_hp", [b.id, -amount])
 	if b.riders.has(Net.me()):
 		player.shake(0.3)
 		hud.notify("The %s shudders." % str(b.spec.name).to_lower())
@@ -5981,10 +7214,13 @@ func _cat_tick(delta: float) -> void:
 		cat.global_position = gpos(at)
 	if Input.is_action_just_pressed("quick_heal") and not player.input_locked and not get_tree().paused:
 		quick_heal()
+	if Input.is_action_just_pressed("whistle") and not player.input_locked and skills.has_boon("rally"):
+		rally()
 	if Input.is_action_just_pressed("whistle") and not player.input_locked and cat:
 		sfx("bell", -14, null, 2.2)
 		cat.call_to(player)
 		hud.notify("You whistle for %s." % cat.cat_name)
+	_verbs_tick(delta)
 	_salts_tick()
 	_stray_t -= delta
 	if _stray_t > 0.0:
@@ -6002,8 +7238,8 @@ func _cat_tick(delta: float) -> void:
 		return
 	# By day, near a town, a stray cat may be about
 	var town := settlement_at(player.global_position, 120.0)
-	if town == "" or night or randf() > 0.25:
-		return
+	if town == "" or night or randf() > 0.25 or not has_verb(1):
+		return   # strays come near the towns once the first fire burns
 	var a := randf() * TAU
 	var at := player.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(22.0, 35.0)
 	_stray = WCat.new().setup(self, WCat.FACES[randi() % WCat.FACES.size()], true)
@@ -6035,6 +7271,7 @@ func cat_used(c: WCat) -> void:
 		cat = c
 		_stray = null
 		c._refresh()
+		_apply_skills()   # a Pack-Cat carries from now on
 		sfx("choir", -10, null, 1.4)
 		hud.say("The cat is yours. Its name is %s, unless you give it another. Hold [%s] on it to name it and fit its barding." % [c.cat_name, Game.key_text("interact")], 6.0)
 		return
@@ -6092,20 +7329,25 @@ func _on_interact_pressed() -> void:
 func damage_player(amount: float, from: Vector3) -> void:
 	if failing or downed or _pfail or Net.dedicated or (dev and dev.god):
 		return
-	if player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
+	var lethal := amount >= 9000.0   # drowned or fallen: no armour, guard, mount or boat takes any of that
+	if not lethal and player.dodge_t > 0.0 and from.distance_to(player.global_position) < 6.0:
 		# Stepped aside in time
 		hud.hitmarker(false, true)
+		return
+	# Bulwark (the eighth fire): the beacons' blessing takes the first blow of each night
+	if night and not lethal and not bulwark_spent and has_verb(8) and amount > 0.5:
+		bulwark_spent = true
+		sfx("bell", -6, null, 1.3)
+		hud.hitmarker(false, true)
+		hud.notify("The beacons' blessing takes the blow. It will not again until tomorrow night.")
 		return
 	amount *= Game.difficulty_scale("damage") * skills.harm_mult() * (1.0 - WArms.worn(arms).guard) * alchemy.harm_mult()
 	if WRules.sworn("vow_glass"):
 		amount *= 1.5
-	amount *= TIER_HARM[tier_at(from) - 1] * (1.25 if flags.has("second_vow") else 1.0)
-	if power_is("gilt"):
-		amount *= 0.8
-	if night and skills.has_boon("night_eyes"):
-		amount *= 0.85
+	amount *= TIER_HARM[tier_at(from) - 1] * vow_mult(from, 1.25)
+	amount *= 1.0 - 0.2 * power_k("gilt")
 	var wpn = player.weapon
-	if wpn and wpn.guarding and wpn.enabled:
+	if wpn and wpn.guarding and wpn.enabled and not lethal:
 		# The blade is raised: a blow from the front is turned, and it costs breath
 		var to := from - player.global_position
 		to.y = 0
@@ -6119,10 +7361,10 @@ func damage_player(amount: float, from: Vector3) -> void:
 				if amount < 1.0:
 					return
 	# Aboard, a heavy blow lands on the boat as well
-	if player.vessel != null and is_instance_valid(player.vessel) and amount >= 10.0:
+	if not lethal and player.vessel != null and is_instance_valid(player.vessel) and amount >= 10.0:
 		hurt_boat(player.vessel, amount * 0.6)
 	# Riding, the cat takes half of the blow; hurt out, it throws its rider and runs off a while
-	if player.mount and cat:
+	if player.mount and cat and not lethal:
 		if cat.take(amount * 0.5):
 			dismount()
 			hud.notify("%s throws you and will not carry you for %d seconds. Meat would soothe it." % [cat.cat_name, int(WCat.REST_HURT)])
@@ -6131,7 +7373,7 @@ func damage_player(amount: float, from: Vector3) -> void:
 			cat._call = false
 		amount *= 0.5
 	# Plate worn on the body (or the helm, now and then) soaks part of the blow and wears down
-	var pt := WArms.plate_take(arms, amount, randf() < 0.25)
+	var pt := WArms.plate_take(arms, amount, randf() < 0.25) if not lethal else [amount, false]
 	if pt[0] < amount:
 		amount = pt[0]
 		sfx("hit_metal", -10)
@@ -6204,6 +7446,8 @@ func _perish(message: String) -> void:
 	if _pfail:
 		return
 	dismount()
+	if player.vessel != null and is_instance_valid(player.vessel):
+		_leave_boat(player.vessel)   # or the boat would carry them on, and they would wake aboard it
 	_burn = 0.0
 	_slow = 0.0
 	_freeze = 0.0
@@ -6229,6 +7473,13 @@ func _perish(message: String) -> void:
 	inv.changed.emit()
 	if not drop.is_empty():
 		shared("_rq_satchel", [Net.me(), player.global_position, drop, true])
+		# Kept at once, empty-handed, so leaving the game before waking cannot keep both the pack and the satchel
+		if not Net.dedicated and world_uid != "":
+			var cd := char_data().duplicate(true)
+			cd["pos"] = respawn_point()
+			cd["hp"] = player.max_health
+			_save_wait()
+			Game.write_safe(_char_path(), var_to_str(cd))
 	await hud.fade_to(1.0, 1.4)
 	hud.clear_say()
 	hud.raise_text(true)
@@ -6416,12 +7667,14 @@ var _region := ""
 
 
 func _visit_check() -> void:
+	if lights:
+		lights.local_tick()
 	var bn := land_at(player.global_position)
 	var region := terrain.region_name(player.global_position.x, player.global_position.z)
 	if region != _region:
 		var il := terrain.isle_at(player.global_position.x, player.global_position.z, 1.4)
 		if _region != "":
-			if region == "The Grey Sea":
+			if region == WTerrain.SEA_NAME:
 				hud.notify("The Grey Sea\nOpen water. Keep to a boat: a swimmer tires, and things live under it.")
 			elif not il.is_empty() and region == il.name:
 				if not visited.has("isle_" + str(il.key)):
@@ -6429,9 +7682,9 @@ func _visit_check() -> void:
 					sfx("jingle_find", -8)
 					hud.title_card("", il.name)
 					award("settlement")
-				hud.notify("%s (danger %d of 4)\n%s%s" % [il.name, tier_at(player.global_position), WIsles.THEMES[il.key].text, land_warning(bn)])
+				hud.notify("%s (danger %d of %d)\n%s%s" % [il.name, tier_at(player.global_position), tiers_known(), WIsles.THEMES[il.key].text, land_warning(bn) if LAND_WARD.has(bn) else ""])
 			else:
-				hud.notify("%s (danger %d of 4)\n%s%s" % [WTerrain.BIOME_NAMES[bn], tier_at(player.global_position), BIOME_TEXT[bn], "" if gentle_at(player.global_position) else land_warning(bn)])
+				hud.notify("%s (danger %d of %d)\n%s%s" % [WTerrain.BIOME_NAMES.get(bn, region), tier_at(player.global_position), tiers_known(), BIOME_TEXT.get(bn, ""), "" if gentle_at(player.global_position) else land_warning(bn)])
 		_region = region
 	if bn != _biome:
 		_biome = bn
@@ -6449,6 +7702,7 @@ func _visit_check() -> void:
 		hud.notify(WPlaces.SETTLEMENTS[k].blurb)
 		award("settlement")
 		quests.on_event("reach", {})
+		reach_stage("trades")
 	for r in ruins:
 		if not known_ruins.has(r.id) and player.global_position.distance_to(r.pos) < 40.0:
 			known_ruins[r.id] = true
@@ -6479,6 +7733,12 @@ func _rq_hello(by: int) -> void:
 	for bid in boats:
 		if is_instance_valid(boats[bid]) and not boats[bid].riders.is_empty():
 			Net.call_peer(by, "_w_riders", [bid, boats[bid].riders])
+	# The events now under way, so the newcomer sees their smoke and can share what they give
+	if events:
+		for id in events.active:
+			var ev: Dictionary = events.active[id]
+			if not ev.get("done", false):
+				Net.call_peer(by, "_w_event_start", [id, ev.kind, ev.pos])
 
 
 ## A newcomer asks again now and then while nothing of the world has come (a first word may be lost).
@@ -6497,6 +7757,8 @@ var _snap_parts: Array = []
 
 
 func _w_snap_part(i: int, n: int, raw: int, part: PackedByteArray) -> void:
+	if n <= 0 or n > 4096 or raw <= 0 or raw > 512 * 1024 * 1024:
+		return   # no world is this big: a damaged or hostile message, not to be unpacked
 	if i == 0 or _snap_parts.size() != n:
 		_snap_parts = []
 		_snap_parts.resize(n)
@@ -6566,16 +7828,16 @@ func world_data() -> Dictionary:
 	var pcs := {}
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0), "owner": pc.get("owner", "")}]
+		pcs[pid] = [pc.kind, pc.pos, pc.yaw, pc.hp, pc.get("open", false), {"name": pc.get("name", ""), "crop": pc.get("crop", ""), "sown": pc.get("sown", 0.0), "fuel": pc.get("fuel", -1.0), "tier": pc.get("tier", 0), "owner": pc.get("owner", ""), "hung": pc.get("hung", [])}]
 	var crate_days := {}
 	for id in crates:
 		if int(crates[id].day) > -99:
 			crate_days[id] = crates[id].day
 	var sat := {}
 	for sid in satchels:
-		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", ""))]
+		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day)), bool(satchels[sid].get("keep", false))]
 	return {
-		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep,
+		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
 		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
@@ -6588,7 +7850,7 @@ func _boats_data() -> Dictionary:
 	for bid in boats:
 		var b: WBoat = boats[bid]
 		if is_instance_valid(b):
-			out[bid] = [b.kind, b.global_position, b.yaw, b.hp]
+			out[bid] = [b.kind, Game.world_pos(b), b.yaw, b.hp]
 	return out
 
 
@@ -6601,6 +7863,8 @@ func apply_world(d: Dictionary) -> void:
 	lit = d.get("lit", [])
 	flags = d.get("flags", {})
 	rep = d.get("rep", {})
+	safety = d.get("safety", {}) if d.get("safety") is Dictionary else {}
+	deeds = d.get("deeds", {}) if d.get("deeds") is Dictionary else {}
 	for id in d.get("mined", {}):
 		var m: Array = d.mined[id]
 		_w_node(int(id), int(m[0]), int(m[1]))
@@ -6616,6 +7880,8 @@ func apply_world(d: Dictionary) -> void:
 			_w_plant(int(pid), str(p[5].get("crop", "")), float(p[5].get("sown", 0.0)))
 			if str(p[5].get("owner", "")) != "":
 				_w_bed_owner(int(pid), str(p[5].owner), true)
+			if p[5].get("hung") is Array and not p[5].hung.is_empty():
+				_w_hang(int(pid), p[5].hung.filter(func(t): return POWERS.has(str(t))))
 		# Fires laid before they burned wood start with a full three days
 		if str(p[0]) in FIRE_KINDS:
 			var f := float(p[5].get("fuel", -1.0)) if p.size() > 5 and p[5] is Dictionary else -1.0
@@ -6626,7 +7892,8 @@ func apply_world(d: Dictionary) -> void:
 	for id in d.get("crates", {}):
 		_w_crate_day(id, int(d.crates[id]))
 	for sid in d.get("satchels", {}):
-		_w_satchel(sid, d.satchels[sid][0], d.satchels[sid][1], str(d.satchels[sid][2]) if d.satchels[sid].size() > 2 else "")
+		var sd: Array = d.satchels[sid]
+		_w_satchel(sid, sd[0], sd[1], str(sd[2]) if sd.size() > 2 else "", int(sd[3]) if sd.size() > 3 else int(d.get("day", 1)), bool(sd[4]) if sd.size() > 4 else false)
 	satchel_next = int(d.get("satchel_next", 1))
 	var wd = d.get("weather", [])
 	if wd is Array and wd.size() >= 3:
@@ -6659,7 +7926,7 @@ func char_data() -> Dictionary:
 	return {
 		"v": 2, "inv": inv.to_data(), "shells": player.weapon.shells, "reserve": player.weapon.reserve, "arms": player.weapon.ammo_state(), "hp": player.health,
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
-		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds,
+		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds, "completed": rewards_had,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
 		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
@@ -6686,6 +7953,7 @@ func apply_char(d: Dictionary) -> void:
 			kindled.append(int(k))
 	traces_seen = d.get("traces", {}) if d.get("traces") is Dictionary else {}
 	slain_kinds = d.get("slain", {}) if d.get("slain") is Dictionary else {}
+	rewards_had = d.get("completed", {}) if d.get("completed") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
 	meals = {}
 	if d.get("meals") is Dictionary:
@@ -6717,6 +7985,8 @@ func apply_char(d: Dictionary) -> void:
 		var raw := Marshalls.base64_to_raw(rv)
 		if raw.size() == revealed.size():
 			revealed = raw
+		elif raw.size() == 320 * 320:
+			_reveal_from(raw, 320, 3200.0)   # drawn before the far sea was added
 		elif raw.size() == 256 * 256:
 			_reveal_from(raw, 256, WPlaces.HALF)   # drawn before the fog lay over the sea too
 		elif raw.size() == 128 * 128:
@@ -6772,6 +8042,10 @@ func _load_character() -> void:
 		while world_uid == "" and is_inside_tree():
 			await get_tree().process_frame
 	var d = Game.read_var_safe(_char_path())
+	if not d is Dictionary and Game.set_aside_damaged(_char_path()):
+		_damaged = true
+	if _damaged:
+		hud.say("Your save could not be read. It was kept aside, and a new one begun.", 10.0)
 	# New to a fellowship already on the road: come in beside the others. A returning pilgrim
 	# takes up where they left off.
 	if Net.online and not Net.authority() and not d is Dictionary:
@@ -6782,8 +8056,10 @@ func _load_character() -> void:
 	# Cast out with almost nothing, and shown the first steps
 	if guide:
 		guide.begin(0)
+	kindled = []   # a new pilgrim has lit nothing yet, whatever the fellowship has
 	inv.from_data([])
 	inv.add("bandage", 2)
+	inv.add("cloth", 2)   # enough for the first bandage the first steps ask for, wherever the cast-out wake
 	inv.add("meat", 2)
 	inv.add("salt", 12)
 	inv.add("shells", 18)
@@ -6911,8 +8187,8 @@ static func describe(s: String) -> String:
 
 # ================================================================== calls the fellowship shares, passed on to their keepers
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
-	builder._rq_build(by, k, p, yaw, hm)
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0, paid = null) -> void:
+	builder._rq_build(by, k, p, yaw, hm, paid)
 
 
 func _rq_unbuild(by: int, pid: int) -> void:
@@ -6943,8 +8219,8 @@ func _rq_door(pid: int) -> void:
 	builder._rq_door(pid)
 
 
-func _rq_tier(by: int, pid: int, t: int) -> void:
-	builder._rq_tier(by, pid, t)
+func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
+	builder._rq_tier(by, pid, t, paid)
 
 
 func _w_tier(pid: int, t: int, hp: float) -> void:
@@ -7349,6 +8625,17 @@ func _cont_count(cid: String, item: String) -> int:
 func _world_ready() -> void:
 	_warm_up()
 	reveal_lit()
+	for i in lit:
+		flags["clean_%d" % i] = true
+	flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
+	_stages_catch_up()
+	if lit.size() >= TURN_AT and not turned():
+		flags["turned"] = true   # a world from before the turn was kept, already five fires along
+	_turn_marks()
+	if lights:
+		lights.refresh()
+	for sb in shrine_bowls:
+		_shrine_bowl_show(sb)
 	if not Net.dedicated:
 		WPlaylog.begin("world %s, %d in company, day %d" % [slot, maxi(1, avatars.size() + 1), day])
 	if ui:
@@ -7730,8 +9017,16 @@ func debug_credit() -> void:
 	s0 = inv.count(BEACON_GIFT[0][0])
 	_beacon_payoff(3)
 	var near_gift := inv.count(BEACON_GIFT[0][0]) - s0
+	var near_ok: bool = 3 in kindled and not skills.boon_offer.is_empty()
+	# Far from the bowl, but named by the host (fought at its front): the full gift and the boon
+	skills.boon_offer.clear()
+	lit.append(4)
+	player.global_position = beacon_nodes[4].pos + Vector3(900, 0, 0)
+	s0 = inv.count(BEACON_GIFT[0][0])
+	_beacon_payoff(4, [Net.me()])
+	var named: bool = 4 in kindled and not skills.boon_offer.is_empty() and inv.count(BEACON_GIFT[0][0]) - s0 >= near_gift
 	var back := char_data()
-	print("CREDIT far_half=%s far_boon=%s far_credit=%s vigil=%s near=%s saved=%s" % [far_gift * 2 <= near_gift + 1 and far_gift > 0, far_boon, far_credit, vigil, 3 in kindled and not skills.boon_offer.is_empty(), back.kindled.has(2) and back.kindled.has(3)])
+	print("CREDIT far_half=%s far_boon=%s far_credit=%s vigil=%s near=%s saved=%s named=%s" % [far_gift * 2 <= near_gift + 1 and far_gift > 0, far_boon, far_credit, vigil, near_ok, back.kindled.has(2) and back.kindled.has(3), named])
 	get_tree().quit()
 
 
@@ -7802,6 +9097,41 @@ func debug_snaphost() -> void:
 	print("SNAPHOST ready")
 	await get_tree().create_timer(150.0).timeout
 	get_tree().quit()
+
+
+## Testing aid (host): sends the first joiner away once their world has arrived, then waits for them
+## to try again under the same name.
+func debug_kickhost() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	print("KICKHOST ready")
+	var seen := {}
+	var done := false
+	for t in 150:
+		await get_tree().create_timer(1.0).timeout
+		for id in Net.players:
+			if int(id) == 1:
+				continue
+			seen[id] = int(seen.get(id, 0)) + 1
+			if Net.brisk_links.has(int(id)) and seen[id] >= 3:   # their world has arrived
+				Net.kick(int(id))
+				print("KICKHOST sent=true away=%s" % Net.sent_away.keys())
+				done = true
+				break
+		if done:
+			break
+	await get_tree().create_timer(60.0).timeout
+	print("KICKHOST after players=%d" % Net.players.size())
+	get_tree().quit()
+
+
+## Testing aid (joiner): waits to be sent away and says why.
+func debug_kickclient() -> void:
+	var t := 0
+	while not ready_world and t < 120:
+		await get_tree().create_timer(1.0).timeout
+		t += 1
+	print("KICKCLIENT in=%s" % ready_world)
 
 
 ## Testing aid (newcomer): the world arrived whole, and what happened meanwhile was played after.
@@ -8133,6 +9463,8 @@ func debug_folk() -> void:
 	clock = 23.0
 	var seen := {}
 	for il in terrain.isles:
+		if WIsles.far(il):
+			continue   # the Frostmark has its own draugr: only the near isles' tales here
 		var c: Vector2 = il.c
 		var roster: Array = forms_at(Vector3(c.x, terrain.height_at(c.x, c.y), c.y))
 		for k in ["draugr", "nykur", "shtriga", "kulshedra"]:
@@ -8188,6 +9520,7 @@ func debug_isleground() -> void:
 					worst = "%s hole at %d,%d" % [il.name, int(x), int(z)]
 				elif absf(hit.position.y - y) > 1.5 and hit.collider.has_meta("ground"):
 					off += 1
+					worst = "%s off by %.1f" % [il.name, hit.position.y - y]
 	print("ISLEGROUND tried=%d holes=%d off=%d %s" % [tried, holes, off, worst])
 	get_tree().quit()
 
@@ -8648,6 +9981,19 @@ func _plan_lairs() -> void:
 			break
 
 
+## The great ones of the far sea and the Far Shores, each on its own isle (their ids after the rest).
+func _plan_far_lairs() -> void:
+	for b in LesserSpeeb.BOSSES:
+		var land: String = LesserSpeeb.BOSSES[b].land
+		if WTerrain.BIOMES.has(land):
+			continue
+		for il in terrain.isles:
+			if il.key != land:
+				continue
+			var q := WIsles.lair_spot(il)
+			lairs.append({"id": land, "land": land, "boss": b, "name": "Lair of " + LesserSpeeb.BOSSES[b].name.trim_prefix("The "), "pos": Vector3(q.x, terrain.height_at(q.x, q.y), q.y)})
+
+
 func lair_ready(l: Dictionary) -> bool:
 	return day >= int(flags.get("lair_" + str(l.id), -99)) + LAIR_RETURN_DAYS
 
@@ -8701,6 +10047,14 @@ var _lair_called := {}
 var _lair_told := {}
 
 
+## Coming near a sleeping great one for the first time, you are told how to wake it (on every pilgrim's own machine).
+func _lair_hint() -> void:
+	for l in lairs:
+		if lair_ready(l) and not _lair_told.has(l.id) and player.global_position.distance_to(l.pos) < 40.0 and (not Net.authority() or _lair_boss.get(l.id) == null):
+			_lair_told[l.id] = true
+			hud.notify("%s sleeps here. Hold %s at the stone in the middle to call it out, when you are ready." % [LesserSpeeb.BOSSES[l.boss].name, Game.key_text("interact")])
+
+
 ## The host wakes a great one once a pilgrim has called it out and is still near.
 func _lair_tick() -> void:
 	for l in lairs:
@@ -8708,10 +10062,6 @@ func _lair_tick() -> void:
 		if e != null and (not is_instance_valid(e) or not e.is_alive()):
 			_lair_boss.erase(l.id)
 			e = null
-		# Coming near a sleeping great one for the first time, you are told how to wake it
-		if e == null and lair_ready(l) and not _lair_told.has(l.id) and not Net.dedicated and player.global_position.distance_to(l.pos) < 40.0:
-			_lair_told[l.id] = true
-			hud.notify("%s sleeps here. Hold %s at the stone in the middle to call it out, when you are ready." % [LesserSpeeb.BOSSES[l.boss].name, Game.key_text("interact")])
 		if e != null or not lair_ready(l) or not _lair_called.has(l.id):
 			continue
 		_lair_called.erase(l.id)
@@ -8745,22 +10095,171 @@ func _w_boss_down(b: String, at: Vector3) -> void:
 			l.glow.light_energy = 0.2
 	if Net.authority():
 		# A great one always leaves fittings: rare ones, and now and then storied
+		# ...and its own named fittings each time, and the first time it falls in a world, a book
+		var book := great_book(land)
+		if book != "":
+			shared("_w_flag", ["felled_" + land])
+		var first := [book]
 		drop_for_each(at, func():
 			var fit := "fittings_storied" if _gen.randf() < 0.35 else "fittings_rare"
-			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1]])
+			var heart: Array = [["heart_" + land, 1]] if Items.DB.has("heart_" + land) else []   # the key to the eighth fire
+			var bk: Array = [[first[0], 1]] if first[0] != "" else []
+			first[0] = ""
+			return Items.roll("corpse", 6, _gen) + [["t_" + land, 1], [fit, 1], ["fit_" + land, 1]] + heart + bk)
 		autosave_soon(2.0)
 	if not Net.dedicated and player.global_position.distance_to(at) < 120.0:
 		award("kill_boss")
 		skills.points += 1
 		Game.gain_pxp(300)
 		ui.skills_changed()
-		hud.notify("%s is undone.\nA point of skill is yours to spend [%s]." % [LesserSpeeb.BOSSES[b].name, Game.key_text("skills")])
+		hud.notify("%s is slain.\nA point of skill is yours to spend [%s]." % [LesserSpeeb.BOSSES[b].name, Game.key_text("skills")])
 		player.health = player.max_health
 		hud.set_health(1.0, true)
 		autosave_soon(4.0)
 
 
+## The book a great one leaves the first time it falls in a world: a far one's own, or a lost book of the
+## waste not yet found. Never again after (a lair that returns every three days is not a library).
+func great_book(land: String) -> String:
+	if flags.has("felled_" + land):
+		return ""
+	var own := str(Items.GREAT_BOOKS.get(land, ""))
+	if own != "":
+		return own
+	for bk in Items.LAND_BOOKS:
+		if not flags.has("found_" + bk) and not flags.has(bk):
+			return bk
+	return ""
+
+
 ## Testing aid: shares of loot that belong to another pilgrim are kept but not seen, and stay theirs through a save.
+## Testing aid: old satchels far from anyone blow away at dawn; fresh ones, your belongings and ones
+## near you stay, and the day they were left is saved.
+func debug_satchelage() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var far := player.global_position + Vector3(400, 0, 0)
+	day = 10
+	var before := satchels.keys()
+	_rq_satchel(0, far, [["bone", 1]], false)
+	_rq_satchel(0, far + Vector3(0, 0, 4), [["bone", 1]], true)
+	_rq_satchel(0, player.global_position + Vector3(3, 0, 0), [["bone", 1]], false)
+	day = 12
+	_rq_satchel(0, far + Vector3(0, 0, 8), [["bone", 1]], false)
+	day = 10
+	_rq_satchel(0, far + Vector3(0, 0, 12), [["bone", 1]], false, "", true)
+	day = 12
+	await get_tree().process_frame
+	var made: Array = satchels.keys().filter(func(k): return not k in before)
+	var saved_day: bool = made.size() == 5 and int(world_data().satchels[made[0]][3]) == 10
+	day = 14
+	_age_satchels()
+	await get_tree().process_frame
+	var left: Array = made.filter(func(k): return satchels.has(k))
+	print("SATCHELAGE made=%d saved_day=%s old_gone=%s grave=%s near=%s fresh=%s" % [made.size(), saved_day,
+		not satchels.has(made[0]), satchels.has(made[1]), satchels.has(made[2]), satchels.has(made[3]) and satchels.has(made[4])])
+	get_tree().quit()
+
+
+## Testing aid: a damaged save is kept aside, not written over; a finished .tmp is read before the .bak.
+func debug_damaged() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var p := world_path("zz_test")
+	for e in ["", ".tmp", ".bak", ".damaged", ".bak.damaged", ".tmp.damaged"]:
+		DirAccess.remove_absolute(p + e)
+	Game.write_safe(p, var_to_str({"n": 1}))
+	Game.write_safe(p, var_to_str({"n": 2}))   # now n=2 is the save and n=1 the .bak
+	DirAccess.rename_absolute(p, p + ".tmp")   # as if stopped between the renames
+	var from_tmp = Game.read_var_safe(p)
+	var tmp_first: bool = from_tmp is Dictionary and int(from_tmp.n) == 2
+	for e in ["", ".tmp", ".bak"]:
+		var f := FileAccess.open(p + e, FileAccess.WRITE)
+		f.store_string("garbage {{{")
+		f.close()
+	var unread: bool = Game.read_var_safe(p) == null
+	var moved := Game.set_aside_damaged(p)
+	var kept: bool = FileAccess.file_exists(p + ".damaged") and FileAccess.file_exists(p + ".bak.damaged") and not FileAccess.file_exists(p)
+	for e in ["", ".tmp", ".bak", ".damaged", ".bak.damaged", ".tmp.damaged"]:
+		DirAccess.remove_absolute(p + e)
+	print("DAMAGED tmp_first=%s unread=%s moved=%s kept=%s" % [tmp_first, unread, moved, kept])
+	get_tree().quit()
+
+
+## Testing aid: at the best prices a pilgrim can ever get (full standing, three ranks of Haggler, a feast
+## day), nothing bought can be sold back, or made into something sold, for more salt than it cost.
+func debug_arbitrage() -> void:
+	await get_tree().create_timer(1.0).timeout
+	skills.ranks["haggler"] = 3
+	var at := "cinderwick"
+	rep[at] = 99
+	while feast_town(day) != at and day < 400:
+		day += 1
+	var sold := {}
+	for role in Items.STOCK:
+		for id in stock_at(role, at) + SAFE_STOCK.get(role, []):
+			sold[id] = true
+	var bad: Array = []
+	for id in sold:
+		if not Items.DB.has(id) and not WArms.WEAR.has(id):
+			continue
+		var each_buy: float = float(ui.buy_price(id, at)) / (ui._lot(id) if ui.AMMO_PRICE.has(id) else 1)
+		var each_sell: float = float(ui.sell_price(id)) / (ui._lot(id) if ui.AMMO_PRICE.has(id) else 1)
+		if each_sell >= each_buy:
+			bad.append("%s %.2f>=%.2f" % [id, each_sell, each_buy])
+	for r in Items.RECIPES:
+		var cost := 0.0
+		var all_bought := true
+		for k in r.cost:
+			if k == "salt":
+				cost += float(r.cost[k])
+			elif sold.has(k):
+				cost += float(ui.buy_price(k, at)) / (ui._lot(k) if ui.AMMO_PRICE.has(k) else 1) * float(r.cost[k])
+			else:
+				all_bought = false
+		if not all_bought:
+			continue
+		var out: float = float(ui.sell_price(r.id)) / (ui._lot(r.id) if ui.AMMO_PRICE.has(r.id) else 1) * float(r.n)
+		if out > cost:
+			bad.append("make %s %.1f>%.1f" % [r.id, out, cost])
+	print("ARBITRAGE none=%s %s" % [bad.is_empty(), bad])
+	get_tree().quit()
+
+
+## Testing aid: a month in the waste in a hurry. Each day foes fall and leave their satchels, the pilgrim
+## goes somewhere else, and dawn comes; what the world holds is counted as it goes, so anything that only
+## ever grows shows.
+func debug_longrun() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(2.0).timeout
+	var kinds: Array = ["rusher", "spitter", "idol"]
+	var places: Array = WPlaces.SETTLEMENTS.keys()
+	var first := {}
+	for d in 30:
+		var k: String = places[d % places.size()]
+		player.place(gpos(WPlaces.spos(k) + Vector2(120, 40)) + Vector3(0, 0.4, 0), 0.0)
+		await get_tree().create_timer(0.6).timeout
+		for i in 8:
+			var at := player.global_position + Vector3(randf_range(-15, 15), 0, randf_range(10, 20))
+			at.y = terrain.height_at(at.x, at.z) + 0.5
+			var e = spawn_at(kinds[i % kinds.size()], at)
+			if e:
+				e.hurt(9999.0, Vector3.FORWARD)
+			await get_tree().process_frame
+		await get_tree().create_timer(0.8).timeout
+		day += 1
+		_w_dawn(day)
+		await get_tree().create_timer(0.4).timeout
+		var now := {"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), "objs": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+			"orphans": int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)), "satchels": satchels.size(), "foes": enemies.size(), "containers": containers.size()}
+		if d == 4:
+			first = now
+		if d % 5 == 4:
+			print("LONG day=%d %s" % [day, now])
+	var last := {"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), "satchels": satchels.size(), "containers": containers.size()}
+	print("LONGRUN nodes_grew=%d satchels=%d containers=%d" % [last.nodes - int(first.nodes), last.satchels, last.containers])
+	get_tree().quit()
+
+
 func debug_ownloot() -> void:
 	await get_tree().create_timer(1.0).timeout
 	var at := player.global_position + Vector3(3, 0, 0)
@@ -8838,14 +10337,22 @@ func debug_front() -> void:
 	_w_piece(piece_next, "campfire", nc, 0.0, 100.0)
 	_w_piece(piece_next, "campfire", fc, 0.0, 100.0)
 	var few = second_front(b)
-	var at = second_front(b, true)
+	var at = second_front(b, true, 0)
 	var right: bool = at != null and (at as Vector3).distance_to(fc) < 20.0
 	player.max_health = 100000.0
 	player.health = 100000.0
 	player.place(fc + Vector3(3, 1, 0), 0.0)
 	await get_tree().create_timer(42.0).timeout
 	var raiders := enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("raid") and e.global_position.distance_to(fc) < 80.0).size()
-	print("FRONT few=%s right=%s raiders=%s" % [few == null, right, raiders > 0])
+	_front_tick(0, 1.0)
+	var fought: bool = fronts.has(0) and fronts[0].fought.has(Net.me())
+	var open_while: bool = not _front_held(0)
+	for e in enemies.duplicate():
+		if is_instance_valid(e) and e.has_meta("raid"):
+			e.die(false)
+	await get_tree().process_frame
+	var held := _front_held(0)
+	print("FRONT few=%s right=%s raiders=%s fought=%s open=%s held=%s" % [few == null, right, raiders > 0, fought, open_while, held])
 	get_tree().quit()
 
 
@@ -8928,6 +10435,108 @@ func debug_ammoprice() -> void:
 	# Shells cost most of the three by the ten
 	var dearest: bool = ui.buy_price("shells", "") > ui.buy_price("rounds", "")
 	print("AMMOPRICE buy_over_make=%s sell_under_make=%s shells_dearest=%s" % [ok_buy, ok_sell, dearest])
+	get_tree().quit()
+
+
+## Testing aid: deeds near a town make its roads safer and raise standing there; days of neglect and a
+## camp standing near lower it; a band left alone digs in and costs the town.
+func debug_safety() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t := "cinderwick"
+	safety.erase(t)
+	deeds.erase(t)
+	var start := safety_of(t)
+	var rep0 := int(rep.get(t, 0))
+	for k in 12:
+		_w_safety(t, SAFETY_KILL, Net.my_name())
+	var up: bool = safety_of(t) == start + 12 and int(rep.get(t, 0)) == rep0 + 1
+	var nearest: bool = town_near(gpos(WPlaces.spos(t) + Vector2(100, 0)), SAFETY_REACH) == t
+	var s1 := safety_of(t)
+	_safety_dawn()
+	var slipped := safety_of(t) == s1 - SAFETY_DECAY
+	# A band left alone, far from anyone, digs in and costs the town
+	var at := gpos(WPlaces.spos(t) + Vector2(260, 0))
+	var f = spawn_at("rusher", at + Vector3(0, 1.5, 0))
+	_track_band(at, [f])
+	var s2 := safety_of(t)
+	var camps0 := events.active.values().filter(func(x): return x.kind == "camp").size()
+	player.place(at + Vector3(600, 2, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	_bands_tick(BAND_DIG + 1.0)
+	await get_tree().process_frame
+	var dug: bool = events.active.values().filter(func(x): return x.kind == "camp").size() == camps0 + 1 and safety_of(t) == s2 - SAFETY_FLED
+	var s3 := safety_of(t)
+	_safety_dawn()
+	var camp_hurts := safety_of(t) <= s3 - SAFETY_DECAY - SAFETY_CAMP_DECAY
+	print("SAFETY up=%s nearest=%s slipped=%s dug=%s camp_hurts=%s word=%s" % [up, nearest, slipped, dug, camp_hurts, safety_word(safety_of(t))])
+	get_tree().quit()
+
+
+## Testing aid: what safe and dangerous roads bring: stock, prices, barred gates and the knock, the
+## plea, a bounty, honours and the town's gift, rivals' grumbling, the watch, and caravans to rob.
+func debug_roads() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	_debug_room(6)
+	var a := "cinderwick"
+	var ks := WPlaces.SETTLEMENTS.keys()
+	ks.sort_custom(func(x, y): return WPlaces.spos(x).distance_to(WPlaces.spos(a)) < WPlaces.spos(y).distance_to(WPlaces.spos(a)))
+	var b: String = ks[1]
+	visited[a] = true
+	safety[a] = 70
+	var stock_safe := stock_at("smith", a).has("tempered")
+	safety[a] = 40
+	var stock_plain := not stock_at("smith", a).has("tempered")
+	safety[a] = 10
+	var dear := price_mult_at(a) > 1.0
+	# Gates barred at night, and the knock
+	night = true
+	rep[a] = 0
+	_gates_tick(1.0)
+	var shut: bool = gates_shut.get(a, false) and (gates[a][0].body as CollisionObject3D).collision_layer == 1
+	_knock(a, 0)
+	_gates_tick(0.1)
+	var stranger_kept: bool = (gates[a][0].body as CollisionObject3D).collision_layer == 1
+	rep[a] = 3
+	_knock(a, 0)
+	_gates_tick(0.1)
+	var known_in: bool = (gates[a][0].body as CollisionObject3D).collision_layer == 0
+	night = false
+	_gates_tick(0.1)
+	var plea: Dictionary = town_plea(gpos(WPlaces.spos(a)) + Vector3(50, 0, 0))
+	# Honours, and the gift once
+	rep[a] = 4
+	flags.erase("honour_gift_" + a)
+	var fr0 := inv.count("fittings_rare")
+	_bounty(a, player.global_position, Net.me())
+	var friend := honour_title(a).begins_with("Friend")
+	rep[a] = 7
+	_bounty(a, player.global_position, Net.me())
+	var gift := inv.count("fittings_rare") == fr0 + 1
+	_bounty(a, player.global_position, Net.me())
+	var once := inv.count("fittings_rare") == fr0 + 1
+	# Rivals: a dangerous town beside a safe one grumbles
+	safety[a] = 10
+	safety[b] = 80
+	rep[a] = 3
+	flags.erase("grumble_" + a)
+	_rivals_dawn()
+	var grumble := int(rep[a]) == 2
+	# The watch walks the roads of a peaceful town
+	safety[b] = 95
+	_militia_tick(1.0)
+	var watch := militia.filter(func(m): return m.town == b).size() == MILITIA_N
+	# A caravan between safe towns, robbed
+	safety[a] = 70
+	safety[b] = 70
+	var mid: Vector2 = (WPlaces.spos(a) + WPlaces.spos(b)) * 0.5
+	var route := convoy_route(gpos(mid)).size() == 2
+	rep[a] = 5
+	var s0 := safety_of(a)
+	_w_robbed(Net.me(), gpos(mid))
+	var robbed: bool = safety_of(a) == s0 - 10 and int(rep[a]) == 2
+	print("ROADS stock=%s plain=%s dear=%s shut=%s stranger=%s known=%s plea=%s friend=%s gift=%s once=%s grumble=%s watch=%s route=%s robbed=%s" % [stock_safe, stock_plain, dear, shut, stranger_kept, known_in, not plea.is_empty(), friend, gift, once, grumble, watch, route, robbed])
 	get_tree().quit()
 
 
@@ -9244,6 +10853,14 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 	rr.randomize()
 	# About a third of what lies ahead on the road is a fight, and none while the fellowship catches its breath
 	var roll := rr.randf() * (0.66 if breather > 0.0 else 1.0)
+	# Near a town whose roads are kept safe, fewer of them are fights; near a dangerous one, more
+	var tn := town_near(at, SAFETY_REACH + 200.0)
+	if tn != "" and roll >= 0.66:
+		var sf := safety_of(tn)
+		if sf >= 60 and rr.randf() < 0.5:
+			roll = rr.randf() * 0.66
+		elif sf < 25 and rr.randf() < 0.3:
+			roll = 0.88 + rr.randf() * 0.12
 	var kind := "camp"
 	if roll < 0.26:
 		kind = "camp"
@@ -9264,13 +10881,17 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 			drop_for_each(at, func(): return Items.roll("corpse", 3, rr) + Items.roll("caravan", 1, rr))
 		"pack":
 			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 2 + rr.randi() % 3))
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 2.0, 8.0, true)
+				made.append(_spawn_near(k, at, 2.0, 8.0, true))
+			_track_band(at, made)
 		"attack":
 			drop_for_each(at, func(): return Items.roll("caravan", 3, rr))
 			var band := pack_at(at, WCrowd.scale_near(self, seen_from, 1 + rr.randi() % 3))
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 4.0, 10.0, true)
+				made.append(_spawn_near(k, at, 4.0, 10.0, true))
+			_track_band(at, made)
 		"cairn":
 			drop_for_each(at, func(): return Items.roll("vault", 3, rr))
 		"unlit":
@@ -9285,8 +10906,10 @@ func _road_event(at: Vector3, seen_from: Vector3) -> void:
 				band.append("unlit_flame")
 			if rr.randf() < 0.3 or maxf(absf(at.x), absf(at.z)) > 900.0:
 				band.append("unlit_brute")
+			var made := []
 			for k in band:
-				_spawn_near(k, at, 2.0, 6.0, true)
+				made.append(_spawn_near(k, at, 2.0, 6.0, true))
+			_track_band(at, made)
 	shared("_w_road_sign", [at, kind, Vector2(seen_from.x, seen_from.z)])
 
 
@@ -9859,6 +11482,135 @@ func debug_lootshot() -> void:
 
 
 ## Testing aid: walks the guide through its steps by doing each thing, and shows it on screen.
+## Testing aid: a new pilgrim's first hour, walked for real (at four times speed) and timed. Says what is
+## near the start, how long each first step takes, what is said on screen and how long each word stays
+## before the next replaces it, and when the first night falls.
+func debug_firsthour() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var t0 := Time.get_ticks_msec()
+	Engine.time_scale = 4.0
+	var game_s := func() -> float: return (Time.get_ticks_msec() - t0) / 1000.0 * 4.0
+	var start := player.global_position
+	var near := {}
+	for nd in nodes:
+		var d := Vector2(nd.pos.x - start.x, nd.pos.z - start.z).length()
+		if d < 150.0:
+			near[nd.kind] = int(near.get(nd.kind, 0)) + 1
+	var town := gpos(WPlaces.spos("cinderwick"))
+	print("FIRST start=%s clock=%.1f to_town=%.0fm near150=%s pack=%s" % [str(start), clock, Vector2(town.x - start.x, town.z - start.z).length(), near, inv.to_data().filter(func(x): return x != null)])
+	var steps := []
+	var last_step := guide.step
+	var mark := func(what: String): steps.append("%s@%.0fs" % [what, game_s.call()])
+	# Walk, dodge
+	Input.action_press("move_forward")
+	await get_tree().create_timer(1.5).timeout
+	Input.action_release("move_forward")
+	Input.action_press("dash")
+	await get_tree().physics_frame
+	Input.action_release("dash")
+	await get_tree().create_timer(1.0).timeout
+	mark.call("walked step=%d" % guide.step)
+	# Gather from the nearest tree and rock, holding the key as a player would (1.6 s each)
+	var got := 0
+	for kind in ["tree", "rock", "scrap"]:
+		var best := -1
+		var bd := INF
+		for nd in nodes:
+			if nd.kind == kind and nd.charges > 0:
+				var d := Vector2(nd.pos.x - player.global_position.x, nd.pos.z - player.global_position.z).length()
+				if d < bd:
+					bd = d
+					best = nd.id
+		if best < 0:
+			mark.call("no %s anywhere" % kind)
+			continue
+		var walk_s: float = bd / player.walk_speed
+		mark.call("nearest %s %.0fm (%.0fs on foot)" % [kind, bd, walk_s])
+		for k in 2:
+			_gather(best)
+			await get_tree().create_timer(1.6 / 4.0 + 0.3).timeout
+		got += 1
+	mark.call("gathered step=%d wood=%d stone=%d cloth=%d" % [guide.step, inv.count("wood"), inv.count("stone"), inv.count("cloth")])
+	ui.open_inventory("pack")
+	await get_tree().create_timer(0.6).timeout
+	var can_bandage := inv.count("cloth") >= 2
+	mark.call("pack step=%d can_make_bandage=%s" % [guide.step, can_bandage])
+	ui.close_all()
+	print("FIRST steps %s" % [steps])
+	# The walk to Cinderwick, on foot at walking pace, never stopping; foes met are counted and the
+	# pilgrim kept alive so the whole road is seen
+	var met := {}
+	var hurt := 0.0
+	var walk_t0: float = game_s.call()
+	Input.action_press("move_forward")
+	while game_s.call() - walk_t0 < 1200.0:
+		var to := town - player.global_position
+		to.y = 0.0
+		if to.length() < 40.0:
+			break
+		player.yaw = atan2(-to.x, -to.z)
+		player.rotation.y = player.yaw
+		if player.health < player.max_health:
+			hurt += player.max_health - player.health
+			player.health = player.max_health
+		for e in enemies:
+			if is_instance_valid(e) and e.global_position.distance_to(player.global_position) < 25.0:
+				met[e.get_instance_id()] = e.kind
+		await get_tree().create_timer(0.25).timeout
+	Input.action_release("move_forward")
+	var kinds := {}
+	for k in met.values():
+		kinds[k] = int(kinds.get(k, 0)) + 1
+	print("FIRST town arrived=%s walk=%.0fs clock=%.1f foes_met=%s damage_taken=%.0f step=%d visited=%s" % [(town - player.global_position).length() < 60.0, game_s.call() - walk_t0, clock, kinds, hurt, guide.step, visited.has("cinderwick")])
+	print("FIRST dusk_at=%.1f minutes_to_dusk=%.1f" % [weather.dusk(), (weather.dusk() - clock) * DAY_SECONDS / 24.0 / 60.0])
+	# What was said, and how long each stayed before the next took its place
+	var short := 0
+	var lines := []
+	for i in hud.text_log.size():
+		var e: Array = hud.text_log[i]
+		if e[1] == "note":
+			continue   # asked for; what was shown is what counts
+		var stay := -1.0
+		var grew := false   # the next line shown is this one with more picked up added: not cut short
+		for j in range(i + 1, hud.text_log.size()):
+			if hud.text_log[j][1] == e[1]:
+				stay = (hud.text_log[j][0] - e[0]) / 1000.0 * 4.0
+				grew = str(hud.text_log[j][2]).begins_with(str(e[2]))
+				break
+		if stay >= 0.0 and stay < 2.5 and not grew:
+			short += 1
+		lines.append("[%s %.0fs stay=%s] %s" % [e[1], (e[0] - t0) / 1000.0 * 4.0, ("%.1f" % stay) if stay >= 0.0 else "-", str(e[2]).replace("\n", " / ").left(140)])
+	for l in lines:
+		print("FIRST said ", l)
+	print("FIRST summary lines=%d cut_short=%d" % [lines.size(), short])
+	Engine.time_scale = 1.0
+	get_tree().quit()
+
+
+## Testing aid: lines under the compass that come together each get their turn; things picked up
+## together share one line, counted up by kind.
+func debug_toasts() -> void:
+	await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(8.0).timeout   # the start's own words have passed
+	hud.text_log.clear()
+	hud.notify("+3 Deadwood")
+	hud.notify("+2 Stone")
+	hud.notify("+4 Deadwood")
+	hud.notify("First line")
+	hud.notify("Second line")
+	hud.notify("Third line")
+	var seen := {}
+	var t := 0.0
+	while t < 14.0:
+		seen[hud.toast.text] = true
+		await get_tree().create_timer(0.1).timeout
+		t += 0.1
+	var merged: bool = seen.has("+7 Deadwood,  +2 Stone")
+	print("TOASTS merged=%s all_seen=%s" % [merged, seen.has("First line") and seen.has("Second line") and seen.has("Third line")])
+	get_tree().quit()
+
+
 func debug_guide() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -10272,7 +12024,8 @@ func debug_ending() -> void:
 	print("ENDING sealed=%d offered=%s barred=%s stair=%s down=%s crossed=%s dark=%s held=%s killed=%d leaf7=%s nowriter=%s ending=%s done=%s" % [sealed, offered, barred, at_stair, down, crossed, dark, held, killed, leaf7, barred_writer, flags.get("ending", ""), flags.has("done_ferryway")])
 	hall.go_up()
 	await get_tree().create_timer(0.5).timeout
-	print("ENDING up=%s" % [not hall.inside(player.global_position)])
+	var tally := [end_tally({2: "writer", 3: "writer", 1: "keeper"}, 1), end_tally({2: "writer", 1: "keeper"}, 1), end_tally({2: "unlit", 3: "pilgrim"}, 3)]
+	print("ENDING up=%s vote=%s" % [not hall.inside(player.global_position), ",".join(tally)])
 	get_tree().quit()
 
 ## Testing aid: a far shot takes time to land, and still lands, and a moving foe would have walked on.
@@ -10711,6 +12464,14 @@ func debug_quickheal() -> void:
 	quick_heal()
 	var kept := inv.count("bandage") == 1
 	print("QUICKHEAL first=%s cure=%s last=%s kept=%s key=%s" % [first, cure, last, kept, Game.key_text("quick_heal")])
+	# One key for each action, and the controller's wheel reaches what has no button
+	var shared_keys := 0
+	for c in Game.CONTROLS:
+		for d in Game.CONTROLS:
+			if c[0] < d[0] and c[0] != "pause" and Game.keys_of(c[0]).any(func(k): return k in Game.keys_of(d[0])):
+				shared_keys += 1
+	var wheel: bool = InputMap.has_action("pad_wheel") and PadWheel.pick(Vector2(0, -1)) == 0 and PadWheel.pick(Vector2(1, 0)) == 3 and hud.root.find_children("*", "PadWheel", true, false).size() == 1
+	print("WHEEL shared_keys=%d wheel=%s" % [shared_keys, wheel])
 
 
 func debug_cat() -> void:
@@ -11730,6 +13491,546 @@ func debug_fixes() -> void:
 	get_tree().quit()
 
 
+## Test: the far sea (0.16). Five far places stand clear of each other and of the near isles, each
+## dry in the middle; every far shore has its own hardship, and something worth walking to lies
+## within 150 m of nearly every dry spot (the gameplay bible's "something every 200 to 300 m").
+func debug_farsea() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var far: Array = terrain.isles.filter(func(il): return WIsles.far(il))
+	var clear := true
+	for a in terrain.isles:
+		for b in terrain.isles:
+			if a != b and Vector2(a.c).distance_to(b.c) < float(a.r) + float(b.r) + 200.0:
+				clear = false
+	var dry := 0
+	var lands := []
+	var worst := 1.0
+	for il in far:
+		var hc: Vector2 = terrain.isle_heart(il)
+		if not terrain.is_water(hc.x, hc.y):
+			dry += 1
+		lands.append(land_at(gpos(hc)))
+		# How full it is: dry spots with a ruin, a heart, a lair or a town within 150 m
+		var pois: Array = []
+		for ru in ruins:
+			if Vector2(ru.pos.x, ru.pos.z).distance_to(il.c) < float(il.r) * 1.2:
+				pois.append(Vector2(ru.pos.x, ru.pos.z))
+		for l in lairs:
+			pois.append(Vector2(l.pos.x, l.pos.z))
+		for k in WPlaces.SETTLEMENTS:
+			pois.append(WPlaces.spos(k))
+		var r := RandomNumberGenerator.new()
+		r.seed = 77
+		var n := 0
+		var near := 0
+		for k in 400:
+			var a := r.randf() * TAU
+			var q: Vector2 = il.c + Vector2(cos(a), sin(a)) * sqrt(r.randf()) * float(il.r) * 0.8
+			if terrain.height_at(q.x, q.y) < WIsles.SEA_Y + 1.0:
+				continue
+			n += 1
+			if pois.any(func(pp): return pp.distance_to(q) < 150.0):
+				near += 1
+		var share := float(near) / maxf(1.0, float(n))
+		worst = minf(worst, share)
+		print("FARSEA %s at %d r=%d pois=%d full=%.2f" % [il.key, int(Vector2(il.c).length()), int(il.r), pois.size(), share])
+	if OS.get_environment("FARMAP") != "":
+		terrain.map_image(1024).save_png(OS.get_environment("FARMAP"))
+	print("FARSEA far=%d clear=%s dry=%d lands=%s" % [far.size(), clear, dry, ",".join(lands)])
+	print("FARSEA full=%s" % (worst >= 0.6))
+	var towns := 0
+	for k in WPlaces.SETTLEMENTS:
+		if WPlaces.on_shore(k):
+			var c := WPlaces.spos(k)
+			var ok := terrain.height_at(c.x, c.y) > WIsles.SEA_Y + 2.0 and terrain.normal_at(c.x + 20.0, c.y).y > 0.97 and terrain.normal_at(c.x, c.y - 20.0).y > 0.97
+			ok = ok and not WPlaces.roads.any(func(rd): return rd[0] == k or rd[1] == k)
+			if ok:
+				towns += 1
+	print("FARSEA towns=%d" % towns)
+	get_tree().quit()
+
+
+## Test: the turn (the fifth beacon) and the Far Shores' hardships. The turn marks the world once,
+## shows the whirlpool, and the seventh night comes from the sea. On the Frostmark the cold bites
+## until the sheepskin is worn; on the Pale Steppe a pilgrim is lost until the compass is carried.
+## Testing aid: after the turn the dark bowls are fouled; each takes oil only with its key, a failed vigil gives
+## the key back, a lit bowl stays clean, and the ninth wants a coal from each Far Shore.
+func debug_fouled() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	lit = [0, 1, 2, 3, 4]
+	flags["turned"] = true
+	for i in 5:
+		flags["clean_%d" % i] = true
+	flags["most_lit"] = 5
+	var b: Vector3 = beacon_nodes[5].pos
+	player.max_health = 100000.0
+	player.health = 100000.0
+	player.place(b + Vector3(4, 1, 0), 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var want6: bool = key_for(5) == [["deep_oil", 1]] and fouled(5)
+	inv.add("beacon_oil", 2)
+	_beacon_touched(5)
+	var barred := not vigils.has(5)
+	inv.add("deep_oil", 1)
+	_beacon_touched(5)
+	var took: bool = vigils.has(5) and inv.count("deep_oil") == 0
+	# Leave the bowl and let it gutter: the key and the oil come back
+	player.place(b + Vector3(300, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	vigils[5] = 0.01
+	_vigil_tick(0.1)
+	var back: bool = not vigils.has(5) and inv.count("deep_oil") == 1 and inv.count("beacon_oil") == 2
+	player.place(b + Vector3(4, 1, 0), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	_beacon_touched(5)
+	vigils[5] = 0.01
+	_vigil_tick(0.1)
+	var lit6: bool = 5 in lit and flags.has("clean_5") and most_lit() == 6
+	var want7: bool = key_for(6) == [["fleet_log", 1]]
+	lit.erase(5)
+	var stays_clean: bool = not fouled(5) and key_for(5).is_empty()
+	var ninth: bool = key_for(8).size() == 3
+	inv.add("heart_frost", 1)
+	var heart_ok: bool = _key_fits(6, [["heart_frost", 1]]) == false and _has_key([["heart", 1]])
+	print("FOULED want6=%s barred=%s took=%s back=%s lit6=%s want7=%s clean=%s ninth=%s heart=%s bowls=%d" % [want6, barred, took, back, lit6, want7, stays_clean, ninth, heart_ok, shrine_bowls.size()])
+	get_tree().quit()
+
+
+## Testing aid: danger 5 lies on the Far Shores only after the turn, nowhere in the waste; foes there take
+## the fifth tier but their great one does not; kills there teach more.
+func debug_danger5() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var shore: Vector3 = Vector3.INF
+	for il in terrain.isles:
+		if il.key == "frost":
+			var h: Vector2 = terrain.isle_heart(il)
+			shore = gpos(h)
+	flags.erase("turned")
+	var before := tier_at(shore)
+	flags["turned"] = true
+	var after := tier_at(shore)
+	var waste_max := 0
+	for k in 400:
+		var a := k * 0.7
+		var q := Vector3(cos(a), 0, sin(a)) * (k * 9.0)
+		waste_max = maxi(waste_max, tier_at(q))
+	var e := spawn_at("rusher", shore + Vector3(0, 2, 0))
+	var foe_ok: bool = e != null and is_equal_approx(e.max_hp, float(LesserSpeeb.KINDS.rusher.hp) * TIER_HP[4] * WCrowd.hp(self))
+	var b := spawn_at("boss_frost", shore + Vector3(5, 2, 0))
+	var boss_ok: bool = b != null and b.max_hp < float(LesserSpeeb.BOSSES.boss_frost.get("hp", b.max_hp)) * TIER_HP[4] * 0.99
+	print("DANGER5 before=%d after=%d waste_max=%d foe=%s boss=%s lists=%s" % [before, after, waste_max, foe_ok, boss_ok, TIER_HP.size() == 5 and TIER_HARM.size() == 5 and WDread.TIER_RATE.size() == 5 and WSpirits.TIER_BITE.size() == 5])
+	get_tree().quit()
+
+
+## Testing aid: the Second Vow's rules, the world after an ending (roaming great ones, feast days), completion.
+func debug_keeping() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var vow0 := flags.has("second_vow")
+	var lit0 := lit.duplicate()
+	if not 0 in lit:
+		lit.append(0)
+	flags["second_vow"] = true
+	flags["vow_at"] = world_hours() - TEND_HOURS * 2.0
+	var low := flame_of(0)
+	inv.add("oil", 1)
+	tend_beacon(0)
+	await get_tree().create_timer(0.2).timeout
+	var high := flame_of(0)
+	var shore := Vector3.INF
+	for il in terrain.isles:
+		if il.key == "sun":
+			shore = gpos(terrain.isle_heart(il))
+	var mults: bool = is_equal_approx(vow_mult(shore, 1.3), 1.15) and is_equal_approx(vow_mult(Vector3(300, 0, 300), 1.3), 1.3)
+	var host := great_host()
+	var far_in_waste := false
+	for k in 60:
+		var q := Vector3(cos(k * 0.5), 0, sin(k * 0.5)) * (900.0 + k * 20.0)
+		if tier_at(q) >= 3 and land_at(q) != "sea" and terrain.isle_at(q.x, q.z, 1.3).is_empty():
+			far_in_waste = forms_at(q).any(func(f): return f in far_forms())
+			if far_in_waste:
+				break
+	# Roaming great ones, once the world is in the keeping
+	flags["ending"] = "keeper"
+	for k in 30:
+		_roam_great()
+		if not _lair_boss.is_empty():
+			break
+	var roamed: bool = not _lair_boss.is_empty()
+	for id in _lair_boss.keys():
+		if is_instance_valid(_lair_boss[id]):
+			_lair_boss[id].die(false)
+	_lair_boss.clear()
+	# Feast days
+	var ft := feast_town(7)
+	var d0 := day
+	day = 7
+	var cheaper: bool = ft != "" and price_mult_at(ft) < price_mult_at("__none__") and feast_town(8) == ""
+	day = d0
+	# Completion
+	var slain0 := slain_kinds.duplicate()
+	for b in BIOME_FORMS:
+		for k in BIOME_FORMS[b]:
+			slain_kinds[k] = true
+	for il in WIsles.THEMES:
+		for k in WIsles.THEMES[il].get("forms", []):
+			slain_kinds[k] = true
+	rewards_had.clear()
+	var st0 := inv.count("fittings_storied")
+	_completion_check()
+	var done: bool = rewards_had.has("beast_100") and inv.count("fittings_storied") > st0
+	slain_kinds = slain0
+	flags.erase("ending")
+	if not vow0:
+		flags.erase("second_vow")
+	lit = lit0
+	print("KEEPING low=%.2f high=%.2f mults=%s host=%s far_in_waste=%s roamed=%s feast=%s total=%d done=%s writer=%s" % [low, high, mults, host, far_in_waste, roamed, cheaper, bestiary_total(), done, ENDINGS.writer[1].contains("goes on")])
+	get_tree().quit()
+
+
+## Testing aid: the trophy hall (a third of a power at the base, never summed with the shrine's) and renown.
+func debug_hall() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(5, 0, 0)
+	builder._rq_build(1, "trophy_hall", at, 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var hp := -1
+	for pid in pieces:
+		if pieces[pid].kind == "trophy_hall":
+			hp = pid
+	for t in ["t_forest", "t_basalt", "t_salt", "t_dunes"]:
+		inv.add(t, 2)
+	power = ""
+	power_left = 0.0
+	hang_trophy(hp, "t_forest", true)
+	hang_trophy(hp, "t_forest", true)   # one of each
+	hang_trophy(hp, "t_basalt", true)
+	hang_trophy(hp, "t_salt", true)
+	hang_trophy(hp, "t_dunes", true)    # a fourth: no place for it
+	await get_tree().create_timer(0.3).timeout
+	var hung: Array = pieces[hp].get("hung", [])
+	_hall_keys = halls_here(player.global_position)
+	var eye_hall := power_k("eye")
+	var saved: bool = world_data().pieces[hp][5].hung.size() == 3
+	flags["shrine_t_forest"] = true
+	take_power("t_forest")
+	var eye_full := power_k("eye")
+	power = ""
+	power_left = 0.0
+	var far_off := halls_here(player.global_position + Vector3(500, 0, 0)).is_empty()
+	var back_in_pack: int = inv.count("t_forest")
+	hang_trophy(hp, "t_salt", false)
+	await get_tree().create_timer(0.3).timeout
+	var down: bool = not "t_salt" in pieces[hp].hung and inv.count("t_salt") == 2
+	# Renown
+	var sk := WSkills.new()
+	sk.level = WSkills.MAX_LEVEL
+	sk.ranks = {"hardy": 2}
+	sk.gain(9500)
+	var step: bool = sk.renown == 1 and sk.renown_picks == 1
+	var placed: bool = sk.take_reward("hall") and sk.hall_places() == 4 and not sk.take_reward("hall")
+	sk.gain(9000)
+	var points0 := sk.points
+	var respec: bool = sk.take_reward("respec") and sk.ranks.is_empty() and sk.points == points0 + 2
+	var back := WSkills.new()
+	back.from_data(sk.to_data())
+	var kept: bool = back.renown == 2 and back.rewards.size() == 2
+	print("HALL hung=%d eye_hall=%.2f eye_full=%.2f far=%s saved=%s kept_one=%d down=%s" % [hung.size(), eye_hall, eye_full, far_off, saved, back_in_pack, down])
+	print("RENOWN step=%s placed=%s respec=%s kept=%s" % [step, placed, respec, kept])
+	get_tree().quit()
+
+
+## Testing aid: the fires' verbs (by the world's most lit) and the boons that are verbs.
+func debug_verbs() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var was_lit := lit.duplicate()
+	lit = []
+	flags.erase("most_lit")
+	for b in ["book_ship", "book_longboat"]:
+		flags.erase(b)
+	var none: bool = not has_verb(1) and not has_verb(4)
+	flags["most_lit"] = 6
+	_verb_books()
+	var books: bool = flags.has("book_ship") and flags.has("book_longboat") and _recipe_shown("longboat")
+	var travel: bool = has_verb(4) and not has_verb(7)
+	flags["most_lit"] = 9
+	lit = was_lit
+	# Bulwark: the first blow of the night is taken
+	night = true
+	bulwark_spent = false
+	player.max_health = 1000.0
+	player.health = 1000.0
+	var foe_at := player.global_position + Vector3(3, 0, 0)
+	damage_player(20.0, foe_at)
+	var first_taken: bool = is_equal_approx(player.health, 1000.0) and bulwark_spent
+	damage_player(20.0, foe_at)
+	var second_lands: bool = player.health < 1000.0
+	# Rallying Cry
+	skills.boons.append("rally")
+	player.stamina = 0.0
+	var w0: float = player.walk_speed
+	_w_rally(Net.me(), player.global_position)
+	var rallied: bool = player.stamina >= player.stamina_max - 0.1 and player.walk_speed > w0
+	# Lantern-bearer
+	_w_bearer(Net.me(), true)
+	var bearer: bool = near_bearer(player.global_position) and dread.rate(player.global_position + Vector3(0, 0, 5)) <= 0.0
+	_w_bearer(Net.me(), false)
+	# Second Relic: two spirits at once
+	skills.boons.append("second_relic")
+	skills.boons.append("deep_diver")
+	var away := gpos(WPlaces.bpos(3))
+	player.global_position = away + Vector3(0, 1, 0)
+	await get_tree().create_timer(0.3).timeout
+	spirits.spent.clear()
+	var s1: bool = spirits.summon("spirit_ember")
+	var s2: bool = spirits.summon("spirit_ash")
+	await get_tree().create_timer(0.3).timeout
+	var two: int = spirits.running()
+	var diver: bool = player._boon("deep_diver")
+	# Survey: there is a high place to survey from
+	var high := false
+	for k in 600:
+		var a := k * 0.9
+		var q := Vector3(cos(a), 0, sin(a)) * (200.0 + k * 4.0)
+		if high_point(q):
+			high = true
+			break
+	# Waystones: one end in a town; the waste and an isle do not link; cargo and riding are refused
+	var town_p := gpos(WPlaces.spos("cinderwick")) + Vector3(4, 0, 4)
+	var isle_p := Vector3.INF
+	for il in terrain.isles:
+		if not lights.houses.any(func(h): return h.lane == il.key):
+			isle_p = gpos(terrain.isle_heart(il))
+			break
+	builder._rq_build(1, "portal", town_p, 0.0)
+	builder._rq_build(1, "portal", town_p + Vector3(220, 0, 90), 0.0)
+	builder._rq_build(1, "portal", town_p + Vector3(300, 0, -300), 0.0)
+	builder._rq_build(1, "portal", isle_p, 0.0)
+	await get_tree().create_timer(0.3).timeout
+	var ws: Array = []
+	for pid in pieces:
+		if pieces[pid].kind == "portal":
+			ws.append(pid)
+	var n := ws.size()
+	var linked: bool = waystone_why(ws[n - 4], ws[n - 3]) == ""
+	var unanchored: bool = waystone_why(ws[n - 3], ws[n - 2]) != ""
+	var cross: bool = waystone_why(ws[n - 4], ws[n - 1]) != ""
+	inv.add("red_iron", 1)
+	var ore: bool = waystone_carry_why() != ""
+	inv.take("red_iron", inv.count("red_iron"))
+	for f in WArms.FAR_STUFF + WAY_CARGO:
+		inv.take(f, inv.count(f))
+	var free: bool = waystone_carry_why() == ""
+	print("VERBS none=%s books=%s travel=%s bulwark=%s second=%s rally=%s bearer=%s relics=%s/%s/%d diver=%s high=%s" % [none, books, travel, first_taken, second_lands, rallied, bearer, s1, s2, two, diver, high])
+	for b in ["rally", "second_relic", "deep_diver"]:
+		skills.boons.erase(b)   # leave the character as it was for the checks after
+	spirits.spent.clear()
+	print("WAYSTONES linked=%s unanchored=%s cross=%s ore=%s free=%s" % [linked, unanchored, cross, ore, free])
+	get_tree().quit()
+
+
+## Testing aid: a great one leaves something lasting: its named fittings every time, a book the first time only,
+## and the Bell-Wound's trophy now has a power.
+func debug_greatdrops() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var at := player.global_position + Vector3(4, 0, 0)
+	var got := func() -> Dictionary:
+		var out := {}
+		for sid in containers:
+			if str(sid).begins_with("s"):
+				var bag := Inventory.new(30)
+				bag.from_data(containers[sid])
+				for it in ["fit_frost", "book_frost", "t_frost", "heart_frost"]:
+					out[it] = int(out.get(it, 0)) + bag.count(it)
+		return out
+	flags.erase("felled_frost")
+	_w_boss_down("boss_frost", at)
+	await get_tree().create_timer(0.3).timeout
+	var one: Dictionary = got.call()
+	_w_boss_down("boss_frost", at)
+	await get_tree().create_timer(0.3).timeout
+	var two: Dictionary = got.call()
+	var waste_book := great_book("ash")
+	var g := WArms.roll_grade(1, null, "salt")
+	var named: bool = int(g.r) == 3 and str(g.n) == "White Disc's" and "far" in g.t and g.t.size() == 3
+	var gated: bool = not ui._arm_known("carbine") and ui._arm_known("shotgun") and not ui._tier_known(4) and ui._tier_known(3)
+	flags["book_sun"] = true
+	flags["book_quiet"] = true
+	gated = gated and ui._arm_known("carbine") and ui._tier_known(4)
+	# The Bell's Toll: the eighth blow that lands strikes twice as hard
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 1, 6))
+	power = "t_kraken"
+	power_left = 120.0
+	Arms._toll = 0
+	var drops: Array = []
+	for i in 8:
+		var h0: float = e.hp
+		Arms.deal({e: 2.0}, Vector3.FORWARD)
+		drops.append(h0 - e.hp)
+	power = ""
+	var toll: bool = is_equal_approx(float(drops[7]), float(drops[0]) * 2.0) and is_equal_approx(float(drops[6]), float(drops[0]))
+	print("GREATDROPS fit=%d book=%d trophy=%d books_after_two=%d waste_book=%s named=%s gated=%s toll=%s power=%s" % [int(one.get("fit_frost", 0)), int(one.get("book_frost", 0)), int(one.get("t_frost", 0)), int(two.get("book_frost", 0)), waste_book.begins_with("book_"), named, gated, toll, Items.POWERS.has("t_kraken")])
+	get_tree().quit()
+
+
+## Testing aid: the far lands' stuff, Far-forged work, far plate and the three far arms.
+func debug_farforged() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var shore: Vector3 = Vector3.INF
+	for il in terrain.isles:
+		if il.key == "steppe":
+			shore = gpos(terrain.isle_heart(il))
+	var finds: bool = far_find(shore) == "steppe_horn" and far_find(Vector3(40, 0, 40)) == "" and far_find_id("fs_frost_3") == "ice_iron" and far_find_id("isle_quiet") == "lens_glass" and far_find_id("vault_2") == ""
+	var forged: bool = is_equal_approx(WArms.tier_mult(4), 1.6) and WArms.TIERS[4] == "Far-forged"
+	var gc := WArms.tier_cost(4, "shotgun")
+	var bc := WArms.tier_cost(4, "hatchet")
+	var costs: bool = int(gc.get("dome_steel", 0)) == 3 and int(gc.get("lens_glass", 0)) == 2 and int(bc.get("ice_iron", 0)) == 3 and not gc.has("obsidian") and not WArms.tier_cost(3, "shotgun").has("dome_steel")
+	var kept: int = int(WArms.clean({"tier": {"shotgun": 4, "pistol": 9}}).tier.get("shotgun", 0))
+	var capped: int = int(WArms.clean({"tier": {"pistol": 9}}).tier.get("pistol", 0))
+	var plate := WArms.worn({"wear": {"body": "far_plate"}})
+	var plate_ok: bool = plate.speed == 1.0 and plate.weary == 1.0 and plate.warm >= 1.5 and float(WArms.WEAR.far_plate.plate) > float(WArms.WEAR.obsidian_plate.plate)
+	var arms_ok := true
+	for id in ["carbine", "hand_cannon", "war_pick"]:
+		arms_ok = arms_ok and ArmsDB.far(id) and WArms.MAKE.has(id) and WArms.craft_k(id) == 2.5
+		for kind in ["primary", "secondary", "melee"]:
+			arms_ok = arms_ok and not id in ArmsDB.choices(kind)
+	arms_ok = arms_ok and ArmsDB.look("carbine") == "machine_gun" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
+	var w: Arms = player.weapon
+	var models := 0
+	for g in ["carbine", "hand_cannon"]:
+		var m := w._build(g, [])
+		models += 1 if m.get_child_count() > 0 else 0
+		m.free()
+	var pick := w._build_melee("war_pick")
+	models += 1 if pick != null else 0
+	if pick:
+		pick.free()
+	var glyphs := 0
+	for it in WArms.FAR_STUFF:
+		glyphs += 1 if Items.DB.has(it) and int(Items.DB[it].stack) == 40 else 0
+	print("FARFORGED finds=%s forged=%s costs=%s kept=%d capped=%d plate=%s arms=%s models=%d glyphs=%d" % [finds, forged, costs, kept, capped, plate_ok, arms_ok, models, glyphs])
+	get_tree().quit()
+
+
+func debug_turn() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var was_lit: Array = lit.duplicate()
+	lit = range(5)
+	flags.erase("turned")
+	var before := turned()
+	_the_turn()
+	var col := _turn_col != null or kraken.spot == Vector3.INF
+	var host := great_host()
+	lit = was_lit
+	print("TURN before=%s after=%s col=%s host=%s" % [before, turned(), col, host])
+	var home := player.global_position
+	var out := {}
+	for il in terrain.isles:
+		if not WIsles.THEMES[il.key].has("land"):
+			continue
+		var land: String = WIsles.THEMES[il.key].land
+		var hc: Vector2 = terrain.isle_heart(il)
+		player.place(gpos(hc + Vector2(60, 0)) + Vector3(0, 0.5, 0), 0.0)
+		await get_tree().create_timer(1.0).timeout
+		var at := land_at(player.global_position)
+		arms.wear.erase("cloak")
+		arms.wear.erase("hands")
+		var h0 := player.health
+		await get_tree().create_timer(6.0).timeout
+		var bites := player.health < h0
+		var was_lost := lost
+		arms.wear[WARMS_SLOT.get(land, "cloak")] = LAND_WARD[land][0]
+		h0 = player.health
+		await get_tree().create_timer(6.0).timeout
+		out[land] = [at == land, bites if land == "frost" else was_lost if land == "steppe" else true, player.health >= h0 and not lost]
+		arms.wear.erase(WARMS_SLOT.get(land, "cloak"))
+	player.place(home, 0.0)
+	print("TURN lands frost=%s steppe=%s" % [out.get("frost", []), out.get("steppe", [])])
+	get_tree().quit()
+
+const WARMS_SLOT := {"frost": "cloak", "sun": "neck", "steppe": "hands"}
+
+
+## Test: the Lighthouse chain. Two lights on each lane to a far place, on open water; a pilgrim can
+## stand on the rock; oil poured and the hold kept lights one; both on a lane make it safe from the
+## deep; the Kelp Forest slows a boat's way.
+func debug_lights() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var wet := lights.houses.filter(func(h): return terrain.is_water(h.pos.x, h.pos.z, 6.0)).size()
+	print("LIGHTS houses=%d lanes=%d wet=%d kelp=%s" % [lights.houses.size(), lights.lanes.size(), wet, lights.kelp != Vector3.INF])
+	var h0: Dictionary = lights.houses[0]
+	player.place(h0.pos + Vector3(0, 2.0, 3.5), 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var stands: bool = player.global_position.y > WIsles.SEA_Y + 0.2
+	inv.add("oil", WLights.OIL)
+	lights._touched(0)
+	await get_tree().create_timer(0.5).timeout
+	var poured := inv.count("oil") == 0 and lights._holding.has(0)
+	lights._holding[0] = 1.0
+	lights.host_tick()
+	await get_tree().create_timer(0.5).timeout
+	var one := lights.lit(0)
+	var lane: String = h0.lane
+	var mid: Vector2 = lights.lanes[lane][0].lerp(lights.lanes[lane][1], 0.5)
+	var half_safe := lights.lane_safe(Vector3(mid.x, 0, mid.y))
+	for i in lights.houses.size():
+		if lights.houses[i].lane == lane and i != 0:
+			_w_house(i, true)
+	await get_tree().create_timer(0.3).timeout
+	var safe := lights.lane_safe(Vector3(mid.x, 0, mid.y))
+	var kelp_in := lights.in_kelp(lights.kelp)
+	for i in lights.houses.size():
+		flags.erase("house_%d" % i)
+	print("LIGHTS stands=%s poured=%s one=%s half_safe=%s safe=%s kelp_in=%s" % [stands, poured, one, half_safe, safe, kelp_in])
+	get_tree().quit()
+
+
+## Test: the five great ones of the far lands. Each has a lair on its own isle, on level dry ground;
+## each wakes with its own name and a learnable loop, and leaves its trophy, whose power is known.
+func debug_farlairs() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var far := lairs.filter(func(l): return not WTerrain.BIOMES.has(str(l.land)))
+	var level_ok := 0
+	for l in far:
+		if l.pos.y > WIsles.SEA_Y + 1.0 and terrain.normal_at(l.pos.x + 12.0, l.pos.z).y > 0.97 and terrain.normal_at(l.pos.x, l.pos.z - 12.0).y > 0.97:
+			level_ok += 1
+	var named := 0
+	var trophies := 0
+	for l in far:
+		var b: String = l.boss
+		var e := spawn_at(b, player.global_position + Vector3(0, 2, -20))
+		if e and e.spec.name == LesserSpeeb.BOSSES[b].name and LesserSpeeb.PATTERNS.has(b):
+			named += 1
+		var t0 := inv.count("t_" + str(l.land))
+		if e:
+			e.die(false)
+			_w_boss_down(b, player.global_position)
+		await get_tree().create_timer(0.6).timeout
+		if Items.POWERS.has("t_" + str(l.land)) and Items.DB.has("t_" + str(l.land)):
+			trophies += 1
+	print("FARLAIRS lairs=%d level=%d named=%d trophies=%d" % [far.size(), level_ok, named, trophies])
+	get_tree().quit()
+
+
 ## Testing aid: the Grey Sea and its isles are there, the sea holds a swimmer up and tires them,
 ## and nothing rises out of open water.
 func debug_sea() -> void:
@@ -11842,6 +14143,99 @@ func debug_boat() -> void:
 
 ## Testing aid: the seasons set the length of the night; salt frost bites the thinly dressed by
 ## night away from a fire, and an ash storm chokes one with an uncovered face.
+## Testing aid: the systems are shown as their land needs them. A new world has none; the clock hides
+## the season until the seasons are reached; a stage is shown once and kept; an older world catches up.
+func debug_stages() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for k in STAGES:
+		flags.erase("stage_" + k)
+	var none := true
+	for k in STAGES:
+		none = none and not staged(k)
+	var hid := weather.label(false).find(str(weather.season().name)) < 0 and weather.label(true).find(str(weather.season().name)) >= 0
+	reach_stage("trades")
+	await get_tree().create_timer(0.3).timeout
+	var once := staged("trades") and not staged("seasons")
+	_w_stage("trades")
+	var d0 := day
+	day = WWeather.SEASON_DAYS + 1
+	_stages_catch_up()
+	var caught := staged("seasons") and staged("dread")
+	day = d0
+	for k in STAGES:
+		flags.erase("stage_" + k)
+	print("STAGES none=%s hid=%s once=%s caught=%s" % [none, hid, once, caught])
+	get_tree().quit()
+
+
+## Testing aid: one music director in the waste, on its own Music line. Night asks for the night
+## piece, a town for the town's, a great one near for its loop; a beacon's swell plays over all.
+func debug_music() -> void:
+	while not ready_world or music == null:
+		await get_tree().create_timer(1.0).timeout
+	var all := true
+	for k in WMusic.PIECES:
+		all = all and WMusic.stream_of(k) != null
+	var bus := AudioServer.get_bus_index("Music") >= 0
+	player.global_position = gpos(WPlaces.spos("cinderwick")) + Vector3(150, 1, 0)
+	await get_tree().create_timer(0.2).timeout
+	var n0 := night
+	night = true
+	var at_night := music.want()
+	night = n0
+	player.global_position = gpos(WPlaces.spos("cinderwick")) + Vector3(0, 1, 0)
+	await get_tree().create_timer(0.2).timeout
+	var in_town := music.want()
+	var e := spawn_at("rusher", player.global_position + Vector3(6, 0.5, 0))
+	e.boss = "test"
+	var great := music.want()
+	e.boss = ""
+	e.die(false)
+	music.beacon_swell()
+	await get_tree().create_timer(1.5).timeout
+	print("MUSIC all=%s bus=%s night=%s town=%s great=%s swell=%s old_loop=%s" % [all, bus, at_night, in_town, great, music.now == "swell", _music == null])
+	get_tree().quit()
+
+
+## Testing aid: a friend's guard, raised just now and facing the foe, turns its blow on the host's side;
+## facing away, or raised long ago, it does not.
+func debug_friendparry() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var c := Companion.new()
+	c.peer_id = 77
+	add_child(c)
+	c.global_position = player.global_position + Vector3(30, 0, 0)
+	c.set("_yaw", 0.0)   # looking toward -z
+	var foe := c.global_position + Vector3(0, 0, -2)
+	_w_guard_up(77)
+	var turned_ok := friend_guarded(c, foe)
+	var behind := not friend_guarded(c, c.global_position + Vector3(0, 0, 2))
+	guard_up[77] = Time.get_ticks_msec() - 2000
+	var stale := not friend_guarded(c, foe)
+	c.queue_free()
+	print("FRIENDPARRY turned=%s behind=%s stale=%s" % [turned_ok, behind, stale])
+	get_tree().quit()
+
+
+## Testing aid: two spend the same chest at once; the host finds it short and the late one pays from the pack.
+func debug_spendshort() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var had := inv.count("scrap")
+	inv.take("scrap", had)
+	inv.add("scrap", 3)
+	containers["test_short"] = [["scrap", 2], null, null]
+	_rq_spend(Net.me(), ["test_short"], "scrap", 5)
+	var emptied: bool = containers["test_short"][0] == null
+	var paid := inv.count("scrap") == 0
+	containers.erase("test_short")
+	inv.add("scrap", had)
+	print("SPENDSHORT emptied=%s paid=%s" % [emptied, paid])
+	get_tree().quit()
+
+
 func debug_weather() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -11893,7 +14287,7 @@ func debug_books() -> void:
 		await get_tree().create_timer(1.0).timeout
 	_debug_room(8)
 	# Start from a fellowship that has read nothing (earlier checks may have read some)
-	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values():
+	for bk in Items.LAND_BOOKS + Items.ISLE_BOOKS.values() + ["book_ship", "book_longboat"]:
 		flags.erase(bk)
 		flags.erase("found_" + bk)
 	var cid := "isle_hrafn_0"
@@ -12431,14 +14825,14 @@ func debug_crowd() -> void:
 	var bp := player.global_position + Vector3(4, 0, 0)
 	builder._w_piece(900, "bed", bp, 0.0, 160.0)
 	var me := bed_name()
-	_rq_bed_owner(900, me, Net.me())
+	_rq_bed_owner(Net.me(), 900, me)
 	var mine := bed_owner(900) == me and bedroll is Vector3 and respawn_point().distance_to(bp) < 3.0
 	var saved: bool = str(world_data().pieces[900][5].get("owner", "")) == me
-	_rq_bed_owner(900, "Wren", Net.me())
+	_rq_bed_owner(Net.me(), 900, "Wren")
 	var given := bed_owner(900) == "Wren" and not bed_mine_or_free(900) and respawn_point().distance_to(bp) > 5.0
 	pieces[900].owner = "Wren"
-	_rq_bed_owner(900, "", 99)   # not Wren's, and not the host's own call: refused when online, so try as host
-	_rq_bed_owner(900, "", Net.me())
+	_rq_bed_owner(99, 900, "")   # not Wren's, and not the host's own call: refused when online, so try as host
+	_rq_bed_owner(Net.me(), 900, "")
 	var freed := bed_owner(900) == ""
 	var label: String = (pieces[900].node.get_meta("bed_label") as Label3D).text if pieces[900].node.has_meta("bed_label") else "?"
 	# The longboat
@@ -12551,6 +14945,7 @@ func debug_spirit() -> void:
 	dev.go(dev.spot_in("ash"))
 	await get_tree().create_timer(1.0).timeout
 	inv.add("spirit_ember", 1)
+	spirits.spent.clear()
 	var came := spirits.summon("spirit_ember")
 	var again := spirits.refusal("spirit_ember") != ""
 	var e = _spawn_near("rusher", player.global_position, 8.0, 10.0, true)
@@ -12605,17 +15000,25 @@ func debug_settlers() -> void:
 	# Make sure one brings goods, then a dawn of work
 	for st in settlers.list:
 		st.job = "keeper"   # only the one below brings salt (another may have been a salter too)
+		st.want = ["tar", 999]   # and none takes salt for a want
 	settlers.list[0].job = "salter"
 	var cid: String = settlers.chests_at(fire)[0]
 	var before := _cont_count(cid, "salt")
 	settlers.host_dawn(0.0)
 	var brought := _cont_count(cid, "salt") - before
+	# A want left in the chest is taken at dawn and paid for
+	var taught := WSettlers.TEACHES.values().any(func(b): return flags.has(b))
+	settlers.list[0].want = ["wood", 5]
+	settlers._put([cid], "wood", 5)
+	var wood0 := _cont_count(cid, "wood")
+	settlers.host_dawn(0.0)
+	var paid: bool = _cont_count(cid, "wood") == wood0 - 5 and settlers.list[0].want != ["wood", 5]
 	var kept: Array = world_data().settlers
 	settlers.from_data(JSON.parse_string(JSON.stringify(kept)))
 	var reloaded := settlers.list.size() == n and settlers._nodes.size() == n
 	pieces[fire].fuel = world_hours() - 1.0
 	settlers.host_dawn(0.0)
-	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty()])
+	print("SETTLERS snug=%d room=%s came=%d shown=%d brought=%d reloaded=%s gone=%s taught=%s paid=%s" % [snug, room, n, shown, brought, reloaded, settlers.list.is_empty(), taught, paid])
 	get_tree().quit()
 
 
@@ -12653,7 +15056,7 @@ func debug_kin() -> void:
 			if v in BIOME_FORMS[b]:
 				in_lands += 1
 				break
-	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.size() - 1, copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
+	print("KIN made=%d/%d copies=%d in_lands=%d bad=%s kinds=%d" % [ok, LesserSpeeb.VARIANTS.keys().filter(func(x): return LesserSpeeb.VARIANTS[x].base != "serpent").size(), copies, in_lands, bad, LesserSpeeb.KINDS.size() - 2 + LesserSpeeb.VARIANTS.size()])
 	get_tree().quit()
 
 
@@ -12802,6 +15205,13 @@ func debug_great() -> void:
 	var warn2 := nights_to_great()
 	nights = 6
 	print("GREAT seventh=%s warn=%d tonight=%d" % [great_night(7) and not great_night(6), warn2, nights_to_great()])
+	var was_lit := lit.duplicate()
+	var hosts := []
+	for n in [0, 4, 5, 7]:
+		lit = range(n)
+		hosts.append(great_host())
+	lit = was_lit
+	print("GREAT hosts=%s" % ",".join(hosts))
 	clock = 22.0
 	night = true
 	player.place(gpos(WPlaces.spos("cinderwick") + Vector2(300, 0)), 0.0)
@@ -12971,6 +15381,8 @@ func debug_soak() -> void:
 	for bk in ["raft", "sloop"]:
 		launch_boat(bk)
 		await get_tree().create_timer(0.6).timeout
+		if boats.is_empty():
+			break   # no shore found here (this world's land lies otherwise)
 		var b: WBoat = boats.values()[boats.size() - 1]
 		b.yaw = atan2(dir2.x, dir2.y)
 		boat_used(b)
@@ -12983,7 +15395,8 @@ func debug_soak() -> void:
 		Input.action_release("move_left")
 		boat_used(b)
 		await get_tree().create_timer(0.5).timeout
-	hurt_boat(boats.values()[0], 9999.0)
+	if not boats.is_empty():
+		hurt_boat(boats.values()[0], 9999.0)
 	await get_tree().create_timer(1.0).timeout
 	step.call("boats left=%d" % boats.size())
 	# A swim far out, until the deep finds you
@@ -13077,6 +15490,36 @@ func debug_drawcount() -> void:
 				surf += (gi as MeshInstance3D).mesh.get_surface_count()
 			else:
 				surf += 1
+		if OS.get_environment("WHY") != "":
+			var why := {}
+			for g in find_children("*", "GeometryInstance3D", true, false):
+				var gi := g as GeometryInstance3D
+				if gi.get_parent() == self or not gi.is_visible_in_tree() or gi.global_position.distance_to(c) > 150.0:
+					continue
+				var rs := []
+				if gi is MeshInstance3D:
+					var mm := gi as MeshInstance3D
+					if mm.get_child_count() > 0: rs.append("kids")
+					if mm.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY: rs.append("shadowonly")
+					if mm.transparency != 0.0: rs.append("transp")
+					if mm.mesh is ImmediateMesh: rs.append("immediate")
+				else:
+					rs.append(gi.get_class())
+				var q: Node = gi
+				while q != self and q != null:
+					if q.get_script() != null: rs.append("script:" + q.get_script().resource_path.get_file())
+					for mk in q.get_meta_list():
+						if mk == "body":
+							var b = q.get_meta("body")
+							if b is Object and is_instance_valid(b) and (b as Object).has_meta("on_interact"): rs.append("body_interact")
+						else:
+							rs.append("meta:" + str(mk))
+					if q is Node3D and not (q as Node3D).visible: rs.append("hidden")
+					q = q.get_parent()
+				var kk := ",".join(rs)
+				why[kk] = why.get(kk, 0) + 1
+			for kk in why:
+				print("DRAWWHY %s %d" % [kk, why[kk]])
 		var keys := by.keys()
 		keys.sort_custom(func(a, b): return by[a] > by[b])
 		print("DRAW %s instances=%d surfaces=%d" % [k, total, surf])
@@ -13247,14 +15690,17 @@ func debug_boons() -> void:
 	# Choose Fleet Foot and Packrat by force, to see them work
 	skills.boon_offer = ["fleet"]
 	var took := skills.take_boon("fleet")
-	skills.boon_offer = ["packrat"]
-	skills.take_boon("packrat")
+	if cat == null:
+		cat = WCat.new().setup(self, WCat.FACES[0], false)
+		add_child(cat)
+	skills.boon_offer = ["pack_cat"]
+	skills.take_boon("pack_cat")
 	var faster: bool = skills.speed_mult() > sp0
-	var bigger: bool = skills.pack_size() == pk0 + 6
+	var bigger: bool = skills.pack_size() == pk0 + 8
 	var back := WSkills.new()
 	back.from_data(skills.to_data())
 	ui.close_all()
-	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == 2, next_shown])
+	print("BOONS gift=%s offered=%d opened=%s took=%s faster=%s bigger=%s kept=%s next=%s" % [gift, offered, opened, took, faster, bigger, back.boons.size() == skills.boons.size() and "pack_cat" in back.boons, next_shown])
 	get_tree().quit()
 
 
@@ -13283,6 +15729,7 @@ func debug_horizonshot() -> void:
 ## something to grow toward. Each is {kind, title, text, at (Vector3 or null)}.
 ## The trades of the others in the fellowship, by name, so What now can say whom to ask.
 var trades_of := {}
+var _gate_t := 1.0
 var _trade_tell_t := 2.0
 
 
@@ -13457,6 +15904,464 @@ func squad_tag(id: int) -> String:
 	return "squad" if id in squadmates() else ""
 
 
+## What a settler at the base this pilgrim stands in asks for, or "".
+func settler_ask() -> String:
+	var b := base_at(player.global_position, 20.0, true) if is_instance_valid(player) else -1
+	if b < 0:
+		return ""
+	for s in settlers.list:
+		if int(s.fire) == b:
+			var t := WSettlers.want_text(s)
+			if t != "":
+				return t
+	return ""
+
+
+# ------------------------------------------------------------------ the roads about each town
+
+## Each town knows how safe its roads are, from 0 to 100. Foes slain near it, bands put down and raid
+## camps broken make it safer; days pass and it slips back, faster while a raid camp stands near. Its
+## folk remember who did it: every ten points a pilgrim earns there is one more step of standing (better
+## prices, and they greet you warmly). Safe roads bring fewer fights near the town; dangerous ones, more.
+const SAFETY_START := 40
+const SAFETY_REACH := 500.0   ## paces from a town's heart that count as its roads
+const SAFETY_KILL := 1
+const SAFETY_ELITE := 3
+const SAFETY_BAND := 5
+const SAFETY_CAMP := 15
+const SAFETY_DECAY := 3       ## a day: roads not kept slip back
+const SAFETY_FLED := 6        ## a band left alone digs in
+const SAFETY_CAMP_DECAY := 8  ## a day, for each raid camp standing near
+const DEED_STEP := 10         ## safety earned for one more step of standing
+var safety := {}              ## town -> 0..100
+var deeds := {}               ## town -> {name: points not yet counted toward standing}
+var gates := {}               ## town -> [{leaf, body, knock}]
+var gates_shut := {}          ## town -> true while barred
+var _gate_open_t := {}        ## "town:i" -> seconds a gate stands open for a known pilgrim
+const SAFETY_WORDS := [[90, "Peaceful"], [60, "Safe"], [25, "Uneasy"], [0, "Dangerous"]]
+
+
+func safety_of(town: String) -> int:
+	return int(safety.get(town, SAFETY_START))
+
+
+static func safety_word(v: int) -> String:
+	for sw in SAFETY_WORDS:
+		if v >= int(sw[0]):
+			return str(sw[1])
+	return "Dangerous"
+
+
+## The town whose roads this place is on, or "".
+func town_near(p: Vector3, reach: float) -> String:
+	var best := ""
+	var bd := reach
+	for k in WPlaces.SETTLEMENTS:
+		var d := Vector2(p.x, p.z).distance_to(WPlaces.spos(k))
+		if d < bd:
+			bd = d
+			best = k
+	return best
+
+
+## A deed on a town's roads: safer roads, and the folk remember who.
+func _w_safety(town: String, amount: int, who: String) -> void:
+	if not WPlaces.SETTLEMENTS.has(town):
+		return
+	var before := safety_of(town)
+	safety[town] = clampi(before + amount, 0, 100)
+	if before >= 25 and safety_of(town) < 25:
+		_w_stage("standing")
+	if before >= 25 and safety_of(town) < 25 and not Net.dedicated and visited.has(town):
+		hud.alert_banner("A plea from %s" % WPlaces.SETTLEMENTS[town].name, "Its roads have gone dangerous. Its gates will be barred at night, and its traders ask more.")
+	if amount <= 0 or who == "":
+		return
+	var dd: Dictionary = deeds.get(town, {})
+	dd[who] = int(dd.get(who, 0)) + amount
+	var up := 0
+	while int(dd[who]) >= DEED_STEP:
+		dd[who] = int(dd[who]) - DEED_STEP
+		up += 1
+	deeds[town] = dd
+	if up > 0:
+		var rb := int(rep.get(town, 0))
+		rep[town] = rb + up
+		if who == Net.my_name() and not Net.dedicated:
+			hud.notify("Word reaches %s of what you have done on its roads. Its folk think better of you." % WPlaces.SETTLEMENTS[town].name)
+			_honour_check(town, rb)
+	if not Net.dedicated and safety_word(before) != safety_word(safety_of(town)) and safety_of(town) > before:
+		hud.notify("The roads about %s are %s now." % [WPlaces.SETTLEMENTS[town].name, safety_word(safety_of(town)).to_lower()])
+
+
+## Each dawn the roads slip back a little, and more where raid camps stand near: keeping a town safe
+## means going out and clearing its roads.
+func _safety_dawn() -> void:
+	if not Net.authority():
+		return   # the host keeps the count, and tells everyone, so a late joiner's towns agree with it
+	for k in WPlaces.SETTLEMENTS:
+		var drop := SAFETY_DECAY
+		if events:
+			for id in events.active:
+				var e: Dictionary = events.active[id]
+				if e.kind == "camp" and Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k)) < SAFETY_REACH + 100.0:
+					drop += SAFETY_CAMP_DECAY
+		safety[k] = maxi(0, safety_of(k) - drop)
+	if Net.online:
+		shared("_w_safety_all", [safety.duplicate()])
+
+
+func _w_safety_all(d: Dictionary) -> void:
+	if not Net.authority():
+		safety = d.duplicate()
+
+
+# ---- what safe and dangerous roads mean
+
+const DANGER_PRICE := 1.25    ## at Dangerous, traders ask more
+const HONOUR_FRIEND := 5      ## standing for a title, and a free bed at the inn
+const HONOUR_BED := 5
+const HONOUR_GIFT := 8        ## standing for the town's gift, once
+const HONOUR_WARDEN := 12
+const BOUNTY_COIN := 6
+const BOUNTY_REP := 2
+
+## What a town calls one who has done well by it, or "".
+func honour_title(k: String) -> String:
+	var st := int(rep.get(k, 0))
+	if not WPlaces.SETTLEMENTS.has(k):
+		return ""
+	if st >= HONOUR_WARDEN:
+		return "Warden of %s" % WPlaces.SETTLEMENTS[k].name
+	if st >= HONOUR_FRIEND:
+		return "Friend of %s" % WPlaces.SETTLEMENTS[k].name
+	return ""
+
+
+## Said when standing in a town crosses a step of honour; the gift is given once.
+func _honour_check(k: String, before: int) -> void:
+	var st := int(rep.get(k, 0))
+	if Net.dedicated or st <= before:
+		return
+	var nm: String = WPlaces.SETTLEMENTS[k].name
+	if before < HONOUR_FRIEND and st >= HONOUR_FRIEND:
+		hud.title_card("Friend of %s" % nm, "Its inn's beds are yours, free")
+	if before < HONOUR_GIFT and st >= HONOUR_GIFT and not flags.has("honour_gift_" + k):
+		flags["honour_gift_" + k] = true
+		shared("_w_flag", ["honour_gift_" + k])   # the whole fellowship's world keeps that it was given
+		give([["fittings_rare", 1], ["coin", 10]])
+		hud.notify("The folk of %s send you a gift for what you have done for them: a rare fitting and ten coin." % nm)
+	if before < HONOUR_WARDEN and st >= HONOUR_WARDEN:
+		hud.title_card("Warden of %s" % nm, "Its roads are yours to keep")
+
+
+## Traders at a town with safe roads have more to sell: things that come only by road from far off.
+const SAFE_STOCK := {
+	"trader": ["salve", "fittings_fine"], "smith": ["tempered", "clockwork", "fittings_rare"],
+	"quartermaster": ["rockets", "fittings_fine"], "healer": ["elixir"], "oilwright": ["tar"],
+}
+
+func stock_at(role: String, k: String) -> Array:
+	var out: Array = Items.STOCK.get(role, []).duplicate()
+	if WPlaces.SETTLEMENTS.has(k) and safety_of(k) >= 60:
+		for id in SAFE_STOCK.get(role, []):
+			if Items.DB.has(id) and not id in out:
+				out.append(id)
+	return out
+
+
+## What a town's traders ask, against the usual, by how safe its roads are.
+func price_mult_at(k: String) -> float:
+	return (DANGER_PRICE if WPlaces.SETTLEMENTS.has(k) and safety_of(k) < 25 else 1.0) * (FEAST_PRICE if k == feast_town(day) else 1.0)
+
+
+# ------------------------------------------------------------------ feast days
+
+## Every fifth day one town keeps a feast: by day its traders sell cheaper, and each pilgrim who comes is
+## fed and given a little salt. Feasts go on after any ending (gameplay bible: the world after stays alive).
+const FEAST_EVERY := 5
+const FEAST_PRICE := 0.8
+var _feasted_day := -1
+
+func feast_town(d: int) -> String:
+	if d < 2 or d % FEAST_EVERY != 2:
+		return ""
+	var towns: Array = WPlaces.SETTLEMENTS.keys().filter(func(k): return not WPlaces.SETTLEMENTS[k].get("isle", false))
+	if towns.is_empty():
+		return ""
+	towns.sort()
+	return str(towns[absi(hash(world_seed + d * 31)) % towns.size()])
+
+
+func _feast_tick() -> void:
+	var t := feast_town(day)
+	if t == "" or night or _feasted_day == day or Net.dedicated:
+		return
+	if settlement_at(player.global_position) == t:
+		_feasted_day = day
+		give([["feast", 1], ["salt", 30]])
+		sfx("choir", -10, null, 1.2)
+		hud.notify("A feast day in %s. You are fed, and given salt; the traders sell cheaper today." % WPlaces.SETTLEMENTS[t].name)
+
+
+## Everyone, every couple of seconds: gates barred at night where the roads are dangerous.
+func _gates_tick(delta: float) -> void:
+	for key in _gate_open_t.keys():
+		_gate_open_t[key] = float(_gate_open_t[key]) - delta
+		if float(_gate_open_t[key]) <= 0.0:
+			_gate_open_t.erase(key)
+	for k in gates:
+		var shut: bool = night and safety_of(k) < 25
+		gates_shut[k] = shut
+		for i in (gates[k] as Array).size():
+			var g: Dictionary = gates[k][i]
+			var closed: bool = shut and not _gate_open_t.has("%s:%d" % [k, i])
+			if is_instance_valid(g.leaf):
+				g.leaf.visible = closed
+			if g.body is CollisionObject3D and is_instance_valid(g.body):
+				g.body.collision_layer = 1 if closed else 0
+			if is_instance_valid(g.knock):
+				g.knock.set_meta("prompt", "Knock at the gate" if closed else "")
+
+
+## Knocking at a barred gate: the watch opens to one they know (standing 2 or more), not to strangers.
+func _knock(k: String, i: int) -> void:
+	if not gates_shut.get(k, false):
+		return
+	sfx("thud", -4, null, 0.8)
+	if int(rep.get(k, 0)) >= 2:
+		_gate_open_t["%s:%d" % [k, i]] = 8.0
+		hud.notify("\"It's you. Quick, in.\" The bar is lifted.")
+	else:
+		hud.notify("\"Not at night, not with the roads as they are.\" The gate stays shut. Clear the roads, or come back at dawn.")
+
+
+## Rival towns: a town whose roads rot beside a neighbour's safe ones grumbles at those who keep the
+## neighbour and not it, now and then.
+func _rivals_dawn() -> void:
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) > 25:
+			continue
+		var nb := ""
+		var nd := INF
+		for o in WPlaces.SETTLEMENTS:
+			if o != k and WPlaces.spos(o).distance_to(WPlaces.spos(k)) < nd:
+				nd = WPlaces.spos(o).distance_to(WPlaces.spos(k))
+				nb = o
+		if nb == "" or safety_of(nb) < 60 or day - int(flags.get("grumble_" + k, -99)) < 3:
+			continue
+		if int(rep.get(k, 0)) <= 0:
+			continue
+		flags["grumble_" + k] = day
+		rep[k] = int(rep.get(k, 0)) - 1
+		if not Net.dedicated and int(rep.get(nb, 0)) > 0:
+			hud.notify("The folk of %s grumble that you keep the roads of %s and not theirs." % [WPlaces.SETTLEMENTS[k].name, WPlaces.SETTLEMENTS[nb].name])
+
+
+## Two towns with safe roads near this place, between which a trade caravan may run: [a, b] (2D), or [].
+func convoy_route(from: Vector3) -> Array:
+	var safe := []
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) >= 60 and not WPlaces.on_shore(k):   # a caravan does not walk over the sea
+			safe.append(k)
+	var best := []
+	var bd := 700.0
+	for i in safe.size():
+		for j in range(i + 1, safe.size()):
+			var a: Vector2 = WPlaces.spos(safe[i])
+			var b: Vector2 = WPlaces.spos(safe[j])
+			if a.distance_to(b) > 2200.0:
+				continue
+			var q := Geometry2D.get_closest_point_to_segment(Vector2(from.x, from.z), a, b)
+			var d := q.distance_to(Vector2(from.x, from.z))
+			if d < bd:
+				bd = d
+				best = [a, b]
+	return best
+
+
+## The two towns a caravan at this place runs between: the two nearest.
+func convoy_towns(p: Vector3) -> Array:
+	var ks := WPlaces.SETTLEMENTS.keys()
+	ks.sort_custom(func(a, b): return WPlaces.spos(a).distance_to(Vector2(p.x, p.z)) < WPlaces.spos(b).distance_to(Vector2(p.x, p.z)))
+	return ks.slice(0, 2)
+
+
+## Robbing a trade caravan: its goods, twice over, to the robber; both its towns hear of it.
+func _rq_rob(by: int, id: int) -> void:
+	if not Net.authority() or not events or not events.active.has(id) or events.active[id].kind != "convoy":
+		return
+	var at: Vector3 = events.active[id].pos
+	for f in events.active[id].get("foes", []):
+		if is_instance_valid(f) and f.is_alive():
+			f.die(false)
+	shared("_w_robbed", [by, at])
+	shared("_w_event_end", [id, false, -2])
+
+
+func _w_robbed(by: int, at: Vector3) -> void:
+	for tn in convoy_towns(at):
+		safety[tn] = maxi(0, safety_of(tn) - 10)
+		rep[tn] = maxi(0, int(rep.get(tn, 0)) - 3)
+	if by == Net.me() and not Net.dedicated:
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		give(Items.roll("caravan", 6, r) + [["coin", r.randi_range(6, 12)]])
+		hud.notify("You take what the caravan carried. %s and %s will hear of it." % [WPlaces.SETTLEMENTS[convoy_towns(at)[0]].name, WPlaces.SETTLEMENTS[convoy_towns(at)[1]].name])
+
+
+## The plea of a town whose roads have gone dangerous, for What now, or {}.
+func town_plea(me: Vector3) -> Dictionary:
+	var best := {}
+	var bd := 1500.0
+	for k in WPlaces.SETTLEMENTS:
+		if not visited.has(k) or safety_of(k) >= 25:
+			continue
+		var p := gpos(WPlaces.spos(k))
+		if p.distance_to(me) < bd:
+			bd = p.distance_to(me)
+			best = {"kind": "near", "title": "A plea from %s" % WPlaces.SETTLEMENTS[k].name, "text": "Its roads are dangerous (%d). Slay what prowls near it, and break the camps about it." % safety_of(k), "at": p}
+	return best
+
+
+## A raid camp broken near a town pays its bounty: coin to those who broke it, and standing.
+func _bounty(tn: String, at: Vector3, by: int) -> void:
+	var before := int(rep.get(tn, 0))
+	rep[tn] = before + BOUNTY_REP
+	if Net.dedicated:
+		return
+	if player.global_position.distance_to(at) < 120.0 or by == Net.me():
+		give([["coin", BOUNTY_COIN]])
+		hud.notify("%s's bounty on the raid camp is paid: %d coin, and its folk's thanks." % [WPlaces.SETTLEMENTS[tn].name, BOUNTY_COIN])
+	_honour_check(tn, before)
+
+
+## The bounty a town has posted: the raid camp standing nearest it, or {}.
+func bounty_of(k: String) -> Dictionary:
+	if not events:
+		return {}
+	var best := {}
+	var bd := SAFETY_REACH + 300.0
+	for id in events.active:
+		var e: Dictionary = events.active[id]
+		var d := Vector2(e.pos.x, e.pos.z).distance_to(WPlaces.spos(k))
+		if e.kind == "camp" and d < bd:
+			bd = d
+			best = e
+	return best
+
+
+# ---- militia: at Peaceful, the town's watch walks its roads and shoots what comes near
+
+const MILITIA_AT := 90
+const MILITIA_N := 2
+const MILITIA_SHOT := 16.0
+const MILITIA_RANGE := 35.0
+var militia: Array = []       ## everyone: {town, node, t}
+
+func _militia_tick(delta: float) -> void:
+	for m in militia.duplicate():
+		if not is_instance_valid(m.node) or safety_of(m.town) < MILITIA_AT - 10:
+			if is_instance_valid(m.node):
+				m.node.queue_free()
+			militia.erase(m)
+	for k in WPlaces.SETTLEMENTS:
+		if safety_of(k) < MILITIA_AT:
+			continue
+		var have := militia.filter(func(m): return m.town == k).size()
+		for slot in range(have, MILITIA_N):
+			_militia_add(k, slot)
+	# The host's watch shoots
+	_militia_shoot(delta)
+
+
+func _militia_add(k: String, have: int) -> void:
+	var a := float(hash(k + str(have))) / 1000.0
+	var at := gpos(WPlaces.spos(k) + Vector2(cos(a), sin(a)) * 140.0)
+	var f := WTownsfolk.new().setup(self, at, 40.0, hash(k) + have)
+	f.lines = ["The watch of %s. The roads are safe while we walk them." % WPlaces.SETTLEMENTS[k].name, "We shoot what comes near. Mind you don't."]
+	add_child(f)
+	f.global_position = at
+	militia.append({"town": k, "node": f, "t": 0.0})
+
+
+func _militia_shoot(delta: float) -> void:
+	if not Net.authority():
+		return
+	for m in militia:
+		m.t = float(m.t) - delta
+		if float(m.t) > 0.0 or not is_instance_valid(m.node):
+			continue
+		m.t = 1.3
+		var mp: Vector3 = m.node.global_position + Vector3(0, 1.5, 0)
+		for e in enemies:
+			if is_instance_valid(e) and e.is_alive() and not e.puppet and e.global_position.distance_to(mp) < MILITIA_RANGE:
+				var was := [LesserSpeeb.harm_kind, LesserSpeeb.harm_head]
+				LesserSpeeb.harm_kind = "bullet"
+				LesserSpeeb.harm_head = false
+				e.hurt(MILITIA_SHOT, (e.global_position - mp).normalized())
+				LesserSpeeb.harm_kind = was[0]
+				LesserSpeeb.harm_head = was[1]
+				sfx("pistol", -8, mp)
+				break
+
+
+## The host keeps the bands met on the roads: one put down makes the nearest town's roads safer; one
+## left alone for eight minutes, with no one near, digs in as a raid camp.
+const BAND_DIG := 480.0
+var road_bands: Array = []    ## host: {pos, foes, age}
+var _band_t := 10.0
+
+func _track_band(at: Vector3, made: Array) -> void:
+	if not Net.authority():
+		return
+	var foes := made.filter(func(f): return f != null and is_instance_valid(f))
+	if foes.is_empty():
+		return
+	var b := {"pos": at, "foes": foes, "age": 0.0, "slain": 0}
+	road_bands.append(b)
+	# Whether each one leaves the world put down (no health left) or only faded away far from everyone
+	for f in foes:
+		f.tree_exiting.connect(func():
+			if f.hp <= 0.0:
+				b.slain = int(b.slain) + 1)
+
+
+func _bands_tick(step := 10.0) -> void:
+	for b in road_bands.duplicate():
+		b.age = float(b.age) + step
+		var alive := (b.foes as Array).filter(func(f): return is_instance_valid(f) and f.is_alive())
+		var watched := false
+		for t in targets():
+			if t.global_position.distance_to(b.pos) < 150.0:
+				watched = true
+		# All gone: put down if any of them was slain; otherwise they only faded, far from everyone
+		if alive.is_empty() and int(b.slain) > 0:
+			road_bands.erase(b)
+			var tn := town_near(b.pos, SAFETY_REACH)
+			if tn != "":
+				# Credited to whoever is nearest: they put it down
+				var who := ""
+				var wd := 400.0
+				for id in Net.players if Net.online else [Net.me()]:
+					var at = player.global_position if id == Net.me() and not Net.dedicated else (avatars[id].global_position if avatars.has(id) and is_instance_valid(avatars[id]) else null)
+					if at != null and (at as Vector3).distance_to(b.pos) < wd:
+						wd = (at as Vector3).distance_to(b.pos)
+						who = Net.name_of(id) if Net.online else Net.my_name()
+				shared("_w_safety", [tn, SAFETY_BAND, who])
+			continue
+		if watched or (float(b.age) < BAND_DIG and not alive.is_empty()):
+			continue
+		road_bands.erase(b)
+		for f in alive:
+			f.die(false)
+		# Left alone (or run from), the band digs in, and the town's roads are the worse for it
+		var tn2 := town_near(b.pos, SAFETY_REACH + 200.0)
+		if tn2 != "":
+			shared("_w_safety", [tn2, -SAFETY_FLED, ""])
+		if events:
+			events._dig_in(b.pos)
+
+
 func what_now() -> Array:
 	var out: Array = []
 	var me := player.global_position
@@ -13474,6 +16379,9 @@ func what_now() -> Array:
 			txt += " You carry %d beacon oil." % oil
 			if oil == 0:
 				txt += " Render more at a workbench: 2 lamp oil, 10 salt, 4 ash-bloom." if flags.has("oilcraft") else ""
+			var hint := quests.next_hint(main_q)
+			if hint.begins_with(WQuests.KEY_HINT) and turned():
+				txt += " The bowl is fouled: " + hint.trim_prefix(WQuests.KEY_HINT)
 		out.append({"kind": "road", "title": "The beacon road", "text": txt, "at": t})
 	elif lit.size() < 9:
 		var nb := next_dark_beacon(me)
@@ -13502,6 +16410,10 @@ func what_now() -> Array:
 		if not ev.is_empty() and ev.pos.distance_to(me) < 500.0:   # it will not wait: it comes first
 			nd = ev.pos.distance_to(me)
 			near = {"kind": "near", "title": WEvents.KINDS[ev.kind].name, "text": "Go now: it will not wait long.", "at": ev.pos}
+	var plea := town_plea(me)
+	if not plea.is_empty() and (plea.at as Vector3).distance_to(me) < nd:
+		nd = (plea.at as Vector3).distance_to(me)
+		near = plea
 	for l in lairs:
 		if lair_ready(l) and l.pos.distance_to(me) < minf(nd, 700.0):
 			nd = l.pos.distance_to(me)
@@ -13515,18 +16427,22 @@ func what_now() -> Array:
 		grow = {"kind": "grow", "title": "A beacon boon waits", "text": "Touch any lit beacon to choose it.", "at": null}
 	elif not trade_ask().is_empty():
 		grow = trade_ask()
+	elif settler_ask() != "":
+		grow = {"kind": "grow", "title": "A settler asks", "text": settler_ask(), "at": null}
 	elif skills.points > 0:
 		grow = {"kind": "grow", "title": "%d skill point%s to spend" % [skills.points, "" if skills.points == 1 else "s"], "text": "Press %s to learn something." % Game.key_text("skills"), "at": null}
 	else:
 		var best := ""
 		var lv := 999
 		for g in ArmsDB.GUNS:
+			if ArmsDB.far(g):
+				continue   # the far arms come of the far lands' stuff, not of a level
 			var u := int(ArmsDB.GUNS[g].get("unlock", 1))
 			if u > skills.level and u < lv:
 				lv = u
 				best = g
 		if best != "":
-			grow = {"kind": "grow", "title": "Level %d: the %s" % [lv, ArmsDB.GUNS[best].name], "text": "%d experience to the next level. Kindle beacons, finish tasks and undo forms." % maxi(0, WSkills.need(skills.level) - skills.xp), "at": null}
+			grow = {"kind": "grow", "title": "Level %d: the %s" % [lv, ArmsDB.GUNS[best].name], "text": "%d experience to the next level. Kindle beacons, finish tasks and kill enemies." % maxi(0, WSkills.need(skills.level) - skills.xp), "at": null}
 		else:
 			grow = {"kind": "grow", "title": "Grow strong", "text": "Rework your arms with better fittings at a workbench.", "at": null}
 	out.append(grow)
@@ -13542,7 +16458,7 @@ func debug_whatnow() -> void:
 	ui.open_journal() if ui.has_method("open_journal") else ui._open("journal")
 	await get_tree().process_frame
 	var shown: bool = ui._panel_name == "journal"
-	skills.boon_offer = ["fleet", "packrat", "salvager"]
+	skills.boon_offer = ["fleet", "pack_cat", "salvager"]
 	var boon_first: bool = what_now()[2].title == "A beacon boon waits"
 	print("WHATNOW n=%d kinds=%s road_at=%s shown=%s boon=%s first=%s" % [g.size(), ",".join(kinds), g[0].at is Vector3, shown, boon_first, g[0].text.left(40)])
 	get_tree().quit()
@@ -13969,3 +16885,160 @@ func debug_nights() -> void:
 	var paid := inv.count("fittings_rare") > r0
 	print("NIGHTS kinds=%d early_plain=%s same=%s themed=%s paid=%s" % [seen.size(), early, same, themed, paid])
 	get_tree().quit()
+
+
+## Testing aid: a figure is drawn in a handful of meshes, not thirty.
+func debug_figjoin() -> void:
+	var most := 0
+	for i in 12:
+		var f := Figure.new().setup(Figure.townsman(i * 977 + 5, "cinderwick") if i % 2 == 0 else Figure.seeded(i * 31 + 2))
+		add_child(f)
+		most = maxi(most, f.find_children("*", "MeshInstance3D", true, false).size())
+		f.free()
+	print("FIGJOIN few=%s" % (most <= 14))
+	get_tree().quit()
+
+
+## Testing aid: the Low preset shortens the shadows and drops the glow; Standard puts them back.
+func debug_gfx() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	var q0: int = Game.quality
+	Game.quality = 0
+	apply_quality()
+	var low: bool = sun.directional_shadow_max_distance <= 45.0 and not env.glow_enabled and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	Game.quality = 1
+	apply_quality()
+	var back: bool = sun.directional_shadow_max_distance == 90.0 and env.glow_enabled and not env.ssao_enabled
+	Game.quality = 2
+	apply_quality()
+	var high: bool = env.ssao_enabled and sun.directional_shadow_max_distance == 90.0
+	Game.quality = q0
+	apply_quality()
+	Game.render_scale = 2
+	Game.apply_display()
+	var scaled: bool = get_viewport().scaling_3d_scale < 0.75 and get_viewport().scaling_3d_mode == Viewport.SCALING_3D_MODE_FSR
+	Game.render_scale = 0
+	Game.apply_display()
+	print("GFX low=%s back=%s high=%s scaled=%s" % [low, back, high, scaled])
+	get_tree().quit()
+
+
+## Testing aid: at the largest menu size, the pack and every tab still fit on the screen.
+func debug_uiscale() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	Game.ui_scale = Game.UI_SCALES.size() - 1
+	Game.apply_display()
+	await get_tree().process_frame
+	# A 16:9 screen at this size (a headless window is square, so the height is taken from the width)
+	var vr := get_viewport().get_visible_rect()
+	var vp := Rect2(Vector2.ZERO, Vector2(vr.size.x, vr.size.x * 9.0 / 16.0))
+	var bigger: bool = vr.size.x < 1599.0
+	var fit := true
+	for tab in ["pack", "craft", "arms", "wear", "build"]:
+		ui.close_all()
+		ui.open_inventory(tab)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var r: Rect2 = ui._frame.get_global_rect()
+		if r.size.x > vp.size.x + 1.0 or r.size.y > vp.size.y + 1.0:
+			fit = false
+			print("UISCALE out %s %s in %s" % [tab, r, vp])
+	ui.close_all()
+	hud.show_options()
+	await get_tree().process_frame
+	Game.ui_scale = 1
+	Game.apply_display()
+	print("UISCALE bigger=%s fit=%s" % [bigger, fit])
+	get_tree().quit()
+
+
+## Testing aid: Settings for all: a press-to-switch sprint, subtitles for spoken lines, colour-blind safety colours.
+func debug_access() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	Game.toggles["run"] = true
+	var ev := InputEventAction.new()
+	ev.action = "run"
+	ev.pressed = true
+	Game._input(ev)
+	var on: bool = Game.held("run")
+	Game._input(ev)
+	var off: bool = not Game.held("run")
+	Game._input(ev)
+	Game.untoggle("run")
+	var ended: bool = not Game.held("run")
+	Game.toggles["run"] = false
+	Game.subtitles = true
+	Game.voice_lines = true
+	kill_line()
+	var sub: bool = hud.subtitle_l.text.begins_with("Brelm: ") and hud.subtitle_l.modulate.a > 0.9
+	Game.subtitles = false
+	var plain: Color = Game.safety_tint(10.0)
+	Game.colorblind = true
+	var cb: Color = Game.safety_tint(10.0)
+	var cb_safe: Color = Game.safety_tint(70.0)
+	Game.colorblind = false
+	print("ACCESS toggle=%s/%s/%s sub=%s cb=%s" % [on, off, ended, sub, plain != cb and cb_safe.b > cb_safe.g])
+	get_tree().quit()
+
+
+func debug_reports() -> void:
+	var p := "user://test_report.log"
+	var f := FileAccess.open(p, FileAccess.WRITE)
+	f.store_string("Godot Engine v4.3\nSCRIPT ERROR: Invalid access to property 'x' on null.\n   at: _tick (res://scripts/enemy.gd:12)\nSCRIPT ERROR: Invalid access to property 'x' on null.\n   at: _tick (res://scripts/enemy.gd:12)\nERROR: Parameter \"m\" is null.\n   at: mesh_get (x.cpp:1)\nplayer Steve joined\n")
+	f.close()
+	var r := Game.ErrorReport.gather(p, false)
+	var found: bool = r.get("kind", "") == "error" and "enemy.gd:12" in r.text
+	var once: bool = r.text.count("enemy.gd:12") == 1
+	var clean: bool = not "Parameter" in r.text and not "Steve" in r.text
+	var c := Game.ErrorReport.gather("", true)
+	var crash: bool = c.get("kind", "") == "crash"
+	var none: bool = Game.ErrorReport.gather("", false).is_empty()
+	var quiet: bool = not FileAccess.file_exists(Game.ErrorReport.RUNNING) and Game.report.pending.is_empty()
+	DirAccess.remove_absolute(p)
+	var scrubbed: String = Game.ErrorReport.scrub("at C:\\Users\\Ann Smith\\AppData\\x.gd and /home/bob/.local/x and /Users/carl/Library")
+	var named := scrubbed.contains("Ann") or scrubbed.contains("bob") or scrubbed.contains("carl")
+	print("REPORTS found=%s once=%s clean=%s crash=%s none=%s quiet=%s private=%s" % [found, once, clean, crash, none, quiet, not named])
+
+
+func debug_polish2() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	# A controller button moved: Y now jumps, and reload no longer has it
+	Game.rebind_pad("jump", JOY_BUTTON_Y)
+	var has := func(action: String, btn: int) -> bool:
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventJoypadButton and ev.button_index == btn:
+				return true
+		return false
+	var pad: bool = has.call("jump", JOY_BUTTON_Y) and not has.call("reload", JOY_BUTTON_Y) and not has.call("jump", JOY_BUTTON_A)
+	Game.reset_binds()
+	var reset: bool = has.call("jump", JOY_BUTTON_A) and has.call("reload", JOY_BUTTON_Y)
+	Game.using_pad = true
+	var words: bool = Game.key_text("jump") == "A" and Game.key_text("fire") == "RT"
+	Game.using_pad = false
+	words = words and Game.key_text("jump") == "Space"
+	# A full gun, reload pressed: it is turned over in the hands, then back at rest
+	player.weapon.shells = player.weapon.capacity()
+	player.weapon.inspect()
+	await get_tree().create_timer(1.2).timeout
+	var turned: bool = absf(player.weapon._holder.rotation.y) > 0.05
+	await get_tree().create_timer(2.0).timeout
+	var rest: bool = player.weapon._inspect <= 0.0 and absf(player.weapon._holder.rotation.y) < 0.01
+	# A slain form falls over rather than flattening
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	var e := spawn_at("unlit_blade", player.global_position + f.normalized() * 8.0 + Vector3(0, 1.0, 0))
+	await get_tree().create_timer(0.5).timeout
+	e.flinch(30.0, f)
+	e.die(true)
+	await get_tree().create_timer(0.9).timeout
+	var fell: bool = is_instance_valid(e) and absf(e.rotation.x) > 1.0 and e.scale.y > 0.9
+	await get_tree().create_timer(3.0).timeout
+	var gone: bool = not is_instance_valid(e)
+	print("POLISH2 words=%s pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [words, pad, reset, turned, rest, fell, gone])

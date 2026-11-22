@@ -214,19 +214,30 @@ func build() -> void:
 	pass
 
 
-## The High preset: ambient occlusion, indirect light, and a richer bloom.
+## The graphics presets. Low: short, coarse shadows and no glow, for slower machines. Standard: the
+## world as made. High: ambient occlusion, indirect light, and a richer bloom.
 func apply_quality() -> void:
 	if env == null:
 		return
-	var high := Game.quality == 1
+	var high := Game.quality == 2
+	var low := Game.quality == 0
 	env.ssao_enabled = high
 	env.ssao_intensity = 1.6
 	env.ssil_enabled = high
-	env.glow_enabled = true
-	env.glow_intensity = maxf(env.glow_intensity, 0.8) if high else env.glow_intensity
+	if not has_meta("glow0"):
+		set_meta("glow0", env.glow_intensity)
+	env.glow_enabled = not low
+	env.glow_intensity = maxf(float(get_meta("glow0")), 0.8) if high else float(get_meta("glow0"))
 	env.glow_bloom = 0.08 if high else 0.0
+	env.adjustment_enabled = absf(Game.brightness - 1.0) > 0.01
+	env.adjustment_brightness = Game.brightness
+	RenderingServer.directional_shadow_atlas_set_size(2048 if low else 4096, true)
 	if sun:
+		if not sun.has_meta("reach0"):
+			sun.set_meta("reach0", sun.directional_shadow_max_distance)
 		sun.shadow_blur = 1.5 if high else 1.0
+		sun.directional_shadow_max_distance = minf(float(sun.get_meta("reach0")), 45.0) if low else float(sun.get_meta("reach0"))
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if low else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
 func intro() -> void:
@@ -443,6 +454,11 @@ func debug_enemy() -> void:
 
 
 var _voice: AudioStreamPlayer
+## What each kill line says (tools/make_kill_lines.py recorded them), for subtitles.
+const KILL_LINES := ["Back to the void.", "Be weighed.", "Balance is restored.", "Speeb sees you.", "Return to the stillness.",
+	"You were judged.", "Not today.", "The scales tip.", "Silence.", "Survive that.",
+	"Another trial.", "Do not whine.", "Unblinking.", "Begone, lesser one.", "Your form is undone.",
+	"I am still standing.", "Judgment is swift.", "Into obscurity.", "Be still.", "The paw has spoken."]
 var _last_line := -1
 
 
@@ -461,6 +477,7 @@ func kill_line() -> void:
 	_voice.stream = load("res://assets/audio/kills/kill_%02d.ogg" % i)
 	_voice.pitch_scale = randf_range(0.88, 1.3)
 	_voice.play()
+	hud.subtitle("Brelm", KILL_LINES[i])
 
 
 func on_enemy_slain(e: LesserSpeeb) -> void:
@@ -1365,9 +1382,12 @@ func lesser(code: String, pos: Vector3, size := 1.4) -> Emoji3D:
 	var info: Dictionary = Game.lesser[code]
 	var seen := Game.found.has(code)
 	var a := interact_area(pos, size * 0.55, "Witness :%s:" % code if not seen else "%s (recorded)" % info.name, func(): pass, 0.0, false)
+	if seen:
+		a.set_meta("recorded", true)
 	personal_interactable(a, a.get_meta("prompt"), func():
 		var fresh := Game.find_emoji(code)
-		if a.get_meta("prompt").begins_with("Witness"):
+		if not a.has_meta("recorded"):
+			a.set_meta("recorded", true)
 			witnessed += 1
 		hud.notify("%s\n%s" % [info.name, info.decree] if fresh else info.name)
 		sfx("bell", -18 if fresh else -26)
@@ -2047,7 +2067,7 @@ func focus_pos() -> Vector3:
 
 const FOE_SYNC_NEAR := 170.0    ## a pilgrim is told of the foes within this far (a great one, further)
 const FOE_SYNC_MAX := 48        ## and of at most this many, the nearest first
-const FOE_SYNC_BATCH := 20      ## in packets of this many, so none grows too large to arrive
+const FOE_SYNC_BATCH := 12      ## in packets of this many, so each fits in one network packet (about 80 bytes a foe, under 1392)
 
 ## Host: each pilgrim hears only of the foes near them, nearest first, in small packets. A foe a
 ## pilgrim is not told of for a while fades from their world, and comes back when it is near again.
@@ -2224,14 +2244,15 @@ func _net_tick(delta: float) -> void:
 		var rows := []
 		if Net.online:
 			for id in Net.players:
+				var nm: String = Net.name_of(id) + ("  ·  Renown %d" % int(renowns[id]) if int(renowns.get(id, 0)) > 0 else "")
 				if id == Net.me():
-					rows.append([Net.name_of(id), player.health / player.max_health, downed, Net.color_of(id), "you"])
+					rows.append([nm, player.health / player.max_health, downed, Net.color_of(id), "you"])
 				elif avatars.has(id) and is_instance_valid(avatars[id]):
 					var a = avatars[id]
 					var tag := squad_tag(id)
-					rows.append([Net.name_of(id), a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position)) + ("  squad" if tag != "" else "")])
+					rows.append([nm, a.hp, a.downed, Net.color_of(id), "%d m" % int(a.global_position.distance_to(player.global_position)) + ("  squad" if tag != "" else "")])
 				else:
-					rows.append([Net.name_of(id), 1.0, false, Net.color_of(id), ""])
+					rows.append([nm, 1.0, false, Net.color_of(id), ""])
 		hud.set_fellowship(rows)
 		_watch_roster()
 
@@ -2289,6 +2310,12 @@ func net_left(id: int) -> void:
 	_down_peers.erase(id)
 	if Net.is_host():
 		_check_wipe()
+
+
+## Each pilgrim's renown, shown beside their name in the fellowship list (the waste's own; peer -> steps).
+var renowns := {}
+func _w_renown(by: int, n: int) -> void:
+	renowns[by] = n
 
 
 func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
@@ -2502,6 +2529,29 @@ func _personal_fail(message: String, sound: String) -> void:
 
 
 ## Calls a method of the land for everyone in the fellowship (or just here, when walking alone).
+var guard_up := {}   ## (host) peer -> when a friend last raised their guard, in msec
+
+
+func _w_guard_up(id: int) -> void:
+	if Net.authority():
+		guard_up[id] = Time.get_ticks_msec()
+
+
+## (host) Whether a friend raised their guard just now, facing this foe: a perfect guard, across the wire.
+## A little slack is given for the time the word took to come.
+func friend_guarded(c: Node3D, foe: Vector3) -> bool:
+	if not c is Companion:
+		return false
+	var at: int = int(guard_up.get(c.peer_id, -100000))
+	if Time.get_ticks_msec() - at > int((Arms.PERFECT_GUARD + 0.15) * 1000.0):
+		return false
+	var yaw: float = float(c.get("_yaw"))
+	var cf := Vector3(-sin(yaw), 0.0, -cos(yaw))   # the way the friend looks (their model is turned about)
+	var to := foe - c.global_position
+	to.y = 0.0
+	return cf.dot(to.normalized()) > 0.3
+
+
 func shared(method: String, args := []) -> void:
 	if Net.online:
 		Net.call_shared(method, args)

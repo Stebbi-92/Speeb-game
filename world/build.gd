@@ -258,14 +258,24 @@ func place() -> void:
 		w.sfx("deny", -10)
 		return
 	var k: String = _plan.kind
+	var fires := int(Items.PIECES[k].get("fires", 0))
+	if fires > 0 and not w.has_verb(fires):
+		w.hud.notify("The %s comes with the %s fire." % [Items.PIECES[k].name, ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"][fires]])
+		w.sfx("deny", -10)
+		return
 	var cost: Dictionary = w.skills.cost(Items.PIECES[k].cost)
+	# Quick Camp: once a night a campfire is laid for nothing
+	if acts(k) == "campfire" and w.skills.has_boon("quick_camp") and not w.quick_camp_spent:
+		cost = {}
+		w.quick_camp_spent = true
+		w.hud.notify("Quick Camp: a fire laid in a breath. Again tomorrow night.")
 	if not w.stock_pay(cost):
 		w.hud.notify("You lack the makings: %s." % Items.cost_text(cost))
 		w.sfx("deny", -10)
 		return
 	w.sfx("carve", -4, _plan.pos)
 	_hint.call_deferred()
-	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult()])
+	w.shared("_rq_build", [Net.me(), k, _plan.pos, _plan.yaw, w.skills.build_hp_mult(), cost])
 	w.award("build")
 	if acts(k) == "bedroll":
 		w.bedroll = _plan.pos
@@ -305,20 +315,16 @@ func upgrade() -> bool:
 		w.sfx("deny", -10)
 		return true
 	w.sfx("crumble" if t == 0 else "mag_in", -4, pc.pos)
-	w.shared("_rq_tier", [Net.me(), pid, t + 1])
+	w.shared("_rq_tier", [Net.me(), pid, t + 1, cost])
 	w.award("build")
 	return true
 
 
-func _rq_tier(by: int, pid: int, t: int) -> void:
+func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
 	if not Net.authority():
 		return
 	if not w.pieces.has(pid) or int(w.pieces[pid].get("tier", 0)) != t - 1 or t >= TIER_NAMES.size():
-		var back: Array = []
-		var cost: Dictionary = TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)]
-		for it in cost:
-			back.append([it, int(cost[it])])
-		Net.call_peer(by, "_w_give", [back])
+		Net.call_peer(by, "_w_give", [_refund(TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)], paid)])
 		return
 	var k: String = w.pieces[pid].kind
 	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * TIER_HP[t]])
@@ -365,12 +371,13 @@ func key_of(k: String, p: Vector3, yaw: float) -> String:
 	return "free:%d:%d:%s" % [roundi(p.x * 2.0), roundi(p.z * 2.0), k]
 
 
-func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
+func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0, paid = null) -> void:
 	if not Net.authority():
 		return
 	var key := key_of(k, p, yaw)
 	if _occupied(key) or key == "door:?" or not Items.PIECES.has(k):
-		Net.call_peer(by, "_w_give", [_cost_items(k, 1.0)])
+		if Items.PIECES.has(k):
+			Net.call_peer(by, "_w_give", [_refund(Items.PIECES[k].cost, paid)])
 		return
 	var pid: int = w.piece_next
 	w.piece_next += 1
@@ -379,6 +386,18 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0) -> void:
 		w.shared("_w_fuel", [pid, w.world_hours() + Wasteland.FUEL_START])
 	if acts(k) == "chest":
 		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
+
+
+## What goes back for a build the host turned down: what was paid (a skill may have made it less), never more than it costs.
+func _refund(cost: Dictionary, paid) -> Array:
+	var out: Array = []
+	for it in cost:
+		var n := int(cost[it])
+		if paid is Dictionary:
+			n = mini(n, int((paid as Dictionary).get(it, 0)))
+		if n > 0:
+			out.append([it, n])
+	return out
 
 
 func _cost_items(k: String, frac: float) -> Array:
@@ -420,7 +439,7 @@ func _gone(pid: int) -> void:
 			if s != null:
 				items.append(s)
 		if not items.is_empty():
-			w._rq_satchel(0, pc.pos + Vector3(0, 0.3, 0), items, false)
+			w._rq_satchel(0, pc.pos + Vector3(0, 0.3, 0), items, false, "", true)   # a chest's goods are never blown away
 		w.shared("_w_satchel_gone", [cid])
 	# A door goes with its doorway
 	for other in w.pieces.keys():
@@ -470,6 +489,8 @@ func _w_piece(pid: int, k: String, p: Vector3, yaw: float, hp: float) -> void:
 			w.personal_interactable(body, "Use the waystone", func(): w.ui.open_portal(pid))
 		"shrine":
 			w.personal_interactable(body, "Kneel at the shrine", func(): w.ui.open_shrine(pid))
+		"trophy_hall":
+			w.personal_interactable(body, "Look at the trophies", func(): w.ui.open_hall(pid))
 
 
 func _w_piece_hp(pid: int, hp: float) -> void:
@@ -729,6 +750,33 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				l.omni_range = 16.0
 				l.position.y = 3.0
 				n.add_child(l)
+		"trophy_hall":
+			# A timber back wall under a little roof, with five plaques; the hung trophies glow on them
+			_part(n, body, Vector3(4.2, 3.0, 0.4), Vector3(0, 1.5, -0.6), m.wood if not is_ghost else null, is_ghost)
+			_part(n, null, Vector3(4.6, 0.2, 1.4), Vector3(0, 3.1, -0.2), m.wood if not is_ghost else null, is_ghost)
+			_part(n, null, Vector3(4.4, 0.3, 1.2), Vector3(0, 0.15, -0.2), m.stone if not is_ghost else null, is_ghost)
+			if not is_ghost:
+				var marks: Array = []
+				for i in 5:
+					var x := -1.6 + i * 0.8
+					_part(n, null, Vector3(0.6, 0.7, 0.08), Vector3(x, 1.8, -0.38), m.stone, false)
+					var gem := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.16
+					sm.height = 0.32
+					gem.mesh = sm
+					gem.position = Vector3(x, 1.8, -0.28)
+					gem.visible = false
+					n.add_child(gem)
+					marks.append(gem)
+				n.set_meta("marks", marks)
+				var hl := OmniLight3D.new()
+				hl.light_color = Color(0.95, 0.75, 0.45)
+				hl.light_energy = 0.0
+				hl.omni_range = 5.0
+				hl.position = Vector3(0, 2.4, 0.4)
+				n.add_child(hl)
+				n.set_meta("light", hl)
 		"shrine":
 			_part(n, body, Vector3(2.2, 1.2, 1.4), Vector3(0, 0.6, 0), null, is_ghost)
 			if is_ghost:

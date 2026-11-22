@@ -172,7 +172,7 @@ func _nearest(home: Vector3):
 
 
 func _bite(e, dir: Vector3) -> void:
-	var tier: int = clampi(w.tier_at(global_position), 1, 4)
+	var tier: int = clampi(w.tier_at(global_position), 1, WSpirits.TIER_BITE.size())
 	var amount: float = float(spec.bite) * WSpirits.TIER_BITE[tier - 1]
 	LesserSpeeb.harm_kind = str(spec.harm)
 	e.hurt(amount, dir)

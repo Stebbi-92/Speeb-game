@@ -5,6 +5,7 @@ extends Node
 
 const MAX_ACTIVE := 6
 const OFFERS_PER := 3
+const KEY_HINT := "Next: "   ## the start of a hint that names a fouled bowl's key
 
 var w
 var quests := {}
@@ -38,12 +39,24 @@ const MAIN := [
 	{"t": "talk", "who": "corvin", "text": "Go to Gallowmere, on the dry lake far to the <dir:S:gallowmere:cinderwick>, and speak with its warden.",
 		"ask": "You put out the beacons.",
 		"say": "Yes. I did. My father did. His father before him.\n\nYou think the night comes from nowhere. It comes up out of a mouth in the earth, <dir:B:8:gallowmere> of here, where the ninth beacon stood. When the ninth was lit, the mouth was quiet. Then it swallowed the beacon whole, tower and bowl and keepers, and it began to speak.\n\nIt asked for the other eight. It said: put them out, and I will leave Gallowmere standing. So we did. And we are standing. Do you understand? Every fire you light, it will want back. Light all eight, and it will have to come up and take them itself. Perhaps then you can do what we could not."},
-	{"t": "count", "n": 8, "text": "Kindle all eight beacons that still stand. The ninth was swallowed; the mouth will have to answer."},
+	{"t": "count", "n": 5, "text": "Kindle a fifth beacon. Five fires, and the dark will have to turn and look at you."},
+	{"t": "talk", "who": "corvin", "text": "Five fires burn, and the sea has opened. Return to the warden of Gallowmere.",
+		"ask": "Five are burning. The sea has opened.",
+		"say": "And the mouth breathed. Did you feel it? Every bowl still dark has been fouled. Oil will slide off it now like water off tar.\n\nA fouled bowl wants something from beyond the shore before it will take. The first is Deep Oil. My grandfather spoke of it: lamp oil, rendered at a bench with the ichor of the thing in the Kraken-Bell. The Bell-Wound. Bring it down and it bleeds green.\n\nThe sea took everything from us once. Now you have to go and take something back from it."},
+	{"t": "count", "n": 6, "key": "deep_oil", "text": "Kindle a sixth beacon. A fouled bowl wants Deep Oil first: lamp oil and the Bell-Wound's ichor, rendered at a bench."},
+	{"t": "talk", "who": "ione", "text": "Six fires. The gravekeeper of Mourner's Rest has heard the dead again.",
+		"ask": "The sixth bowl took the Deep Oil.",
+		"say": "The drowned are talking now. They have never talked before.\n\nThey were the Fleet. They sailed to Quietglass with the Order's last ships, and kept a log to the end. Its last page names the bowls, one by one, as they were fouled. They say a bowl will remember its name if you read it the page.\n\nThe log is still in Quietglass. Light the lane there first, or the deep will have you before the glass does."},
+	{"t": "count", "n": 7, "key": "fleet_log", "text": "Kindle a seventh beacon. A fouled bowl wants the Fleet Log, from Quietglass, reached by a lit sea lane."},
+	{"t": "talk", "who": "sigrun", "text": "Seven fires. Sail to Hearthholm on the Frostmark and speak with its law-speaker.",
+		"ask": "Seven fires burn across the sea.",
+		"say": "We saw the seventh from the Thing-field. The old men wept, and the young ones asked why.\n\nThe eighth is the hard one. The law says: what the Mouth breathes on, a great heart must warm. The far lands have five great ones, the Ice Hall's mother among them. Take the heart of any one, and carry it home to your bowl.\n\nWe will speak your name here while you are gone. We keep names."},
+	{"t": "count", "n": 8, "key": "heart", "text": "Kindle an eighth beacon. A fouled bowl wants the heart of a far great one."},
 	{"t": "talk", "who": "corvin", "text": "Eight fires burn. Return to the warden of Gallowmere.",
 		"ask": "Eight are burning. What now?",
-		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth. Pour oil into it and it will take, and the thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
+		"say": "Now it is angry. I have not heard it this loud since I was a boy.\n\nThe ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth and fouled besides. It wants a coal from every far shore: the Frostmark, the Sunward Reach, the Pale Steppe. Each has a shrine-bowl the Order built. Light them and carry one coal from each.\n\nThen pour the oil. The thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.\n\nTake this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
 		"give": [["beacon_oil", 2]]},
-	{"t": "kindle", "beacon": 8, "text": "Kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."},
+	{"t": "kindle", "beacon": 8, "key": "coals", "text": "Bring a coal from the shrine-bowl of each Far Shore, then kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."},
 	{"t": "talk", "who": "maud", "text": "It is done. Return to Cinderwick.",
 		"ask": "The ninth burns. The mouth is quiet.",
 		"say": "I know. The whole camp came out to look. You can see it from here, a white thread in the <dir:B:8:cinderwick>, like the one I remember.\n\nThe nights will still come. The waste is still the waste. Forms will still walk out of the dark where the fires do not reach. But they will not come for everything, and they will not come forever.\n\nThe waste is not saved, survivor. It is kept. And now there is someone to keep it."},
@@ -72,7 +85,7 @@ const STORIES := {
 		"pitch": "There is a vault in the hills where the Order put its dead. The dead in it are not quiet. Something was sealed in from the inside.",
 		"steps": [
 			{"t": "reach", "ruin": "sealed_vault", "text": "Find the Vault of the Inward Seal, <dir:R:sealed_vault:mourners> of Mourner's Rest."},
-			{"t": "kill", "ruin": "sealed_vault", "n": 8, "text": "Undo the forms that keep the vault."},
+			{"t": "kill", "ruin": "sealed_vault", "n": 8, "text": "Kill the enemies guarding the vault."},
 			{"t": "recover", "crate": "sealed_vault_1", "item": "order_seal", "text": "Force the iron chest within the vault (it wants a pry bar)."},
 			{"t": "talk", "who": "ione", "text": "Bring the seal to Ione.", "ask": "This was pressed into the door from the inside.",
 				"say": "The Silent Clerics who sealed themselves in. I had heard it, but not believed it.\n\nWhen the beacons began to die, some of the Order did not run. They walled themselves in with their dead and kept silence until the end, so that the dark would find nothing to speak to. The seal says: we did not answer.\n\nKeep the oil I give you. Light something with it. That is the only answer worth giving.", "take": ["order_seal", 1]},
@@ -88,7 +101,7 @@ const STORIES := {
 	"caravans": {"title": "The Salt-Pan Caravans", "giver": "wren", "at": "cinderwick",
 		"pitch": "The caravans <dir:R:salt_caravans:cinderwick> of the camp died in one night. Forms roost in the wagons now. They come down at dusk and test our wall.",
 		"steps": [
-			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Undo the forms roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."},
+			{"t": "kill", "ruin": "salt_caravans", "n": 10, "text": "Kill the enemies roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."},
 			{"t": "talk", "who": "wren", "text": "Tell Wren it is done.", "ask": "The caravans are clear.",
 				"say": "Good. I will not thank you; we are past that. Take these. You will need them more than I will, tonight."},
 		], "reward": {"salt": 30, "items": [["shells", 40], ["bandage", 2]], "rep": 2}},
@@ -109,7 +122,7 @@ const STORIES := {
 	"ferry2": {"title": "The Bell on the Fen", "giver": "ash_lena", "at": "gallowmere", "after": "done_ferry1",
 		"pitch": "He wrote that the Drowned Chapel rings by itself, and that the bell calls the dead up out of the water. Will you go and take it down?",
 		"steps": [
-			{"t": "kill", "ruin": "isle_fen", "n": 8, "text": "Undo the drowned that keep the chapel on the Sunk Fen, <dir:R:isle_fen:gallowmere> across the sea."},
+			{"t": "kill", "ruin": "isle_fen", "n": 8, "text": "Kill the drowned guarding the chapel on the Sunk Fen, <dir:R:isle_fen:gallowmere> across the sea."},
 			{"t": "recover", "crate": "isle_fen_0", "item": "chapel_bell", "text": "Search the Drowned Chapel for its bell."},
 			{"t": "talk", "who": "ash_lena", "text": "Bring the bell to Lena.", "ask": "The bell. It did not ring once on the way back.",
 				"say": "Good. Then it is only a bell now.\n\nI will hang it at the edge of the dry lake, where the jetty was. If it rings, I will know it is only the wind.\n\nThere is one more page. He saw lights on the iron isle, and a door that opened with a key. He never went in. I would like to know what was there.", "take": ["chapel_bell", 1]},
@@ -161,7 +174,7 @@ const STORIES := {
 		"pitch": "The dead tell me there are stones on Hrafnsey with names cut into them. Names nobody has said in a hundred years. Bring me one.",
 		"steps": [
 			{"t": "reach", "ruin": "isle_hrafn", "text": "Find the Saga Stones on Hrafnsey, <dir:R:isle_hrafn:mourners> across the sea."},
-			{"t": "kill", "ruin": "isle_hrafn", "n": 8, "text": "Undo what keeps the stones."},
+			{"t": "kill", "ruin": "isle_hrafn", "n": 8, "text": "Kill what guards the stones."},
 			{"t": "recover", "crate": "isle_hrafn_0", "item": "saga_rubbing", "text": "Search by the stones for something to take the names on."},
 			{"t": "talk", "who": "ione", "text": "Bring the names to Ione.", "ask": "Charcoal on cloth. These were cut into the tallest stone.",
 				"say": "I will read them out tonight, one at a time, slowly. The dead like to hear the old names. It reminds them there were people before the night, and there will be people after it.", "take": ["saga_rubbing", 1]},
@@ -262,8 +275,17 @@ func target_of(q: Dictionary):
 				return w.crates[s.crate].pos if w.crates.has(s.crate) else null
 			return s.get("pos")
 		"kindle":
+			var kh := _key_wanted(int(s.beacon))
+			if kh.size() == 2 and kh[1] != null:
+				return kh[1]
 			return w.beacon_nodes[int(s.beacon)].pos
 		"count":
+			# A fouled bowl: what it wants first, and where that is
+			var nb: int = w.next_dark_beacon(w.player.global_position)
+			if nb >= 0 and nb < 8:
+				var kh := _key_wanted(nb)
+				if kh.size() == 2 and kh[1] != null:
+					return kh[1]
 			# No oil and none to make it from: the Lantern Well first
 			if w.inv.count("beacon_oil") <= 0 and w.inv.count("oil") < 2:
 				return w.gpos(WPlaces.spos("lanternwell"))
@@ -298,6 +320,16 @@ func _ruin_pos(id: String):
 	return null
 
 
+## A fouled bowl's key, if this pilgrim lacks it: [what to do, where] (else []).
+func _key_wanted(i: int) -> Array:
+	if i < 0 or not w.has_method("key_for"):
+		return []
+	var k: Array = w.key_for(i)
+	if k.is_empty() or w._has_key(k):
+		return []
+	return w.key_hint(i)
+
+
 func step_text(q: Dictionary) -> String:
 	var s := step_of(q)
 	if s.is_empty():
@@ -316,7 +348,14 @@ func step_text(q: Dictionary) -> String:
 ## The small next thing on a long beacon step: carry the oil you have, or make it, or fetch what it takes.
 func next_hint(q: Dictionary) -> String:
 	var s := step_of(q)
-	if s.is_empty() or s.t != "count":
+	if s.is_empty() or not s.t in ["count", "kindle"]:
+		return ""
+	var nb: int = int(s.beacon) if s.t == "kindle" else w.next_dark_beacon(w.player.global_position)
+	if nb >= 0:
+		var kh := _key_wanted(nb)
+		if kh.size() == 2 and str(kh[0]) != "":
+			return KEY_HINT + str(kh[0])
+	if s.t == "kindle":
 		return ""
 	var jars: int = w.inv.count("beacon_oil")
 	if jars > 0:
@@ -422,9 +461,25 @@ func _progress(qid: String, n: int, need: int) -> void:
 
 ## Recovered things are counted the moment they are in someone's pack.
 func _check_recover() -> void:
+	# Several errands may want the same thing (a keepsake): each one found counts for one errand only
+	var owed := {}
+	var waiting := {}
 	for q in active():
 		var s := step_of(q)
-		if s.t == "recover" and w.inv.count(s.item) > 0:
+		if s.is_empty():
+			continue
+		var key := "%s:%d" % [q.id, int(q.stage)]
+		if s.t == "talk" and not (s.get("take", []) as Array).is_empty():
+			owed[s.take[0]] = int(owed.get(s.take[0], 0)) + int(s.take[1])
+		elif s.t == "recover" and _sent.has(key) and Time.get_ticks_msec() - int(_sent[key]) < 3000:
+			owed[s.item] = int(owed.get(s.item, 0)) + 1
+			waiting[q.id] = true
+	for q in active():
+		var s := step_of(q)
+		if s.is_empty() or s.t != "recover" or waiting.has(q.id):
+			continue
+		if w.inv.count(s.item) > int(owed.get(s.item, 0)):
+			owed[s.item] = int(owed.get(s.item, 0)) + 1
 			ask_advance(q.id)
 
 
@@ -559,7 +614,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 	var back := {"t": "talk", "who": giver, "text": "Return to %s at %s." % [gname, WPlaces.SETTLEMENTS[k].name]}
 	match kind:
 		"gather":
-			var opts := [["wood", 15, 30], ["stone", 15, 30], ["scrap", 6, 12], ["salt", 30, 60], ["cloth", 6, 12], ["herb", 5, 10], ["bone", 8, 16]]
+			var opts := [["wood", 15, 30], ["stone", 15, 30], ["scrap", 6, 12], ["meat", 6, 12], ["cloth", 6, 12], ["herb", 5, 10], ["bone", 8, 16]]
 			var g: Array = opts[rr.randi() % opts.size()]
 			var n := rr.randi_range(g[1], g[2])
 			var nm := Items.iname(g[0])
@@ -572,9 +627,9 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			salt = int(Items.info(g[0]).value * n * 1.6) + 10
 		"hunt":
 			var n := rr.randi_range(6, 12)
-			o.title = "The Forms at %s" % ruin.name
+			o.title = "Enemies at %s" % ruin.name
 			o.pitch = "Forms have been gathering at %s. They come closer every night. Undo %d of them there, before they come all the way." % [ruin.name, n]
-			o.steps = [{"t": "kill", "ruin": ruin.id, "n": n, "text": "Undo %d forms at %s." % [n, ruin.name]}, back.merged({"ask": "%s is quiet, for now." % ruin.name, "say": "For now is all any of us get. Thank you."})]
+			o.steps = [{"t": "kill", "ruin": ruin.id, "n": n, "text": "Kill %d enemies at %s." % [n, ruin.name]}, back.merged({"ask": "%s is quiet, for now." % ruin.name, "say": "For now is all any of us get. Thank you."})]
 			salt = 25 + n * 3
 		"recover":
 			var thing: String = KEEPSAKES[rr.randi() % KEEPSAKES.size()]
@@ -615,7 +670,7 @@ func _make_offer(k: String, rr: RandomNumberGenerator) -> Dictionary:
 			var n := rr.randi_range(8, 14)
 			o.title = "The Wall of %s" % WPlaces.SETTLEMENTS[k].name
 			o.pitch = "Stand the wall with us tonight. We are too few. Undo %d of the forms that come for %s, and see us to the dawn." % [n, WPlaces.SETTLEMENTS[k].name]
-			o.steps = [{"t": "watch", "at": k, "n": n, "text": "Keep %s through the night: undo %d forms within sight of it." % [WPlaces.SETTLEMENTS[k].name, n]},
+			o.steps = [{"t": "watch", "at": k, "n": n, "text": "Keep %s through the night: kill %d enemies within sight of it." % [WPlaces.SETTLEMENTS[k].name, n]},
 				back.merged({"ask": "We kept the wall.", "say": "We did. I have not slept so well in a month as I did after the dawn. Take this."})]
 			salt = 30 + n * 3
 		"find":
@@ -780,6 +835,11 @@ func talk_options(pid: String) -> Array:
 
 
 func _turn_in(qid: String, stage: int, s: Dictionary) -> String:
+	# Once per step: a second click before the host's word comes back must not pay twice
+	var key := "turn:%s:%d" % [qid, stage]
+	if _sent.has(key) and Time.get_ticks_msec() - int(_sent[key]) < 8000:
+		return ""
+	_sent[key] = Time.get_ticks_msec()
 	match s.t:
 		"gather":
 			w.inv.take(s.item, int(s.n))

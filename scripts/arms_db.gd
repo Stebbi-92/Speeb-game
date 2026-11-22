@@ -40,6 +40,14 @@ const GUNS := {
 	"revolver": {"name": "Revolver", "slot": "secondary", "mode": "semi", "dmg": 52.0, "pellets": 1, "spread": 0.008, "range": 110.0,
 		"mag": 6, "rate": 0.45, "reload": "mag", "reload_t": 2.0, "sound": "revolver", "kick": 0.8, "falloff": 60.0, "unlock": 5,
 		"mounts": ["red_dot"], "text": "Six heavy rounds. Slow, and sure."},
+	# The far arms: made only of the far lands' stuff, never in the trials. "look" is the gun whose body they borrow.
+	"carbine": {"name": "Sunglass Carbine", "slot": "primary", "mode": "semi", "dmg": 50.0, "pellets": 1, "spread": 0.005, "range": 240.0,
+		"mag": 15, "rate": 0.2, "reload": "mag", "reload_t": 2.0, "sound": "rifle", "kick": 0.45, "falloff": 120.0, "unlock": 99, "far": true,
+		"look": "machine_gun", "mounts": ["red_dot", "scope", "suppressor", "foregrip", "ext_mag"],
+		"text": "Sunglass sights and a long, true barrel. One heavy rifle round per pull, as fast as you can aim."},
+	"hand_cannon": {"name": "Dome-steel Hand Cannon", "slot": "secondary", "mode": "semi", "dmg": 17.0, "pellets": 7, "spread": 0.055, "range": 40.0,
+		"mag": 2, "rate": 0.3, "reload": "mag", "reload_t": 1.7, "sound": "shotgun", "kick": 1.3, "falloff": 22.0, "unlock": 99, "far": true,
+		"look": "revolver", "mounts": ["red_dot"], "text": "Two shells in a short dome-steel barrel. A side arm that hits like a shotgun, close in."},
 }
 
 ## "arc" is how wide a swing sweeps (the least facing a foe needs: lower is wider); "back" multiplies a blow
@@ -52,17 +60,19 @@ const MELEE := {
 	"sledge": {"name": "Sledge", "dmg": 100.0, "rate": 1.1, "reach": 2.9, "pierce": 2.0, "unlock": 9, "harm": "blunt", "text": "Slow, and it breaks whatever it meets. Plate does not stop it."},
 	"glaive": {"name": "Obsidian Glaive", "dmg": 120.0, "rate": 0.85, "reach": 3.6, "arc": 0.45, "pierce": 1.5, "unlock": 16, "text": "Black glass on a long haft. The longest reach, and it bites through plate."},
 	"battle_axe": {"name": "Battle Axe", "dmg": 125.0, "rate": 0.95, "reach": 3.2, "arc": 0.3, "unlock": 11, "text": "A long haft and a bearded head. It sweeps all before it."},
+	"war_pick": {"name": "Ice-iron War-pick", "dmg": 150.0, "rate": 0.9, "reach": 3.0, "arc": 0.4, "pierce": 2.5, "unlock": 99, "far": true, "look": "sledge",
+		"harm": "blunt", "text": "A spike of Frostmark iron on a horn haft. It goes through any plate."},
 }
 
 const GRENADES := {
 	"frag": {"name": "Frag Grenade", "dmg": 150.0, "radius": 6.0, "fuse": 2.2, "carry": 2, "unlock": 1, "text": "Thrown with G. Bursts after a moment."},
-	"incendiary": {"name": "Fire Grenade", "dmg": 14.0, "radius": 5.0, "fuse": 1.4, "burn": 7.0, "carry": 2, "unlock": 7, "text": "Leaves the ground burning a while. The forms will not cross it unharmed."},
+	"incendiary": {"name": "Fire Grenade", "dmg": 14.0, "radius": 5.0, "fuse": 1.4, "burn": 7.0, "carry": 2, "unlock": 7, "text": "Leaves the ground burning a while. Enemies will not cross it unharmed."},
 }
 
 const GADGETS := {
 	"bandages": {"name": "Field Dressing", "charges": 2, "recharge": 50.0, "unlock": 2, "text": "Used with T. Restores forty health over a few seconds."},
 	"flare": {"name": "Flare", "charges": 2, "recharge": 40.0, "unlock": 4, "text": "Thrown with T. A red light that burns a long while and shows what moves near it."},
-	"mine": {"name": "Salt Mine", "charges": 2, "recharge": 45.0, "unlock": 8, "text": "Set with T. Bursts when a form steps near."},
+	"mine": {"name": "Salt Mine", "charges": 2, "recharge": 45.0, "unlock": 8, "text": "Set with T. Bursts when an enemy steps near."},
 }
 
 ## What may be fitted to a gun. One thing to each slot: a sight above, something on the muzzle,
@@ -114,6 +124,16 @@ static func need(lv: int) -> int:
 	return int(round(250.0 * pow(lv, 1.25)))
 
 
+## The arm whose body a far arm borrows (its model, flash and spent case); any other arm is its own.
+static func look(id: String) -> String:
+	return str(GUNS.get(id, MELEE.get(id, {})).get("look", id))
+
+
+## Whether an arm is one of the far arms: made only in the waste, of the far lands' stuff.
+static func far(id: String) -> bool:
+	return bool(GUNS.get(id, MELEE.get(id, {})).get("far", false))
+
+
 static func table(kind: String) -> Dictionary:
 	match kind:
 		"primary", "secondary":
@@ -133,6 +153,8 @@ static func choices(kind: String) -> Array:
 	var out: Array = []
 	for id in t:
 		if kind in ["primary", "secondary"] and t[id].slot != kind:
+			continue
+		if t[id].get("far", false):
 			continue
 		out.append(id)
 	out.sort_custom(func(a, b): return int(t[a].unlock) < int(t[b].unlock))

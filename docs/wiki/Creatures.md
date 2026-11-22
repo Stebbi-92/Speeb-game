@@ -47,7 +47,7 @@ Foes of the waste that walk like people (the Unlit, the Hollowed and the rest) k
 | **Shtriga** | 120 | 20 | fire, blades | bullets | On Kalaja, at night. A night witch of the keep. Each sip she drinks from you heals her. Fire undoes her. |
 | **Kulshedra** | 460 | 34 | blasts, bullets | fire, shotgun spread | On Kalaja. The she-dragon of the south. She breathes fire in a fan. Get behind stone. |
 
-A struck form rocks away from the blow and sounds of what it is made of. The far forms warn you before they act: dust boils where a burrower will rise, a crackle sounds where a flicker will appear, the ground hisses before a geyser, ravens gather before they fly at you, a choir is heard singing, and a stalker rustles in the grass. Everyone in the fellowship sees and hears the warnings. The far forms (Flicker, Geyser Wight, Raven Mask, Dust Choir, Grass Stalker and the rest) come with the far lands; until then they are only in the dev menu.
+A struck form rocks away from the blow and sounds of what it is made of. The far forms warn you before they act: dust boils where a burrower will rise, a crackle sounds where a flicker will appear, the ground hisses before a geyser, ravens gather before they fly at you, a choir is heard singing, and a stalker rustles in the grass. Everyone in the fellowship sees and hears the warnings. The far forms (Flicker, Geyser Wight, Raven Mask, Dust Choir, Grass Stalker and the rest) live on the far isles and the Far Shores (see [The Grey Sea](The-Grey-Sea)).
 
 ## The great ones
 
@@ -61,3 +61,10 @@ Each land has one, in its lair. When its lair is ready it shows on the map as a 
 | **The Long Watcher** | Forest | 1600 | watched too long, it is suddenly elsewhere; charges in a straight line |
 | **The Basalt Idol** | Basalt | 2600 | breaks the ground around it; a fan of bolts; charges in a straight line |
 | **The Tar Mother** | Marsh | 1800 | brings forth lesser forms; rains fire in circles; charges in a straight line |
+| **The Archivist** | Quietglass | 2600 | a line of fire; strikes from hiding; a fan of bolts |
+| **The Lantern-Breaker** | The Thousand Domes | 2800 | charges in a straight line; calls up the Tunnel Unlit; a fan of bolts |
+| **The Glacier Mother** | The Frostmark | 3400 | breaks the ground around it; shakes the ground wide; rains fire in circles |
+| **The Dry River** | The Sunward Reach | 2900 | a fan of bolts; calls up Canyon Striders; rains fire in circles |
+| **The Spine-King** | The Pale Steppe | 3200 | charges in a straight line; breaks the ground around it; calls up Grass Stalkers |
+
+The far great ones leave trophies with their own powers: the Lens (forms near you show on your compass), the Keeper's Calm (the dread does not rise about you), Rime Touch (your blows freeze lesser forms a moment), Dry Blood (no heat touches you) and the Rider's Horn (your cat never tires).

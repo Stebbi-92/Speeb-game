@@ -67,7 +67,7 @@ static func make(name: String) -> Node3D:
 
 ## The spent case a gun throws out, or "" if it throws none.
 static func spent_of(gun: String) -> String:
-	var c: String = GUN_CAL.get(gun, "")
+	var c: String = GUN_CAL.get(ArmsDB.look(gun), "")
 	if c == "":
 		return ""
 	return SPENT_SHELL if c == "shell" else CAL[c][1]

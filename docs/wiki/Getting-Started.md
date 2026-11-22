@@ -8,7 +8,7 @@ A new survivor is shown **First steps** at the top left: one short task at a tim
 
 1. **Look and walk.** W A S D to walk, the mouse to look, Shift to hurry.
 2. **Dodge.** Q steps you aside. When a creature's head swells and glows, it is about to bite: step out of the way.
-3. **Gather.** Hit dead trees and rocks with the left mouse button for wood and stone. A hatchet and a pick, made at a workbench, gather twice as fast.
+3. **Gather.** Hold the interact key (E) at dead trees and rocks for wood and stone. A hatchet and a pick, made at a workbench, gather twice as fast.
 4. **Open your pack** with I. Click a thing to see it; right click eats, uses or wears it.
 5. **Make a bandage** under Make, from two cloth.
 6. **Build a campfire** with B. While it burns, no creatures rise near it, and you can rest by it. It also makes a base: chests within it count as your pack when you make or build there.
@@ -22,4 +22,4 @@ A new survivor is shown **First steps** at the top left: one short task at a tim
 - Keep **bandages** and some food on you. Hunger and tiredness wear you down slowly.
 - Put a **bedroll** in your base: you wake there if you fall.
 - Make **smelling salts** (salt and ash-bloom). With them you raise a fallen friend quickly and with more health.
-- Light shows things from far off: dropped satchels glow, gold for common things and amber for rare ones. Your own belongings, left where you fell, glow blue.
+- Light shows things from far off: dropped satchels glow, gold for common things and amber for rare ones. Your own belongings, left where you fell, glow blue. A satchel no one comes near for four days blows away in the ash. Your own belongings and the goods of a broken chest never do.

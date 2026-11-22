@@ -43,8 +43,8 @@ const SKILLS := {
 	"vigil_keeper": {"name": "Vigil Keeper", "ranks": 2, "tier": 0, "text": "A new flame holds 15% sooner for each rank."},
 	"grace": {"name": "Grace of the Flame", "ranks": 2, "tier": 0, "text": "By fires and in settlements, wounds close twice as fast again for each rank."},
 	"pilgrim": {"name": "Pilgrim", "ranks": 2, "tier": 2, "text": "10% more experience from everything for each rank."},
-	"witness": {"name": "Witness", "ranks": 1, "tier": 4, "text": "Forms within 40 metres show on your compass at night."},
-	"last_light": {"name": "Last Light", "ranks": 1, "tier": 7, "text": "Within sight of a burning beacon, the forms' blows are halved."},
+	"witness": {"name": "Witness", "ranks": 1, "tier": 4, "text": "Enemies within 40 metres show on your compass at night."},
+	"last_light": {"name": "Last Light", "ranks": 1, "tier": 7, "text": "Within sight of a burning beacon, enemy attacks do half harm."},
 }
 
 ## Experience for each deed.
@@ -66,13 +66,14 @@ const BOONS := {
 	"iron_skin": {"name": "Iron Skin", "text": "You take 10% less harm."},
 	"beacon_heart": {"name": "Beacon Heart", "text": "25 more health."},
 	"sure_aim": {"name": "Sure Aim", "text": "Your guns and blades hit 10% harder."},
-	"quick_hands": {"name": "Quick Hands", "text": "You reload 15% faster."},
 	"salvager": {"name": "Salvager", "text": "30% more from everything you gather."},
-	"packrat": {"name": "Packrat", "text": "6 more places in your pack."},
-	"cat_kin": {"name": "Cat-Kin", "text": "Your cat sprints twice as long."},
-	"silver_tongue": {"name": "Silver Tongue", "text": "Buy 10% cheaper and sell 15% dearer."},
-	"bandolier": {"name": "Deep Bandolier", "text": "Carry 150 more rounds."},
-	"night_eyes": {"name": "Night Eyes", "text": "Forms deal 15% less harm to you at night."},
+	# Boons that are new things to do, not numbers
+	"rally": {"name": "Rallying Cry", "text": "Your whistle rallies the squad near you: breath back, and a burst of speed. Once a minute."},
+	"second_relic": {"name": "Second Relic", "text": "Two spirit-cats may run with you at once."},
+	"lantern": {"name": "Lantern-bearer", "text": "Your lit lantern keeps the dread off everyone near you."},
+	"pack_cat": {"name": "Pack-Cat", "text": "With a cat of your own, it carries 8 places of your pack."},
+	"quick_camp": {"name": "Quick Camp", "text": "Once a night, lay a campfire for nothing."},
+	"deep_diver": {"name": "Deep Diver", "text": "Swimming costs half the breath: you stay under twice as long."},
 }
 var boons: Array = []        ## the boons chosen, kept for good
 var boon_offer: Array = []   ## three boons offered by a kindled beacon, waiting to be chosen
@@ -106,16 +107,20 @@ func tree_of(id: String) -> String:
 	return ""
 
 
+const MASTERED := "Mastered"
+const NO_POINTS := "No points to spend"
+
+
 ## Why a skill cannot be learned now, or "" if it can.
 func blocked(id: String) -> String:
 	var s: Dictionary = SKILLS[id]
 	if rank(id) >= int(s.ranks):
-		return "Mastered"
+		return MASTERED
 	var t := tree_of(id)
 	if spent_in(t) < int(s.tier):
 		return "Needs %d points in %s" % [int(s.tier), TREES[t].name]
 	if points <= 0:
-		return "No points to spend"
+		return NO_POINTS
 	return ""
 
 
@@ -129,8 +134,63 @@ func learn(id: String) -> bool:
 
 
 ## Adds experience. Returns how many levels were gained.
+## Renown: past the last level, experience fills a bar of renown instead (about 9,000 a step).
+## Each step gives one reward to choose: a re-spec, a cosmetic, or a place in a trophy hall.
+const RENOWN_STEP := 9000
+const RENOWN_REWARDS := {
+	"respec": {"name": "A fresh start", "text": "Unlearn every skill and have all the points back to spend again."},
+	"barding": {"name": "Barding of Renown", "text": "Red and gold barding for your cat."},
+	"hall": {"name": "A trophy place", "text": "One more trophy may hang in the halls you tend (up to five)."},
+}
+var renown := 0
+var renown_xp := 0
+var renown_picks := 0      ## renown steps not yet turned into a reward
+var rewards: Array = []    ## the rewards chosen ("hall" may be taken twice)
+
+
+func has_reward(r: String) -> bool:
+	return r in rewards
+
+
+## How many trophies may hang in a hall this survivor tends: three, and up to five with renown.
+func hall_places() -> int:
+	return 3 + mini(2, rewards.count("hall"))
+
+
+func take_reward(r: String) -> bool:
+	if renown_picks <= 0 or not RENOWN_REWARDS.has(r):
+		return false
+	if r == "barding" and has_reward("barding"):
+		return false
+	if r == "hall" and rewards.count("hall") >= 2:
+		return false
+	renown_picks -= 1
+	rewards.append(r)
+	if r == "respec":
+		respec()
+	changed.emit()
+	return true
+
+
+## Every skill unlearned; the points come back.
+func respec() -> void:
+	var n := 0
+	for k in ranks:
+		n += int(ranks[k])
+	ranks = {}
+	points += n
+
+
 func gain(amount: int) -> int:
-	if level >= MAX_LEVEL or amount <= 0:
+	if amount <= 0:
+		return 0
+	if level >= MAX_LEVEL:
+		renown_xp += int(round(amount * (1.0 + 0.1 * rank("pilgrim"))))
+		while renown_xp >= RENOWN_STEP:
+			renown_xp -= RENOWN_STEP
+			renown += 1
+			renown_picks += 1
+		changed.emit()
 		return 0
 	xp += int(round(amount * (1.0 + 0.1 * rank("pilgrim"))))
 	var ups := 0
@@ -198,6 +258,12 @@ func has_boon(id: String) -> bool:
 	return id in boons
 
 
+## Whether this survivor has a cat of their own (the Pack-Cat boon carries in it).
+func _has_cat() -> bool:
+	var lv = Game.main.level if Game.main else null
+	return lv != null and lv.get("cat") != null
+
+
 ## Three boons not yet held, to be chosen from (fewer once nearly all are taken).
 func roll_boons(rr: RandomNumberGenerator) -> Array:
 	var left: Array = []
@@ -239,7 +305,7 @@ func speed_mult() -> float:
 
 
 func pack_size() -> int:
-	return 24 + 4 * rank("deep_pockets") + (6 if has_boon("packrat") else 0)
+	return 24 + 4 * rank("deep_pockets") + (8 if has_boon("pack_cat") and _has_cat() else 0)
 
 
 func damage_mult() -> float:
@@ -247,11 +313,11 @@ func damage_mult() -> float:
 
 
 func reload_mult() -> float:
-	return (1.0 - 0.15 * rank("quick_hands")) * (0.85 if has_boon("quick_hands") else 1.0)
+	return (1.0 - 0.15 * rank("quick_hands")) * 1.0
 
 
 func reserve_max() -> int:
-	return 400 + 100 * rank("bandolier") + (150 if has_boon("bandolier") else 0)
+	return 400 + 100 * rank("bandolier") + 0
 
 
 func harm_mult() -> float:
@@ -278,11 +344,11 @@ func cost(c: Dictionary) -> Dictionary:
 
 
 func buy_mult() -> float:
-	return (1.0 - 0.06 * rank("haggler")) * (0.9 if has_boon("silver_tongue") else 1.0)
+	return (1.0 - 0.06 * rank("haggler")) * 1.0
 
 
 func sell_mult() -> float:
-	return (1.0 + 0.1 * rank("haggler")) * (1.15 if has_boon("silver_tongue") else 1.0) * (0.5 if WRules.sworn("vow_tithe") else 1.0)
+	return (1.0 + 0.1 * rank("haggler")) * 1.0 * (0.5 if WRules.sworn("vow_tithe") else 1.0)
 
 
 func build_hp_mult() -> float:
@@ -300,7 +366,8 @@ func vigil_mult() -> float:
 # ------------------------------------------------------------------ keeping
 
 func to_data() -> Dictionary:
-	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use, "boons": boons, "offer": boon_offer}
+	return {"xp": xp, "level": level, "points": points, "ranks": ranks, "sw": second_wind_day, "use": use, "boons": boons, "offer": boon_offer,
+		"renown": renown, "rxp": renown_xp, "picks": renown_picks, "rewards": rewards}
 
 
 func from_data(d) -> void:
@@ -308,6 +375,13 @@ func from_data(d) -> void:
 		return
 	xp = int(d.get("xp", 0))
 	level = clampi(int(d.get("level", 1)), 1, MAX_LEVEL)
+	renown = maxi(0, int(d.get("renown", 0)))
+	renown_xp = clampi(int(d.get("rxp", 0)), 0, RENOWN_STEP)
+	renown_picks = clampi(int(d.get("picks", 0)), 0, renown)
+	rewards = []
+	for r in d.get("rewards", []):
+		if RENOWN_REWARDS.has(str(r)):
+			rewards.append(str(r))
 	points = maxi(0, int(d.get("points", 0)))
 	ranks = {}
 	var r = d.get("ranks", {})

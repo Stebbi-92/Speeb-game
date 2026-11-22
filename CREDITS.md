@@ -11,8 +11,10 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
-| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks, the "no" sound |
+| [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks and knocks, the controller tick, the "no" sound |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
+| [Fantasy Game Music Tracks](https://kmontesdev.itch.io/7-fantasy-music-tracks) | kmontesdev (LoreBook) | CC0 | Music: dawn ("Aural"), towns ("Akash Chamber"), night ("Awakening") |
+| [CC0 Game Music, Volume 1](https://duckhive.itch.io/game-music-1) | duckhive | CC0 | Music: the sea ("Unwind"), fights ("JingleWave"), the seventh night ("FadeAway"), great ones ("MoistFlames") |
 
 Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). Those are not CC0, and the game does not use them.
 
@@ -60,6 +62,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
 | ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
 | ["Sphynx Cat – Rigged & Animated (10 Anims)"](https://skfb.ly/pOMpF) | [Animal Animator](https://animalanimator.com) ([the sphynx cat reference](https://animalanimator.com/the-ultimate-sphinx-cat-reference-for-animal-animators/)) | The riding cat (`assets/models/mounts`), made big enough to ride, with a Speeb's head |
+| ["Saddle"](https://skfb.ly/oR6Az) | YaredGmGm | The riding cat's saddle (`assets/models/mounts`) |
 | ["black panther"](https://skfb.ly/oREyv) | kenchoo | The lesser forms' bodies (`assets/models/foes/panther`), tinted to each form, with its head |
 | ["Low Poly Apache Gunship"](https://skfb.ly/6uKJq) | Duane's Mind | The Gunship (`assets/models/air`) |
 | ["Low poly A-10 Warthog"](https://skfb.ly/oWQFH) | SIpriv | The Gun Run (`assets/models/air`) |
@@ -112,7 +115,9 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 ## Made for the game
 
 - `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
-- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the beacon bell, the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- The beacon bell (`assets/audio/bell.ogg`) is a recorded bell strike from Kenney's Impact Sounds (CC0), deepened and given a hall tail by `tools/make_bell.py`.
+- The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 
 ## Engine
 

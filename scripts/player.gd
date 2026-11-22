@@ -239,9 +239,9 @@ func _physics_process(delta: float) -> void:
 		var st := Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y))
 		if st.length() > 0.15:
 			st = st.normalized() * pow((st.length() - 0.15) / 0.85, 1.6)
-			var aimk := 0.45 if Input.is_action_pressed("aim") else 1.0
+			var aimk := 0.45 if Game.held("aim") else 1.0
 			yaw -= st.x * Game.pad_look * aimk * delta
-			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.invert_y else 1.0), -1.45, 1.45)
+			pitch = clampf(pitch - st.y * Game.pad_look * 0.75 * aimk * delta * (-1.0 if Game.pad_invert else 1.0), -1.45, 1.45)
 	rotation.y = yaw
 	head.rotation.x = pitch
 	if grappling:
@@ -268,15 +268,17 @@ func _physics_process(delta: float) -> void:
 	var input := Vector2.ZERO
 	if not input_locked and not Game.main.hud.pause_panel.visible:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if input.length() < 0.1:
+		Game.untoggle("run")   # a switched-on sprint ends when the walking does
 	var sp := walk_speed
-	var running := can_run and Input.is_action_pressed("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
+	var running := can_run and Game.held("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
 	if mount:
 		# Riding: the cat's pace, and its own breath for a sprint; the rider's is spared
 		sp = mount.pace(running and input.length() > 0.1, delta)
 		running = false
 	elif running:
 		sp = run_speed
-	if Input.is_action_pressed("soft") and not mount:
+	if Game.held("soft") and not mount:
 		sp = soft_speed
 	if Game.blessed("floofspeeb"):
 		sp *= 1.12
@@ -296,10 +298,10 @@ func _physics_process(delta: float) -> void:
 		velocity.z = lerpf(velocity.z, dir.z * stroke, minf(1.0, 3.0 * delta))
 		var float_y := water_y - 1.3 + (0.7 if Input.is_action_pressed("jump") and not input_locked else 0.0)
 		velocity.y = lerpf(velocity.y, clampf((float_y - global_position.y) * 2.5, -4.0, 3.0), minf(1.0, 4.0 * delta))
-		if Input.is_action_pressed("soft") and not input_locked:
+		if Game.held("soft") and not input_locked:
 			velocity.y = -2.5
 		if not _power("tar"):
-			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (0.5 if _power("white") else 1.0))
+			stamina = maxf(0.0, stamina - (10.0 if running else 2.0) * delta * (1.0 - 0.5 * _power_k("white")) * (0.5 if _boon("deep_diver") else 1.0))
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -376,8 +378,7 @@ func _blessings(delta: float, dir: Vector3) -> void:
 func spend(n: float) -> bool:
 	if not Game.wasteland:
 		return true
-	if _power("white"):
-		n *= 0.5
+	n *= 1.0 - 0.5 * _power_k("white")
 	if winded or stamina < n * 0.5:
 		if Game.main and Game.main.hud and Time.get_ticks_msec() - _breath_note > 3000:
 			_breath_note = Time.get_ticks_msec()
@@ -394,7 +395,7 @@ func _stamina_tick(delta: float, running: bool) -> void:
 	if not Game.wasteland:
 		return
 	if running and is_on_floor():
-		stamina = maxf(0.0, stamina - 14.0 * delta * (0.5 if _power("white") else 1.0))
+		stamina = maxf(0.0, stamina - 14.0 * delta * (1.0 - 0.5 * _power_k("white")))
 		_breath = 0.6
 		if stamina <= 0.0:
 			winded = true
@@ -469,5 +470,16 @@ func _update_target(delta: float) -> void:
 
 
 ## Whether this pilgrim carries a great one's power (see the waste's POWERS).
+func _boon(k: String) -> bool:
+	var sk = get_parent().get("skills") if get_parent() else null
+	return sk != null and sk.has_method("has_boon") and sk.has_boon(k)
+
+
+func _power_k(k: String) -> float:
+	var lvl = get_parent()
+	return lvl.power_k(k) if lvl != null and lvl.has_method("power_k") else 0.0
+
+
 func _power(k: String) -> bool:
-	return Game.main != null and Game.main.has_method("power_is") and Game.main.power_is(k)
+	var lvl = get_parent()   # the powers are the waste's, which this pilgrim walks in
+	return lvl != null and lvl.has_method("power_is") and lvl.power_is(k)

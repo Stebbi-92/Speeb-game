@@ -23,7 +23,7 @@ const FORM_TIER := {
 	"cinder_hound": 1, "rust_stalker": 2, "bog_crawler": 2, "rime_bones": 3, "bile_elder": 2, "mourner": 2,
 	"dirge_howler": 3, "iron_idol": 3, "pyre_sack": 3, "sand_maw": 3, "tar_giant": 3, "glass_crawler": 4, "cinder_hauler": 4,
 	# 0.10: the forms of the far lands. Each has a way of its own (see FoeTraits).
-	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "geyser_wight": 3, "canyon_strider": 3,
+	"flicker": 3, "archivist_hand": 3, "tunnel_unlit": 3, "kelp_drowner": 3, "weed_eel": 3, "geyser_wight": 3, "canyon_strider": 3,
 	"dust_choir": 3, "grass_stalker": 3, "raven_mask": 4, "rime_walker": 4, "glass_husk": 4, "mound_guard": 4, "herd_ghost": 4,
 	# 0.12: the old tales of the themed isles
 	"nykur": 2, "draugr": 3, "shtriga": 3, "kulshedra": 4,
@@ -68,6 +68,8 @@ const VARIANTS := {
 		"text": "It grabs at your rounds and runs. Slay it and you get them back."},
 	"tunnel_unlit": {"base": "unlit_gun", "name": "Tunnel Unlit", "hp": 75.0, "trait": "burrow", "tint": Color(0.4, 0.33, 0.25),
 		"text": "Goes into the ground and comes up at your back. Listen for the earth breaking."},
+	"weed_eel": {"base": "serpent", "name": "Weed Eel", "hp": 120.0, "size": 1.0, "bite": 14.0, "slow": 4.0, "speed": 6.5, "radius": 0.6, "tint": Color(0.22, 0.32, 0.18),
+		"text": "Long and thin, wound in kelp. It comes up under swimmers in the Kelp Forest and pulls them down."},
 	"kelp_drowner": {"base": "drowned", "name": "Kelp Drowner", "hp": 95.0, "bite": 16.0, "slow": 5.0, "tint": Color(0.2, 0.35, 0.25),
 		"text": "Wrapped in weed from the deep. Its grip holds you a long while. Burn it."},
 	"rime_walker": {"base": "colossus", "name": "Rime Walker", "hp": 300.0, "bite": 34.0, "freeze": 1.5, "tint": Color(0.75, 0.88, 1.0),
@@ -145,6 +147,14 @@ const SCANS := {
 	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
 		{"head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
+		{"bone": "Head_0", "shrink": true, "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
+	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
+		{"bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
+	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
+		{"bone": "head_0137", "shrink": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
 	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
 	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
 		{"bone": "Head_65", "shrink": true, "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
@@ -222,6 +232,7 @@ static var harm_kind := ""
 static var harm_head := false    ## the blow is a head shot: it goes over any plate
 static var harm_pierce := 1.0    ## the load's bite on plate: above 1 goes through, below 1 is stopped more
 static var harm_heavy := false   ## the blow is a heavy, wound-up one: it breaks a foe's footing twice as fast
+static var harm_arm := ""        ## the arm the blow came from, where it matters (the far arms)
 
 ## Poise: how much a foe can take before its footing breaks. Every blow wears it (blades more, heavy and
 ## blunt blows twice as much, a close shotgun blast a little more); left alone two seconds it comes back.
@@ -283,6 +294,12 @@ const BOSSES := {
 	"boss_forest": {"name": "The Long Watcher", "base": "unseen", "hp": 1600.0, "size": 1.3, "speed": 5.5, "bite": 50.0, "radius": 1.1, "grow": 1.9, "ways": ["blink", "charge"], "land": "forest"},
 	"boss_basalt": {"name": "The Basalt Idol", "base": "idol", "hp": 2600.0, "size": 3.0, "speed": 2.2, "bite": 45.0, "radius": 1.5, "grow": 1.0, "ways": ["slam", "volley", "charge"], "land": "basalt"},
 	"boss_marsh": {"name": "The Tar Mother", "base": "spider", "hp": 1800.0, "size": 0.8, "speed": 6.0, "bite": 35.0, "radius": 1.3, "grow": 2.6, "ways": ["brood", "rain", "charge"], "brood": "spider", "land": "marsh"},
+	# The great ones of the far sea and the Far Shores (0.16): land is the isle they keep
+	"boss_quiet": {"name": "The Archivist", "base": "unseen", "hp": 2600.0, "size": 1.5, "speed": 5.0, "bite": 46.0, "radius": 1.2, "grow": 2.1, "ways": ["line", "volley", "ambush"], "land": "quiet"},
+	"boss_domes": {"name": "The Lantern-Breaker", "base": "unlit_brute", "hp": 2800.0, "size": 1.7, "speed": 4.2, "bite": 48.0, "radius": 1.1, "grow": 1.0, "ways": ["charge", "brood", "volley"], "brood": "tunnel_unlit", "land": "domes"},
+	"boss_frost": {"name": "The Glacier Mother", "base": "idol", "hp": 3400.0, "size": 3.4, "speed": 2.0, "bite": 52.0, "radius": 1.7, "grow": 1.0, "ways": ["slam", "quake", "rain"], "land": "frost"},
+	"boss_sun": {"name": "The Dry River", "base": "spitter", "hp": 2900.0, "size": 2.8, "speed": 4.2, "bite": 0.0, "radius": 1.4, "grow": 1.0, "ways": ["volley", "rain", "brood"], "brood": "canyon_strider", "land": "sun"},
+	"boss_steppe": {"name": "The Spine-King", "base": "elite", "hp": 3200.0, "size": 3.4, "speed": 3.6, "bite": 50.0, "radius": 1.7, "grow": 1.0, "ways": ["charge", "slam", "brood"], "brood": "grass_stalker", "land": "steppe"},
 }
 const IDOL_CODES := ["goldspeeb", "marblespeeb", "jadespeeb", "obsidianspeeb", "fossilspeeb"]
 
@@ -677,6 +694,7 @@ func _physics_process(delta: float) -> void:
 				_cry("growl_%d" % (randi() % 3), -2)
 				_cry_cd = randf_range(5.0, 9.0)
 	if kind == "bloater" and dist < 2.4:
+		last_hitter = 0   # it burst itself: no one slew it
 		die(true)
 		return
 	var reach: float = 1.0 + spec.radius
@@ -1616,6 +1634,10 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	if not _alive or hidden:
 		return false
 	flinch(amount, from_dir)
+	if boss == "" and amount > 4.0 and level.has_method("power_k") and randf() < level.power_k("rime"):
+		_stagger = maxf(_stagger, 0.7)   # the Glacier Mother's power: struck, a lesser form freezes a moment
+	if boss == "" and harm_arm == "war_pick":
+		_stagger = maxf(_stagger, 0.6)   # ice iron: a lesser form freezes where it stands, a moment
 	var raw := amount   # what a puppet sends on: the host weighs weakness, plate and guard itself
 	if harm_kind != "" and boss == "":
 		# A blunt blow is a blade's to a form that has no word on blunt harm
@@ -1670,7 +1692,7 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 	hp -= amount
 	_flash = 1.0 if full else 0.3
 	# Heavy forms barely give ground unless the blow is a heavy one; they slow under fire instead
-	var heavy_blow := amount >= 60.0 or harm_kind == "blast"
+	var heavy_blow := amount >= 60.0 or harm_kind == "blast" or harm_arm == "hand_cannon"   # the hand cannon staggers even the heavy
 	var steady := kind in ["idol", "brute", "elite"]
 	_knock += from_dir.normalized() * minf(amount, 80.0) * (0.0 if boss != "" else (0.03 if steady and not heavy_blow else (0.08 if kind == "elite" else 0.2)))
 	if steady:
@@ -1684,6 +1706,8 @@ func hurt(amount: float, from_dir: Vector3) -> bool:
 			wear *= 1.5
 		if harm_kind == "blunt" or harm_heavy or harm_kind == "blast":
 			wear *= 2.0
+		if harm_arm == "hand_cannon":
+			wear *= 1.8
 		if harm_kind == "shot":
 			var near_t: Node3D = level.nearest_target(global_position)
 			if near_t and near_t.global_position.distance_to(global_position) < 6.0:
@@ -1891,16 +1915,37 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain:
+	if _fb and slain and _fb.clips.has("die"):
 		_fb.act("die")
 		var tf := create_tween()
 		tf.tween_interval(1.6)
 		tf.tween_property(self, "scale", Vector3.ONE * 0.01, 0.6)
 		tf.tween_callback(queue_free)
 		return
+	if slain and not kind in ["saucer", "wisp", "mite"] and not (_fb and _fb._float):
+		_topple()
+		return
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
+
+
+## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash.
+func _topple() -> void:
+	if _fb and _fb.anim:
+		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+	var side := 1.0 if _flinch.x >= 0.0 else -1.0
+	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
+	var big := float(spec.get("size", 1.0)) >= 1.5
+	var fall := 0.75 if big else 0.5
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "rotation:x", rotation.x + side * 1.45, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
+	tw.chain().tween_property(self, "rotation:x", rotation.x + side * 1.33, 0.12).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_interval(1.3)
+	tw.chain().tween_property(self, "position:y", position.y - 1.2 * float(spec.get("size", 1.0)), 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)
 
 
 ## The ember sack bursts: fire on everything near, the forms included.
@@ -1983,6 +2028,8 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 ## A guard raised just as the blow lands (a quarter of a second): the blow is turned for nothing, and the
 ## foe reels open. A guard held up long before only blunts the blow, for stamina (see damage_player).
 func _perfect_guard(p: Node3D) -> bool:
+	if p is Companion:
+		return level.friend_guarded(p, global_position)
 	if p != level.player or level.player.weapon == null or not level.player.weapon.guarding:
 		return false
 	if float(level.player.weapon.get("guard_age")) > Arms.PERFECT_GUARD:
@@ -2246,6 +2293,11 @@ const PATTERNS := {
 	"boss_forest": [[["charge"], ["ambush"]], [["ambush", "charge"], ["charge"]]],
 	"boss_basalt": [[["slam"], ["volley"], ["charge"]], [["quake"], ["volley"], ["charge", "slam"]]],
 	"boss_marsh": [[["brood"], ["rain"], ["charge"]], [["charge", "charge"], ["rain"], ["brood"]]],
+	"boss_quiet": [[["line"], ["ambush"], ["volley"]], [["ambush", "line"], ["volley", "volley"], ["line"]]],
+	"boss_domes": [[["volley"], ["charge"], ["brood"]], [["brood", "volley"], ["charge", "charge"], ["volley"]]],
+	"boss_frost": [[["slam"], ["rain"], ["quake"]], [["quake", "slam"], ["rain", "rain"], ["quake"]]],
+	"boss_sun": [[["volley"], ["brood"], ["rain"]], [["rain", "volley"], ["brood"], ["rain", "rain"]]],
+	"boss_steppe": [[["charge"], ["slam"], ["brood"]], [["charge", "charge"], ["slam", "brood"], ["charge"]]],
 }
 
 
@@ -2621,10 +2673,10 @@ func sees(p: Node3D) -> bool:
 	var reach := 48.0 if spec.get("role", "") == "gun" else 34.0
 	if level.get("night"):
 		reach *= 0.6
-	if p == level.player and Input.is_action_pressed("soft"):
+	if p == level.player and Game.held("soft"):
 		reach *= 0.55
-	if p == level.player and level.has_method("power_is") and level.power_is("hush"):
-		reach *= 0.55
+	if p == level.player and level.has_method("power_k"):
+		reach *= 1.0 - 0.45 * level.power_k("hush")
 	if d > reach:
 		return false
 	var fwd := Vector3(sin(rotation.y), 0, cos(rotation.y))

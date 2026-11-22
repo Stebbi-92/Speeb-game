@@ -105,7 +105,7 @@ func my_name() -> String:
 
 
 func name_of(id: int) -> String:
-	return players[id].name if players.has(id) else "A pilgrim"
+	return players[id].name if players.has(id) else "A player"
 
 
 ## How many may walk now: eight in the waste and the gathering, four in a trial.
@@ -202,7 +202,7 @@ static func split_address(s: String) -> Array:
 
 
 func leave(reason := "") -> void:
-	var was := online or _joining
+	var was := online or _joining or peer != null   # refused while still knocking counts too, so the reason is shown
 	if is_host():
 		_announce_remove()
 	_close_port_upnp()
@@ -232,6 +232,12 @@ func leave(reason := "") -> void:
 	if was:
 		roster_changed.emit()
 		session_ended.emit(reason)
+	if debug_end_quit and was:
+		print("NETENDED %s" % reason)
+		get_tree().quit()
+
+
+var debug_end_quit := "call=debug_kickclient" in OS.get_cmdline_user_args()   ## (for the tests: a joiner that is sent away says why, and stops)
 
 
 ## The land takes a while to raise when a pilgrim first walks into it, and nothing else moves meanwhile.
@@ -340,13 +346,17 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	var slot := 0
 	while slot in used:
 		slot += 1
-	if slot >= cap():
+	if slot >= cap() or players.size() >= cap():   # count heads, not the first free place: one may have left from the middle
 		_refused.rpc_id(id, "The fellowship is full." if slot >= MAX_PLAYERS else "This fellowship walks a trial, and the trials take four at most. Join when they are back in the waste or the gathering.")
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
 	pname = pname.strip_edges().left(20)
 	if pname == "":
 		pname = "Pilgrim"
+	if sent_away.has(pname.to_lower()):
+		_refused.rpc_id(id, "The host has sent you away from this fellowship.")
+		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
+		return
 	players[id] = {"name": pname, "slot": slot}
 	if leader == 0:
 		leader = id
@@ -360,6 +370,22 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	var lvl = _level()
 	if lvl:
 		lvl.net_joined(id)
+
+
+## Names the host has sent away, kept until the host's game closes: they cannot come back under it.
+var sent_away := {}
+
+## Host: sends a pilgrim out of the fellowship, and keeps them out for this session.
+func kick(id: int) -> void:
+	if not is_host() or id == 1 or not players.has(id):
+		return
+	var nm := str(players[id].name)
+	sent_away[nm.to_lower()] = true
+	_log("%s was sent away by the host." % nm)
+	_refused.rpc_id(id, "The host has sent you away from this fellowship.")
+	_on_peer_disconnected(id)   # out of the fellowship now: nothing more they ask is heard
+	# The word goes behind whatever is still being sent them, so give it time to arrive before the link is cut
+	get_tree().create_timer(3.0).timeout.connect(func(): if peer and peer.get_peer(id): peer.disconnect_peer(id))
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -425,6 +451,12 @@ func _rules(unlimited: bool) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func _roster(p: Dictionary, lead: int) -> void:
+	# One who has left is taken out of the world here too, not left standing until they fall silent
+	var lvl = _level()
+	if lvl and lvl.has_method("net_left"):
+		for id in players.keys():
+			if not p.has(id) and id != me():
+				lvl.net_left(id)
 	players = p
 	leader = lead
 	roster_changed.emit()
@@ -555,6 +587,8 @@ func _call_req(s: int, method: String, args: Array) -> void:
 		return   # not yet one of the fellowship (it has not said hello, or was refused)
 	if not CALL_PREFIXES.any(func(p): return method.begins_with(p)):
 		return   # only the land's shared doings, never its inner workings
+	if method in HOST_ONLY:
+		return   # what only the host may say: the world itself, its rules, its ending, and gifts to one pilgrim
 	# A request names who asks ("by"): it is always the one who sent it, whatever it says
 	if args.size() > 0 and args[0] is int and _takes_by(_here(s), method):
 		args[0] = from
@@ -563,6 +597,9 @@ func _call_req(s: int, method: String, args: Array) -> void:
 
 ## The shared doings a joiner may ask of the land, by the start of their names.
 const CALL_PREFIXES := ["_rq_", "_w_", "_drop", "_sworn", "_part_", "_final", "_broken"]
+## Shared doings that only ever come from the host. A joiner asking for one (a changed or hostile copy of
+## the game) is refused, so it cannot replace the world, change its rules, end it, or hand out goods.
+const HOST_ONLY := ["_w_snapshot", "_w_snap_part", "_w_rules", "_w_ending", "_w_end_votes", "_w_give", "_w_gift"]
 static var _by_cache := {}
 
 ## Whether a land's method takes the asker's id as its first word.

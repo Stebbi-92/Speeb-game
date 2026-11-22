@@ -6,9 +6,17 @@ compatibility_date = "2025-01-01"
 name = "LOBBY"
 class_name = "Lobby"
 
+[[durable_objects.bindings]]
+name = "REPORTS"
+class_name = "Reports"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Lobby"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Reports"]
 
 [vars]
 GITHUB_REPO = "Stebbi-92/Speeb-game"

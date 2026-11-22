@@ -38,8 +38,8 @@ var sensitivity := 0.0025
 var aim_sens := 1.0   ## looking while aiming, against what the zoom alone would give (1 = the same feel at every zoom)
 var volume := 0.8
 ## The mixer: each kind of sound on its own line, with its own volume.
-const BUSES := ["Guns", "Creatures", "World", "Interface"]
-var bus_vol := {"Guns": 1.0, "Creatures": 1.0, "World": 1.0, "Interface": 1.0}
+const BUSES := ["Guns", "Creatures", "World", "Interface", "Music"]
+var bus_vol := {"Guns": 1.0, "Creatures": 1.0, "World": 1.0, "Interface": 1.0, "Music": 0.8}
 var difficulty := 1
 var judgments := {}
 var relics := {}
@@ -60,9 +60,31 @@ var blood := true   ## foes bleed where they are struck
 var embers_on := true   ## in the waste, embers now and then drift toward the goal being followed
 var head_bob := true
 var invert_y := false
+var pad_invert := false   ## the right stick's up and down turned over (apart from the mouse)
+var brightness := 1.0   ## the whole picture lighter or darker, 0.7 to 1.4
 var voice_lines := true
+var subtitles := false   ## spoken lines are also written out on screen
+var toggles := {"run": false, "soft": false, "aim": false}   ## press once to start, again to stop (not hold)
+var _toggled := {}
+var reports := 0   ## error reports: 0 ask, 1 always send, 2 never
+const ErrorReport := preload("res://scripts/report.gd")
+var report: Node
+var colorblind := false  ## colours that tell things apart are chosen to read with red-green colour blindness
+## Road safety colours, Dangerous to Peaceful: the usual red-to-green, or blue-to-orange that reads for all.
+const SAFETY_TINTS := [Color(0.85, 0.2, 0.15), Color(0.9, 0.6, 0.2), Color(0.35, 0.75, 0.35), Color(0.95, 0.85, 0.5)]
+const SAFETY_TINTS_CB := [Color(0.84, 0.37, 0.0), Color(0.94, 0.89, 0.26), Color(0.0, 0.45, 0.7), Color(0.34, 0.71, 0.91)]
+
+
+## The colour of a town's road safety (0 to 100), in the palette chosen in Settings.
+func safety_tint(sv: float) -> Color:
+	var i := 0 if sv < 25 else (1 if sv < 60 else (2 if sv < 90 else 3))
+	return (SAFETY_TINTS_CB if colorblind else SAFETY_TINTS)[i]
 var guide := true   ## the first-steps guide in the waste
-var quality := 1
+var quality := 1          ## 0 Low, 1 Standard, 2 High
+const RENDER_SCALES := [1.0, 0.85, 0.7, 0.5]
+var render_scale := 0     ## how sharply the world is drawn, sharpened back up when below full
+const UI_SCALES := [0.9, 1.0, 1.1, 1.2]
+var ui_scale := 1         ## how large menus, words and the HUD are drawn
 var gilded := false
 var player_name := ""
 var lobby_url := ""
@@ -133,6 +155,8 @@ func _ready() -> void:
 	for e in _json("res://assets/lesser.json"):
 		lesser[e.code] = e
 	load_save()
+	report = ErrorReport.new()
+	add_child(report)
 	if not OS.get_cmdline_user_args().size() > 0:
 		apply_display.call_deferred()
 
@@ -147,17 +171,17 @@ func _json(path: String) -> Variant:
 const CONTROLS := [
 	["move_forward", "Walk forward", [KEY_W, KEY_UP]], ["move_back", "Walk back", [KEY_S, KEY_DOWN]],
 	["move_left", "Step left", [KEY_A, KEY_LEFT]], ["move_right", "Step right", [KEY_D, KEY_RIGHT]],
-	["jump", "Jump", [KEY_SPACE]], ["run", "Hasten", [KEY_SHIFT]], ["soft", "Tread softly", [KEY_CTRL, KEY_C]],
-	["interact", "Interact", [KEY_E, KEY_F]],
+	["jump", "Jump", [KEY_SPACE]], ["run", "Sprint", [KEY_SHIFT]], ["soft", "Sneak", [KEY_CTRL, KEY_C]],
+	["interact", "Interact", [KEY_E]],
 	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
 	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],
 	["melee", "Melee", [KEY_Z]], ["grenade", "Grenade", [KEY_G]], ["gadget", "Gadget", [KEY_T]], ["streak", "Call a kill streak", [KEY_H]],
 	["dash", "Dodge (the waste), Swift Cast", [KEY_Q]], ["riftwalk", "Riftwalk", [KEY_V]], ["whistle", "Whistle for your cat (the waste)", [KEY_N]],
-	["revive", "Use smelling salts on a fallen friend", [KEY_Y]], ["quick_heal", "Use your best healing (the waste)", [KEY_T]],
+	["revive", "Use smelling salts on a fallen friend", [KEY_Y]], ["quick_heal", "Use your best healing (the waste)", [KEY_F]],
 	["slot_1", "Relic 1 (arms)", [KEY_1]], ["slot_2", "Relic 2", [KEY_2]], ["slot_3", "Relic 3", [KEY_3]],
 	["slot_4", "Relic 4", [KEY_4]], ["slot_5", "Relic 5", [KEY_5]], ["slot_6", "Relic 6", [KEY_6]],
 	["slot_7", "Relic 7 (milk in the waste)", [KEY_7]], ["slot_8", "Claw (the waste)", [KEY_8]], ["slot_9", "Censer (the waste)", [KEY_9]],
-	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Fellowship list (together)", [KEY_L]],
+	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Player list (together)", [KEY_L]],
 	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
 	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
 	["pause", "Menu", [KEY_ESCAPE, KEY_P]],
@@ -174,15 +198,64 @@ const PAD := {
 	"swap_gun": [JOY_BUTTON_RIGHT_SHOULDER], "grenade": [JOY_BUTTON_LEFT_SHOULDER],
 	"run": [JOY_BUTTON_LEFT_STICK], "melee": [JOY_BUTTON_RIGHT_STICK],
 	"map": [JOY_BUTTON_DPAD_UP], "pack": [JOY_BUTTON_DPAD_DOWN], "journal": [JOY_BUTTON_DPAD_LEFT], "build": [JOY_BUTTON_DPAD_RIGHT],
-	"pause": [JOY_BUTTON_START], "fellowship": [JOY_BUTTON_BACK],
+	"pause": [JOY_BUTTON_START],
 }
+## Held on a controller, the quick wheel (see PadWheel): healing, whistle, salts, relics, the fellowship list.
+const PAD_WHEEL := JOY_BUTTON_BACK
 var pad_look := 3.2   ## how fast the right stick turns you, in radians a second at full tilt
+
+
+## Controller buttons the player has changed: action -> [button, or [axis, direction]]. The rest follow PAD.
+var pad_binds := {}
+
+
+## Where a node stands in the world, even after it has left the tree (saves made on quit run then,
+## and global_position would read as the world's middle).
+static func world_pos(n: Node3D) -> Vector3:
+	if n.is_inside_tree():
+		return n.global_position
+	var t := n.transform
+	var up := n.get_parent()
+	while up is Node3D and not n.top_level:
+		t = (up as Node3D).transform * t
+		up = up.get_parent()
+	return t.origin
+
+
+func pad_of(action: String) -> Array:
+	return pad_binds.get(action, PAD.get(action, []))
+
+
+## A controller button or trigger as words, Xbox style: "A", "RB", "LT", "D-pad up".
+static func pad_name(p) -> String:
+	if p is Array:
+		var names := {JOY_AXIS_TRIGGER_LEFT: "LT", JOY_AXIS_TRIGGER_RIGHT: "RT"}
+		if names.has(int(p[0])):
+			return names[int(p[0])]
+		return "%s stick %s" % ["Left" if int(p[0]) < 2 else "Right", ["left", "right", "up", "down"][(int(p[0]) % 2) * 2 + (1 if float(p[1]) > 0.0 else 0)]]
+	return {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y",
+		JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB", JOY_BUTTON_LEFT_STICK: "Left stick press",
+		JOY_BUTTON_RIGHT_STICK: "Right stick press", JOY_BUTTON_START: "Start", JOY_BUTTON_BACK: "Back",
+		JOY_BUTTON_DPAD_UP: "D-pad up", JOY_BUTTON_DPAD_DOWN: "D-pad down", JOY_BUTTON_DPAD_LEFT: "D-pad left",
+		JOY_BUTTON_DPAD_RIGHT: "D-pad right", JOY_BUTTON_GUIDE: "Guide"}.get(int(p), "Button %d" % int(p))
+
+
+## Sets an action's controller button, taking it away from any other action that had it.
+func rebind_pad(action: String, p) -> void:
+	for c in CONTROLS:
+		if c[0] != action and pad_of(c[0]).has(p):
+			var other: Array = pad_of(c[0]).duplicate()
+			other.erase(p)
+			pad_binds[c[0]] = other
+	pad_binds[action] = [p]
+	_setup_input()
+	save()
 
 
 func _setup_input() -> void:
 	for c in CONTROLS:
 		_bind(c[0], binds.get(c[0], c[2]))
-		for p in PAD.get(c[0], []):
+		for p in pad_of(c[0]):
 			if p is Array:
 				var m := InputEventJoypadMotion.new()
 				m.axis = p[0]
@@ -193,6 +266,11 @@ func _setup_input() -> void:
 				b.button_index = p
 				InputMap.action_add_event(c[0], b)
 		InputMap.action_set_deadzone(c[0], 0.3)
+	if not InputMap.has_action("pad_wheel"):
+		InputMap.add_action("pad_wheel")
+		var wb := InputEventJoypadButton.new()
+		wb.button_index = PAD_WHEEL
+		InputMap.action_add_event("pad_wheel", wb)
 
 
 ## The keys now set for an action.
@@ -211,6 +289,10 @@ static func key_name(code: int) -> String:
 
 ## What to press, as words: "E", or "E or F".
 func key_text(action: String, all := false) -> String:
+	# Playing with a controller, prompts name its buttons
+	if using_pad and not pad_of(action).is_empty():
+		var ps := pad_of(action)
+		return " or ".join(ps.map(func(p): return pad_name(p))) if all else pad_name(ps[0])
 	var ks := keys_of(action)
 	if ks.is_empty():
 		return "unset"
@@ -243,6 +325,7 @@ func rebind(action: String, slot: int, code: int) -> void:
 
 func reset_binds() -> void:
 	binds.clear()
+	pad_binds.clear()
 	_setup_input()
 	save()
 
@@ -402,12 +485,27 @@ static func write_safe(path: String, text: String) -> bool:
 ## The texts a save might be read from, newest first: the save itself, then its backup.
 static func save_texts(path: String) -> Array[String]:
 	var out: Array[String] = []
-	for p in [path, path + ".bak", path + ".tmp"]:
+	# A finished .tmp is newer than the .bak: it is only left when the game stopped between the two renames
+	for p in [path, path + ".tmp", path + ".bak"]:
 		if FileAccess.file_exists(p):
 			var t := FileAccess.get_file_as_string(p)
 			if t.strip_edges() != "":
 				out.append(t)
 	return out
+
+
+## A save that is there but cannot be read (every copy damaged) is moved aside as .damaged before a
+## new one is begun in its place, so the next saves cannot write over what might still be mended.
+## Returns whether anything was moved.
+static func set_aside_damaged(path: String) -> bool:
+	var moved := false
+	for p in [path, path + ".tmp", path + ".bak"]:
+		if FileAccess.file_exists(p):
+			var to: String = p + ".damaged"
+			if FileAccess.file_exists(to):
+				DirAccess.remove_absolute(to)
+			moved = DirAccess.rename_absolute(p, to) == OK or moved
+	return moved
 
 
 ## Reads a var_to_str save, falling back to the backup if the newest is damaged.
@@ -532,12 +630,12 @@ func tier_of(gun: String) -> int:
 
 
 func save() -> void:
-	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
+	write_safe(SAVE_PATH, JSON.stringify({"reached": reached, "found": found.keys(), "sensitivity": sensitivity, "aim_sens": aim_sens, "volume": volume, "bus_vol": bus_vol, "difficulty": Net._own_difficulty if Net._own_difficulty >= 0 else difficulty, "judgments": judgments, "relics": relics.keys(), "milk": milk,
 			"display_mode": display_mode, "resolution": resolution, "vsync": vsync, "fps_cap": fps_cap, "aa": aa,
-			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "voice_lines": voice_lines, "guide": guide,
-			"quality": quality, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
+			"fov": fov, "blood": blood, "embers": embers_on, "head_bob": head_bob, "invert_y": invert_y, "pad_invert": pad_invert, "pad_look": pad_look, "brightness": brightness, "voice_lines": voice_lines, "subtitles": subtitles, "colorblind": colorblind, "reports": reports, "toggles": toggles, "guide": guide,
+			"quality": maxi(quality - 1, 0), "gfx": quality, "render_scale": render_scale, "ui_scale": ui_scale, "gilded": gilded, "revealed": revealed.keys(), "stats": stats,
 			"leaves": leaves.keys(), "shades": shades_heard.keys(),
-			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds,
+			"player_name": player_name, "lobby_url": lobby_url, "autosave_min": autosave_min, "binds": binds, "pad_binds": pad_binds,
 			"pxp": pxp, "plevel": plevel, "loadout": loadout, "unlimited_ammo": unlimited_ammo, "look": look, "forms_style": forms_style}))
 
 
@@ -572,7 +670,7 @@ func load_save() -> void:
 		var bv = d.get("bus_vol", {})
 		if bv is Dictionary:
 			for k in BUSES:
-				bus_vol[k] = clampf(float(bv.get(k, 1.0)), 0.0, 1.0)
+				bus_vol[k] = clampf(float(bv.get(k, bus_vol[k])), 0.0, 1.0)
 		difficulty = clampi(int(d.get("difficulty", difficulty)), 0, 2)
 		judgments = d.get("judgments", {}) if d.get("judgments", {}) is Dictionary else {}
 		for r in d.get("relics", []):
@@ -588,9 +686,21 @@ func load_save() -> void:
 		embers_on = bool(d.get("embers", embers_on))
 		head_bob = bool(d.get("head_bob", head_bob))
 		invert_y = bool(d.get("invert_y", invert_y))
+		pad_invert = bool(d.get("pad_invert", invert_y))   # before, one switch turned both over
+		pad_look = clampf(float(d.get("pad_look", pad_look)), 1.0, 6.0)
+		brightness = clampf(float(d.get("brightness", brightness)), 0.7, 1.4)
 		voice_lines = bool(d.get("voice_lines", voice_lines))
+		subtitles = bool(d.get("subtitles", subtitles))
+		colorblind = bool(d.get("colorblind", colorblind))
+		reports = clampi(int(d.get("reports", reports)), 0, 2)
+		var tg = d.get("toggles", {})
+		if tg is Dictionary:
+			for k in toggles:
+				toggles[k] = bool(tg.get(k, false))
 		guide = bool(d.get("guide", guide))
-		quality = clampi(int(d.get("quality", quality)), 0, 1)
+		quality = clampi(int(d.get("gfx", int(d.get("quality", 0)) + 1)), 0, 2)
+		render_scale = clampi(int(d.get("render_scale", render_scale)), 0, RENDER_SCALES.size() - 1)
+		ui_scale = clampi(int(d.get("ui_scale", ui_scale)), 0, UI_SCALES.size() - 1)
 		gilded = bool(d.get("gilded", gilded))
 		player_name = str(d.get("player_name", player_name)).left(20)
 		lobby_url = str(d.get("lobby_url", lobby_url))
@@ -599,6 +709,12 @@ func load_save() -> void:
 			for a in d.binds:
 				if d.binds[a] is Array:
 					binds[str(a)] = d.binds[a].map(func(k): return int(k))
+			_setup_input()
+		if d.get("pad_binds") is Dictionary:
+			pad_binds.clear()
+			for a in d.pad_binds:
+				if d.pad_binds[a] is Array:
+					pad_binds[str(a)] = d.pad_binds[a].map(func(k): return [int(k[0]), float(k[1])] if k is Array else int(k))
 			_setup_input()
 		for r in d.get("revealed", []):
 			revealed[r] = true
@@ -630,11 +746,14 @@ func apply_display() -> void:
 		2:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 	var vp := get_viewport()
-	if display_mode == 0:
-		vp.scaling_3d_scale = 1.0
-	else:
+	var sc := 1.0
+	if display_mode != 0:
 		var screen_h := DisplayServer.screen_get_size(win.current_screen).y
-		vp.scaling_3d_scale = clampf(float(res.y) / float(maxi(screen_h, 1)), 0.25, 1.0)
+		sc = clampf(float(res.y) / float(maxi(screen_h, 1)), 0.25, 1.0)
+	sc = clampf(sc * float(RENDER_SCALES[render_scale]), 0.25, 1.0)
+	vp.scaling_3d_scale = sc
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if sc < 0.99 else Viewport.SCALING_3D_MODE_BILINEAR
+	win.content_scale_factor = float(UI_SCALES[ui_scale])
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = FPS_CAPS[fps_cap]
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][aa]
@@ -648,7 +767,22 @@ func toggle_fullscreen() -> void:
 
 ## With a controller in hand and a menu showing, the first button takes the focus so the pad can move
 ## through the menu.
+## Whether an action is held: by the key itself, or, when it is set to toggle, since it was last pressed.
+func held(action: String) -> bool:
+	if toggles.get(action, false):
+		return bool(_toggled.get(action, false))
+	return Input.is_action_pressed(action)
+
+
+## A toggled action stops (the run ends when the walking does, aim when the gun is put away).
+func untoggle(action: String) -> void:
+	_toggled[action] = false
+
+
 func _input(e: InputEvent) -> void:
+	for a in toggles:
+		if toggles[a] and e.is_action_pressed(a) and not e.is_echo():
+			_toggled[a] = not bool(_toggled.get(a, false))
 	if (e is InputEventJoypadButton and e.pressed) or (e is InputEventJoypadMotion and absf(e.axis_value) > 0.6):
 		using_pad = true
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and get_viewport().gui_get_focus_owner() == null:

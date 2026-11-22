@@ -81,7 +81,8 @@ save("heartbeat", norm(loopify(h, 0.5), 0.7))
 # one-shots
 def oneshot(d): return t(d)
 x = oneshot(7); bell = sum(a * np.sin(2 * np.pi * f * x) * np.exp(-x * dk) for f, a, dk in [(130.8, 1, .5), (261.6 * 1.01, .6, .8), (392 * 1.02, .3, 1.2), (523 * 1.05, .25, 1.6), (697, .15, 2.4), (1050, .08, 3)])
-save("bell", norm(bell * (1 - np.exp(-x * 300)), 0.8))
+# The bell is now a recording: see tools/make_bell.py
+# save("bell", norm(bell * (1 - np.exp(-x * 300)), 0.8))
 x = oneshot(0.22); st = lp_fast(rng.standard_normal(len(x)), 400) * np.exp(-x * 30)
 save("step", norm(st, 0.5), ogg=False)
 x = oneshot(0.9); cv = bp(rng.standard_normal(len(x)), 1500, 6000) * (0.5 + 0.5 * np.abs(np.sin(2 * np.pi * 9 * x))) * np.sin(np.pi * x / 0.9)

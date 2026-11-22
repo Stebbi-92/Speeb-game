@@ -284,8 +284,9 @@ func outer_height(x: float, z: float) -> float:
 	for il in isles:
 		var o: Vector2 = il.o
 		var n: int = il.n
-		var fx := (x - o.x) / WIsles.CELL
-		var fz := (z - o.y) / WIsles.CELL
+		var ce: float = il.get("cell", WIsles.CELL)
+		var fx := (x - o.x) / ce
+		var fz := (z - o.y) / ce
 		if fx < 0.0 or fz < 0.0 or fx >= n - 1 or fz >= n - 1:
 			continue
 		var i := int(fx)
@@ -297,7 +298,10 @@ func outer_height(x: float, z: float) -> float:
 		var b := hh[j * n + i + 1]
 		var c := hh[(j + 1) * n + i]
 		var d := hh[(j + 1) * n + i + 1]
-		return lerpf(lerpf(a, b, tx), lerpf(c, d, tx), tz)
+		# By the same two triangles the ground is drawn and stood on, so a sharp ridge lies where it is felt
+		if tx + tz <= 1.0:
+			return a + (b - a) * tx + (c - a) * tz
+		return d + (c - d) * (1.0 - tx) + (b - d) * (1.0 - tz)
 	return WIsles.FLOOR_Y
 
 
@@ -317,19 +321,24 @@ func is_water(x: float, z: float, depth := 0.0) -> bool:
 
 
 ## The name of the place underfoot: a land of the waste, an isle, or the sea itself.
+const SEA_NAME := "The Grey Sea"
+
+
 func region_name(x: float, z: float) -> String:
 	if maxf(absf(x), absf(z)) > N * CELL * 0.5 - 40.0 or is_water(x, z, 0.5):
 		var il := isle_at(x, z, 1.4)
 		if not il.is_empty() and not is_water(x, z, 0.5):
 			return il.name
 		if is_water(x, z, 0.5):
-			return "The Grey Sea"
+			return SEA_NAME
 	return BIOME_NAMES[biome_name(x, z)]
 
 
 ## An isle's height at a point: a warped round shore, then its own hills; a level clearing at its heart.
 func _isle_raw(il: Dictionary, x: float, z: float) -> float:
 	var th: Dictionary = WIsles.THEMES[il.key]
+	if th.get("shore", false):
+		return _shore_raw(il, th, x, z)
 	var c: Vector2 = il.c
 	var rad: float = il.r
 	var d := Vector2(x, z).distance_to(c) / rad
@@ -346,7 +355,56 @@ func _isle_raw(il: Dictionary, x: float, z: float) -> float:
 	# The heart: a level clearing where those before left something
 	var heart := Vector2(x, z).distance_to(isle_heart(il))
 	var flat := 1.0 - smoothstep(16.0, 34.0, heart)
-	return lerpf(y, WIsles.SEA_Y + 3.0 + float(th.relief) * 0.12, flat)
+	y = lerpf(y, WIsles.SEA_Y + 3.0 + float(th.relief) * 0.12, flat)
+	if th.get("far", false):
+		# A far isle's great one has its own level ground
+		var lf := 1.0 - smoothstep(26.0, 60.0, Vector2(x, z).distance_to(WIsles.lair_spot(il)))
+		y = lerpf(y, WIsles.SEA_Y + 3.5 + float(th.relief) * 0.12, lf)
+	return y
+
+
+## A Far Shore's height: broad shapes for a land 2 km across, each in its own way. The Frostmark rises
+## to a ridged spine with snow on it; the Sunward Reach steps up in flat-topped mesas cut by dry
+## canyons; the Pale Steppe rolls low and long, with slow rivers through it.
+func _shore_raw(il: Dictionary, th: Dictionary, x: float, z: float) -> float:
+	var c: Vector2 = il.c
+	var rad: float = il.r
+	var d := Vector2(x, z).distance_to(c) / rad
+	var warp := _d.get_noise_2d(x * 0.11, z * 0.11) * 0.22 + _a.get_noise_2d(x * 0.9, z * 0.9) * 0.08
+	var land := 1.0 - smoothstep(0.72, 1.0, d + warp)
+	var inland := smoothstep(0.0, 0.45, 1.0 - d)
+	var relief: float = th.relief
+	var lump := (_a.get_noise_2d(x * 0.6, z * 0.6) + 1.0) * 0.5
+	var fine := _d.get_noise_2d(x * 0.5, z * 0.5) * 0.04
+	var hill := 0.0
+	match str(il.key):
+		"frost":
+			var ridge := pow((_r.get_noise_2d(x * 0.42, z * 0.42) + 1.0) * 0.5, 2.4)
+			# The lava fields lie low and level between the heights
+			hill = (ridge * 1.0 + lump * 0.25 + fine) * relief * inland
+		"sun":
+			var base := (lump * 0.8 + (_r.get_noise_2d(x * 0.3, z * 0.3) + 1.0) * 0.2) * relief * inland
+			var step := 16.0
+			var k := floorf(base / step)
+			var t := base / step - k
+			hill = (k + smoothstep(0.78, 1.0, t)) * step   # flat tops, sheer sides
+			var cut := 1.0 - smoothstep(0.0, 0.07, absf(_d.get_noise_2d(x * 0.07 + 40.0, z * 0.07)))
+			hill = maxf(0.6, hill - cut * 30.0 * inland)
+		_:
+			hill = (lump * 0.8 + fine * 3.0) * relief * inland
+			var river := 1.0 - smoothstep(0.012, 0.03, absf(_d.get_noise_2d(x * 0.06 - 70.0, z * 0.06)))
+			hill = lerpf(hill, -2.4, river * smoothstep(0.1, 0.3, 1.0 - d))
+	var top := WIsles.SEA_Y + 1.8 + hill
+	var y := lerpf(WIsles.FLOOR_Y, top, land)
+	var heart := Vector2(x, z).distance_to(isle_heart(il))
+	var flat := 1.0 - smoothstep(22.0, 46.0, heart)
+	y = lerpf(y, WIsles.SEA_Y + 4.0 + relief * 0.08, flat)
+	# The shore's town: a wide level clearing, its ground eased down to it
+	var town := Vector2(x, z).distance_to(WIsles.town_spot(il))
+	var tf := 1.0 - smoothstep(48.0, 110.0, town)
+	y = lerpf(y, WIsles.SEA_Y + 5.0 + relief * 0.1, tf)
+	var lf := 1.0 - smoothstep(28.0, 80.0, Vector2(x, z).distance_to(WIsles.lair_spot(il)))
+	return lerpf(y, WIsles.SEA_Y + 4.5 + relief * 0.12, lf)
 
 
 ## The level clearing on an isle, a little off its middle.
@@ -373,13 +431,14 @@ func make_isles(m: Material) -> void:
 	for il in isles:
 		var rad: float = il.r
 		var reach := rad * 1.2
-		var n := int(ceil(reach * 2.0 / WIsles.CELL)) + 1
+		var ce: float = il.get("cell", WIsles.CELL)
+		var n := int(ceil(reach * 2.0 / ce)) + 1
 		var o: Vector2 = il.c - Vector2(reach, reach)
 		var hh := PackedFloat32Array()
 		hh.resize(n * n)
 		for j in n:
 			for i in n:
-				hh[j * n + i] = _isle_raw(il, o.x + i * WIsles.CELL, o.y + j * WIsles.CELL)
+				hh[j * n + i] = _isle_raw(il, o.x + i * ce, o.y + j * ce)
 		il.o = o
 		il.n = n
 		il.h = hh
@@ -393,7 +452,7 @@ func make_isles(m: Material) -> void:
 	floor_b.set_meta("ground", true)
 	var fcs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(12000, 2, 12000)
+	box.size = Vector3(WIsles.MAP_HALF * 2.0 + 1000.0, 2, WIsles.MAP_HALF * 2.0 + 1000.0)   # under the whole sea, the far shores too
 	fcs.shape = box
 	fcs.position = Vector3(0, WIsles.FLOOR_Y - 1.0, 0)
 	floor_b.add_child(fcs)
@@ -430,6 +489,8 @@ func _isle_color(il: Dictionary, x: float, z: float, y: float, n: Vector3) -> Co
 	var up := y - WIsles.SEA_Y
 	var c: Color = (th.sand as Color).lerp(th.green, smoothstep(1.5, 5.0, up))
 	c = c.lerp(th.rock, smoothstep(0.85, 0.65, n.y) * 0.85)
+	if th.has("snow"):
+		c = c.lerp(Color(0.9, 0.93, 0.96), smoothstep(float(th.snow), float(th.snow) + 14.0, up) * smoothstep(0.5, 0.75, n.y))
 	if up < -0.5:
 		c = c.darkened(0.35)
 	var speck := _d.get_noise_2d(x * 7.0, z * 7.0) * 0.05
@@ -440,6 +501,7 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 	var n: int = il.n
 	var o: Vector2 = il.o
 	var hh: PackedFloat32Array = il.h
+	var ce: float = il.get("cell", WIsles.CELL)
 	var size := 64   # chunks of 64 cells keep each mesh small enough to cull
 	for cj in range(0, n - 1, size):
 		for ci in range(0, n - 1, size):
@@ -455,14 +517,14 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 				for i in wi:
 					var gi := ci + i
 					var gj := cj + j
-					var x := o.x + gi * WIsles.CELL
-					var z := o.y + gj * WIsles.CELL
+					var x := o.x + gi * ce
+					var z := o.y + gj * ce
 					var y := hh[gj * n + gi]
 					var l := hh[gj * n + maxi(gi - 1, 0)]
 					var r := hh[gj * n + mini(gi + 1, n - 1)]
 					var u := hh[maxi(gj - 1, 0) * n + gi]
 					var d := hh[mini(gj + 1, n - 1) * n + gi]
-					var nn := Vector3(l - r, 2.0 * WIsles.CELL, u - d).normalized()
+					var nn := Vector3(l - r, 2.0 * ce, u - d).normalized()
 					verts.append(Vector3(x, y, z))
 					norms.append(nn)
 					cols.append(_isle_color(il, x, z, y, nn))
@@ -484,7 +546,7 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 			var mi := MeshInstance3D.new()
 			mi.mesh = am
 			mi.material_override = m
-			mi.visibility_range_end = 2200.0
+			mi.visibility_range_end = 2200.0 if ce <= WIsles.CELL else 4200.0   # a Far Shore's heights are seen from far out
 			add_child(mi)
 	var sb := StaticBody3D.new()
 	sb.collision_layer = 1
@@ -496,14 +558,14 @@ func _build_isle(il: Dictionary, m: Material) -> void:
 	var scaled := PackedFloat32Array()
 	scaled.resize(hh.size())
 	for k in hh.size():
-		scaled[k] = hh[k] / WIsles.CELL
+		scaled[k] = hh[k] / ce
 	_mend_holes(scaled)
 	hs.map_data = scaled
 	cs.shape = hs
-	cs.scale = Vector3.ONE * WIsles.CELL
+	cs.scale = Vector3.ONE * ce
 	sb.add_child(cs)
 	# A height map shape is centred on its body
-	var half := (n - 1) * WIsles.CELL * 0.5
+	var half := (n - 1) * ce * 0.5
 	sb.position = Vector3(o.x + half, 0, o.y + half)
 	add_child(sb)
 
