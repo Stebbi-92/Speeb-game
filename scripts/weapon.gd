@@ -2368,7 +2368,7 @@ func _acc_name(g: String, m: String) -> String:
 
 
 ## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
-const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.021, "minigun": -0.1}
+const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.007, "minigun": -0.1}
 ## How far each gun sits to the side when aimed, so its sights (not its body) are on the eye's line.
 const IRON_SIDE := {}
 ## Guns whose own rear and front sights do not sit on one line along the barrel: [the rear aperture's middle,
@@ -2402,10 +2402,16 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 	return p.position.y + float(p.get_meta("aim_y"))
 
 
+## Guns made with a front grip of their own (the belt gun's wooden one)
+const OWN_FRONT_GRIP := ["lmg"]
+
+
 ## Fits a muzzle or a grip from the pack; for a muzzle gives back the new mouth of the gun. Null if not.
 func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
 	if not ACC.has(m):
 		return null
+	if g in OWN_FRONT_GRIP and ArmsDB.ATTACHMENTS[m].slot == "grip":
+		return fore   # its own front grip stands for it: the part's worth is had, nothing more hung under it
 	var p := _acc_piece(_acc_name(g, m))
 	if p == null:
 		return null
@@ -2501,7 +2507,7 @@ const ANIM_GUNS := {
 		"idle": [378, 425]}],
 	# A .357 with its own crane, cylinder, hammer and rounds; no arms of its own, so ours hold it as any pistol.
 	# Its point is its trigger, in the model's own space (it is made four times life size, barrel along +Z).
-	"revolver": ["python", 0.29, Vector3(0.01, 0.116, -0.462), 0.075, {"proc": true}, ["Reload Bones", "SpeedLoader", "Shell1", "Shell2", "Shell3", "Shell4", "Shell5", "Shell6",
+	"revolver": ["python", 0.29, Vector3(0.01, 0.116, -0.462), 0.053, {"proc": true}, ["Reload Bones", "SpeedLoader", "Shell1", "Shell2", "Shell3", "Shell4", "Shell5", "Shell6",
 		"SL_Bullet1", "SL_Bullet2", "SL_Bullet3", "SL_Bullet4", "SL_Bullet5", "SL_Bullet6"]],
 }
 
@@ -3063,13 +3069,13 @@ static func _split_mesh(mesh: Mesh, tr: Transform3D, boxes: Array) -> Array:
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
 ## The middle of each gun's butt plate, and how tall it is (measured off the scanned bodies).
-const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "autoshotgun": Vector3(0, -0.05, 0.48), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
+const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "autoshotgun": Vector3(0, -0.05, 0.415), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
 const BUTT_H := {"shotgun": 0.16, "autoshotgun": 0.15, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
 ## The middle of each scanned gun's mouth, read off side views of it.
 const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "autoshotgun": Vector3(0, 0.03, -0.735), "smg": Vector3(0, 0.042, -0.43), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
 	"sniper": Vector3(0, 0.0145, -0.975), "rocket": Vector3(0, 0.026, -0.66), "minigun": Vector3(0, -0.1, -0.68),
 	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.18), "pistol9": Vector3(0, 0.047, -0.19),
-	"revolver": Vector3(0, 0.039, -0.25)}
+	"revolver": Vector3(0, 0.04, -0.163)}
 ## Where a receiver's side plates go (x is found from the gun's own side).
 const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "autoshotgun": Vector3(0.027, 0.05, -0.02), "smg": Vector3(0.022, 0.08, -0.05), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
 	"rocket": Vector3(0.045, 0.026, -0.05), "minigun": Vector3(0.066, -0.09, 0.12), "pistol": Vector3(0.014, 0.036, -0.07), "pistol9": Vector3(0.016, 0.05, -0.08),
