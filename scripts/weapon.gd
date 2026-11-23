@@ -2011,6 +2011,7 @@ func _build(g: String, mnts = null) -> Node3D:
 		top = scan_top   # its own sights are on it; a fitted sight sits on its top
 		# Its mouth and the underside of its fore-end, as the scanned body has them
 		tip = SCAN_TIP.get(g, tip)
+		rear_z = SCAN_REAR_Z.get(g, rear_z)   # a fitted sight goes on its own rail
 		var under := _cut_line(n, g, 1, 0.0, fore.z)
 		if under.x < 8.0:
 			fore.y = under.x
@@ -2149,6 +2150,8 @@ const ACC := {
 const SIGHT_CUT := {"red_dot": 0.008, "reflex": 0.0072, "holo": 0.008, "scope": 0.0068, "combat_scope": 0.0092}
 ## The guns with a rail along their top.
 const RAILED := ["machine_gun"]
+## Where a scanned gun's rail puts a fitted sight (as rear_z: a sight sits 0.08 before it, a scope 0.12)
+const SCAN_REAR_Z := {"autoshotgun": -0.03}
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
 ## The height of the highest visible piece of a gun, in its own space.
