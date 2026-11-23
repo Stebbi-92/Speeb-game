@@ -341,7 +341,11 @@ func _shoot(s: Dictionary) -> void:
 	var end := _now()
 	cuts.append({"name": name, "start": start, "end": end, "dur": dur})
 	_forms = []
-	print("TRAILER cut %s frames %d-%d" % [name, start, end])
+	var down := 0
+	for e in forms:
+		if not is_instance_valid(e) or float(e.hp) <= 0.0:
+			down += 1
+	print("TRAILER cut %s frames %d-%d forms_down=%d/%d" % [name, start, end, down, forms.size()])
 	wpn.debug_aim = false
 	w.combat_frozen = true
 	for e in forms:
@@ -414,7 +418,7 @@ func _ground(x: float, z: float) -> float:
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, top, z), Vector3(x, top - 120.0, z))
 	q.exclude = [w.player.get_rid()]
 	q.collide_with_areas = false
-	var hit := w.player.get_world_3d().direct_space_state.intersect_ray(q)
+	var hit: Dictionary = w.player.get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
 		return w.terrain.height_at(x, z)
 	return float(hit.position.y)
