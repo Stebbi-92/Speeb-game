@@ -840,7 +840,7 @@ func apply_volume() -> void:
 
 ## Which line of the mixer a sound plays on, by its name.
 static func bus_of(sound: String) -> String:
-	for g in ["shotgun", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket", "supp", "pump", "shell", "mag_", "brrt", "jet", "flame", "rotor", "boom", "hit_", "swing", "chop", "parry", "draw", "tick"]:
+	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket", "supp", "pump", "shell", "mag_", "brrt", "jet", "flame", "rotor", "boom", "hit_", "swing", "chop", "parry", "draw", "tick"]:
 		if sound.begins_with(g):
 			return "Guns"
 	for c in ["growl", "shriek", "roar", "great_roar", "troll", "bite", "spit", "hiss", "screech", "chitter", "skitter", "critter", "spider", "unseen", "saucer", "fall", "heavy_step", "dissolve", "whispers"]:

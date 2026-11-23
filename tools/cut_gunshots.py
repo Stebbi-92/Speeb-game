@@ -18,6 +18,9 @@ GUNS = {
 	"minigun": ("PPSh/P_30P", "PPSh/P_16P", 0.28, -4),
 	"rifle": ("AR-15/D_32P", "AR-15/D_24P", 0.6, -1),        # the HK416's sharper 5.56 crack
 	"pistol45": ("1911/A_42P", "1911/A_34P", 0.9, 0),        # the service pistol's heavier .45
+	"smg": ("Carl Gustav M45/G_31P", "Carl Gustav M45/G_20P", 0.4, -2),   # the MP5's 9mm, short and quick
+	"pistol9": ("Bersa/F_47P", "Bersa/F_41P", 0.5, -1),      # the auto pistol's light, snappy crack
+	"autoshotgun": ("CD/H_21P", "CD/H_16P", 1.3, 0),          # the semi-auto 12 gauge, a different boom from the pump's
 }
 ONLY = sys.argv[2].split(",") if len(sys.argv) > 2 else None
 

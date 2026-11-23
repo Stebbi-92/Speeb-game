@@ -48,14 +48,17 @@ func _ready() -> void:
 	collision_mask = 1
 	_net_to = global_position
 	var s: float = spec.size
-	var cs := CollisionShape3D.new()
-	var sh := CapsuleShape3D.new()
-	sh.radius = 0.32 * s
-	sh.height = 1.2 * s
-	cs.shape = sh
-	cs.rotation.x = PI / 2
-	cs.position.y = 0.55 * s
-	add_child(cs)
+	if HITS.has(kind):
+		_fit_hits(s / float(BASE[kind]))
+	else:
+		var cs := CollisionShape3D.new()
+		var sh := CapsuleShape3D.new()
+		sh.radius = 0.32 * s
+		sh.height = 1.2 * s
+		cs.shape = sh
+		cs.rotation.x = PI / 2
+		cs.position.y = 0.55 * s
+		add_child(cs)
 	_build()
 	_label = Label3D.new()
 	_label.text = spec.name
@@ -90,12 +93,44 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D = null) -> Me
 ## Real bodies (CC-BY 4.0, see CREDITS.md): [file, size in metres, measured "long" or "tall"], at the kind's own size.
 const MODELS := {
 	"hare": ["res://assets/models/beasts/rabbit_rigged.glb", 0.62, "long"],
-	"goat": ["res://assets/models/beasts/goat.glb", 1.3, "tall"],
+	"goat": ["res://assets/models/beasts/goat_gerardo.glb", 1.3, "tall"],
 	"tusker": ["res://assets/models/beasts/boar_male.glb", 1.7, "long", PI / 2,
 		{"idle": "Arm_Boar|Idle_1", "walk": "Arm_Boar|Walk_F_IP", "trot": "Arm_Boar|Trot_F_IP", "run": "Arm_Boar|Run_F_IP"}, "fur"],
 }
 ## [file, size, measured "long" or "tall", turn to face ahead, clips {idle, walk, trot, run}, a coat made for it]
 static var _bounds := {}
+const BASE := {"hare": 0.45, "goat": 0.9, "tusker": 1.0}   ## the kind's size its body's metres are measured at
+## Where shots land on a real body, measured from its skinned rest pose (tools/probe_beastfit.gd), in metres at
+## the kind's base size, head ahead (+Z): ["capsule", radius, length, centre] lies along the body;
+## ["sphere", radius, centre]; ["box", size, centre]. Kept clear of the ground so it doesn't catch on it.
+const HITS := {
+	"goat": [["capsule", 0.31, 1.22, Vector3(0, 0.77, -0.17)], ["sphere", 0.22, Vector3(0, 0.98, 0.66)],
+		["box", Vector3(0.4, 0.32, 0.95), Vector3(0, 0.28, -0.17)]],
+}
+
+
+func _fit_hits(k: float) -> void:
+	for h in HITS[kind]:
+		var cs := CollisionShape3D.new()
+		match h[0]:
+			"capsule":
+				var c := CapsuleShape3D.new()
+				c.radius = float(h[1]) * k
+				c.height = float(h[2]) * k
+				cs.shape = c
+				cs.rotation.x = PI / 2
+				cs.position = h[3] * k
+			"sphere":
+				var sp := SphereShape3D.new()
+				sp.radius = float(h[1]) * k
+				cs.shape = sp
+				cs.position = h[2] * k
+			"box":
+				var bx := BoxShape3D.new()
+				bx.size = h[1] * k
+				cs.shape = bx
+				cs.position = h[2] * k
+		add_child(cs)
 var _anim: AnimationPlayer
 var _clips := {}    ## the body's own gaits by name, when it has more than one
 var _gait := ""
@@ -122,7 +157,7 @@ func _build_real() -> bool:
 		_bounds[kind] = bb
 	var turn := Basis(Vector3.UP, float(spec_m[3]) if spec_m.size() > 3 else 0.0)
 	var b: AABB = Transform3D(turn, Vector3.ZERO) * (_bounds[kind] as AABB)
-	var want: float = float(spec_m[1]) * (float(spec.size) / float({"hare": 0.45, "goat": 0.9, "tusker": 1.0}[kind]))
+	var want: float = float(spec_m[1]) * (float(spec.size) / float(BASE[kind]))
 	var k := want / maxf(b.size.z if spec_m[2] == "long" else b.size.y, 0.001)
 	var c := b.get_center()
 	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), Vector3(-c.x * k, -b.position.y * k, -c.z * k))
