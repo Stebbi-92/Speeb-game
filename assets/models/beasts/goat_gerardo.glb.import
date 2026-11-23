@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cwmrlppdnwx5m"
-path="res://.godot/imported/goat.glb-0aba284278dfd2937aa38d3fd368b525.scn"
+uid="uid://ypeyvgtnt5pk"
+path="res://.godot/imported/goat_gerardo.glb-fd5d93b7cb24bcf5769cb7f732ccdae7.scn"
 
 [deps]
 
-source_file="res://assets/models/beasts/goat.glb"
-dest_files=["res://.godot/imported/goat.glb-0aba284278dfd2937aa38d3fd368b525.scn"]
+source_file="res://assets/models/beasts/goat_gerardo.glb"
+dest_files=["res://.godot/imported/goat_gerardo.glb-fd5d93b7cb24bcf5769cb7f732ccdae7.scn"]
 
 [params]
 

@@ -93,7 +93,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Skelet_warrior"](https://skfb.ly/oxZI6) | EvgeshQa | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
 | ["Rabbit Rigged"](https://skfb.ly/6V6FS) | FourthGreen | The Ash Hare (`assets/models/beasts`) |
-| ["Goat"](https://skfb.ly/6YXHz) | sambasivarao | The Dune Goat |
+| ["Goat"](https://sketchfab.com/3d-models/goat-5d7431517b634f4e9e8c0f3729cd9c59) | GerardoA400 | The Dune Goat |
 | ["Wild Boar - Male"](https://skfb.ly/p9UvE) | Dakta.Grower.Nzl | The Ash Tusker (its coat is drawn in the game) |
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |

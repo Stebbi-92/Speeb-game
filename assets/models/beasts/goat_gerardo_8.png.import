@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dmcpxypgojjp"
-path="res://.godot/imported/goat_1.png-7f9945a1140537a835a610926879eab4.ctex"
+uid="uid://ds8tc3o3htb2"
+path="res://.godot/imported/goat_gerardo_8.png-9ef14790da914ac7ed0846b006a2d6dc.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "9c4c4f633438493641981b98541fd83c"
+"md5": "149fa3c0200cb7f68d1b60b2e4b8d8be"
 }
 
 [deps]
 
-source_file="res://assets/models/beasts/goat_1.png"
-dest_files=["res://.godot/imported/goat_1.png-7f9945a1140537a835a610926879eab4.ctex"]
+source_file="res://assets/models/beasts/goat_gerardo_8.png"
+dest_files=["res://.godot/imported/goat_gerardo_8.png-9ef14790da914ac7ed0846b006a2d6dc.ctex"]
 
 [params]
 
