@@ -26,13 +26,19 @@ const LOOKS := {
 
 ## Real bodies in place of the Kenney figures (CC-BY 4.0, see CREDITS.md), by the figure they replace:
 ## [file, height in metres at the figure's base scale, that base scale, clips {way: clip}, head bone,
-##  hand bone, chest bone, turn]. Each kind keeps its own skin's colour as a tint, and its own size.
+##  hand bone, chest bone, turn, and (for a body whose bones cannot be measured before it stands) its bounds]. Each kind keeps its own skin's colour as a tint, and its own size.
 const MODELS := {
-	"character-zombie.glb": ["folk/zombie.glb", 1.85, 3.3, {"idle": "idlewalk", "walk": "idlewalk", "sprint": "idlewalk"}, "head_062", "R_wrist_041", "chest_013", 0.0],
+	"character-zombie.glb": ["folk/zombie_mud.glb", 1.85, 3.3, {"idle": "idle01", "walk": "walk01", "sprint": "run", "attack-melee-right": "attack01",
+		"holding-both": "caution", "die": "death"}, "head_014_16", "hand_R_010_39", "chest_017_14", 0.0],
 	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk", "die": "WakeUp01"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
-	"character-vampire.glb": ["folk/lich.glb", 2.0, 3.2, {"idle": "Take 001", "walk": "Take 001", "sprint": "Take 001"}, "Head_06", "Hand_Right_040", "Neck1_05", 0.0],
+	"character-vampire.glb": ["folk/lich_guigodead.glb", 2.0, 3.2, {"idle": "Lich_Esqueleto|Lich_Parado_Voando", "walk": "Lich_Esqueleto|Lich_Parado_Voando",
+		"sprint": "Lich_Esqueleto|Lich_Parado_Voando", "attack-melee-right": "Lich_Esqueleto|Lich_Ataque_Perto",
+		"holding-both-shoot": "Lich_Esqueleto|Lich_Ataque_Distancia"}, "Cabeca_05", "Mao.R_022", "Peito_03", 0.0,
+		AABB(Vector3(-57.3, 11.1, -57.7), Vector3(106.5, 251.1, 114.3))],
 	"character-ghost.glb": ["folk/ghost.glb", 1.9, 3.0, {}, "", "", "", 0.0],
-	"character-skeleton.glb": ["folk/skeleton.glb", 1.8, 3.2, {"idle": "Take 001", "walk": "Take 001", "sprint": "Take 001"}, "", "", "", 0.0],
+	"character-skeleton.glb": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "rig|Idel", "walk": "rig|Walck", "sprint": "rig|Run",
+		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead"}, "head_0111", "DEF-hand.R_0245", "chest_019", 0.0,
+		AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72))],
 	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle -loop", "walk": "rig|walk -loop", "sprint": "rig|run -loop",
 		"attack-melee-right": "rig|knife_action", "holding-both": "rig|idle -loop", "holding-both-shoot": "rig|idle -loop"}, "head_05", "hand_R_022", "neck_04", 0.0],
 }
@@ -140,7 +146,7 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 	var m: Node3D = (load(path) as PackedScene).instantiate()
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
-		for d in DROP:
+		for d in DROP + (["Weapons"] if look[3] != "" else []):   # a body's own sword and shield give way to what it is given
 			if look[3] == "own" and d == "Flamberge":
 				continue
 			if mm.mesh and d in mm.mesh.resource_name:
@@ -154,7 +160,7 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 			if (mi as MeshInstance3D).mesh and "Flamberge" in (mi as MeshInstance3D).mesh.resource_name:
 				held.append([mi, mi.get_parent()])
 				mi.get_parent().remove_child(mi)
-		_bounds[path] = LesserSpeeb._skinned_bounds(m)
+		_bounds[path] = spec[8] if spec.size() > 8 else LesserSpeeb._skinned_bounds(m)
 		for h in held:
 			(h[1] as Node).add_child(h[0])
 	var bb: AABB = _bounds[path]

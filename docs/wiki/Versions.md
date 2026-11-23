@@ -2,6 +2,21 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.20.1 (sights and fixes)
+
+- **Hands** are hidden on the guns for now.
+- **Sights:** the SMG's sights line up; the revolver points where you aim.
+- **Auto Pistol** fires about 1,200 rounds a minute.
+- **Attachments** sit properly on the revolver and Autoshotgun (sights go on its rail). Grips on the Belt Gun count but are not drawn.
+
+## 0.20.0 (hands and new bodies)
+
+- **Hands on every gun:** your arms hold each gun and follow its reloads. Side arms use a two-hand grip with both thumbs forward. See [Arms and Clothing](Arms-and-Clothing).
+- **New guns:** a G17 pistol with a moving slide, an Autoshotgun, a full-auto SMG, a 357 Python revolver with a turning cylinder, and a belt gun with its own motions.
+- **New bodies:** zombies, skeleton warriors, liches and the Ash Weaver are animated, and the tusker is a furred wild boar.
+- **Cigarettes:** light one and it burns while you work; friends see it too.
+- **Small things:** the gun pulls back from walls instead of going through them; great ones keep their own heads; dead trees lose the floating red band and yellow box; the red dot shows only down the sight.
+
 ## 0.19.0 (settings, menus and a bug hunt)
 
 - **Settings for everyone:** six pages (Display, Controls, Sound, Accessibility, Game, Playing together); press-to-switch Sprint, Sneak and Aim; menu and text size from 90% to 120%; subtitles for spoken lines; colour-blind road colours on the map; brightness; a Low graphics preset and a Render scale for slower machines. Controller buttons can be changed, and prompts name them when a controller is in use.

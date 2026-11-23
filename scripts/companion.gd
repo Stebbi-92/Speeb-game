@@ -11,6 +11,7 @@ var _yaw := 0.0
 var _pitch := 0.0
 var _has_pose := false
 var _body: Node3D
+var _cig: WSmoke   ## their cigarette, when they light one
 var _gun: Node3D
 var _gun_model: Node3D
 var _gun_key := ""
@@ -158,6 +159,22 @@ func pose(data: Array) -> void:
 		_body.position.y = 0.0
 	_fig.seated = _cat != null and not parked
 	_lamp.light_energy = 2.0 if data[7] else 0.0
+	# A cigarette at their mouth, smoke and all, while they have one lit
+	var smoking := data.size() > 11 and bool(data[11])
+	if _cig != null and not is_instance_valid(_cig):
+		_cig = null   # their figure was made anew (a change of look)
+	if smoking and _cig == null:
+		var eye := Node3D.new()
+		eye.position = Vector3(0, 1.742, 0.05)   # as their own eye sees it: just behind the mouth, a little above
+		eye.rotation.y = PI                      # facing where they face
+		_fig.add_child(eye)
+		_cig = WSmoke.new()
+		eye.add_child(_cig)
+	if _cig:
+		if smoking and not _cig.lit:
+			_cig.light(null)
+		elif not smoking and _cig.lit:
+			_cig.put_out()
 	if not _has_pose or global_position.distance_to(_to) > 6.0:
 		global_position = _to
 		_last = _to

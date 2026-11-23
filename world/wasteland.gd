@@ -3043,6 +3043,23 @@ func quick_heal() -> void:
 		hud.notify("%s used. %d left." % [Items.info(id).name, inv.count(id)])
 
 
+## Lights a cigarette: it burns down on its own while you keep at whatever you are doing.
+var smoking: WSmoke
+func smoke(id: String) -> bool:
+	if smoking and smoking.lit:
+		hud.notify("You have one lit already.")
+		return false
+	if inv.take(id, 1) < 1:
+		return false
+	if smoking == null:
+		smoking = WSmoke.new()
+		player.cam.add_child(smoking)
+	smoking.light(player)
+	sfx("whoosh", -26, null, 2.2)
+	hud.notify("You light a cigarette.")
+	return true
+
+
 ## Eating fills the belly; the healer's things only close wounds.
 func eat(id: String) -> bool:
 	var info: Dictionary = Items.info(id)
@@ -4401,7 +4418,6 @@ var _scans := {}
 
 
 var _cut_wood: StandardMaterial3D
-var _cut_notch: StandardMaterial3D
 
 func _cut_wood_mat() -> StandardMaterial3D:
 	if _cut_wood == null:
@@ -4410,24 +4426,6 @@ func _cut_wood_mat() -> StandardMaterial3D:
 		_cut_wood.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_cut_wood.roughness = 0.9
 	return _cut_wood
-
-
-var _cut_rag: StandardMaterial3D
-
-func _cut_rag_mat() -> StandardMaterial3D:
-	if _cut_rag == null:
-		_cut_rag = StandardMaterial3D.new()
-		_cut_rag.albedo_color = Color(0.72, 0.16, 0.1)
-		_cut_rag.roughness = 1.0
-	return _cut_rag
-
-
-func _cut_notch_mat() -> StandardMaterial3D:
-	if _cut_notch == null:
-		_cut_notch = StandardMaterial3D.new()
-		_cut_notch.albedo_color = Color(0.93, 0.8, 0.58)
-		_cut_notch.roughness = 0.8
-	return _cut_notch
 
 
 func _add_scan(parent: Node3D, key: String, size: float, at := Vector3.ZERO, turn := 0.0, reach := 420.0) -> Node3D:
@@ -5426,12 +5424,11 @@ func _make_node(id: int, kind: String, p: Vector3, r: RandomNumberGenerator) -> 
 			tr.rotation.x = r.randf_range(-0.08, 0.08)
 			if r.randf() < 0.5:
 				_add_scan(n, "dead_quiver_branch_01", r.randf_range(2.0, 3.0), Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)), r.randf() * TAU)
-			# Wood you can cut stands out from the dead trees you cannot: warm, sound wood, with a
-			# pale axe-notch at the base and a band of rag tied round it by whoever marked it
+			# Wood you can cut stands out from the dead trees you cannot: warm, sound wood
+			# (A red rag band and a pale axe-notch box once marked it too: on the thin, leaning trunks they
+			# stood off the wood as a floating red disc and a yellow box, so they are gone)
 			for mi in n.find_children("*", "MeshInstance3D", true, false):
 				(mi as MeshInstance3D).material_overlay = _cut_wood_mat()
-			_add(n, box(Vector3.ZERO, Vector3(0.42, 0.28, 0.2), _cut_notch_mat(), false), Vector3(0, 0.55, 0.22)).rotation.y = tr.rotation.y
-			_add(n, cyl(Vector3.ZERO, 0.4, 0.14, _cut_rag_mat(), false, -1.0, 10), Vector3(0, 1.5, 0))
 			var cap := CapsuleShape3D.new()
 			cap.radius = 0.35
 			cap.height = h
@@ -8557,6 +8554,192 @@ func debug_facetalk() -> void:
 	ui.close_all()
 	await get_tree().create_timer(3.5).timeout
 	print("BACK now %.2f yaw0 %.2f mouth %.2f" % [e.node.rotation.y, e.yaw, e.fig._mouth.scale.y])
+
+
+
+## Testing aid: cuttable dead trees wear nothing stuck on (no red band, no notch box), the fire hound
+## wears its own head, and a red dot shows only down the sight.
+func debug_glitchfix() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var trees := 0
+	var stray := 0
+	for nd in nodes:
+		if nd.kind != "tree" or not is_instance_valid(nd.node):
+			continue
+		trees += 1
+		for mi in nd.node.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).mesh is BoxMesh or (mi as MeshInstance3D).mesh is CylinderMesh:
+				stray += 1
+	var e := LesserSpeeb.new().setup(Game.lesser.keys()[3], "boss_ash", self)
+	add_child(e)
+	e.global_position = player.global_position + Vector3(0, 0, -14)
+	await get_tree().create_timer(0.5).timeout
+	var own: bool = e._sk == "boss_ash" and not e.head.visible
+	e.queue_free()
+	var g: String = player.weapon.gun()
+	var am: Dictionary = Game.arms_now()
+	if not am.has("mounts") or not (am.mounts is Dictionary):
+		am["mounts"] = {}
+	am.mounts[g] = ["holo"]
+	player.weapon.refinish()
+	player.weapon._aim = 0.0
+	player.weapon._show_dots()
+	var dots: Array = player.weapon._dots
+	var hip := dots.any(func(q): return q.visible)
+	player.weapon._aim = 1.0
+	player.weapon._show_dots()
+	var aimed := not dots.is_empty() and dots.all(func(q): return q.visible)
+	player.weapon._aim = 0.0
+	# A wall right ahead draws the gun back; with it gone the gun comes forward again
+	var cam: Camera3D = player.cam
+	var wall := StaticBody3D.new()
+	var wcs := CollisionShape3D.new()
+	var wb := BoxShape3D.new()
+	wb.size = Vector3(3, 3, 0.2)
+	wcs.shape = wb
+	wall.add_child(wcs)
+	add_child(wall)
+	wall.global_transform = Transform3D(cam.global_transform.basis, cam.global_position - cam.global_transform.basis.z * 0.45)
+	await get_tree().create_timer(0.8).timeout
+	var tucked: bool = player.weapon._tuck > 0.6
+	wall.queue_free()
+	await get_tree().create_timer(0.8).timeout
+	var back: bool = player.weapon._tuck < 0.05
+	print("GLITCHFIX trees=%s stray=%d hound_own_head=%s dots=%s hip=%s aimed=%s tucked=%s back=%s" % [trees > 0, stray, own, not dots.is_empty(), hip, aimed, tucked, back])
+	get_tree().quit()
+
+
+## Testing aid: one's own arms reach each gun's grip and fore-end (or its magazine, mid-reload), the SMG's
+## cocking handle goes back and up and is slapped home, and a cigarette lights and burns while the gun is held.
+func debug_hands() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var arms: Arms = player.weapon
+	var h: FPHands = arms.hands
+	var far := []
+	var n := 0
+	for g in ArmsDB.GUNS:
+		if not arms._st.has(g):
+			arms._st[g] = {"mag": 5, "reserve": 10}
+		arms.guns = [g, arms.guns[1]]
+		arms.cur = 0
+		arms._show_model()
+		for k in [-1.0, 0.3]:
+			arms._reloading = k >= 0.0
+			if k >= 0.0:
+				arms._reload_pose(k, 1.0)
+			for i in 3:
+				await get_tree().process_frame
+			var p := arms.hand_pose()
+			if not FPHands.SHOWN:
+				h.debug_pose = "hip"   # drawn only for this check while the arms are off
+				await get_tree().process_frame
+				h.debug_pose = ""
+			if p.is_empty():
+				far.append(g + ":none")
+				continue
+			for sd in ["R", "L"]:
+				var d: Dictionary = h._side[sd]
+				var w: Vector3 = h._sk.global_transform * h._sk.get_bone_global_pose(d.wrist).origin
+				var palm: Vector3 = w + h._sk.global_transform.basis * (h._sk.get_bone_global_pose(d.wrist).basis.orthonormalized() * (d.palm as Vector3))
+				# The palm's middle within a few centimetres of where it was sent (the magazine may drop out of reach)
+				if palm.distance_to(p[sd].at) > (0.04 if k < 0.0 else 0.12):
+					far.append("%s:%s%s:%.2f" % [g, sd, "" if k < 0.0 else "@rl", palm.distance_to(p[sd].at)])
+		arms._reloading = false
+		arms._reload_rest(1.0)
+		n += 1
+	# The SMG worked as its makers meant: back and up, the magazine changed, slapped home
+	arms.guns = ["smg", arms.guns[1]]
+	arms._show_model()
+	var rig: bool = arms._model.has_meta("rig")
+	arms._reload_pose(0.3, 1.0)
+	var locked: bool = arms._handle_back > 0.95 and arms._handle_up > 0.95
+	arms._reload_pose(0.9, 1.0)
+	var home: bool = arms._handle_back < 0.05 and arms._handle_up < 0.05
+	arms._reload_rest(1.0)
+	# The belt gun moves as it was made to, our arms following its own; the revolver's crane swings out
+	arms.guns = ["lmg", arms.guns[1]]
+	arms._show_model()
+	var lp := arms.hand_pose()
+	var anim: bool = arms._model.has_meta("anim") and lp.has("R") and (lp.R as Dictionary).has("S")
+	arms.guns = ["revolver", arms.guns[1]]
+	arms._show_model()
+	arms._reloading = true
+	arms._reload_pose(0.4, 1.0)
+	arms.hand_pose()
+	var rsk: Skeleton3D = arms._model.get_meta("anim_sk") if arms._model.has_meta("anim_sk") else null
+	var crane := false
+	if rsk:
+		var cb := rsk.find_bone("Extractor_03")
+		crane = cb >= 0 and rsk.get_bone_pose_rotation(cb).angle_to(rsk.get_bone_rest(cb).basis.get_rotation_quaternion()) > 1.0
+	arms._reloading = false
+	arms._reload_rest(1.0)
+	# A cigarette, lit with the gun in hand
+	inv.add("cigarettes", 3)
+	var lit := smoke("cigarettes")
+	var twice := smoke("cigarettes")
+	await get_tree().create_timer(1.0).timeout
+	var burning: bool = smoking != null and smoking.lit and smoking.left < WSmoke.BURN and inv.count("cigarettes") == 2
+	print("HANDS guns=%d far=%s smg_rig=%s locked=%s home=%s anim=%s crane=%s cig=%s once=%s burning=%s seen=%s" % [n, far, rig, locked, home, anim, crane, lit, not twice, burning, _smoking_now()])
+	get_tree().quit()
+
+
+## Testing aid: the bodies Steve fetched stand, move and are their right size: the Hollow, Saltbone,
+## Salt Rifle and Deacon on their new bodies, the Ash Weaver's spider and the Tusker's boar in its own coat.
+func debug_newbodies() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var out: Array = []
+	var i := 0
+	for k in ["hollow", "saltbone", "saltrifle", "deacon", "ash_weaver"]:
+		var at: Vector3 = player.global_position + f * 14.0 + f.cross(Vector3.UP) * (i - 2) * 4.0
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		i += 1
+		var e := spawn_at(k, at)
+		e.set_physics_process(false)
+		await get_tree().create_timer(0.6).timeout
+		var root: Node3D = e._fb if e._fb else e._scan
+		var tall := 0.0
+		var low := 1e9
+		for mi in root.find_children("*", "MeshInstance3D", true, false):
+			if not (mi as MeshInstance3D).is_visible_in_tree():
+				continue
+			var ab: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			tall = maxf(tall, ab.end.y)
+		var ap: AnimationPlayer = e._fb.anim if e._fb else e._scan_anim
+		var moving: bool = ap != null and ap.is_playing() and ap.current_animation != ""
+		var weapons := 0
+		for mi in root.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).mesh and "Weapons" in (mi as MeshInstance3D).mesh.resource_name:
+				weapons += 1
+		out.append("%s=%s,%s%s" % [k, "moves" if moving else "still", "ok" if tall > e.global_position.y else "flat", ",own_arms" if weapons > 0 else ""])
+		e.queue_free()
+	var b := _w_beast(990001, "tusker", player.global_position + f * 10.0)
+	await get_tree().create_timer(0.5).timeout
+	var fur := false
+	for mi in b.find_children("*", "MeshInstance3D", true, false):
+		if (mi as MeshInstance3D).get_surface_override_material(0) is ShaderMaterial:
+			fur = true
+	var g0: String = b._gait
+	b._clips = b._clips   # (the gait follows the pace each frame)
+	var gaits := {}
+	for pace in [0.0, 1.5, 4.0, 8.0]:
+		var gg: String = b._clips.idle if pace < 0.3 else (b._clips.walk if pace < 2.5 else (b._clips.trot if pace < 5.5 else b._clips.run))
+		gaits[gg] = true
+	var long := 0.0
+	var ab2 := AABB()
+	var first := true
+	for mi in b.find_children("*", "MeshInstance3D", true, false):
+		var a2: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		ab2 = a2 if first else ab2.merge(a2)
+		first = false
+	print("NEWBODIES %s tusker fur=%s gait=%s gaits=%d" % [" ".join(out), fur, g0.get_slice("|", 1), gaits.size()])
+	get_tree().quit()
 
 
 func debug_nightshot() -> void:

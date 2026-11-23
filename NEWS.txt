@@ -1,3 +1,20 @@
+Brelm alpha 0.20.1: sights and fixes
+
+- Your own hands are hidden on the guns for now, until they hold every gun well.
+- The SMG's rear aperture and front post line up on the crosshair.
+- The revolver's barrel points where you aim (it tipped down), and its sights sit right.
+- The Auto Pistol fires about 1,200 rounds a minute, like a Glock 18C.
+- Attachments sit properly on the new guns: the revolver's sights, barrels and compensator, the Autoshotgun's stocks, and its sights on its top rail. Grips on the Belt Gun still count but are not drawn, since it has its own front grip.
+
+Brelm alpha 0.20.0: hands and new bodies
+
+- Hands on every gun: you now see your arms and hands hold each gun and follow its reloads, with magazines, shells, rockets and fuel bottles coming out. Side arms use a two-hand grip with both thumbs forward.
+- New guns: the pistol is now a G17 with a moving slide; a new Autoshotgun and a full-auto SMG. The revolver is a 357 Python whose cylinder turns each shot and swings out to reload. The belt gun has its own fire, reload and idle motions.
+- New bodies: zombies, skeleton warriors, liches and the Ash Weaver are now properly animated, and the tusker is a furred wild boar that walks, trots and runs.
+- Cigarettes: light one from the pack and it burns while you work. Friends see it and its smoke.
+- The gun draws back and tips up when you stand right against a wall, instead of going through it.
+- Dead trees lose the floating red band and yellow box. Great ones keep their own heads instead of wearing a Speeb face. A red dot shows only when you aim down the sight.
+
 Brelm alpha 0.19.0: settings, menus and a bug hunt
 
 - Lighter towns: townsfolk and the still, solid parts of a town are drawn together, so a town sends about half as many things to be drawn.

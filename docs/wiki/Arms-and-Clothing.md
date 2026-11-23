@@ -19,17 +19,25 @@ You start with the Pump Shotgun and the Pistol.
 | Gun | Kind | Rounds | Cost | Notes |
 |---|---|---|---|---|
 | **Pump Shotgun** | long gun | 6 shells | (you start with it) | Eight pellets and a pump between each. Forgives a poor aim, close in. |
+| **Autoshotgun** (M4) | long gun | 7 shells | 65 Scrap Iron, 4 Deadwood, 5 Lamp Oil, 4 Red Iron, 1 Tempered Steel, 2 Clockwork | A shotgun that works itself: eight pellets as fast as you pull. Loaded shell by shell. |
+| **SMG** (MP5) | long gun | 30 pistol rounds | 45 Scrap Iron, 3 Lamp Oil, 3 Red Iron, 2 Clockwork | Full auto on pistol rounds. Light, quick and steady, short of reach. Reloads the HK way: handle back and up, magazine out and in, handle slapped home. |
 | **Machine Gun** (HK 416) | long gun | 30 | 60 Scrap Iron, 10 Deadwood, 4 Lamp Oil, 4 Red Iron, 1 Tempered Steel, 1 Clockwork | A steady stream that climbs. Fire in short bursts. |
 | **Belt Gun** (M60) | long gun | 100 | 75 Scrap Iron, 6 Deadwood, 8 Lamp Oil, 6 Red Iron, 2 Tempered Steel, 2 Clockwork | Heavy rounds, slow to load, slows you a little. |
 | **Sniper Rifle** | long gun | 5 | 50 Scrap Iron, 16 Deadwood, 6 Cloth, 4 Heartwood, 2 Clockwork | One heavy round, then the bolt. |
 | **Rocket Launcher** (RPG) | long gun | 1 rocket | 80 Scrap Iron, 10 Lamp Oil, 20 Order Coin, 6 Salt Crystal, 3 Clockwork | Bursts where it strikes. Keep it far from your feet. Rockets fall over distance. |
 | **Minigun** | long gun | 200 | 90 Scrap Iron, 14 Lamp Oil, 30 Order Coin, 6 Obsidian, 3 Tempered Steel, 3 Clockwork | Must spin up before it fires. Slows you a lot. |
 | **Flamethrower** | long gun | 100 fuel | 55 Scrap Iron, 12 Lamp Oil, 8 Tar, 3 Salt Crystal, 2 Clockwork | Short reach. Burns all in front of it and leaves the ground alight. |
-| **Pistol** | side arm | 12 | (you start with it) | Quick to draw and to load. |
-| **Auto Pistol** (9mm) | side arm | 18 | 30 Scrap Iron, 2 Lamp Oil, 2 Red Iron, 1 Clockwork | Fires while held. It climbs: keep it close. |
+| **Pistol** (G17 with a light) | side arm | 12 | (you start with it) | Quick to draw and to load. |
+| **Auto Pistol** (9mm) | side arm | 18 | 30 Scrap Iron, 2 Lamp Oil, 2 Red Iron, 1 Clockwork | Fires while held, about 1,200 rounds a minute. It climbs: keep it close. |
 | **Revolver** | side arm | 6 | 24 Scrap Iron, 6 Deadwood | Six heavy rounds. Slow, and sure. |
 
 Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases of its own calibre.
+
+**Your hands.** Your own arms are not shown on the guns for now. They come back once they hold every gun well.
+
+**Belt gun and revolver.** The belt gun moves as it was made to: it kicks when fired and has its own reload. The revolver's cylinder turns one chamber with each shot, and on a reload it swings out so the rounds can be changed.
+
+**Smoking.** Friends see your cigarette too, and its smoke.
 
 **Shotgun reload.** Each reload pushes a whole 12 gauge shell into the tube, and each pump throws out the fired one.
 

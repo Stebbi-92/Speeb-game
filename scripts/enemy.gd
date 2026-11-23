@@ -132,32 +132,35 @@ func matter() -> String:
 ## Scanned bodies (CC-BY 4.0, see CREDITS): [model, height in metres, animation, pace the walk is made for (0: it stands),
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
-	"ash_weaver": ["res://assets/models/foes/spiderthing/spiderthing.glb", 1.5, 0, 4.0, Vector2(0.55, 0.55)],
+	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
+		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
 	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
-	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its Speeb's head on its neck:
+	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
+	# on their necks read as stuck on):
 	# [file, height at size 1, walking clip, walking pace, head (height, forward) as parts of its height,
-	#  {bone: the head bone the face rides, shrink: its own head hidden, idle: standing clip, tint, turn}]
+	#  {bone: the head bone the face rides, shrink: its own head hidden, own_head: its own head kept and no Speeb's
+	#  head worn (the head bone still marks where a head shot lands), idle: standing clip, tint, turn}]
 	"boss_ash": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "shrink": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08)}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08)}],
 	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
-		{"bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
+		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"bone": "Head_0", "shrink": true, "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42)}],
-	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42)}],
+	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
-		{"head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
-	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"bone": "Head_0", "shrink": true, "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
-		{"bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
+		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "shrink": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
 	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
 	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
-		{"bone": "Head_65", "shrink": true, "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
+		{"own_head": true, "bone": "Head_65", "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
 }
 static var _scan_bounds := {}
 
@@ -1045,7 +1048,7 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	if not ResourceLoader.exists(sc[0]):
 		return
 	var opt: Dictionary = sc[5] if sc.size() > 5 else {}
-	var with_head := sc.size() > 5
+	var with_head: bool = sc.size() > 5 and not bool(opt.get("own_head", false))
 	head.visible = with_head
 	for c in get_children():
 		if c is MeshInstance3D:   # the unseen's own bent-light body gives way

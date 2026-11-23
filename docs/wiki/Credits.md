@@ -44,7 +44,7 @@ Kenney's packs are at [kenney.nl](https://kenney.nl). CC0 asks for nothing, but 
 | [Gravelly Sand](https://polyhaven.com/a/gravelly_sand), [Rock Pitted Mossy](https://polyhaven.com/a/rock_pitted_mossy), [Coast Land Rocks 01](https://polyhaven.com/a/coast_land_rocks_01), [Dry Ground Rocks](https://polyhaven.com/a/dry_ground_rocks), [Marble Cliff 01](https://polyhaven.com/a/marble_cliff_01) | Poly Haven | CC0 | The ground of Hrafnsey and Kalaja (`assets/textures/ground/isles`) |
 | [Dead Quiver Trunk](https://polyhaven.com/a/dead_quiver_trunk), [Dead Quiver Branch 01](https://polyhaven.com/a/dead_quiver_branch_01), [Dead Tree Trunk 02](https://polyhaven.com/a/dead_tree_trunk_02), [Namaqualand Boulder 03](https://polyhaven.com/a/namaqualand_boulder_03), [Rock 07](https://polyhaven.com/a/rock_07), [Moon Rock 02](https://polyhaven.com/a/moon_rock_02) | Poly Haven | CC0 | Dead trees, logs and stones (`assets/models/nature`) |
 | [Barrel 03](https://polyhaven.com/a/barrel_03), [Barrel Stove](https://polyhaven.com/a/barrel_stove), [Can Rusted](https://polyhaven.com/a/can_rusted), [Cement Bag](https://polyhaven.com/a/cement_bag), [Dry Branches Medium 01](https://polyhaven.com/a/dry_branches_medium_01), [Metal Jerrycan](https://polyhaven.com/a/metal_jerrycan), [Namaqualand Boulder 02](https://polyhaven.com/a/namaqualand_boulder_02), [Namaqualand Boulder 05](https://polyhaven.com/a/namaqualand_boulder_05), [Old Military Crate](https://polyhaven.com/a/old_military_crate), [Old Tyre](https://polyhaven.com/a/old_tyre), [Root Cluster 01](https://polyhaven.com/a/root_cluster_01), [Rusted Wheel Rim 02](https://polyhaven.com/a/rusted_wheel_rim_02), [Tree Stump 01](https://polyhaven.com/a/tree_stump_01), [Wicker Basket 01](https://polyhaven.com/a/wicker_basket_01), [Wooden Bucket 01](https://polyhaven.com/a/wooden_bucket_01), [Wooden Crate 02](https://polyhaven.com/a/wooden_crate_02), [Wooden Lantern 01](https://polyhaven.com/a/wooden_lantern_01) | Poly Haven | CC0 | Barrels, crates, sacks, cans, tyres, stumps, roots and boulders left about the waste and its towns (`assets/models/nature`) |
-| [Bolt Action Rifle](https://polyhaven.com/a/bolt_action_rifle_7_62), [Service Pistol](https://polyhaven.com/a/service_pistol), [Stick Grenade](https://polyhaven.com/a/stick_grenade), [Hatchet](https://polyhaven.com/a/hatchet), [Machete](https://polyhaven.com/a/machete), [Sledgehammer 01](https://polyhaven.com/a/sledgehammer_01), [Ornate Medieval Dagger](https://polyhaven.com/a/ornate_medieval_dagger), [Wooden Handle Saber](https://polyhaven.com/a/wooden_handle_saber), [Wooden Axe](https://polyhaven.com/a/wooden_axe) | Poly Haven | CC0 | The sniper rifle, pistol, frag grenade and the blades and hafts (`assets/models/arms`) |
+| [Bolt Action Rifle](https://polyhaven.com/a/bolt_action_rifle_7_62), [Stick Grenade](https://polyhaven.com/a/stick_grenade), [Hatchet](https://polyhaven.com/a/hatchet), [Machete](https://polyhaven.com/a/machete), [Sledgehammer 01](https://polyhaven.com/a/sledgehammer_01), [Ornate Medieval Dagger](https://polyhaven.com/a/ornate_medieval_dagger), [Wooden Handle Saber](https://polyhaven.com/a/wooden_handle_saber), [Wooden Axe](https://polyhaven.com/a/wooden_axe) | Poly Haven | CC0 | The sniper rifle, frag grenade and the blades and hafts (`assets/models/arms`) |
 | [Particle Pack](https://kenney.nl/assets/particle-pack) | Kenney | CC0 | Smoke (`assets/textures/particles`), muzzle flashes (`assets/textures/fx`) |
 
 ## Models under CC-BY 4.0
@@ -54,12 +54,12 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | Model | By | Used for |
 |---|---|---|
 | ["HK 416 Assault Rifle - Low Poly"](https://skfb.ly/oDNsQ) | Derek Flanagan | The machine gun |
-| ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun |
+| ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun, as others see it |
 | ["9mm Pistol"](https://skfb.ly/owxRE) | TORI106 | The auto pistol |
 | ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Free Ammo Set Ver.2 ULTRA"](https://skfb.ly/pIyTC) | Rotten Design | Rounds, spent cases and shotgun shells |
 | ["Box Cat"](https://skfb.ly/o9JHT) | mellting | The Box Cat |
-| ["Spiderthing take 3"](https://skfb.ly/oJrNB) | Rasmus | The Ash Weaver |
+| ["Animated Spider"](https://skfb.ly/opX7T) | Shadocks | The Ash Weaver (`assets/models/foes/weaver`) |
 | ["monster spider"](https://skfb.ly/oZSFq) | aziz | The Harrow |
 | ["Sphynx Cat – Rigged & Animated (10 Anims)"](https://skfb.ly/pOMpF) | [Animal Animator](https://animalanimator.com) ([the sphynx cat reference](https://animalanimator.com/the-ultimate-sphinx-cat-reference-for-animal-animators/)) | The riding cat (`assets/models/mounts`), made big enough to ride, with a Speeb's head |
 | ["Saddle"](https://skfb.ly/oR6Az) | YaredGmGm | The riding cat's saddle (`assets/models/mounts`) |
@@ -76,15 +76,15 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Drugdör The Golem Animated"](https://skfb.ly/6RvzE) | Phons | The Basalt Idol (`assets/models/foes/golem`) |
 | ["Criatura"](https://skfb.ly/6XvPB) | Mardukblake | The Long Watcher (`assets/models/foes/criatura`) |
 | ["Black widow (Animated, downloadable)"](https://skfb.ly/pwQCG) | Andrey | The Tar Mother (`assets/models/foes/widow`) |
-| ["Zombie"](https://skfb.ly/6zG9q) | DJMaesen | The Hollowed, the Drowned and the Hollow Colossus (`assets/models/foes/folk`) |
+| ["ANIMATION ZOMBIE"](https://skfb.ly/pNsAw) | MUD | The Hollowed, the Drowned and the Hollow Colossus (`assets/models/foes/folk`) |
 | ["Black Knight Walking"](https://skfb.ly/oXUQo) | HreshkoIvan | The Gravewarden and the Ashen Knight |
-| ["Lich"](https://skfb.ly/oxPOn) | Spinnee | The Pale Deacon |
+| ["Lich"](https://skfb.ly/6XNDv) | guigodead | The Pale Deacon |
 | ["Cloth Ghost"](https://skfb.ly/oqHPz) | ANDRE | The Lost Vigil and the Ember Wisp |
-| ["Lowpoly Human Skeleton (Rigged)"](https://skfb.ly/pDSUy) | Void | The Salt-Bones |
+| ["Skelet_warrior"](https://skfb.ly/oxZI6) | EvgeshQa | The Salt-Bones |
 | ["Low Poly Soldier -Free"](https://skfb.ly/6ZKu7) | manoeldarochadeoliveira | The Unlit |
 | ["Rabbit Rigged"](https://skfb.ly/6V6FS) | FourthGreen | The Ash Hare (`assets/models/beasts`) |
 | ["Goat"](https://skfb.ly/6YXHz) | sambasivarao | The Dune Goat |
-| ["Wild Boar"](https://skfb.ly/6nyQK) | jbnotjeebe | The Ash Tusker |
+| ["Wild Boar - Male"](https://skfb.ly/p9UvE) | Dakta.Grower.Nzl | The Ash Tusker (its coat is drawn in the game) |
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
 | ["Prowler Dragon Variant Rig"](https://skfb.ly/o8IRS) | DM-913 | Kulshedra, the she-dragon (`assets/models/foes/drake`) |
@@ -103,7 +103,14 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Flare"](https://skfb.ly/o8FUt) | FrodoUndead | The flare |
 | ["Landmine"](https://skfb.ly/o96NK) | desolka | The Salt Mine |
 | ["Mossberg500 Shotgun low-poly"](https://skfb.ly/6Wvtt) | AK | The pump shotgun |
-| ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver |
+| ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver, as others see it |
+| ["G17 Gen 5 Handgun + Olight - NSW Police Force"](https://skfb.ly/pOAnq) | 8sianDude | The pistol |
+| ["M4 Super 90 (JW2) Brand-Friendly version"](https://skfb.ly/oLU7v) | 8sianDude | The autoshotgun |
+| ["MP5 A2"](https://skfb.ly/psnHQ) | Gintoki1234 | The SMG |
+| ["fps arms"](https://skfb.ly/6R6yX) | DJMaesen | Your own arms on the weapon in hand |
+| ["LMG animated"](https://skfb.ly/o8PRS) | DJMaesen | The belt gun in your hands, and how hands hold a gun |
+| ["357 Python Revolver (Rigged/Game Ready)"](https://skfb.ly/oFISA) | Erai | The revolver in your hands |
+| ["Cigarette packs"](https://skfb.ly/6RZDO) | Noah | Cigarettes |
 
 ## Fonts
 

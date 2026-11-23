@@ -57,6 +57,7 @@ const DB := {
 	"herb_seed": {"name": "Ash-bloom Seed", "kind": "seed", "stack": 30, "value": 3, "color": Color(0.65, 0.7, 0.58), "grows": "herb", "yield": [2, 4], "hours": 18.0, "text": "Plant in a planter box. The bloom heals."},
 	"torchwood": {"name": "Torch", "kind": "material", "stack": 20, "value": 2, "color": Color(0.85, 0.55, 0.25), "text": "Pitch-soaked wood. Makes a torch."},
 	"milk": {"name": "Bowl of Milk", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.95, 0.94, 0.9), "heal": 55.0, "text": "Speeb's own comfort. Restores much health."},
+	"cigarettes": {"name": "Cigarettes", "kind": "smoke", "stack": 20, "value": 2, "color": Color(0.88, 0.84, 0.74), "text": "Light one and keep at your work: it burns down on its own."},
 	"bandage": {"name": "Bandage", "kind": "medicine", "stack": 10, "value": 5, "color": Color(0.85, 0.82, 0.75), "heal": 35.0, "text": "Clean cloth, boiled. Restores health."},
 	"salts": {"name": "Smelling Salts", "kind": "aid", "stack": 5, "value": 12, "color": Color(0.88, 0.86, 0.8), "text": "Held under the nose of a fallen companion. Raises them faster, and stronger."},
 	"salve": {"name": "Ash-bloom Salve", "kind": "medicine", "stack": 5, "value": 14, "color": Color(0.6, 0.7, 0.55), "heal": 80.0, "text": "Closes what a bandage cannot. Restores much health."},
@@ -280,12 +281,12 @@ const POWERS := {
 
 ## Loot tables: [item, weight, min, max]
 const LOOT := {
-	"caravan": [["tuber_seed", 2, 2, 5], ["herb_seed", 1, 1, 3], ["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2], ["fittings_fine", 1, 1, 1]],
+	"caravan": [["tuber_seed", 2, 2, 5], ["herb_seed", 1, 1, 3], ["rounds", 3, 8, 20], ["rifle", 2, 15, 40], ["scrap", 5, 2, 5], ["cloth", 4, 2, 4], ["salt", 4, 6, 18], ["shells", 4, 6, 14], ["meat", 2, 1, 2], ["oil", 1, 1, 1], ["coin", 2, 1, 4], ["bandage", 2, 1, 2], ["cigarettes", 2, 4, 20], ["fittings_fine", 1, 1, 1]],
 	"shrine": [["coin", 4, 1, 5], ["icon", 2, 1, 1], ["herb", 3, 2, 4], ["bell", 1, 1, 1], ["cloth", 2, 1, 3], ["salve", 1, 1, 1]],
 	"order": [["rifle", 2, 20, 50], ["rounds", 2, 10, 24], ["ledger", 3, 1, 1], ["coin", 4, 2, 6], ["scrap", 3, 2, 4], ["icon", 1, 1, 1], ["shells", 3, 8, 16], ["oil", 1, 1, 2], ["bandage", 2, 1, 3], ["fittings_fine", 2, 1, 2], ["fittings_rare", 1, 1, 1]],
-	"camp": [["tuber_seed", 2, 2, 4], ["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["salt", 3, 4, 12], ["bone", 2, 2, 5], ["fittings_fine", 1, 1, 1]],
+	"camp": [["tuber_seed", 2, 2, 4], ["rounds", 3, 6, 16], ["meat", 3, 1, 3], ["cloth", 3, 1, 3], ["wood", 2, 3, 8], ["shells", 4, 4, 12], ["bandage", 3, 1, 2], ["cigarettes", 2, 2, 10], ["salt", 3, 4, 12], ["bone", 2, 2, 5], ["fittings_fine", 1, 1, 1]],
 	"vault": [["rockets", 1, 1, 2], ["rifle", 3, 30, 60], ["coin", 4, 4, 10], ["bell", 2, 1, 2], ["icon", 2, 1, 2], ["salve", 2, 1, 2], ["ledger", 2, 1, 2], ["oil", 2, 1, 2], ["shells", 3, 12, 24], ["milk", 1, 1, 1], ["fittings_rare", 2, 1, 1], ["fittings_storied", 1, 1, 1]],
-	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1]],
+	"corpse": [["rounds", 3, 4, 10], ["shells", 5, 3, 8], ["bone", 3, 1, 3], ["cloth", 3, 1, 2], ["salt", 3, 2, 8], ["coin", 1, 1, 2], ["meat", 1, 1, 1], ["cigarettes", 1, 1, 6]],
 }
 
 ## Lost books found in the waste's ruins, in the order they turn up; and the one each isle keeps.
@@ -296,16 +297,16 @@ const ISLE_BOOKS := {"hrafn": "book_saga", "fen": "book_hymnal", "kala": "book_k
 
 ## What each trader keeps for sale, beyond what reputation opens.
 const STOCK := {
-	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil"],
+	"trader": ["shells", "rounds", "tuber_seed", "tuber", "bandage", "meat", "cloth", "scrap", "oil", "cigarettes"],
 	"oilwright": ["oil", "herb", "beacon_oil"],
 	"smith": ["pick", "hatchet", "prybar", "ash_radio", "scrap", "shells", "rounds", "rifle", "rockets", "fittings_fine"],
 	"healer": ["bandage", "salve", "salts", "herb", "herb_seed", "milk"],
-	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap"],
+	"quartermaster": ["shells", "rounds", "rifle", "meat", "cloth", "bandage", "scrap", "cigarettes"],
 }
 
 
 ## Which ammunition each gun takes.
-const AMMO := {"shotgun": "shells", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel", "carbine": "rifle", "hand_cannon": "shells"}
+const AMMO := {"shotgun": "shells", "autoshotgun": "shells", "smg": "rounds", "pistol": "rounds", "pistol9": "rounds", "revolver": "rounds", "machine_gun": "rifle", "lmg": "rifle", "sniper": "rifle", "minigun": "rifle", "rocket": "rockets", "flamer": "fuel", "carbine": "rifle", "hand_cannon": "shells"}
 
 
 static func info(id: String) -> Dictionary:

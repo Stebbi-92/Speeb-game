@@ -162,6 +162,14 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 		"milk":
 			_poly([[0.14, 0.48], [0.86, 0.48], [0.72, 0.8], [0.28, 0.8]], Color(0.75, 0.62, 0.48))
 			_box(0.14, 0.44, 0.72, 0.07, Color(0.97, 0.96, 0.92))
+		"cigarettes":
+			# An open pack, three standing up out of it
+			for i in 3:
+				var x := 0.33 + i * 0.13
+				_box(x, 0.12 + i * 0.04, 0.1, 0.36, Color(0.92, 0.9, 0.85))
+				_box(x, 0.12 + i * 0.04, 0.1, 0.08, Color(0.8, 0.55, 0.3))
+			_box(0.24, 0.4, 0.52, 0.48, Color(0.62, 0.16, 0.14))
+			_box(0.24, 0.4, 0.52, 0.08, Color(0.85, 0.82, 0.75))
 		"bandage":
 			_poly([[0.2, 0.32], [0.68, 0.2], [0.8, 0.68], [0.32, 0.8]], Color(0.9, 0.87, 0.8))
 			_box(0.44, 0.3, 0.12, 0.4, Color(0.75, 0.2, 0.18))
@@ -241,7 +249,7 @@ func _picture(item: String, info: Dictionary, c: Color) -> void:
 				_ln([0.38 + cos(ang) * 0.18, 0.42 + sin(ang) * 0.18], [0.38 + cos(ang) * 0.27, 0.42 + sin(ang) * 0.27], c, 0.08)
 			_ln([0.55, 0.78], [0.85, 0.48], steel, 0.06)
 			_ln([0.6, 0.85], [0.88, 0.62], steel, 0.04)
-		"shotgun", "machine_gun", "lmg", "sniper", "pistol", "pistol9", "revolver", "rocket", "minigun", "flamer", "carbine", "hand_cannon":
+		"shotgun", "autoshotgun", "smg", "machine_gun", "lmg", "sniper", "pistol", "pistol9", "revolver", "rocket", "minigun", "flamer", "carbine", "hand_cannon":
 			_gun(ArmsDB.look(item))
 		"war_pick":
 			_ln([0.22, 0.92], [0.68, 0.18], Color(0.88, 0.84, 0.7), 0.08)
@@ -449,11 +457,11 @@ func _gun(g: String) -> void:
 	var wood := Color(0.66, 0.44, 0.26)
 	var olive := Color(0.5, 0.56, 0.4)
 	match g:
-		"shotgun":
+		"shotgun", "autoshotgun":
 			_poly([[0.05, 0.42], [0.62, 0.42], [0.62, 0.5], [0.05, 0.5]], steel)
 			_box(0.24, 0.5, 0.2, 0.07, wood)
 			_poly([[0.6, 0.4], [0.72, 0.4], [0.95, 0.5], [0.92, 0.68], [0.72, 0.56], [0.6, 0.56]], wood)
-		"machine_gun", "lmg":
+		"machine_gun", "lmg", "smg":
 			_box(0.05, 0.4, 0.55, 0.08, dark)
 			_box(0.25, 0.48, 0.12, 0.22, dark)
 			_box(0.55, 0.36, 0.2, 0.16, olive)
