@@ -11261,19 +11261,58 @@ func debug_hitshot() -> void:
 		e.set_meta("raid", true)
 		made.append(e)
 	await get_tree().create_timer(1.5).timeout
-	for e in made:
+	for i in made.size():
+		if not is_instance_valid(made[i]):
+			print("HITSHOT %s gone" % kinds[i])
+			continue
+		var e: LesserSpeeb = made[i]
 		e.set_physics_process(false)
+		# Back where it was set, standing on the ground, whatever it did in the meantime
+		var q := player.global_position + f * dist + side * (i - (made.size() - 1) * 0.5) * gap
+		e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+		e.visible = true
 		debug_show_hits(e)
+	made = made.filter(func(e): return is_instance_valid(e))
 	for view in ["side", "front"]:
 		for e in made:
 			var to := side if view == "side" else -f
 			e.rotation.y = atan2(to.x, to.z)
 			var gp: Vector3 = e.global_position
-			print("HITSHOT %s %s at %s hits=%d" % [view, e.variant if e.variant != "" else e.kind, gp, e.find_children("*", "CollisionShape3D", true, false).size()])
+			print("HITSHOT %s %s at %s hits=%d ground=%.2f hidden=%s" % [view, e.variant if e.variant != "" else e.kind, gp, e.find_children("*", "CollisionShape3D", true, false).size(), terrain.height_at(gp.x, gp.z), e.hidden])
 		_debug_aim(player.global_position + f * dist + Vector3(0, float(OS.get_environment("AIM_Y")) if OS.get_environment("AIM_Y") != "" else 0.5, 0))
 		for k in 20:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_" + view + ".png")
+	get_tree().quit()
+
+
+## Picture aid: a broken tower and a shrine (RUINS=tower,shrine) set before the eye, their solid shapes drawn red.
+func debug_ruinshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := OS.get_environment("RUINS").split(",", false)
+	for i in kinds.size():
+		var c := player.global_position + f * 24.0 + side * (i - (kinds.size() - 1) * 0.5) * 22.0
+		c.y = terrain.height_at(c.x, c.z)
+		var n := Node3D.new()
+		n.position = c
+		n.rotation.y = atan2(f.x, f.z)
+		add_child(n)
+		var rd := RandomNumberGenerator.new()
+		rd.seed = 77 + i
+		WDress.ruin(self, kinds[i], n, rd, land_at(c))
+		if OS.get_environment("HITS") != "":
+			for b in n.find_children("*", "StaticBody3D", true, false):
+				debug_show_hits(b)
+	_debug_aim(player.global_position + f * 24.0 + Vector3(0, 1.0, 0))
+	for k in 30:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT"))
 	get_tree().quit()
 
 
@@ -11301,6 +11340,13 @@ func debug_show_hits(body: Node) -> void:
 			var m := BoxMesh.new()
 			m.size = (sh as BoxShape3D).size
 			mi.mesh = m
+		elif sh is ConcavePolygonShape3D:
+			var am := ArrayMesh.new()
+			var arr := []
+			arr.resize(Mesh.ARRAY_MAX)
+			arr[Mesh.ARRAY_VERTEX] = (sh as ConcavePolygonShape3D).get_faces()
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			mi.mesh = am
 		elif sh is CylinderShape3D:
 			var m := CylinderMesh.new()
 			m.top_radius = (sh as CylinderShape3D).radius

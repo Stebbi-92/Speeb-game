@@ -158,9 +158,48 @@ const SCANS := {
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
 		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
-	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
-	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
-		{"own_head": true, "bone": "Head_65", "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
+	# The Nykur: "Horse" by henrysteve973, unsaddled, a grey coat; struck along its body, neck and head
+	"nykur": ["res://assets/models/foes/nykur/horse_henry.glb", 1.35, "Skeleton|Walk", 1.8, Vector2(0.9, 0.6),
+		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true,
+		"hide": ["Object_12", "Object_115"], "coat": ["Horse", Color(0.5, 0.52, 0.54)], "tint": Color(0.7, 0.72, 0.74),
+		"hits": [["capsule", 0.33, Vector3(0, 1.25, -0.72), Vector3(0, 1.25, 0.44)], ["capsule", 0.17, Vector3(0, 1.4, 0.62), Vector3(0, 1.75, 1.0)],
+			["sphere", 0.2, Vector3(0, 1.78, 1.22)], ["box", Vector3(0.42, 0.78, 0.3), Vector3(0, 0.51, 0.48)],
+			["box", Vector3(0.42, 0.78, 0.42), Vector3(0, 0.51, -0.62)]]}],
+	# The sea's great ones: "Emerald Leviathan" by Meleagors, coloured to each kind, swimming with its crest out of the
+	# water. Measured by its length at size 1 (4 m), its body sunk 1.5 m so the crest rides above the swell
+	"serpent": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.62, 0.66, 0.68)}],
+	"weed_eel": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.55, 0.75, 0.42)}],
+	"lampeater": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.95, 0.9, 0.78)}],
+	"bellwound": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.5, 0.38, 0.55)}],
+	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms
+	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "Take 001", 0.0, Vector2(0.88, 0.46),
+		{"own_head": true, "bone": "C_Head_J", "bone_bounds": true, "turn": PI,
+		"hits": [["capsule", 0.3, Vector3(0, 1.55, -0.15), Vector3(0, 2.0, 0.9)], ["sphere", 0.28, Vector3(0, 2.3, 1.2)],
+			["box", Vector3(0.6, 1.3, 0.5), Vector3(0, 0.8, -0.2)], ["box", Vector3(0.9, 1.5, 0.4), Vector3(0, 1.1, 1.1)]]}],
+	# The Ember Sack: "Living Flesh Blob" by Yury Misiyuk, fire showing through it
+	"bloater": ["res://assets/models/foes/sack/sack_livingblob.glb", 1.1, "Armature|ArmatureAction", 0.0, Vector2(0.7, 0.0),
+		{"own_head": true, "bone_bounds": true, "tint": Color(1.0, 0.62, 0.45), "hits_k": true,
+		"hits": [["sphere", 0.52, Vector3(0, 0.56, 0)]]}],
+	# Kulshedra, the she-dragon: "European Dragon" by Nonexistent 101, wings folded as she walks. Struck along her
+	# body, neck, head, folded wings, legs and tail (measured at size 1, scaled to hers in _add_hits)
+	"kulshedra": ["res://assets/models/foes/kulshedra/dragon_european.glb", 1.9, "Walk", 2.4, Vector2(0.65, 0.75),
+		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
+		"bone_bounds": true, "hits_k": true,
+		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
+			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
+			["box", Vector3(0.7, 0.3, 1.2), Vector3(-0.33, 0.27, 0.45)], ["capsule", 0.12, Vector3(-0.2, 0.26, -0.45), Vector3(0.3, 0.22, -2.1)]]}],
 }
 static var _scan_bounds := {}
 
@@ -395,7 +434,7 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 		variant = k
 		k = VARIANTS[k].base
 	kind = k
-	_sk = boss if SCANS.has(boss) else (variant if SCANS.has(variant) else "")
+	_sk = boss if SCANS.has(boss) else (variant if SCANS.has(variant) else (kind if SCANS.has(kind) else ""))
 	code = IDOL_CODES[randi() % IDOL_CODES.size()] if k == "idol" else c
 	level = lvl
 	spec = BOSSES[boss] if boss != "" else KINDS[k]
@@ -447,11 +486,13 @@ func _ready() -> void:
 		_build_wings()
 	if kind == "bloater":
 		_build_sack()
-	if variant == "bellwound":
+	if _sk != "":
+		pass   # the sea's great ones have their own body now (see SCANS)
+	elif variant == "bellwound":
 		_build_serpent(Color(0.2, 0.16, 0.22), 2.6, 11)
 	elif kind == "serpent":
 		_build_serpent()
-	if kind == "lampeater":
+	if kind == "lampeater" and _sk == "":
 		_build_serpent(Color(0.78, 0.76, 0.7), 1.9, 7)
 	if spec.get("body", "") == "model":
 		_fb = FoeBody.make(kind)
@@ -919,7 +960,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = (-float(spec.radius) + _lift) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
+		_scan.position.y = (-float(spec.radius) + _lift + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
 		_scan_tick(pace)
 		if _dust:
@@ -1082,16 +1123,28 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), turn * Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
 	_scan = Node3D.new()
 	_scan.add_child(m)
-	_scan.position.y = -float(spec.radius) / g
+	_scan.position.y = -float(spec.radius) / g + float(opt.get("lift", 0.0)) * float(spec.size) / g
 	add_child(_scan)
+	for h in opt.get("hide", []):
+		for n in m.find_children(str(h), "Node3D", true, false):
+			n.queue_free()
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
 		mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if opt.has("coat") and mm.mesh:
+			# A coat of its own colour in place of the model's markings, keeping the hair's lie
+			for si in mm.mesh.get_surface_count():
+				var sm := mm.mesh.surface_get_material(si)
+				if sm is StandardMaterial3D and sm.resource_name == str(opt.coat[0]):
+					var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+					t.albedo_texture = null
+					t.albedo_color = opt.coat[1]
+					mm.set_surface_override_material(si, t)
 		if opt.has("tint") and mm.mesh:
 			# Tinted to its land: ash, sand, basalt, tar
 			for si in mm.mesh.get_surface_count():
 				var sm := mm.mesh.surface_get_material(si)
-				if sm is StandardMaterial3D:
+				if sm is StandardMaterial3D and mm.get_surface_override_material(si) == null:
 					var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
 					t.albedo_color = t.albedo_color * (opt.tint as Color)
 					mm.set_surface_override_material(si, t)
@@ -1133,6 +1186,41 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	cap.height = maxf(2.0 * r, tall * g * (0.75 if hp.y > 0.3 else 1.0))
 	cs.shape = cap
 	cs.position.y = -r + cap.height * 0.5
+	if opt.has("hits"):
+		_add_hits(opt.hits, g, float(spec.size) / g if opt.get("hits_k", false) else 1.0)
+
+
+## A long body is struck where it is, not only up a post through its middle: its own shapes, measured from its
+## posed silhouette (see SCANS), in metres at the form's size with the ground at 0 and its head ahead (+Z).
+## ["capsule", radius, from, to], ["sphere", radius, centre], ["box", size, centre].
+func _add_hits(hits: Array, g: float, k := 1.0) -> void:
+	var lift := Vector3(0, -float(spec.radius) / g + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0)) * float(spec.size) / g, 0)
+	for h in hits:
+		var cs := CollisionShape3D.new()
+		cs.name = "Hit"
+		match str(h[0]):
+			"capsule":
+				var a: Vector3 = (h[2] as Vector3) * k
+				var b: Vector3 = (h[3] as Vector3) * k
+				var c := CapsuleShape3D.new()
+				c.radius = float(h[1]) * k
+				c.height = maxf(a.distance_to(b) + 2.0 * c.radius, 2.0 * c.radius + 0.01)
+				cs.shape = c
+				var mid := (a + b) * 0.5
+				var up := (b - a).normalized() if a.distance_to(b) > 0.001 else Vector3.UP
+				var side := up.cross(Vector3.RIGHT) if absf(up.dot(Vector3.RIGHT)) < 0.9 else up.cross(Vector3.FORWARD)
+				cs.transform = Transform3D(Basis(side.cross(up).normalized(), up, side.normalized()).orthonormalized(), mid + lift)
+			"sphere":
+				var sp := SphereShape3D.new()
+				sp.radius = float(h[1]) * k
+				cs.shape = sp
+				cs.position = (h[2] as Vector3) * k + lift
+			"box":
+				var bx := BoxShape3D.new()
+				bx.size = (h[1] as Vector3) * k
+				cs.shape = bx
+				cs.position = (h[2] as Vector3) * k + lift
+		add_child(cs)
 
 
 ## The true bounds of a skinned model at rest: each point carried by its bones, as the skin would draw it.
@@ -1187,9 +1275,14 @@ func _scan_play(an: String) -> void:
 func _scan_tick(pace: float) -> void:
 	if _scan_anim:
 		var walk: float = SCANS[_sk][3]
+		var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
 		if _scan_idle != "" and pace < 0.3:
 			_scan_play(_scan_idle)
 			_scan_anim.speed_scale = 1.0
+		elif o.has("run") and pace > walk * 1.6:
+			# Its own run, at the pace it was made for
+			_scan_play(str(o.run[0]))
+			_scan_anim.speed_scale = clampf(pace / float(o.run[1]), 0.6, 1.8)
 		else:
 			_scan_play(_scan_walk)
 			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
@@ -1433,6 +1526,15 @@ func _build_sack() -> void:
 	glow.emission_enabled = true
 	glow.emission = Color(1.0, 0.4, 0.1)
 	glow.emission_energy_multiplier = 2.0
+	if _sk != "":
+		# Its own body: only the fire's light inside it
+		var fl := OmniLight3D.new()
+		fl.light_color = Color(1.0, 0.5, 0.2)
+		fl.light_energy = 1.4
+		fl.omni_range = 4.0
+		fl.position = Vector3(0, -float(spec.radius) + 0.5 * float(spec.size), 0)
+		add_child(fl)
+		return
 	var sack := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.42 * spec.size

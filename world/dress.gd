@@ -18,6 +18,88 @@ static func kp(parent: Node3D, kit: String, model: String, local: Vector3, yaw :
 	return n
 
 
+## "City Ruins Environment" (falk lochmann, CC BY 4.0): five heaps of a fallen concrete building, its bars showing.
+const RUINS := "res://assets/models/ruins/ruins_falk.glb"
+const HEAPS := 5
+static var _ruins: PackedScene
+static var _heap_faces := {}   ## each heap's drawn surface in metres, set on its base at the middle
+static var _heap_box := {}
+
+
+## A rubble heap, solid where it is drawn (you can climb it, hide behind its walls and shoot through its gaps).
+static func heap(parent: Node3D, i: int, local: Vector3, yaw: float, s: float) -> Node3D:
+	if _ruins == null:
+		_ruins = load(RUINS)
+	var inst: Node3D = _ruins.instantiate()
+	var keep: Node3D = null
+	var pieces := inst.find_children("ruim_*", "Node3D", true, false).filter(func(x): return not x is MeshInstance3D)
+	pieces.sort_custom(func(a, b): return str(a.name) < str(b.name))
+	keep = pieces[i % pieces.size()]
+	for p in pieces:
+		if p != keep:
+			p.get_parent().remove_child(p)
+			p.free()
+	var meshes := keep.find_children("*", "MeshInstance3D", true, false)
+	if not _heap_box.has(i):
+		var bb := AABB()
+		var first := true
+		var faces := PackedVector3Array()
+		for mi in meshes:
+			var tr := Arms._chain(mi, inst)
+			var a: AABB = tr * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+			for f in (mi as MeshInstance3D).mesh.get_faces():
+				faces.append(tr * f)
+		_heap_box[i] = bb
+		var base := Vector3(bb.get_center().x, bb.position.y, bb.get_center().z)
+		for k in faces.size():
+			faces[k] = (faces[k] - base) * 0.1
+		var sh := ConcavePolygonShape3D.new()
+		sh.set_faces(faces)
+		_heap_faces[i] = sh
+	var b: AABB = _heap_box[i]
+	var n := Node3D.new()
+	parent.add_child(n)
+	n.position = local
+	n.rotation.y = yaw
+	n.scale = Vector3.ONE * s
+	# Tenth-metres to metres, and set on its base at the middle
+	var mid := Node3D.new()
+	mid.transform = Transform3D(Basis.from_scale(Vector3.ONE * 0.1), -Vector3(b.get_center().x, b.position.y, b.get_center().z) * 0.1)
+	n.add_child(mid)
+	mid.add_child(inst)
+	for mi in meshes:
+		(mi as GeometryInstance3D).visibility_range_end = NEAR
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	cs.shape = _heap_faces[i]
+	body.add_child(cs)
+	n.add_child(body)
+	return n
+
+
+## A stone gargoyle on its plinth ("Gargoyle" by adamvfc, CC BY 4.0), solid as plinth and beast: a column you can
+## stand behind and the crouched watcher on top, wings and all.
+static func gargoyle(parent: Node3D, local: Vector3, yaw: float, s: float) -> Node3D:
+	var n := kp(parent, "ruin", "gargoyle", local, yaw, s, false)
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	for part in [[Vector3(0.62, 0.22, 0.62), Vector3(0, 0.11, 0)], [Vector3(0.42, 0.8, 0.42), Vector3(0, 0.62, 0)],
+			[Vector3(1.05, 0.9, 0.8), Vector3(0, 1.46, 0.04)]]:
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = part[0]
+		cs.shape = bs
+		cs.position = part[1]
+		body.add_child(cs)
+	n.add_child(body)
+	return n
+
+
 ## A local spot under n, set down on the ground (n turns only about its upright).
 static func ground(w, n: Node3D, off: Vector3) -> Vector3:
 	var g := n.position + off.rotated(Vector3.UP, n.rotation.y)
@@ -185,8 +267,10 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 				kp(n, pick[0], pick[1], ground(w, n, off), rr.randf() * TAU, pick[2], false, Vector3(0, 0, rr.randf_range(0.0, 1.5)))
 			kp(n, "grave", "character-skeleton", ground(w, n, Vector3(1.5, 0.05, -3.5)), rr.randf() * TAU, 2.0)
 		"shrine":
-			# An altar under the sky, in a ring of broken pillars, its candles long out
+			# An altar under the sky, in a ring of broken pillars, its candles long out, two stone watchers before it
 			kp(n, "grave", "altar-stone", ground(w, n, Vector3.ZERO), 0.0, 3.0, true)
+			for x in [-2.2, 2.2]:
+				gargoyle(n, ground(w, n, Vector3(x, 0, 2.6)), 0.0, 1.1)
 			kp(n, "grave", "candle-multiple", Vector3(-0.8, ground(w, n, Vector3.ZERO).y + 1.45, 0.1), 0.0, 2.0)
 			kp(n, "grave", "detail-chalice", Vector3(0.7, ground(w, n, Vector3.ZERO).y + 1.45, 0.0), 0.0, 2.2)
 			for k in 6:
@@ -195,8 +279,11 @@ static func ruin(w, kind: String, n: Node3D, rr: RandomNumberGenerator, land: St
 				var pick: Array = [["grave", "pillar-obelisk", rr.randf_range(3.0, 4.5)], ["grave", "column-large", rr.randf_range(2.6, 3.6)], ["grave", "gravestone-debris", 2.6]][k % 3]
 				kp(n, pick[0], pick[1], ground(w, n, off), rr.randf() * TAU, pick[2], true, Vector3(rr.randf_range(-0.08, 0.08), 0, rr.randf_range(-0.08, 0.08)))
 		"tower":
-			# A keep's tower, its top fallen, its stones about its foot
+			# A keep's tower, its top fallen, its stones about its foot; a heap of a later fallen building beside it,
+			# and a stone watcher left on its plinth
 			var base := ground(w, n, Vector3.ZERO)
+			heap(n, rr.randi() % HEAPS, ground(w, n, Vector3(-9.0, 0, rr.randf_range(-3, 3))), rr.randf() * TAU, rr.randf_range(0.55, 0.75))
+			gargoyle(n, ground(w, n, Vector3(4.5, 0, 4.5)), rr.randf_range(-0.5, 0.5) + PI * 0.25, rr.randf_range(1.2, 1.4))
 			kp(n, "castle", "tower-hexagon-base", base, rr.randf() * TAU, 5.0, true)
 			if rr.randf() < 0.6:
 				kp(n, "castle", "tower-hexagon-mid", base + Vector3(0, 6.55, 0), rr.randf() * TAU, 5.0, false)

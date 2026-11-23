@@ -97,7 +97,13 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Wild Boar - Male"](https://skfb.ly/p9UvE) | Dakta.Grower.Nzl | The Ash Tusker (its coat is drawn in the game) |
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
-| ["Prowler Dragon Variant Rig"](https://skfb.ly/o8IRS) | DM-913 | Kulshedra, the she-dragon (`assets/models/foes/drake`) |
+| ["European Dragon"](https://sketchfab.com/3d-models/european-dragon-82f393a2e6c048ad80c171ce3b3a7b87) | Nonexistent 101 | Kulshedra, the she-dragon (`assets/models/foes/kulshedra`) |
+| ["Horse"](https://sketchfab.com/3d-models/horse-a6f860e43e364619bccb174a1ac7d0c9) | henrysteve973 | The Nykur, unsaddled and grey (`assets/models/foes/nykur`) |
+| ["Emerald Leviathan - Stylized Animated Model"](https://sketchfab.com/3d-models/emerald-leviathan-stylized-animated-model-1edc6281744846eca9924ce3dd2d19b5) | Meleagors | The Grey Wyrm, Weed Eel, Lamp-Eater and Bell-Wound, coloured to each (`assets/models/foes/leviathan`) |
+| ["The Human Deer"](https://sketchfab.com/3d-models/the-human-deer-7644694337404bb18eb68e6b637740a1) | ceeleste | The Unseen (`assets/models/foes/unseen`) |
+| ["Living Flesh Blob - Free Organic Horror Asset"](https://sketchfab.com/3d-models/living-flesh-blob-free-organic-horror-asset-6357bbc094d54cf5ba150ef2951b3750) | Yury Misiyuk | The Ember Sack (`assets/models/foes/sack`) |
+| ["Gargoyle (8.5K Tris)"](https://sketchfab.com/3d-models/gargoyle-85k-tris-6ee63765c42642928c61510dac7b3df4) | adamvfc | Stone watchers at broken towers and shrines |
+| ["City Ruins Environment"](https://sketchfab.com/3d-models/city-ruins-environment-0d32be87779243749417ec783fb3ef60) | falk lochmann | Rubble heaps beside the broken towers (`assets/models/ruins`) |
 | ["Abandoned Barn"](https://skfb.ly/oJFBW) | Arsen Ismailov | Barns standing alone in the waste (`assets/models/buildings`) |
 | ["Russian Izba - Low-Poly 3D Game Asset"](https://skfb.ly/pQt9Y) | SergeyLubivui | Farmhouses outside the towns' walls |
 | ["Belarusian village"](https://skfb.ly/oRrpD) | Liminal Bifrost | Farmhouses and barns outside the towns' walls |
