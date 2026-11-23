@@ -111,6 +111,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Western Bar - Mobile Game-Ready"](https://skfb.ly/6VCwp) | Ali haghshenas | A roadhouse outside the dune towns |
 | ["Western House - Mobile Game ready"](https://skfb.ly/6R7QG) | Ali haghshenas | Frame houses outside the dune and salt towns |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
+| ["Cursed Undead Soldier Rig"](https://sketchfab.com/3d-models/cursed-undead-soldier-rig-b2e39de76b834d978adee5716aec814d) | DM-913 | The Draugr (`assets/models/foes/draugr`) |
+| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | The Draugr's walk, run and guard (its animations only, baked onto the Draugr's bones: `assets/models/foes/draugr/draugr_moves.res`) |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |
 | ["Flamethrower Low Poly"](https://skfb.ly/orCTI) | Shaz | The flamethrower |

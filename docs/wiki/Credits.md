@@ -97,6 +97,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Wild Boar - Male"](https://skfb.ly/p9UvE) | Dakta.Grower.Nzl | The Ash Tusker (its coat is drawn in the game) |
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
+| ["Cursed Undead Soldier Rig"](https://sketchfab.com/3d-models/cursed-undead-soldier-rig-b2e39de76b834d978adee5716aec814d) | DM-913 | The Draugr (`assets/models/foes/draugr`) |
+| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | The Draugr's walk, run and guard (its animations only, baked onto the Draugr's bones: `assets/models/foes/draugr/draugr_moves.res`) |
 | ["European Dragon"](https://sketchfab.com/3d-models/european-dragon-82f393a2e6c048ad80c171ce3b3a7b87) | Nonexistent 101 | Kulshedra, the she-dragon (`assets/models/foes/kulshedra`) |
 | ["Horse"](https://sketchfab.com/3d-models/horse-a6f860e43e364619bccb174a1ac7d0c9) | henrysteve973 | The Nykur, unsaddled and grey (`assets/models/foes/nykur`) |
 | ["Emerald Leviathan - Stylized Animated Model"](https://sketchfab.com/3d-models/emerald-leviathan-stylized-animated-model-1edc6281744846eca9924ce3dd2d19b5) | Meleagors | The Grey Wyrm, Weed Eel, Lamp-Eater and Bell-Wound, coloured to each (`assets/models/foes/leviathan`) |

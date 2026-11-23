@@ -200,6 +200,18 @@ const SCANS := {
 		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
 			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
 			["box", Vector3(0.7, 0.3, 1.2), Vector3(-0.33, 0.27, 0.45)], ["capsule", 0.12, Vector3(-0.2, 0.26, -0.45), Vector3(0.3, 0.22, -2.1)]]}],
+	# The Draugr: "Cursed Undead Soldier Rig" by DM-913, sword in hand. It came with only its slash; it walks, runs
+	# and stands by Nerd Survivor's (HighPolyDensity), baked onto its own bones (moves: tools/bake_draugr_moves.gd).
+	# Its rest is a low crouch, so 1.12 of height there stands 2 m tall as it walks. Set over its middle (shift,
+	# in parts of its height: its rest is measured with the sword held out); its head shot is sized to its own head
+	# (weak_k). Struck on its body, head (reaching forward for its run), left arm, sword arm and hilt, and legs
+	"draugr": ["res://assets/models/foes/draugr/draugr_cursedsoldier.glb", 1.12, "moves/Walk", 0.9, Vector2(1.21, 0.0),
+		{"own_head": true, "bone": "Head_47", "idle": "moves/Idle", "run": ["moves/Run", 2.3], "moves": "res://assets/models/foes/draugr/draugr_moves.res",
+		"strike": ["Slash", 0.95], "bone_bounds": true, "shift": Vector3(-0.14, 0, 0.128), "tint": Color(0.62, 0.72, 0.8),
+		"head_off": Vector3(0, 0.045, 0.013), "weak_k": 0.34,
+		"hits": [["capsule", 0.21, Vector3(0, 1.08, -0.05), Vector3(0, 1.52, 0.04)], ["capsule", 0.15, Vector3(0, 1.9, 0.0), Vector3(0, 1.87, 0.2)],
+			["box", Vector3(0.22, 0.8, 0.5), Vector3(0.31, 1.2, -0.02)], ["box", Vector3(0.46, 0.9, 0.7), Vector3(-0.43, 1.15, 0.05)],
+			["box", Vector3(0.4, 0.83, 0.8), Vector3(0.02, 0.535, 0.03)]]}],
 }
 static var _scan_bounds := {}
 
@@ -499,7 +511,11 @@ func _ready() -> void:
 		_fb.position.y = -float(spec.radius)
 		add_child(_fb)
 		head.visible = false
-		head.position.y = float(spec.head_y)
+		if _scan:
+			# A scanned body of its own (the draugr): the kind's body still keeps its ways, unseen
+			_fb.visible = false
+		else:
+			head.position.y = float(spec.head_y)
 		_flank = randf_range(-PI, PI)
 		_ammo = 9
 		if Game.wasteland and boss == "":
@@ -510,9 +526,10 @@ func _ready() -> void:
 		# The knight's and the breaker's own armour is their plate: it soaks the same, with nothing drawn over it
 		if plate > 0.0 and not kind in ["knight", "unlit_brute"]:
 			_fb.wear_plate(false)
-		_fit_shape(cs)
-		# Once its arms and plate are on and it has found its stance, fitted again
-		get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
+		if not _scan:
+			_fit_shape(cs)
+			# Once its arms and plate are on and it has found its stance, fitted again
+			get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -1121,6 +1138,7 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	# A scan faces +Z, as a form does when it walks
 	var turn := Basis(Vector3.UP, float(opt.get("turn", 0.0)))
 	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), turn * Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
+	m.position += (opt.get("shift", Vector3.ZERO) as Vector3) * tall
 	_scan = Node3D.new()
 	_scan.add_child(m)
 	_scan.position.y = -float(spec.radius) / g + float(opt.get("lift", 0.0)) * float(spec.size) / g
@@ -1151,6 +1169,9 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	var aps := m.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		_scan_anim = aps[0]
+		if opt.has("moves") and ResourceLoader.exists(str(opt.moves)) and not _scan_anim.has_animation_library("moves"):
+			# Clips it lacks, baked onto its own bones from another body (see SCANS)
+			_scan_anim.add_animation_library("moves", load(str(opt.moves)))
 		var names := _scan_anim.get_animation_list()
 		_scan_walk = str(sc[2]) if sc[2] is String and str(sc[2]) != "" else str(names[int(sc[2]) if sc[2] is int else 0])
 		_scan_idle = str(opt.get("idle", ""))
@@ -1164,6 +1185,9 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	head.position = Vector3(0, tall * hp.x - float(spec.radius), tall * hp.y)
 	if with_head:
 		head.scale = Vector3.ONE * float(opt.get("head_k", 0.6))
+	elif opt.has("weak_k"):
+		# Its own head kept, the unseen Speeb's head sized to it: the mark a head shot must come near
+		head.scale = Vector3.ONE * float(opt.weak_k)
 	if opt.has("bone"):
 		var sks := m.find_children("*", "Skeleton3D", true, false)
 		if not sks.is_empty():
@@ -1265,6 +1289,24 @@ static func _skinned_bounds(m: Node3D) -> AABB:
 	return bb
 
 
+var _scan_busy := 0   ## until when (msec) its own swing is playing
+
+
+## A scanned body with a swing of its own (SCANS "strike": [clip, when the blow lands]) swings it, timed so the
+## blade comes down as the wind-up ends.
+func _scan_strike(wind: float) -> void:
+	if not _scan_anim or SCANS[_sk].size() < 6 or not (SCANS[_sk][5] as Dictionary).has("strike"):
+		return
+	var st: Array = SCANS[_sk][5].strike
+	if not _scan_anim.has_animation(str(st[0])):
+		return
+	var sp := clampf(float(st[1]) / maxf(wind, 0.05), 0.6, 2.5)
+	_scan_gait = str(st[0])
+	_scan_anim.play(str(st[0]), 0.1)
+	_scan_anim.speed_scale = sp
+	_scan_busy = Time.get_ticks_msec() + int(1000.0 * _scan_anim.get_animation(str(st[0])).length / sp)
+
+
 func _scan_play(an: String) -> void:
 	if _scan_anim and an != "" and an != _scan_gait and _scan_anim.has_animation(an):
 		_scan_gait = an
@@ -1273,7 +1315,9 @@ func _scan_play(an: String) -> void:
 
 ## Its body walks with its pace (or stands, if it has a standing clip), and its Speeb's head rides its neck.
 func _scan_tick(pace: float) -> void:
-	if _scan_anim:
+	if _scan_anim and Time.get_ticks_msec() < _scan_busy:
+		pass   # its swing plays through
+	elif _scan_anim:
 		var walk: float = SCANS[_sk][3]
 		var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
 		if _scan_idle != "" and pace < 0.3:
@@ -1572,6 +1616,8 @@ func _lift_tags() -> void:
 	if not is_instance_valid(_fb):
 		return
 	var top := _fb.position.y + _fb.top() * _fb.scale.y
+	if _scan:
+		top = head.position.y + 0.15 * float(spec.size)   # the crown of its own head
 	if _name_l:
 		_name_l.position.y = top + 0.42
 	if _bar:
@@ -2020,7 +2066,7 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain and _fb.clips.has("die"):
+	if _fb and slain and _fb.clips.has("die") and not _scan:
 		_fb.act("die")
 		var tf := create_tween()
 		tf.tween_interval(1.6)
@@ -2039,6 +2085,8 @@ func die(slain: bool) -> void:
 func _topple() -> void:
 	if _fb and _fb.anim:
 		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+		if _scan_anim:
+			_scan_anim.speed_scale = 0.0
 	var side := 1.0 if _flinch.x >= 0.0 else -1.0
 	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
 	var big := float(spec.get("size", 1.0)) >= 1.5
@@ -2190,7 +2238,7 @@ func _fit_shape(cs: CollisionShape3D) -> void:
 func weak_point() -> Array:
 	if not is_instance_valid(head) or kind in ["saucer", "bloater"]:
 		return []
-	if _fb and is_instance_valid(_fb.head_node) and _fb.head_node is MeshInstance3D:
+	if _fb and not _scan and is_instance_valid(_fb.head_node) and _fb.head_node is MeshInstance3D:
 		# The model's own head, wherever its walk and swing have carried it
 		var mh: MeshInstance3D = _fb.head_node
 		var ab: AABB = mh.global_transform * mh.get_aabb()
@@ -2243,6 +2291,8 @@ func _puppet_tick(delta: float) -> void:
 		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
 		if _wind > 0.0 and _fb._once <= 0.0:
 			_fb.act("attack-melee-right")
+			if Time.get_ticks_msec() >= _scan_busy:
+				_scan_strike(0.6)
 	if _wind > 0.0:
 		_wind -= delta
 		_show_wind(0.8)
@@ -2920,6 +2970,8 @@ func _think(delta: float, p: Node3D, fd: float, speed: float):
 
 func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool) -> void:
 	var role: String = spec.get("role", "melee")
+	if _scan:
+		_scan_tick(Vector2(velocity.x, velocity.z).length())
 	var flat := p.global_position - global_position
 	flat.y = 0.0
 	var fd := flat.length()
@@ -3088,6 +3140,8 @@ func _begin_move(m: String, k: float, dir: Vector3, reach := 0.0) -> void:
 		_:
 			_fb.act("attack-melee-right", 0.55 / maxf(_wind_total, 0.2))
 			level.sfx("swing", -10, global_position, 0.8)
+	if m != "lunge":
+		_scan_strike(_wind_total)
 
 
 func _land_strike(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
