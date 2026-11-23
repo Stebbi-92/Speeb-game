@@ -256,6 +256,7 @@ func _shoot(s: Dictionary) -> void:
 	var wpn = pl.weapon
 	if fp:
 		cam.current = false
+		pl.visible = true
 		pl.cam.make_current()
 		pl.cam.far = 1500.0
 		pl.cam.fov = float(s.get("fov", 75.0))
@@ -346,11 +347,14 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 	var roll := deg_to_rad(float(s.get("roll", 0.0)))
 	if fp:
 		var pl = w.player
-		# The path is the eye; Brelm's feet are below it
+		# Brelm's feet stand on the ground actually under him (the solid ground, rocks and floors
+		# included), every frame, and the eye sits at his own height above them
 		if _eye_h < 0.0:
 			_eye_h = pl.head.position.y
 		var eye_h := _eye_h
-		pl.global_position = p - Vector3(0, eye_h, 0)
+		var feet := Vector3(p.x, _ground(p.x, p.z), p.z)
+		pl.global_position = feet
+		p = feet + Vector3(0, eye_h, 0)
 		if s.get("track", false):
 			l = _tracked(p, l)
 		var to := l - p
@@ -367,8 +371,22 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 		if p.distance_to(l) > 0.01:
 			cam.look_at(l, Vector3.UP)
 		cam.rotate_object_local(Vector3.FORWARD, roll)
+		w.player.visible = false   # out of the picture, whatever it stands under
 		if s.get("bait", null) == null:
-			w.player.global_position = Vector3(p.x, w.terrain.height_at(p.x, p.z) + 0.1, p.z)
+			w.player.global_position = Vector3(p.x, _ground(p.x, p.z), p.z)
+
+
+## The height of the solid ground at x/z: a ray down onto whatever stands there, the land's own height if it
+## finds nothing.
+func _ground(x: float, z: float) -> float:
+	var top: float = w.terrain.height_at(x, z) + 40.0
+	var q := PhysicsRayQueryParameters3D.create(Vector3(x, top, z), Vector3(x, top - 120.0, z))
+	q.exclude = [w.player.get_rid()]
+	q.collide_with_areas = false
+	var hit := w.player.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return w.terrain.height_at(x, z)
+	return float(hit.position.y)
 
 
 ## The eye follows the nearest form in front of it, smoothly, as a player's would.
@@ -428,7 +446,7 @@ func _guns(wpn, s: Dictionary, t: float) -> void:
 			if wpn.shells <= 1:
 				wpn.refill()
 			# Following a form, fire only once the sights are on it, so every shot lands
-			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.03)):
+			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.015)):
 				continue
 			wpn._try_fire()
 

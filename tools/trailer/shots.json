@@ -314,7 +314,7 @@
    "form_settle": 0.2,
    "sight": "holo",
    "aim_y": 1.1,
-   "aim_tol": 0.03
+   "aim_tol": 0.015
   },
   {
    "name": "s09_marsh",
@@ -636,7 +636,7 @@
    ],
    "sight": "scope",
    "aim_y": 1.3,
-   "aim_tol": 0.01,
+   "aim_tol": 0.005,
    "track_speed": 5
   },
   {
