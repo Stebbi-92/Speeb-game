@@ -140,7 +140,36 @@ func _anchor(s: Dictionary) -> Vector2:
 	elif s.has("xz"):
 		tgt = Vector2(s.xz[0], s.xz[1])
 	var sh: Array = s.get("shift", [0, 0])
-	return tgt + Vector2(float(sh[0]), float(sh[1]))
+	tgt += Vector2(float(sh[0]), float(sh[1]))
+	if s.has("flat"):
+		tgt = _flattest(tgt, float(s.flat))
+	return tgt
+
+
+## The levelest ground within reach of a point, for a great one to stand on rather than half sunk in a slope.
+func _flattest(c: Vector2, reach: float) -> Vector2:
+	var best := c
+	var bs := 1e9
+	var x := -reach
+	while x <= reach:
+		var z := -reach
+		while z <= reach:
+			var p := c + Vector2(x, z)
+			var lo := 1e9
+			var hi := -1e9
+			for i in 12:
+				var r := 3.0 if i < 6 else 7.0
+				var q := p + Vector2(r, 0).rotated(TAU * i / 6.0)
+				var h: float = w.terrain.height_at(q.x, q.y)
+				lo = minf(lo, h)
+				hi = maxf(hi, h)
+			var sc := (hi - lo) + Vector2(x, z).length() * 0.01
+			if sc < bs and w.terrain.height_at(p.x, p.y) > 0.5:
+				bs = sc
+				best = p
+			z += 6.0
+		x += 6.0
+	return best
 
 
 ## A point given as [x, up, z] about the anchor, or {"ang": deg, "dist": m, "up": m}: up is metres
@@ -284,6 +313,14 @@ func _shoot(s: Dictionary) -> void:
 	var forms: Array = []
 	for f in s.get("forms", []):
 		var fpnt := _pt(a, f.get("p", [0, 0, 0]), false)
+		# Dropped from a little above the real ground (rocks and slopes included) and let fall onto it
+		fpnt.y = _ground(fpnt.x, fpnt.z)
+		if f.get("still", false):
+			# Seated on the highest ground under its feet, so no side of it is sunk in a slope
+			var seat := float(f.get("seat", 1.5))
+			for i in 8:
+				var q := Vector2(fpnt.x, fpnt.z) + Vector2(seat, 0).rotated(TAU * i / 8.0)
+				fpnt.y = maxf(fpnt.y, _ground(q.x, q.y))
 		fpnt.y += 1.5
 		var e = w.spawn_at(str(f.get("kind", "rusher")), fpnt)
 		if e == null:
@@ -294,24 +331,36 @@ func _shoot(s: Dictionary) -> void:
 		e.rotation.y = atan2(fpnt.x - tgt.x, fpnt.z - tgt.z) + PI   # the bodies are built facing +z
 		if e.get("_bar_t") != null:
 			e._bar_t = 0.0
+		# The drake's file carries its rig's handles (bone shapes) as meshes: never part of the beast
+		for mi in e.find_children("*", "MeshInstance3D", true, false):
+			var pn := str(mi.get_parent().name)
+			if "Shape" in pn or pn.begins_with("Circle"):
+				(mi as MeshInstance3D).visible = false
 		if f.has("hp"):
 			e.hp = float(f.hp)
 			e.max_hp = float(f.hp)
 		if f.has("aim_y"):
 			e.set_meta("aim_y", float(f.aim_y))
 		if f.get("still", false):
-			e.set_physics_process(false)
+			e.set_meta("still_yaw", e.rotation.y)   # stands still once it has come down (below)
 		forms.append(e)
 	_forms = forms
 	w.combat_frozen = not s.get("live", false)
 	if s.has("forms"):
 		var settle := float(s.get("form_settle", 1.0))
+		for e in forms:
+			if is_instance_valid(e) and e.has_meta("still_yaw"):
+				settle = maxf(settle, 1.5)   # a still one must touch down before it is held
 		t = 0.0
 		while t < settle:
 			await get_tree().process_frame
 			t += _dt()
 			_set_hour(clock0)
 			_place_cam(path, look, 0.0, fp, s)
+	for e in forms:
+		if is_instance_valid(e) and e.has_meta("still_yaw"):
+			e.set_physics_process(false)
+			e.rotation.y = float(e.get_meta("still_yaw"))
 	# Rolling
 	_track = Vector3.INF
 	var start := _now()
