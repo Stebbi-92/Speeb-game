@@ -59,7 +59,13 @@ def find(rel):
 
 def onsets(path, db=-38, gap=0.12):
 	out = subprocess.run(["ffmpeg", "-i", path, "-af", "silencedetect=n=%ddB:d=%.2f" % (db, gap), "-f", "null", "-"], capture_output=True, text=True).stderr
-	return [float(x) for x in re.findall(r"silence_end: ([0-9.]+)", out)]
+	dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout)
+	ev = re.findall(r"silence_(start|end): ([0-9.]+)", out)
+	# A sound that starts at once has no silence before it: its first event is the silence after it.
+	# (Missing this cut great roars, swings, chops and metal hits down to the last 10 ms of the file.)
+	starts = [0.0] if not ev or ev[0][0] == "start" else []
+	starts += [float(t) for k, t in ev if k == "end" and float(t) < dur - 0.05]
+	return starts
 
 
 def run(args):

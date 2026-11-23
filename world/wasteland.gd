@@ -512,7 +512,7 @@ func _place_sounds() -> void:
 		var pl: AudioStreamPlayer = _beds[k]
 		if not is_instance_valid(pl):
 			continue
-		var db := linear_to_db(maxf(float(want[k]), 0.001)) - 14.0
+		var db := linear_to_db(maxf(float(want[k]), 0.001)) - 11.0
 		create_tween().tween_property(pl, "volume_db", maxf(db, -60.0), 0.5)
 
 
@@ -11228,12 +11228,89 @@ func debug_beastshot() -> void:
 	var c := base + side * 5.5
 	builder._rq_build(1, "cookpot", Vector3(c.x, terrain.height_at(c.x, c.z), c.z), 0.0)
 	clock = 12.0 if OS.get_environment("SHOT_OUT") != "" else 19.5
+	if OS.get_environment("HITS") != "":
+		for b in beasts.values():
+			if is_instance_valid(b):
+				debug_show_hits(b)
 	if OS.get_environment("SHOT_OUT") != "":
 		_debug_aim(base + Vector3(0, 0.4, 0))
 		for k in 40:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT"))
 		get_tree().quit()
+
+
+## Picture aid: forms (FOES=a,b,c) standing still side-on, then head-on, their hit shapes drawn over them.
+func debug_hitshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := OS.get_environment("FOES").split(",", false)
+	var dist := float(OS.get_environment("DIST")) if OS.get_environment("DIST") != "" else 9.0
+	var gap := float(OS.get_environment("GAP")) if OS.get_environment("GAP") != "" else 4.0
+	var made := []
+	for i in kinds.size():
+		var q := player.global_position + f * dist + side * (i - (kinds.size() - 1) * 0.5) * gap
+		var e := spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
+		e.set_meta("raid", true)
+		made.append(e)
+	await get_tree().create_timer(1.5).timeout
+	for e in made:
+		e.set_physics_process(false)
+		debug_show_hits(e)
+	for view in ["side", "front"]:
+		for e in made:
+			var to := side if view == "side" else -f
+			e.rotation.y = atan2(to.x, to.z)
+			var gp: Vector3 = e.global_position
+			print("HITSHOT %s %s at %s hits=%d" % [view, e.variant if e.variant != "" else e.kind, gp, e.find_children("*", "CollisionShape3D", true, false).size()])
+		_debug_aim(player.global_position + f * dist + Vector3(0, float(OS.get_environment("AIM_Y")) if OS.get_environment("AIM_Y") != "" else 0.5, 0))
+		for k in 20:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_" + view + ".png")
+	get_tree().quit()
+
+
+## Picture aid: a body's hit shapes drawn over it, see-through red, to check them against the model.
+func debug_show_hits(body: Node) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1, 0.1, 0.1, 0.35)
+	mat.no_depth_test = true
+	for cs in body.find_children("*", "CollisionShape3D", true, false):
+		var sh: Shape3D = (cs as CollisionShape3D).shape
+		var mi := MeshInstance3D.new()
+		if sh is CapsuleShape3D:
+			var m := CapsuleMesh.new()
+			m.radius = (sh as CapsuleShape3D).radius
+			m.height = (sh as CapsuleShape3D).height
+			mi.mesh = m
+		elif sh is SphereShape3D:
+			var m := SphereMesh.new()
+			m.radius = (sh as SphereShape3D).radius
+			m.height = m.radius * 2.0
+			mi.mesh = m
+		elif sh is BoxShape3D:
+			var m := BoxMesh.new()
+			m.size = (sh as BoxShape3D).size
+			mi.mesh = m
+		elif sh is CylinderShape3D:
+			var m := CylinderMesh.new()
+			m.top_radius = (sh as CylinderShape3D).radius
+			m.bottom_radius = m.top_radius
+			m.height = (sh as CylinderShape3D).height
+			mi.mesh = m
+		else:
+			continue
+		mi.material_override = mat
+		cs.add_child(mi)
 
 
 ## Picture aid: the land's scanned leavings in two rows before the eye.

@@ -468,7 +468,7 @@ func kill_line() -> void:
 		return
 	if _voice == null:
 		_voice = AudioStreamPlayer.new()
-		_voice.volume_db = 0
+		_voice.volume_db = -3
 		add_child(_voice)
 	var i := randi() % 20
 	if i == _last_line:
@@ -1877,6 +1877,19 @@ func ambient(name: String, vol_db := -6.0) -> AudioStreamPlayer:
 
 static var _takes := {}   ## each sound's recorded takes: name -> [streams]
 
+## The mix: each sound's own correction on top of where it is played, so the recordings sit together
+## (measured 2026-11-23 by the loudest 300 ms of each file). Guns go from the softest round to the
+## heaviest; a far shot is a little under the near one, so it doesn't jump louder as it passes 35 m;
+## creatures sit just under your own gun; the quiet ones that went unheard come up.
+const MIX := {
+	"sniper": 3.5, "revolver": 2.5, "pistol": 1.5, "smg": 1.0, "pistol45": -1.5, "pistol9": -3.0,
+	"sniper_far": -6.6, "revolver_far": -8.0, "pistol45_far": -6.4, "minigun_far": -6.3, "rifle_far": -4.4,
+	"pistol_far": -3.9, "smg_far": -2.7, "autoshotgun_far": -2.5, "shotgun_far": -2.3, "mg_far": -1.0, "pistol9_far": -1.0,
+	"growl_0": -3.0, "growl_1": -3.0, "growl_2": -3.0, "shriek_0": -3.0, "shriek_1": -3.0, "shriek_2": -3.0, "shriek_3": -3.0,
+	"roar": -3.0, "screech": -3.0, "great_roar": -2.0, "critter_1": -5.0, "critter_2": -5.0,
+	"fall": -6.0, "hurt": -2.0, "beam": -4.0,
+}
+
 
 ## The takes of a sound: name_1, name_2 ... if there are several, else the one file.
 static func takes_of(name: String) -> Array:
@@ -1903,10 +1916,12 @@ var hush := false   ## while true no sound is made (the shader warm-up under the
 func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 	if hush:
 		return
+	vol_db += float(MIX.get(name, 0.0))
 	# Heard from far off, a shot has its own recording: the crack gone, the roll of it left
 	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 35.0 \
 			and not takes_of(name + "_far").is_empty():
 		name += "_far"
+		vol_db += float(MIX.get(name, 0.0))
 	var all := takes_of(name)
 	if all.is_empty():
 		return
