@@ -23,6 +23,8 @@ var _hidden: Array = []
 var _track := Vector3.INF
 var _aim_err := 1.0   ## how far the eye is off the form it follows, in radians
 var _has_target := false
+var _forms: Array = []        ## the forms of the shot rolling now
+var _events := {}            ## one-off events of the shot already done
 
 
 func _init(path: String) -> void:
@@ -300,6 +302,7 @@ func _shoot(s: Dictionary) -> void:
 		if f.get("still", false):
 			e.set_physics_process(false)
 		forms.append(e)
+	_forms = forms
 	w.combat_frozen = not s.get("live", false)
 	if s.has("forms"):
 		var settle := float(s.get("form_settle", 1.0))
@@ -313,21 +316,31 @@ func _shoot(s: Dictionary) -> void:
 	_track = Vector3.INF
 	var start := _now()
 	var kindled := false
+	_events = {}
+	if fp and s.has("blade"):
+		wpn.melee = str(s.blade)
+		wpn.draw_blade()
 	t = 0.0
+	# The shot's own clock runs on the film's frames, so slow motion slows the world and not the shot
+	var step := 1.0 / fps
 	while t < dur:
 		var k := t / dur
+		_slowmo(s, t)
 		_set_hour(clock0 + rate * t)
 		_place_cam(path, look, k, fp, s)
 		if fp:
 			_guns(wpn, s, t)
+			_melee(wpn, s, t)
 		var kd = s.get("kindle", null)
 		if kd != null and not kindled and t >= float(kd.get("t", 1.0)):
 			kindled = true
 			_kindle(int(kd.get("beacon", 0)), float(kd.get("grow", 3.0)))
 		await get_tree().process_frame
-		t += _dt()
+		t += step
+	Engine.time_scale = 1.0
 	var end := _now()
 	cuts.append({"name": name, "start": start, "end": end, "dur": dur})
+	_forms = []
 	print("TRAILER cut %s frames %d-%d" % [name, start, end])
 	wpn.debug_aim = false
 	w.combat_frozen = true
@@ -367,6 +380,24 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 			pl.head.position.y = eye_h + sin(k * float(s.get("dur", 6.0)) * 11.0) * 0.03
 		pl.cam.rotation.z = roll
 	else:
+		# Following a form: the path and the look are offsets from it, turned with it
+		var fi = s.get("follow", null)
+		if fi != null and int(fi) < _forms.size() and is_instance_valid(_forms[int(fi)]):
+			var fo: Node3D = _forms[int(fi)]
+			var b := Basis(Vector3.UP, fo.global_rotation.y)
+			var ps: Array = []
+			for q in s.get("path", [[0, 2, 6]]):
+				ps.append(Vector3(float(q[0]), float(q[1]), float(q[2])))
+			var ls: Array = []
+			var lk = s.get("look", [0, 1.5, 0])
+			for q in (lk if lk[0] is Array else [lk]):
+				ls.append(Vector3(float(q[0]), float(q[1]), float(q[2])))
+			var want_p: Vector3 = fo.global_position + b * _spline(ps, e)
+			var want_l: Vector3 = fo.global_position + b * _spline(ls, e)
+			want_p.y = maxf(want_p.y, _ground(want_p.x, want_p.z) + 0.4)
+			# A camera operator's lag, not a rigid arm
+			p = cam.global_position.lerp(want_p, minf(1.0, _dt() * 4.0)) if k > 0.0 else want_p
+			l = want_l
 		cam.global_position = p
 		if p.distance_to(l) > 0.01:
 			cam.look_at(l, Vector3.UP)
@@ -432,6 +463,34 @@ func _arm(wpn, g: String, sight := "") -> void:
 		wpn.cur = wpn.guns.find(g)
 		wpn._show_model()
 	wpn.refill()
+
+
+## Slow motion in the windows the shot gives: "slowmo": [[from, to, scale], ...]
+func _slowmo(s: Dictionary, t: float) -> void:
+	var sc := 1.0
+	for win in s.get("slowmo", []):
+		if t >= float(win[0]) and t < float(win[1]):
+			sc = float(win[2])
+	if s.has("slowmo"):
+		Engine.time_scale = sc
+
+
+## The blade: "melee": [[at, heavy], ...] swings it at those times; "grenade": [at, ...] throws one.
+func _melee(wpn, s: Dictionary, t: float) -> void:
+	var ms: Array = s.get("melee", [])
+	for i in ms.size():
+		var m: Array = ms[i]
+		var key := "melee%d" % i
+		if t >= float(m[0]) and not _events.has(key):
+			_events[key] = true
+			wpn.strike(bool(m[1]) if m.size() > 1 else false)
+	var gs: Array = s.get("grenade", [])
+	for i in gs.size():
+		var key := "nade%d" % i
+		if t >= float(gs[i]) and not _events.has(key):
+			_events[key] = true
+			wpn.grenades = maxi(wpn.grenades, 1)
+			wpn.throw_grenade()
 
 
 ## Fire and aim in the windows the shot gives: "fire": [[from, to], ...], "aim": [[from, to], ...].

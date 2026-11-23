@@ -3,38 +3,6 @@
  "slot": "trailer",
  "shots": [
   {
-   "name": "s01_dawn_ash",
-   "at": "biome:forest",
-   "search": 900,
-   "clock": 16.4,
-   "hours_per_sec": 0.0,
-   "dur": 7,
-   "fov": 55,
-   "ease": "linear",
-   "path": [
-    {
-     "ang": 45,
-     "dist": 120,
-     "up": 40
-    },
-    {
-     "ang": 30,
-     "dist": 95,
-     "up": 30
-    }
-   ],
-   "look": [
-    0,
-    12,
-    0
-   ],
-   "fog": 1.0,
-   "shift": [
-    0,
-    0
-   ]
-  },
-  {
    "name": "s02_dead_forest",
    "at": "biome:forest",
    "clock": 16.6,
@@ -100,80 +68,6 @@
    ]
   },
   {
-   "name": "s04_salt_frost",
-   "at": "biome:salt",
-   "clock": 16.8,
-   "weather": "clear",
-   "dur": 5,
-   "fov": 50,
-   "path": [
-    [
-     0,
-     2,
-     70
-    ],
-    [
-     0,
-     1.6,
-     50
-    ]
-   ],
-   "look": [
-    0,
-    1,
-    -40
-   ],
-   "fog": 0.6
-  },
-  {
-   "name": "s05_ashstorm_walk",
-   "at": "biome:ash",
-   "search": 900,
-   "shift": [
-    -60,
-    80
-   ],
-   "mode": "fp",
-   "gun": "shotgun",
-   "walk": true,
-   "clock": 14.0,
-   "weather": "ashstorm",
-   "dur": 6,
-   "fov": 75,
-   "path": [
-    [
-     0,
-     1.6,
-     0
-    ],
-    [
-     0,
-     1.6,
-     -9
-    ]
-   ],
-   "look": [
-    [
-     0,
-     1.4,
-     -40
-    ],
-    [
-     6,
-     1.6,
-     -49
-    ]
-   ],
-   "preroll": 5,
-   "aim": [
-    [
-     0,
-     6
-    ]
-   ],
-   "fog": 1.0
-  },
-  {
    "name": "s06_cinderwick_dusk",
    "at": "town:cinderwick",
    "clock": 17.8,
@@ -195,6 +89,46 @@
     0,
     1,
     0
+   ]
+  },
+  {
+   "name": "s17_drake",
+   "at": "biome:dunes",
+   "shift": [
+    -60,
+    20
+   ],
+   "clock": 17.3,
+   "dur": 6,
+   "fov": 45,
+   "preroll": 4,
+   "path": [
+    [
+     0,
+     1.0,
+     26
+    ],
+    [
+     -4,
+     2.0,
+     20
+    ]
+   ],
+   "look": [
+    0,
+    3.0,
+    0
+   ],
+   "forms": [
+    {
+     "kind": "kulshedra",
+     "p": [
+      0,
+      0,
+      0
+     ],
+     "still": true
+    }
    ]
   },
   {
@@ -238,177 +172,45 @@
    ]
   },
   {
-   "name": "s08_fp_shotgun",
-   "at": "biome:ash",
-   "search": 400,
+   "name": "s18_golem",
+   "at": "biome:basalt",
+   "search": 900,
    "shift": [
-    60,
-    -60
-   ],
-   "mode": "fp",
-   "gun": "shotgun",
-   "live": true,
-   "clock": 17.0,
-   "dur": 6,
-   "fov": 75,
-   "path": [
-    [
-     0,
-     1.6,
-     0
-    ],
-    [
-     0,
-     1.6,
-     1.5
-    ]
-   ],
-   "look": [
     0,
-    1.0,
-    -20
-   ],
-   "forms": [
-    {
-     "kind": "hollow",
-     "p": [
-      -3,
-      0,
-      -18
-     ],
-     "hp": 25
-    },
-    {
-     "kind": "hollow",
-     "p": [
-      3,
-      0,
-      -21
-     ],
-     "hp": 25
-    },
-    {
-     "kind": "unlit_blade",
-     "p": [
-      0,
-      0,
-      -25
-     ],
-     "hp": 25
-    }
-   ],
-   "aim": [
-    [
-     0.3,
-     6
-    ]
-   ],
-   "fire": [
-    [
-     1.4,
-     5.8
-    ]
-   ],
-   "preroll": 5,
-   "track": true,
-   "form_settle": 0.2,
-   "sight": "holo",
-   "aim_y": 1.1,
-   "aim_tol": 0.015
-  },
-  {
-   "name": "s09_marsh",
-   "at": "biome:marsh",
-   "clock": 17.4,
-   "dur": 6,
-   "fov": 50,
-   "path": [
-    {
-     "ang": 300,
-     "dist": 75,
-     "up": 3
-    },
-    {
-     "ang": 320,
-     "dist": 65,
-     "up": 2.5
-    }
-   ],
-   "look": [
-    0,
-    1,
     0
    ],
-   "fog": 0.6
-  },
-  {
-   "name": "s10_fp_rifle",
-   "at": "biome:dunes",
-   "shift": [
-    40,
-    40
-   ],
-   "mode": "fp",
-   "gun": "machine_gun",
-   "live": true,
-   "clock": 16.5,
+   "clock": 16.8,
    "dur": 6,
-   "fov": 75,
+   "fov": 45,
+   "preroll": 4,
    "path": [
     [
-     0,
-     1.6,
-     0
+     3,
+     0.8,
+     16
     ],
     [
      0,
-     1.6,
-     1
+     1.0,
+     12
     ]
    ],
    "look": [
     0,
-    1.6,
-    -25
+    3.0,
+    0
    ],
    "forms": [
     {
-     "kind": "knight",
+     "kind": "boss_basalt",
      "p": [
       0,
       0,
-      -26
+      0
      ],
-     "hp": 90,
-     "aim_y": 1.5
-    },
-    {
-     "kind": "unlit_gun",
-     "p": [
-      5,
-      0,
-      -22
-     ],
-     "hp": 30
+     "still": true
     }
-   ],
-   "aim": [
-    [
-     0.3,
-     6
-    ]
-   ],
-   "fire": [
-    [
-     1.2,
-     5.8
-    ]
-   ],
-   "preroll": 5,
-   "track": true,
-   "form_settle": 0.2,
-   "sight": "combat_scope",
-   "aim_y": 1.2
+   ]
   },
   {
    "name": "s11_night_horde",
@@ -497,6 +299,154 @@
    "fog": 0.4
   },
   {
+   "name": "s08_fp_shotgun",
+   "at": "biome:ash",
+   "search": 400,
+   "shift": [
+    60,
+    -60
+   ],
+   "mode": "fp",
+   "gun": "shotgun",
+   "live": true,
+   "clock": 17.0,
+   "dur": 6,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     1.5
+    ]
+   ],
+   "look": [
+    0,
+    1.0,
+    -20
+   ],
+   "forms": [
+    {
+     "kind": "hollow",
+     "p": [
+      -3,
+      0,
+      -18
+     ],
+     "hp": 25
+    },
+    {
+     "kind": "hollow",
+     "p": [
+      3,
+      0,
+      -21
+     ],
+     "hp": 25
+    },
+    {
+     "kind": "unlit_blade",
+     "p": [
+      0,
+      0,
+      -25
+     ],
+     "hp": 25
+    }
+   ],
+   "aim": [
+    [
+     0.3,
+     6
+    ]
+   ],
+   "fire": [
+    [
+     1.4,
+     5.8
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2,
+   "sight": "holo",
+   "aim_y": 1.1,
+   "aim_tol": 0.015
+  },
+  {
+   "name": "s10_fp_rifle",
+   "at": "biome:dunes",
+   "shift": [
+    40,
+    40
+   ],
+   "mode": "fp",
+   "gun": "machine_gun",
+   "live": true,
+   "clock": 16.5,
+   "dur": 6,
+   "fov": 75,
+   "path": [
+    [
+     0,
+     1.6,
+     0
+    ],
+    [
+     0,
+     1.6,
+     1
+    ]
+   ],
+   "look": [
+    0,
+    1.6,
+    -25
+   ],
+   "forms": [
+    {
+     "kind": "knight",
+     "p": [
+      0,
+      0,
+      -26
+     ],
+     "hp": 90,
+     "aim_y": 1.5
+    },
+    {
+     "kind": "unlit_gun",
+     "p": [
+      5,
+      0,
+      -22
+     ],
+     "hp": 30
+    }
+   ],
+   "aim": [
+    [
+     0.3,
+     6
+    ]
+   ],
+   "fire": [
+    [
+     1.2,
+     5.8
+    ]
+   ],
+   "preroll": 5,
+   "track": true,
+   "form_settle": 0.2,
+   "sight": "combat_scope",
+   "aim_y": 1.2
+  },
+  {
    "name": "s12_fp_flamer",
    "at": "biome:forest",
    "shift": [
@@ -565,6 +515,71 @@
     ]
    ],
    "aim_tol": 0.08
+  },
+  {
+   "name": "s14_beacon_kindle",
+   "at": "beacon:0",
+   "clock": 21.5,
+   "dur": 9,
+   "fov": 50,
+   "ease": "smooth",
+   "path": [
+    {
+     "ang": 200,
+     "dist": 26,
+     "up": 1.0
+    },
+    {
+     "ang": 210,
+     "dist": 34,
+     "up": 12
+    }
+   ],
+   "look": [
+    [
+     0,
+     4,
+     0
+    ],
+    [
+     0,
+     22,
+     0
+    ]
+   ],
+   "kindle": {
+    "beacon": 0,
+    "t": 1.5,
+    "grow": 3.5
+   },
+   "fog": 0.6
+  },
+  {
+   "name": "s15_cinderwick_night",
+   "at": "town:cinderwick",
+   "clock": 21.6,
+   "dur": 6,
+   "fov": 50,
+   "lit": [
+    0
+   ],
+   "path": [
+    {
+     "ang": 140,
+     "dist": 45,
+     "up": 5
+    },
+    {
+     "ang": 165,
+     "dist": 42,
+     "up": 6
+    }
+   ],
+   "look": [
+    0,
+    3,
+    0
+   ]
   },
   {
    "name": "s13_sniper",
@@ -640,137 +655,399 @@
    "track_speed": 5
   },
   {
-   "name": "s14_beacon_kindle",
-   "at": "beacon:0",
-   "clock": 21.5,
-   "dur": 9,
-   "fov": 50,
-   "ease": "smooth",
+   "mode": "fp",
+   "live": true,
+   "track": true,
+   "fov": 75,
+   "preroll": 5,
+   "form_settle": 0.2,
    "path": [
-    {
-     "ang": 200,
-     "dist": 26,
-     "up": 1.0
-    },
-    {
-     "ang": 210,
-     "dist": 34,
-     "up": 12
-    }
-   ],
-   "look": [
     [
      0,
-     4,
+     1.6,
      0
     ],
     [
      0,
-     22,
-     0
+     1.6,
+     0.8
     ]
-   ],
-   "kindle": {
-    "beacon": 0,
-    "t": 1.5,
-    "grow": 3.5
-   },
-   "fog": 0.6
-  },
-  {
-   "name": "s15_cinderwick_night",
-   "at": "town:cinderwick",
-   "clock": 21.6,
-   "dur": 6,
-   "fov": 50,
-   "lit": [
-    0
-   ],
-   "path": [
-    {
-     "ang": 140,
-     "dist": 45,
-     "up": 5
-    },
-    {
-     "ang": 165,
-     "dist": 42,
-     "up": 6
-    }
    ],
    "look": [
     0,
-    3,
-    0
+    1.4,
+    -25
+   ],
+   "name": "s19_minigun",
+   "at": "biome:ash",
+   "search": 900,
+   "shift": [
+    80,
+    -120
+   ],
+   "gun": "minigun",
+   "clock": 16.6,
+   "dur": 5,
+   "aim_y": 1.0,
+   "aim_tol": 0.03,
+   "forms": [
+    {
+     "kind": "saltbone",
+     "p": [
+      -6,
+      0,
+      -16
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      -3,
+      0,
+      -20
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      0,
+      0,
+      -15
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      3,
+      0,
+      -22
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      6,
+      0,
+      -18
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      -8,
+      0,
+      -24
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      8,
+      0,
+      -26
+     ],
+     "hp": 15
+    },
+    {
+     "kind": "saltbone",
+     "p": [
+      0,
+      0,
+      -28
+     ],
+     "hp": 15
+    }
+   ],
+   "aim": [
+    [
+     0,
+     5
+    ]
+   ],
+   "fire": [
+    [
+     0.3,
+     5
+    ]
    ]
   },
   {
-   "name": "s16_beacon_road",
-   "at": "beacon:0",
-   "clock": 22.0,
-   "dur": 9,
-   "fov": 55,
-   "lit": [
-    0,
-    1,
-    2,
-    3,
-    4
-   ],
-   "ease": "out",
+   "mode": "fp",
+   "live": true,
+   "track": true,
+   "fov": 75,
+   "preroll": 5,
+   "form_settle": 0.2,
    "path": [
-    {
-     "ang": 160,
-     "dist": 38,
-     "up": 3
-    },
-    {
-     "ang": 200,
-     "dist": 60,
-     "up": 35
-    }
-   ],
-   "look": [
     [
      0,
-     12,
+     1.6,
      0
     ],
     [
      0,
-     45,
-     0
+     1.6,
+     0.8
     ]
    ],
-   "fog": 0.35
-  },
-  {
-   "name": "s17_drake",
-   "at": "biome:dunes",
+   "look": [
+    0,
+    1.4,
+    -25
+   ],
+   "name": "s20_lmg",
+   "at": "biome:forest",
    "shift": [
     -60,
-    20
+    40
    ],
-   "clock": 17.3,
-   "dur": 6,
-   "fov": 45,
-   "preroll": 4,
+   "gun": "lmg",
+   "sight": "holo",
+   "clock": 17.2,
+   "dur": 5,
+   "aim_y": 1.1,
+   "forms": [
+    {
+     "kind": "deacon",
+     "p": [
+      -4,
+      0,
+      -20
+     ],
+     "hp": 30
+    },
+    {
+     "kind": "deacon",
+     "p": [
+      4,
+      0,
+      -23
+     ],
+     "hp": 30
+    },
+    {
+     "kind": "hollow",
+     "p": [
+      0,
+      0,
+      -17
+     ],
+     "hp": 25
+    },
+    {
+     "kind": "hollow",
+     "p": [
+      -7,
+      0,
+      -26
+     ],
+     "hp": 25
+    },
+    {
+     "kind": "hollow",
+     "p": [
+      7,
+      0,
+      -28
+     ],
+     "hp": 25
+    }
+   ],
+   "aim": [
+    [
+     0.2,
+     5
+    ]
+   ],
+   "fire": [
+    [
+     0.8,
+     5
+    ]
+   ]
+  },
+  {
+   "mode": "fp",
+   "live": true,
+   "track": true,
+   "fov": 75,
+   "preroll": 5,
+   "form_settle": 0.2,
    "path": [
     [
      0,
-     1.0,
-     26
+     1.6,
+     0
     ],
     [
-     -4,
-     2.0,
-     20
+     0,
+     1.6,
+     0.8
     ]
    ],
    "look": [
     0,
-    3.0,
+    1.4,
+    -25
+   ],
+   "name": "s21_glaive",
+   "at": "town:cinderwick",
+   "shift": [
+    0,
+    70
+   ],
+   "gun": "shotgun",
+   "blade": "glaive",
+   "clock": 17.5,
+   "dur": 4,
+   "aim_y": 1.2,
+   "forms": [
+    {
+     "kind": "hollow",
+     "p": [
+      0,
+      0,
+      -5
+     ],
+     "hp": 30
+    },
+    {
+     "kind": "knight",
+     "p": [
+      2,
+      0,
+      -8
+     ],
+     "hp": 60,
+     "aim_y": 1.5
+    },
+    {
+     "kind": "hollow",
+     "p": [
+      -2.5,
+      0,
+      -9
+     ],
+     "hp": 30
+    }
+   ],
+   "melee": [
+    [
+     0.7,
+     false
+    ],
+    [
+     1.6,
+     true
+    ],
+    [
+     2.9,
+     true
+    ]
+   ],
+   "slowmo": [
+    [
+     1.6,
+     2.2,
+     0.35
+    ]
+   ]
+  },
+  {
+   "name": "s22_matron_charge",
+   "at": "biome:ash",
+   "search": 900,
+   "shift": [
+    -40,
+    160
+   ],
+   "clock": 17.3,
+   "live": true,
+   "dur": 5,
+   "fov": 50,
+   "preroll": 5,
+   "form_settle": 0.3,
+   "bait": [
+    0,
+    0,
     0
+   ],
+   "follow": 0,
+   "path": [
+    [
+     7,
+     1.4,
+     3
+    ],
+    [
+     7,
+     1.6,
+     -3
+    ]
+   ],
+   "look": [
+    0,
+    2.0,
+    0
+   ],
+   "forms": [
+    {
+     "kind": "boss_ash",
+     "p": [
+      0,
+      0,
+      -45
+     ]
+    }
+   ],
+   "slowmo": [
+    [
+     2.2,
+     3.2,
+     0.35
+    ]
+   ]
+  },
+  {
+   "name": "s23_drake_live",
+   "at": "biome:dunes",
+   "shift": [
+    60,
+    -40
+   ],
+   "clock": 17.5,
+   "live": true,
+   "dur": 5,
+   "fov": 50,
+   "preroll": 5,
+   "form_settle": 0.3,
+   "bait": [
+    0,
+    0,
+    0
+   ],
+   "path": [
+    [
+     3,
+     1.0,
+     5
+    ],
+    [
+     2,
+     1.2,
+     3
+    ]
+   ],
+   "look": [
+    0,
+    3,
+    -30
    ],
    "forms": [
     {
@@ -778,51 +1055,77 @@
      "p": [
       0,
       0,
-      0
-     ],
-     "still": true
+      -34
+     ]
     }
    ]
   },
   {
-   "name": "s18_golem",
-   "at": "biome:basalt",
-   "search": 900,
-   "shift": [
-    0,
-    0
-   ],
-   "clock": 16.8,
-   "dur": 6,
-   "fov": 45,
-   "preroll": 4,
+   "mode": "fp",
+   "live": true,
+   "track": true,
+   "fov": 75,
+   "preroll": 5,
+   "form_settle": 0.2,
    "path": [
     [
-     3,
-     0.8,
-     16
+     0,
+     1.6,
+     0
     ],
     [
      0,
-     1.0,
-     12
+     1.6,
+     0.8
     ]
    ],
    "look": [
     0,
-    3.0,
-    0
+    1.4,
+    -25
    ],
+   "name": "s24_gaunt_rise",
+   "at": "biome:ash",
+   "search": 900,
+   "shift": [
+    -120,
+    -60
+   ],
+   "gun": "shotgun",
+   "sight": "holo",
+   "clock": 20.3,
+   "fog": 0.4,
+   "dur": 3.5,
+   "aim_y": 1.6,
    "forms": [
     {
-     "kind": "boss_basalt",
+     "kind": "gaunt",
      "p": [
       0,
       0,
-      0
+      -7
      ],
-     "still": true
+     "hp": 30
     }
+   ],
+   "aim": [
+    [
+     0.9,
+     3.5
+    ]
+   ],
+   "fire": [
+    [
+     1.3,
+     3.5
+    ]
+   ],
+   "slowmo": [
+    [
+     1.3,
+     1.9,
+     0.3
+    ]
    ]
   }
  ]
