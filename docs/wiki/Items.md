@@ -24,6 +24,7 @@ Everything that can be carried in the Ashen Waste. Worth is in salt, the coin of
 |---|---|---|---|
 | **Bowl of Milk** | 5 | 14 | Speeb's own comfort. Restores much health. (heals 55) |
 | **Bandage** | 10 | 5 | Clean cloth, boiled. Restores health. (heals 35) |
+| **Cigarettes** | 20 | 2 | Light one from the pack and keep at your work: it burns down on its own, about three minutes. Found in camps, caravans and on the fallen; traders sell them. |
 | **Ash-bloom Salve** | 5 | 14 | Closes what a bandage cannot. Restores much health. (heals 80) |
 | **Restoring Elixir** | 10 | 25 | Only an alchemist can make it. Heals a great deal, and ends burning and tar. (heals 60) |
 

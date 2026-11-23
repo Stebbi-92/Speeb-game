@@ -94,6 +94,10 @@ var _flash: OmniLight3D
 var _flash_mesh: Node3D   ## the muzzle flash: a burst seen from behind, and flames along the barrel seen from the side
 var _flash_sides: Array = []
 var _holder: Node3D
+var hands: FPHands
+var _hand_k := 0.0
+var _cyl_turn := 0.0
+var _last_quiet := 0.0   ## how far through the reload under way, for the hands
 var _melee_holder: Node3D
 
 
@@ -114,6 +118,10 @@ func _ready() -> void:
 	position = Vector3(0.16, -0.19, -0.5)
 	rotation = Vector3(0.02, 0.05, 0)
 	equip_loadout()
+	# One's own two arms, on whatever is in hand
+	hands = FPHands.new()
+	hands.arms = self
+	get_parent().add_child.call_deferred(hands)
 
 
 ## Takes up whatever the loadout says, full of ammunition.
@@ -474,8 +482,8 @@ static func throw_case(lvl: Node, g: String, at: Vector3, b: Basis, carried := V
 	rb.physics_material_override = pm
 	var cs := CollisionShape3D.new()
 	var sh := CylinderShape3D.new()
-	sh.radius = 0.012 if g != "shotgun" else 0.022
-	sh.height = 0.04 if g != "shotgun" else 0.07
+	sh.radius = 0.012 if not g in ["shotgun", "autoshotgun"] else 0.022
+	sh.height = 0.04 if not g in ["shotgun", "autoshotgun"] else 0.07
 	cs.shape = sh
 	rb.add_child(cs)
 	rb.add_child(look)
@@ -504,7 +512,7 @@ static func throw_case(lvl: Node, g: String, at: Vector3, b: Basis, carried := V
 	if randf() < 0.5:
 		tree.create_timer(0.45, false).timeout.connect(func():
 			if is_instance_valid(rb) and is_instance_valid(lvl) and lvl.has_method("sfx"):
-				lvl.sfx("shell" if g == "shotgun" else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
+				lvl.sfx("shell" if g in ["shotgun", "autoshotgun"] else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
 
 
 ## How far a shot may wander right now: wide from the hip and wider as shots pile up, tight down the sights.
@@ -580,6 +588,13 @@ func _process(delta: float) -> void:
 		_pump.position.z = phase * (0.1 if s.mode == "pump" else (0.06 if s.mode == "bolt" else 0.03))
 		if s.mode == "rocket" and not _reloading:
 			_pump.visible = shells > 0   # the rocket is gone once fired, till the next goes in
+	# A revolver's cylinder turns one chamber on with each shot
+	if _model and _model.has_meta("cyl"):
+		if _quiet < _last_quiet:
+			_cyl_turn += TAU / 6.0
+		var cy: Node3D = _model.get_meta("cyl")
+		cy.rotation.z = move_toward(cy.rotation.z, _cyl_turn, delta * 14.0)
+	_last_quiet = _quiet
 	var bob := sin(Time.get_ticks_msec() * 0.008) * 0.006 * clampf(player.cur_speed / 3.0, 0.0, 1.5)
 	_sway = _sway.lerp(Vector2.ZERO, delta * 8.0)
 	var aiming := not blade_out and (debug_aim or Game.held("aim") and not player.input_locked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not _reloading and _swing <= 0.0)
@@ -658,15 +673,16 @@ func _process(delta: float) -> void:
 ## a fresh one goes up and home with a slap, and the action is worked. A shotgun is fed shell by shell;
 ## a launcher takes a new rocket in at the front.
 func _reload_pose(k: float, delta: float) -> void:
+	_hand_k = k
 	var s := spec()
-	var lvl = player.get_parent()
+	var lvl = player.get_parent() if player else null
 	var tilt := smoothstep(0.0, 0.18, k) * (1.0 - smoothstep(0.86, 1.0, k))
 	var mag: Node3D = _model.get_meta("mag") if _model and _model.has_meta("mag") else null
 	if s.reload == "shell":
 		# Rolled over to show the loading port, brought up before the eye
 		_holder.rotation.z = lerpf(_holder.rotation.z, 0.9, delta * 10.0)
 		_holder.rotation.x += 0.25
-		_holder.position += Vector3(-0.08, 0.1, 0.06) + Vector3(0, sin(k * PI) * 0.01, 0)
+		_holder.position += Vector3(-0.03, -0.07, 0.04) + Vector3(0, sin(k * PI) * 0.01, 0)   # low enough that the hand feeding it does not cover the eye
 		if _shell_mesh == null:
 			# The pack's own 12 gauge shell (see AmmoLook), crimp first into the tube; a plain one if it is missing
 			_shell_mesh = AmmoLook.round_of("shell")
@@ -715,17 +731,23 @@ func _reload_pose(k: float, delta: float) -> void:
 			var r := 1.0 - smoothstep(0.5, 0.78, k)
 			mag.position = drop * r
 			mag.visible = true
+	if _model and _model.has_meta("rig"):
+		# Back and up into the notch, the magazine changed, then the handle slapped home from above
+		_handle_back = smoothstep(0.02, 0.1, k) * (1.0 - smoothstep(0.84, 0.87, k))
+		_handle_up = smoothstep(0.08, 0.13, k) * (1.0 - smoothstep(0.81, 0.84, k))
+		if k > 0.84 and k < 0.9 and _pump:
+			_pump.position.z = 0.0
 	if not _rl_out and k >= 0.14:
 		_rl_out = true
-		lvl.sfx("mag_out", -8, null, randf_range(0.95, 1.08))
+		if lvl: lvl.sfx("mag_out", -8, null, randf_range(0.95, 1.08))
 		if s.mode != "rocket":
-			lvl.sfx("mag_grab", -14)
+			if lvl: lvl.sfx("mag_grab", -14)
 	if not _rl_in and k >= 0.78:
 		_rl_in = true
-		lvl.sfx("mag_in", -6, null, randf_range(0.95, 1.05))
+		if lvl: lvl.sfx("mag_in", -6, null, randf_range(0.95, 1.05))
 		_kick = maxf(_kick, 0.25)
 	# Working the action home after the fresh one is in
-	if _pump and s.mode in ["auto", "semi", "bolt"] and k > 0.84:
+	if _pump and s.mode in ["auto", "semi", "bolt"] and k > 0.84 and not _model.has_meta("rig"):
 		_pump.position.z = sin(clampf((k - 0.84) / 0.16, 0.0, 1.0) * PI) * (0.06 if s.mode == "bolt" else 0.04)
 
 
@@ -737,6 +759,8 @@ func _stop_inspect() -> void:
 
 ## Back to rest once a reload is over or broken off: the magazine in its place, the gun upright.
 func _reload_rest(delta: float) -> void:
+	_handle_back = 0.0
+	_handle_up = 0.0
 	_holder.rotation.z = lerpf(_holder.rotation.z, 0.0, delta * 8.0)
 	if _shell_mesh:
 		_shell_mesh.visible = false
@@ -1247,7 +1271,7 @@ const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
 ## How long each gun's muzzle flame is, in metres.
-const FLASH_SIZE := {"pistol": 0.1, "pistol9": 0.1, "pistol45": 0.11, "revolver": 0.13, "shotgun": 0.24, "machine_gun": 0.18,
+const FLASH_SIZE := {"pistol": 0.1, "pistol9": 0.1, "pistol45": 0.11, "revolver": 0.13, "shotgun": 0.24, "autoshotgun": 0.24, "smg": 0.12, "machine_gun": 0.18,
 	"rifle": 0.18, "lmg": 0.22, "minigun": 0.2, "sniper": 0.24}
 static var _flash_mats: Array = []
 static var _flash_star: StandardMaterial3D
@@ -1305,10 +1329,10 @@ func _make_flash() -> Node3D:
 	return root
 
 
-const MUZZLE := {"carbine": 640.0, "shotgun": 260.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
+const MUZZLE := {"carbine": 640.0, "shotgun": 260.0, "autoshotgun": 260.0, "smg": 300.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 ## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
 ## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
-const CALIBER := {"shotgun": ["12 gauge", 1.6], "pistol": [".45", 1.25], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
+const CALIBER := {"shotgun": ["12 gauge", 1.6], "autoshotgun": ["12 gauge", 1.6], "smg": ["9mm", 1.2], "pistol": ["9mm", 1.2], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
 	"machine_gun": ["5.56", 1.0], "lmg": ["7.62", 0.9], "minigun": ["7.62", 0.9], "sniper": [".308", 0.8]}
 const GRAVITY := 9.8
 
@@ -1782,7 +1806,7 @@ func _build(g: String, mnts = null) -> Node3D:
 	var front := Vector3(0, 0.03, -0.7)   # the top of the barrel, near the muzzle
 	var fore := Vector3(0, -0.04, -0.3)   # under the fore-end, where a grip hangs
 	match g:
-		"shotgun":
+		"shotgun", "autoshotgun":
 			_box(Vector3(0.05, 0.076, 0.27), Vector3(0, 0, 0.03), metal, n)
 			_box(Vector3(0.052, 0.02, 0.2), Vector3(0, -0.03, 0.02), dark, n)
 			_box(Vector3(0.004, 0.024, 0.075), Vector3(0.026, 0.012, 0.0), brass, n)
@@ -1810,7 +1834,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			rear_z = 0.1
 			front = Vector3(0, 0.0345, -0.7)
 			fore = Vector3(0, -0.04, -0.3)
-		"machine_gun", "lmg":
+		"machine_gun", "lmg", "smg":
 			_box(Vector3(0.048, 0.06, 0.36), Vector3(0, 0.012, 0.0), metal, n)
 			_box(Vector3(0.044, 0.04, 0.2), Vector3(0, -0.036, 0.04), dark, n)
 			_box(Vector3(0.02, 0.008, 0.34), Vector3(0, 0.046, -0.01), dark, n)
@@ -1839,6 +1863,10 @@ func _build(g: String, mnts = null) -> Node3D:
 			rear_z = 0.12
 			front = Vector3(0, 0.042, -0.5)
 			fore = Vector3(0, -0.022, -0.3)
+			if g == "smg":   # short, its own body put in over all this (see RIGGED_GUNS)
+				tip = Vector3(0, 0.042, -0.43)
+				front = Vector3(0, 0.088, -0.378)
+				fore = Vector3(0, 0.0, -0.25)
 			if g == "lmg":   # longer, with a heavy barrel
 				tip = Vector3(0, 0.012, -0.82)
 				front = Vector3(0, 0.042, -0.62)
@@ -2079,6 +2107,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			n.set_meta("eye_rot", tb.get_euler())
 			n.set_meta("eye_z", -float(SIGHT_LINE[g][2]) - at.z)
 	n.set_meta("eye", eye)
+	n.set_meta("fore", fore)
 	if Game.gilded:
 		gild(n)
 	elif far_tint.a > 0.0:
@@ -2348,6 +2377,8 @@ const SIGHT_LINE := {
 	"lmg": [Vector3(0.0036, 0.0884, -0.0666), Vector3(0.0036, 0.0957, -0.695), 0.28],
 	# The rifle's tangent sight: the notch's shoulders level with the top of the front post's bead
 	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
+	# The SMG's drum aperture and the post in its front hood
+	"smg": [Vector3(0.0, 0.099, 0.066), Vector3(0.0, 0.086, -0.378), 0.22],
 }
 
 
@@ -2392,10 +2423,9 @@ const SCANNED_GUNS := {
 	"sniper": ["bolt_action_rifle_7_62", Vector3(0, 90, 0), -0.975, 0.503, -0.068, {
 		"bolt_action_rifle_7_62_bolt_a": "pump", "bolt_action_rifle_7_62_bolt_b": "pump",
 		"bolt_action_rifle_7_62_scope": "glass", "bolt_action_rifle_7_62_bullet_54mm": "off"}],
-	"pistol": ["service_pistol", Vector3(0, 90, 0), -0.185, 0.045, -0.01, {
-		"service_pistol_slide_a": "pump", "service_pistol_magazine_loaded": "off",
-		"service_pistol_magazine_empty": "off", "service_pistol_bullet": "off", "service_pistol_pistol_b": "off",
-		"service_pistol_slide_b": "off", "service_pistol_hammer_b": "off", "service_pistol_trigger_b": "off"}],
+	"pistol": ["g17", Vector3(0, 180, 0), -0.19, 0.022, -0.01, {
+		"g17_gen5_g17_gen5_slide_0": "pump", "mag_full_g17_gen5_mag_fde_0": "mag",
+		"mag_full_001_g17_gen5_mag_fde_0": "off", "mag_empty_g17_gen5_mag_fde_0": "off"}],
 	"pistol9": ["pistol9", Vector3(0, -90, 0), -0.19, 0.04, -0.01, {}],
 	"machine_gun": ["hk416", Vector3(0, 90, 0), -0.695, 0.432, -0.05, {}],
 	"lmg": ["m60", Vector3(0, 90, 0), -0.82, 0.45, -0.03, {
@@ -2407,8 +2437,97 @@ const SCANNED_GUNS := {
 	"minigun": ["minigun", Vector3(0, 180, 0), -0.68, 0.3, -0.02, {
 		"barrels_minigun_0": "spin", "mag_minigun_0": "mag", "bullet_minigun_0": "off", "Object_70": "off", "arms_arms_0": "off"}],
 	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
+	"autoshotgun": ["m4super90", Vector3(0, 0, 0), -0.735, 0.415, -0.03, {"bolt_TTI_Benelli_M4_0": "pump", "12g_12gauge_0": "off"}],
 	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
 }
+
+
+## Guns whose model comes with bones for its moving parts, kept whole and worked by those bones:
+## [model, size, height of the trigger, {bone: role}]. Roles: "bolt" (blown back by each shot), "handle" (the
+## cocking handle, worked on a reload), "mag", "selector" (with its angle, for the setting it sits at).
+## Pieces named in "off" are left out. The model's own origin is at its trigger.
+const RIGGED_GUNS := {
+	"smg": ["mp5", 1.2, -0.035, {"Bolt_02": "bolt", "Charging Handle_08": "handle", "MP5 Mag_03": "mag",
+		"Firing Mode Selector_09": "selector"}, ["9mm Cartridge", "9mm Bullet", "9mm Shell"]],
+}
+
+
+## Puts in a rigged gun's whole model (see RIGGED_GUNS). Gives back the height of its top.
+func _rig_gun(g: String, n: Node3D) -> float:
+	var rg: Array = RIGGED_GUNS[g]
+	var path := "res://assets/models/arms/%s/%s.glb" % [rg[0], rg[0]]
+	if not ResourceLoader.exists(path):
+		return -1.0
+	for holder in [n, n.get_meta("pump"), n.get_meta("mag") if n.has_meta("mag") else null]:
+		if holder == null:
+			continue
+		for c in (holder as Node).get_children():
+			if c is MeshInstance3D:
+				c.free()
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	for nm in rg[4]:
+		var off := inst.find_child(nm, true, false)
+		if off:
+			off.free()
+	inst.scale = Vector3.ONE * float(rg[1])
+	inst.position = Vector3(0, float(rg[2]), 0)
+	n.add_child(inst)
+	var sk: Skeleton3D = inst.find_children("*", "Skeleton3D", true, false)[0]
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		(mi as MeshInstance3D).extra_cull_margin = 0.5
+	var bones := {}
+	for b in rg[3]:
+		var i := sk.find_bone(b)
+		if i >= 0:
+			bones[rg[3][b]] = i
+	n.set_meta("rig", sk)
+	n.set_meta("rig_bones", bones)
+	# The selector set to fire on its own (full auto), as the arm is made
+	if bones.has("selector"):
+		var i: int = bones.selector
+		sk.set_bone_pose_rotation(i, sk.get_bone_rest(i).basis.get_rotation_quaternion() * Quaternion(Vector3.UP, RIG_SELECTOR.get(g, 0.0)))
+	return float(RIG_TOP.get(g, 0.1))
+
+
+## How far each rigged gun's selector turns from where the model has it, to sit at full auto.
+const RIG_SELECTOR := {"smg": 3.85}
+## The top of each rigged gun, where its sights sit.
+const RIG_TOP := {"smg": 0.12}
+
+
+## Works a rigged gun's bones from where its parts are this frame: the bolt from the pump's travel, the
+## magazine from the magazine holder's, and the cocking handle from the reload (back, up into its notch,
+## and slapped home).
+func _rig_sync() -> void:
+	if _model == null or not _model.has_meta("rig"):
+		return
+	var sk: Skeleton3D = _model.get_meta("rig")
+	var bones: Dictionary = _model.get_meta("rig_bones")
+	var to_sk := sk.global_transform.basis.orthonormalized().inverse() * _model.global_transform.basis.orthonormalized()
+	var sc := sk.global_transform.basis.get_scale().x / maxf(_model.global_transform.basis.get_scale().x, 0.0001)
+	var move := func(role: String, by: Vector3) -> void:
+		if not bones.has(role):
+			return
+		var i: int = bones[role]
+		var par := sk.get_bone_parent(i)
+		var pb: Basis = sk.get_bone_global_pose(par).basis.orthonormalized() if par >= 0 else Basis()
+		sk.set_bone_pose_position(i, sk.get_bone_rest(i).origin + pb.inverse() * (to_sk * by) / maxf(sc, 0.0001))
+	var mag: Node3D = _model.get_meta("mag") if _model.has_meta("mag") else null
+	move.call("mag", mag.position if mag else Vector3.ZERO)
+	if bones.has("mag"):
+		sk.set_bone_pose_scale(bones.mag, Vector3.ONE if mag == null or mag.visible else Vector3.ONE * 0.001)
+	move.call("bolt", Vector3(0, 0, _pump.position.z if _pump else 0.0))
+	move.call("handle", Vector3(0, 0, _handle_back * 0.075))
+	if bones.has("handle"):
+		var i: int = bones.handle
+		sk.set_bone_pose_rotation(i, sk.get_bone_rest(i).basis.get_rotation_quaternion() * Quaternion(Vector3.UP, _handle_up * RIG_HANDLE_TURN))
+
+
+## How far the cocking handle turns up into its notch.
+const RIG_HANDLE_TURN := 0.6
+var _handle_back := 0.0   ## the cocking handle drawn back, 0..1
+var _handle_up := 0.0     ## and turned up into its notch, 0..1
 
 
 ## A part's place within the model it came from, through every node between.
@@ -2424,6 +2543,8 @@ static func _chain(mi: Node, top: Node) -> Transform3D:
 ## Swaps the plain shapes of a gun for its scanned body, keeping its working parts working.
 ## Gives back the height of its top (where a fitted sight sits), or -1 if it has no scanned body.
 func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
+	if RIGGED_GUNS.has(g):
+		return _rig_gun(g, n)
 	if not SCANNED_GUNS.has(g):
 		return -1.0
 	var sg: Array = SCANNED_GUNS[g]
@@ -2491,7 +2612,24 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		copy.set_meta("src", String(mi.name))
 		holder.add_child(copy)
-	_carve_parts(g, n, {"pump": pump, "mag": mag})
+	var cyl: Node3D = null
+	if CARVE.has(g) and CARVE[g].any(func(c): return c[0] == "cyl"):
+		cyl = Node3D.new()
+		n.add_child(cyl)
+	_carve_parts(g, n, {"pump": pump, "mag": mag, "cyl": cyl})
+	if cyl:
+		# The cylinder turns about its own middle
+		var cb := AABB()
+		var cf := true
+		for c in cyl.get_children():
+			var a: AABB = (c as MeshInstance3D).transform * (c as MeshInstance3D).mesh.get_aabb()
+			cb = a if cf else cb.merge(a)
+			cf = false
+		var axis := Vector3(cb.get_center().x, cb.get_center().y, 0.0)
+		cyl.position = axis
+		for c in cyl.get_children():
+			(c as Node3D).position -= axis
+		n.set_meta("cyl", cyl)
 	# What spins (a minigun's barrels) turns about its own middle: the pump is moved there
 	var spun: Array = pump.get_children().filter(func(c): return c is MeshInstance3D)
 	var spin_bb := AABB()
@@ -2522,6 +2660,9 @@ const CARVE := {
 	"pistol9": [["pump", Vector3(-0.05, 0.032, -0.21), Vector3(0.05, 0.08, 0.04), "Cube_005_9m2_0"],
 		["mag", Vector3(-0.05, -0.1, -0.05), Vector3(0.05, 0.031, 0.06), "Cube_005_9m2_0"]],
 	"rocket": [["pump", Vector3(-0.08, -0.03, -0.72), Vector3(0.08, 0.1, -0.175), ""]],
+	# The rifle's box magazine under the action, and the flamethrower's fuel bottle
+	"sniper": [["mag", Vector3(-0.04, -0.1, -0.065), Vector3(0.04, -0.046, 0.03), ""]],
+	"flamer": [["mag", Vector3(-0.16, 0.02, 0.17), Vector3(0.16, 0.45, 0.5), ""]],
 }
 static var _carved := {}
 
@@ -2684,15 +2825,15 @@ static func _split_mesh(mesh: Mesh, tr: Transform3D, boxes: Array) -> Array:
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
 ## The middle of each gun's butt plate, and how tall it is (measured off the scanned bodies).
-const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
-const BUTT_H := {"shotgun": 0.16, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
+const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "autoshotgun": Vector3(0, -0.05, 0.48), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
+const BUTT_H := {"shotgun": 0.16, "autoshotgun": 0.15, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
 ## The middle of each scanned gun's mouth, read off side views of it.
-const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
+const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "autoshotgun": Vector3(0, 0.03, -0.735), "smg": Vector3(0, 0.042, -0.43), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
 	"sniper": Vector3(0, 0.0145, -0.975), "rocket": Vector3(0, 0.026, -0.66), "minigun": Vector3(0, -0.1, -0.68),
-	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.185), "pistol9": Vector3(0, 0.047, -0.19),
+	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.18), "pistol9": Vector3(0, 0.047, -0.19),
 	"revolver": Vector3(0, 0.051, -0.26)}
 ## Where a receiver's side plates go (x is found from the gun's own side).
-const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
+const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "autoshotgun": Vector3(0.027, 0.05, -0.02), "smg": Vector3(0.022, 0.08, -0.05), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
 	"rocket": Vector3(0.045, 0.026, -0.05), "minigun": Vector3(0.066, -0.09, 0.12), "pistol": Vector3(0.014, 0.036, -0.07), "pistol9": Vector3(0.016, 0.05, -0.08),
 	"revolver": Vector3(0.02, 0.045, -0.035)}
 
@@ -3215,3 +3356,133 @@ class Thrown extends RigidBody3D:
 			var tw := root.create_tween()
 			tw.tween_property(l, "light_energy", 0.0, 1.0)
 			tw.tween_callback(root.queue_free)
+
+
+## Where each hand goes this frame, in the world: {R: {at, f, a, pole, curl}, L: {...}}, or {} with no
+## hands to show (the gun put away, or looking through a scope). "at" is the palm's middle; f is where
+## the fingers point from the wrist and a the knuckle line (little finger to first), each as the hand would
+## lie open: the fingers then curl (curl, in degrees for each joint) about the grip.
+const GRIP_CURL := {"thumb": [5, 25, 20], "point": [20, 30, 20], "middle": [70, 85, 55], "ring": [72, 85, 55], "pink": [75, 85, 55]}
+const FORE_CURL := {"thumb": [5, 15, 10], "point": [45, 50, 30], "middle": [50, 55, 35], "ring": [52, 55, 35], "pink": [55, 55, 35]}
+const CUP_CURL := {"thumb": [0, 10, 10], "point": [55, 60, 40], "middle": [60, 65, 40], "ring": [62, 65, 40], "pink": [65, 65, 40]}
+const FIST_CURL := {"thumb": [15, 40, 30], "point": [75, 85, 60], "middle": [78, 85, 60], "ring": [80, 85, 60], "pink": [82, 85, 60]}
+const OPEN_CURL := {"thumb": [5, 10, 10], "point": [20, 25, 15], "middle": [22, 25, 15], "ring": [24, 25, 15], "pink": [26, 25, 15]}
+## Each grip: where the middle of the right hand's hold is, and the grip's line from the little finger up to
+## the first (a pistol grip rakes back at the foot; a straight stock's wrist slopes up to the action), in the
+## gun's own metres. "L" is where the left palm goes where the fore-end's underside will not do.
+## "L_axis" is a second upright grip for the left hand (a launcher's, a minigun's handle). Read off side
+## views of each gun over a grid.
+const GRIP := {"": {"R": Vector3(0.0, -0.03, 0.012), "axis": Vector3(0, 1, -0.3)},
+	"shotgun": {"R": Vector3(0.0, 0.0, 0.08), "axis": Vector3(0, 0.45, -1)},
+	"autoshotgun": {"R": Vector3(0.0, -0.083, 0.062), "axis": Vector3(0, 1, -0.45)},
+	"machine_gun": {"R": Vector3(0.0, -0.08, 0.1), "axis": Vector3(0, 1, -0.48)},
+	"lmg": {"R": Vector3(0.0, -0.11, 0.09), "axis": Vector3(0, 1, -0.4)},
+	"sniper": {"R": Vector3(0.0, -0.035, 0.13), "axis": Vector3(0, 0.6, -1)},
+	"rocket": {"R": Vector3(0.0, -0.06, -0.02), "axis": Vector3(0, 1, -0.15), "L": Vector3(0.0, -0.055, 0.08), "L_axis": Vector3(0, 1, -0.1)},
+	"minigun": {"R": Vector3(0.0, 0.064, 0.256), "axis": Vector3(0, 1, 0), "L": Vector3(0.0, 0.016, 0.024), "L_axis": Vector3(0, 1, 0)},
+	"smg": {"R": Vector3(0.0, -0.088, 0.054), "axis": Vector3(0, 1, -0.47), "L": Vector3(0.0, 0.0, -0.25)},
+	"flamer": {"R": Vector3(0.0, -0.056, -0.032), "axis": Vector3(0, 1, -0.33)},
+	"pistol": {"R": Vector3(0.0, -0.038, -0.004), "axis": Vector3(0, 1, -0.41)},
+	"pistol9": {"R": Vector3(0.0, -0.04, 0.002), "axis": Vector3(0, 1, -0.45)},
+	"revolver": {"R": Vector3(0.0, -0.04, 0.026), "axis": Vector3(0, 1, -0.79)}}
+
+
+func hand_pose(force := "") -> Dictionary:
+	if not is_visible_in_tree() or player == null and force == "":
+		return {}
+	var cam_b: Basis = get_parent().global_transform.basis.orthonormalized() if get_parent() is Node3D else Basis()
+	var down_l: Dictionary = {"at": get_parent().global_transform * Vector3(-0.22, -0.55, -0.25), "f": cam_b * Vector3(0, 0.2, -1),
+		"a": cam_b * Vector3(1, 0, 0), "pole": cam_b * Vector3(-0.6, -1, 0.3), "curl": OPEN_CURL}
+	if blade_out or _swing > 0.0:
+		var mm: Node3D = _melee_models.get(melee)
+		if mm == null or not _melee_holder.visible:
+			return {}
+		var mt := mm.global_transform
+		var mb := mt.basis.orthonormalized()
+		return {"R": {"at": mt * Vector3(0.0, 0.035, 0.012), "f": mb * Vector3(-0.15, 0.0, -1.0), "a": mb * Vector3(0, 1, 0),
+			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL}, "L": down_l}
+	if _model == null or not _holder.visible:
+		return {}
+	var g := ArmsDB.look(gun())
+	var s := spec()
+	var mt := _model.global_transform
+	var mb := mt.basis.orthonormalized()
+	var grip: Dictionary = GRIP.get(g, GRIP[""])
+	var at_r: Vector3 = grip.get("R", GRIP[""].R)
+	var axis: Vector3 = (grip.get("axis", GRIP[""].axis) as Vector3).normalized()
+	# The hand across the grip: its fingers point forward as far as the grip's line lets them
+	var fwd := Vector3(-0.12, 0.0, -1.0)
+	var f_r := (fwd - axis * fwd.dot(axis)).normalized()
+	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * axis,
+		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL}
+	var L: Dictionary
+	if s.slot == "secondary":
+		# Cupped about the right hand, on the grip's other side
+		L = {"at": mt * (at_r + Vector3(-0.03, -0.01, -0.004)), "f": mb * Vector3(0.25, -0.3, -1.0), "a": mb * axis,
+			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": CUP_CURL}
+	else:
+		var fore: Vector3 = grip.get("L", (_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
+		var ft := mt
+		if s.mode == "pump" and _pump:
+			ft = _pump.global_transform   # the hand works the pump
+		L = {"at": ft * fore, "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1),
+			"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FORE_CURL, "sh": Vector3(-0.1, -0.3, -0.3)}
+		if grip.has("L_axis"):
+			# A second upright grip: held in a fist, as the right holds its own
+			var ax2: Vector3 = (grip.L_axis as Vector3).normalized()
+			var f_l := (fwd * Vector3(-1, 1, 1) - ax2 * (fwd * Vector3(-1, 1, 1)).dot(ax2)).normalized()
+			L = {"at": mt * (fore + Vector3(-0.012, 0, 0)), "f": mb * f_l, "a": mb * ax2,
+				"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FIST_CURL}
+	if _reloading:
+		var k := _hand_k
+		var w := 0.0
+		var to := {}
+		if _model.has_meta("rig"):
+			# The cocking handle (back and up, and the slap home from above), and the magazine between
+			var sk: Skeleton3D = _model.get_meta("rig")
+			var bones: Dictionary = _model.get_meta("rig_bones")
+			var wh := smoothstep(0.0, 0.03, k) * (1.0 - smoothstep(0.12, 0.16, k)) + smoothstep(0.77, 0.8, k) * (1.0 - smoothstep(0.88, 0.93, k))
+			var wm := smoothstep(0.13, 0.17, k) * (1.0 - smoothstep(0.75, 0.79, k))
+			if wh > 0.0 and bones.has("handle"):
+				w = wh
+				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
+					"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "sh": Vector3(-0.06, -0.26, -0.36)}
+			elif wm > 0.0 and bones.has("mag"):
+				w = wm
+				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
+					"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+		elif s.reload == "shell" and _shell_mesh and _shell_mesh.is_inside_tree():
+			w = 1.0 if _shell_mesh.visible else 0.0
+			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.03, 0.025), "f": mb * Vector3(0.3, 1.0, -0.3),
+				"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+		else:
+			var src: Node3D = _pump if s.mode == "rocket" else (_model.get_meta("mag") if _model.has_meta("mag") else null)
+			if src and src.find_children("*", "MeshInstance3D", true, false).size() > 0:
+				w = smoothstep(0.06, 0.14, k) * (1.0 - smoothstep(0.78, 0.88, k))
+				to = {"at": src.global_transform * _part_mid(src) + mb * Vector3(0, -0.02, 0.0), "f": mb * Vector3(0.4, 1.0, -0.4),
+					"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+		if w > 0.0:
+			# The arm drops back and low as the hand comes in near the body, so it does not cross the eye
+			if not to.has("sh"):
+				to["sh"] = Vector3(-0.04, -0.48, -0.2) if s.reload == "shell" else Vector3(-0.22, -0.45, -0.02)
+			if not L.has("sh"):
+				L["sh"] = FPHands.SHOULDER.L
+			for key in ["at", "f", "a", "sh"]:
+				L[key] = (L[key] as Vector3).lerp(to[key], w)
+			L.curl = to.curl if w > 0.5 else L.curl
+	return {"R": R, "L": L}
+
+
+## The middle of a moving part (a magazine, a rocket), in its own space.
+func _part_mid(n: Node3D) -> Vector3:
+	if n.has_meta("mid"):
+		return n.get_meta("mid")
+	var bb := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = n.transform.affine_inverse() * _chain(mi, n) * (mi as MeshInstance3D).get_aabb()
+		bb = a if first else bb.merge(a)
+		first = false
+	var mid := bb.get_center() if not first else Vector3.ZERO
+	n.set_meta("mid", mid)
+	return mid

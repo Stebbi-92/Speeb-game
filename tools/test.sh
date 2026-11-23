@@ -169,6 +169,7 @@ check roads     debug_roads    "ROADS stock=true plain=true dear=true shut=true 
 check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
 check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=true dots=true hip=false aimed=true tucked=true back=true"
+check hands debug_hands "HANDS guns=14 far=\[\] smg_rig=true locked=true home=true cig=true once=true burning=true"
 check newbodies debug_newbodies "NEWBODIES hollow=moves,ok saltbone=moves,ok,own_arms saltrifle=moves,ok deacon=moves,ok ash_weaver=moves,ok tusker fur=true gait=[A-Za-z_0-9]+ gaits=4"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

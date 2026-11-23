@@ -3043,6 +3043,23 @@ func quick_heal() -> void:
 		hud.notify("%s used. %d left." % [Items.info(id).name, inv.count(id)])
 
 
+## Lights a cigarette: it burns down on its own while you keep at whatever you are doing.
+var smoking: WSmoke
+func smoke(id: String) -> bool:
+	if smoking and smoking.lit:
+		hud.notify("You have one lit already.")
+		return false
+	if inv.take(id, 1) < 1:
+		return false
+	if smoking == null:
+		smoking = WSmoke.new()
+		player.cam.add_child(smoking)
+	smoking.light(player)
+	sfx("whoosh", -26, null, 2.2)
+	hud.notify("You light a cigarette.")
+	return true
+
+
 ## Eating fills the belly; the healer's things only close wounds.
 func eat(id: String) -> bool:
 	var info: Dictionary = Items.info(id)
@@ -8590,6 +8607,60 @@ func debug_glitchfix() -> void:
 	await get_tree().create_timer(0.8).timeout
 	var back: bool = player.weapon._tuck < 0.05
 	print("GLITCHFIX trees=%s stray=%d hound_own_head=%s dots=%s hip=%s aimed=%s tucked=%s back=%s" % [trees > 0, stray, own, not dots.is_empty(), hip, aimed, tucked, back])
+	get_tree().quit()
+
+
+## Testing aid: one's own arms reach each gun's grip and fore-end (or its magazine, mid-reload), the SMG's
+## cocking handle goes back and up and is slapped home, and a cigarette lights and burns while the gun is held.
+func debug_hands() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var arms: Arms = player.weapon
+	var h: FPHands = arms.hands
+	var far := []
+	var n := 0
+	for g in ArmsDB.GUNS:
+		if not arms._st.has(g):
+			arms._st[g] = {"mag": 5, "reserve": 10}
+		arms.guns = [g, arms.guns[1]]
+		arms.cur = 0
+		arms._show_model()
+		for k in [-1.0, 0.3]:
+			arms._reloading = k >= 0.0
+			if k >= 0.0:
+				arms._reload_pose(k, 1.0)
+			for i in 3:
+				await get_tree().process_frame
+			var p := arms.hand_pose()
+			if p.is_empty():
+				far.append(g + ":none")
+				continue
+			for sd in ["R", "L"]:
+				var d: Dictionary = h._side[sd]
+				var w: Vector3 = h._sk.global_transform * h._sk.get_bone_global_pose(d.wrist).origin
+				var palm: Vector3 = w + h._sk.global_transform.basis * (h._sk.get_bone_global_pose(d.wrist).basis.orthonormalized() * (d.palm as Vector3))
+				# The palm's middle within a few centimetres of where it was sent (the magazine may drop out of reach)
+				if palm.distance_to(p[sd].at) > (0.04 if k < 0.0 else 0.12):
+					far.append("%s:%s%s:%.2f" % [g, sd, "" if k < 0.0 else "@rl", palm.distance_to(p[sd].at)])
+		arms._reloading = false
+		arms._reload_rest(1.0)
+		n += 1
+	# The SMG worked as its makers meant: back and up, the magazine changed, slapped home
+	arms.guns = ["smg", arms.guns[1]]
+	arms._show_model()
+	var rig: bool = arms._model.has_meta("rig")
+	arms._reload_pose(0.3, 1.0)
+	var locked: bool = arms._handle_back > 0.95 and arms._handle_up > 0.95
+	arms._reload_pose(0.9, 1.0)
+	var home: bool = arms._handle_back < 0.05 and arms._handle_up < 0.05
+	arms._reload_rest(1.0)
+	# A cigarette, lit with the gun in hand
+	inv.add("cigarettes", 3)
+	var lit := smoke("cigarettes")
+	var twice := smoke("cigarettes")
+	await get_tree().create_timer(1.0).timeout
+	var burning: bool = smoking != null and smoking.lit and smoking.left < WSmoke.BURN and inv.count("cigarettes") == 2
+	print("HANDS guns=%d far=%s smg_rig=%s locked=%s home=%s cig=%s once=%s burning=%s" % [n, far, rig, locked, home, lit, not twice, burning])
 	get_tree().quit()
 
 

@@ -113,6 +113,8 @@ static func mend_cost(a: Dictionary, slot: String) -> Dictionary:
 const MAKE := {
 	"revolver": {"scrap": 24, "wood": 6},
 	"pistol9": {"scrap": 30, "oil": 2, "red_iron": 2, "clockwork": 1},
+	"smg": {"scrap": 45, "oil": 3, "red_iron": 3, "clockwork": 2},
+	"autoshotgun": {"scrap": 65, "wood": 4, "oil": 5, "red_iron": 4, "tempered": 1, "clockwork": 2},
 	"machine_gun": {"scrap": 60, "wood": 10, "oil": 4, "red_iron": 4, "tempered": 1, "clockwork": 1},
 	"lmg": {"scrap": 75, "wood": 6, "oil": 8, "red_iron": 6, "tempered": 2, "clockwork": 2},
 	"sniper": {"scrap": 50, "wood": 16, "cloth": 6, "heartwood": 4, "clockwork": 2},
@@ -165,6 +167,8 @@ const PARTS := {
 
 ## Which of the waste's own parts each gun can take.
 const FRAME := {
+	"smg": ["long_barrel", "heavy_barrel", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "compensator", "flash_hider"],
+	"autoshotgun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "compensator", "muzzle_brake", "heavy_suppressor", "angled_grip", "slim_grip"],
 	"shotgun": ["long_barrel", "sawn_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "compensator", "muzzle_brake", "heavy_suppressor", "angled_grip", "slim_grip"],
 	"machine_gun": ["long_barrel", "heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "smooth_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "heavy_suppressor", "angled_grip", "slim_grip"],
 	"lmg": ["heavy_barrel", "light_stock", "padded_stock", "heavy_stock", "rapid_receiver", "heavy_receiver", "piercing_rounds", "hollow_rounds", "reflex", "holo", "combat_scope", "compensator", "muzzle_brake", "flash_hider", "angled_grip", "slim_grip"],
