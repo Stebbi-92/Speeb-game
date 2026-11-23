@@ -54,7 +54,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | Model | By | Used for |
 |---|---|---|
 | ["HK 416 Assault Rifle - Low Poly"](https://skfb.ly/oDNsQ) | Derek Flanagan | The machine gun |
-| ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun |
+| ["low-poly M60 Machine Gun"](https://skfb.ly/pCNKK) | D_U | The belt gun, as others see it |
 | ["9mm Pistol"](https://skfb.ly/owxRE) | TORI106 | The auto pistol |
 | ["Free weapon accessories"](https://skfb.ly/pCR77) | Rotten Design | Sights, scopes, suppressors, muzzles, grips and rails |
 | ["Free Ammo Set Ver.2 ULTRA"](https://skfb.ly/pIyTC) | Rotten Design | Rounds, spent cases and shotgun shells |
@@ -103,11 +103,13 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Flare"](https://skfb.ly/o8FUt) | FrodoUndead | The flare |
 | ["Landmine"](https://skfb.ly/o96NK) | desolka | The Salt Mine |
 | ["Mossberg500 Shotgun low-poly"](https://skfb.ly/6Wvtt) | AK | The pump shotgun |
-| ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver |
+| ["Colt SAA "Peacemaker""](https://skfb.ly/6vNur) | Tuuttipingu | The revolver, as others see it |
 | ["G17 Gen 5 Handgun + Olight - NSW Police Force"](https://skfb.ly/pOAnq) | 8sianDude | The pistol |
 | ["M4 Super 90 (JW2) Brand-Friendly version"](https://skfb.ly/oLU7v) | 8sianDude | The autoshotgun |
 | ["MP5 A2"](https://skfb.ly/psnHQ) | Gintoki1234 | The SMG |
 | ["fps arms"](https://skfb.ly/6R6yX) | DJMaesen | Your own arms on the weapon in hand |
+| ["LMG animated"](https://skfb.ly/o8PRS) | DJMaesen | The belt gun in your hands, and how hands hold a gun |
+| ["357 Python Revolver (Rigged/Game Ready)"](https://skfb.ly/oFISA) | Erai | The revolver in your hands |
 | ["Cigarette packs"](https://skfb.ly/6RZDO) | Noah | Cigarettes |
 
 ## Fonts

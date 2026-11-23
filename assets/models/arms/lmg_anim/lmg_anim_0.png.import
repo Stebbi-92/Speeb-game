@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://ddftj4i2n0e5o"
+path="res://.godot/imported/lmg_anim_0.png-4df2d759bcce772cea794d4785533425.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "b8eb8a40352043d81f72df9c639e252d"
+}
+
+[deps]
+
+source_file="res://assets/models/arms/lmg_anim/lmg_anim_0.png"
+dest_files=["res://.godot/imported/lmg_anim_0.png-4df2d759bcce772cea794d4785533425.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

@@ -712,6 +712,9 @@ func _reload_pose(k: float, delta: float) -> void:
 		_shell_mesh.visible = k < 0.85
 		_shell_mesh.position = Vector3(0, -0.11, 0.06).lerp(Vector3(0, -0.035, -0.04), smoothstep(0.1, 0.8, k))
 		return
+	if _model and _model.has_meta("anim") and (_model.get_meta("anim_bones") as Dictionary).has("Rwrist"):
+		# The gun's own motion does the work (see _anim_sync); only the sounds are ours
+		tilt = 0.0
 	# Brought up and rolled over, so the eye sees the magazine well
 	_holder.rotation.z = 0.75 * tilt
 	_holder.rotation.x += 0.32 * tilt
@@ -721,7 +724,7 @@ func _reload_pose(k: float, delta: float) -> void:
 		var in_k := smoothstep(0.5, 0.82, k)
 		_pump.visible = k > 0.5
 		_pump.position.z = -0.45 * (1.0 - in_k)
-	elif mag:
+	elif mag and not _model.has_meta("anim"):
 		var drop := Vector3(0, -0.32, 0.06)
 		if k < 0.5:
 			var d := smoothstep(0.12, 0.38, k)
@@ -2373,8 +2376,8 @@ const IRON_SIDE := {}
 ## gun is turned so the two line up, and brought close enough that the front shows through the rear's hole.
 const SIGHT_LINE := {
 	"rocket": [Vector3(0.006, 0.0876, 0.081), Vector3(0.0, 0.078, -0.144), 0.07],
-	# The belt gun's battle sight: the notch at the foot of the raised ladder, and the front post's tip
-	"lmg": [Vector3(0.0036, 0.0884, -0.0666), Vector3(0.0036, 0.0957, -0.695), 0.28],
+	# The belt gun's sights: the ring on its feed cover, and the front post's tip
+	"lmg": [Vector3(0.0, 0.0737, 0.0594), Vector3(0.0, 0.0795, -0.489), 0.28],
 	# The rifle's tangent sight: the notch's shoulders level with the top of the front post's bead
 	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
 	# The SMG's drum aperture and the post in its front hood
@@ -2490,6 +2493,199 @@ func _rig_gun(g: String, n: Node3D) -> float:
 	return float(RIG_TOP.get(g, 0.1))
 
 
+## Guns that come with their own motions, held by our own arms as the motions' arms hold them:
+## [model, size, the point of the gun (in its own centimetres) put at our model's origin, top, {motion: [first
+## frame, last frame]}]. The motions run at 30 frames a second.
+const ANIM_GUNS := {
+	"lmg": ["lmg_anim", 0.97, Vector3(0, 10, 6.3), 0.09, {"fire": [0, 10], "reload": [11, 164], "ready": [331, 377],
+		"idle": [378, 425]}],
+	# A .357 with its own crane, cylinder, hammer and rounds; no arms of its own, so ours hold it as any pistol.
+	# Its point is its trigger, in the model's own space (it is made four times life size, barrel along +Z).
+	"revolver": ["python", 0.29, Vector3(0.01, 0.116, -0.462), 0.075, {"proc": true}, ["Reload Bones", "SpeedLoader", "Shell1", "Shell2", "Shell3", "Shell4", "Shell5", "Shell6",
+		"SL_Bullet1", "SL_Bullet2", "SL_Bullet3", "SL_Bullet4", "SL_Bullet5", "SL_Bullet6"]],
+}
+
+
+## Puts in a gun that comes with its own motions (see ANIM_GUNS): the gun and its parts move as made; its
+## own arms are left unseen, for ours follow them. Gives back the height of its top.
+func _anim_gun(g: String, n: Node3D) -> float:
+	var ag: Array = ANIM_GUNS[g]
+	var path := "res://assets/models/arms/%s/%s.glb" % [ag[0], ag[0]]
+	if not ResourceLoader.exists(path):
+		return -1.0
+	for holder in [n, n.get_meta("pump"), n.get_meta("mag") if n.has_meta("mag") else null]:
+		if holder == null:
+			continue
+		for c in (holder as Node).get_children():
+			if c is MeshInstance3D:
+				c.free()
+	var pivot := Node3D.new()
+	pivot.rotation.y = PI   # made pointing along +Z
+	pivot.scale = Vector3.ONE * float(ag[1])
+	n.add_child(pivot)
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	pivot.add_child(inst)
+	var ap: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+	var an: String = ap.get_animation_list()[0]
+	if not (ag[4] as Dictionary).has("proc"):
+		ap.play(an)
+		ap.pause()
+		ap.seek(float(ag[4].idle[0]) / 30.0, true)
+	if ag.size() > 5:
+		for nm in ag[5]:
+			var off := inst.find_child(nm, true, false)
+			if off:
+				off.free()
+	var gun: Node3D = inst.find_child(g.to_upper(), true, false)
+	if gun:
+		var at: Vector3 = Arms._chain(gun, inst) * (ag[2] as Vector3)
+		inst.position = -at
+	else:
+		inst.position = -(ag[2] as Vector3)
+	var sk: Skeleton3D = inst.find_children("*", "Skeleton3D", true, false)[0]
+	var has_arms := false
+	for i in sk.get_bone_count():
+		if sk.get_bone_name(i).begins_with("R_wrist"):
+			has_arms = true
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.custom_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))   # its skinned parts are not where the mesh's own bounds say
+		if has_arms and m.skin != null and m.mesh.resource_name.contains("arms"):
+			m.visible = false   # its own arms: ours take their place
+	var bones := {}
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i)
+		for key in ["arm", "elbow", "wrist", "thumb1", "thumb2", "thumb3", "thumb", "point1", "point2", "point3", "point",
+				"middle1", "middle2", "middle3", "middle", "ring1", "ring2", "ring3", "ring", "pink1", "pink2", "pink3", "pink"]:
+			if nm.begins_with("R_" + key + "_") or nm.begins_with("L_" + key + "_"):
+				bones[nm.substr(0, 1) + key] = i
+	if sk.find_bone("Cylinder_04") >= 0:
+		n.set_meta("anim_part", sk.find_bone("Cylinder_04"))
+		sk.set_meta("cyl_rest", sk.get_bone_global_rest(sk.find_bone("Cylinder_04")))
+		sk.set_meta("barrel", (Arms._chain(sk, inst).basis.inverse() * RV_BARREL).normalized())
+		var rounds := []
+		var rests := []
+		for i in sk.get_bone_count():
+			var nm := sk.get_bone_name(i)
+			if nm.begins_with("Bullet") and not nm.contains("end"):
+				rounds.append(i)
+				rests.append(sk.get_bone_global_rest(i))
+		sk.set_meta("rounds", rounds)
+		sk.set_meta("rounds_rest", rests)
+	n.set_meta("anim", ap)
+	n.set_meta("anim_name", an)
+	n.set_meta("anim_sk", sk)
+	n.set_meta("anim_bones", bones)
+	n.set_meta("anim_moves", ag[4])
+	return float(ag[3])
+
+
+## Runs a moving gun's motion for this moment: the reload through its length, a shot's kick just after
+## firing, and its idle breathing the rest of the time.
+func _anim_sync() -> void:
+	if _model == null or not _model.has_meta("anim"):
+		return
+	var ap: AnimationPlayer = _model.get_meta("anim")
+	var mv: Dictionary = _model.get_meta("anim_moves")
+	if mv.has("proc"):
+		_revolver_sync()
+		return
+	var fr := 0.0
+	if _reloading:
+		fr = lerpf(float(mv.reload[0]), float(mv.reload[1]), clampf(_hand_k, 0.0, 1.0))
+	elif _quiet < (float(mv.fire[1]) - float(mv.fire[0])) / 30.0 and _quiet < _cool + 0.4:
+		fr = float(mv.fire[0]) + _quiet * 30.0
+	else:
+		var n := float(mv.idle[1]) - float(mv.idle[0])
+		fr = float(mv.idle[0]) + (fmod(Time.get_ticks_msec() / 1000.0 * 30.0, n) if n > 0.0 else 0.0)
+	ap.seek(fr / 30.0, true)
+
+
+var _rv_turn := 0.0      ## the cylinder's turn, chamber by chamber
+var _rv_shown := 0.0
+var _rv_shells := -1
+
+
+## A revolver worked bone by bone: each shot turns the cylinder a chamber on and drops the hammer; a reload
+## swings the cylinder out on its crane, the spent rounds slide out the back and fresh ones in, and it swings
+## home.
+func _revolver_sync() -> void:
+	var sk: Skeleton3D = _model.get_meta("anim_sk")
+	var cyl := sk.find_bone("Cylinder_04")
+	var crane := sk.find_bone("Extractor_03")
+	var hammer := sk.find_bone("Hammer_02")
+	if cyl < 0 or crane < 0:
+		return
+	var now := int((_st.get(gun(), {}) as Dictionary).get("mag", 0))
+	if _rv_shells >= 0 and now < _rv_shells and not _reloading:
+		_rv_turn += TAU / 6.0
+	_rv_shells = now
+	_rv_shown = move_toward(_rv_shown, _rv_turn, get_process_delta_time() * 14.0)
+	var k := _hand_k if _reloading else 0.0
+	var out := smoothstep(0.06, 0.18, k) * (1.0 - smoothstep(0.8, 0.92, k))
+
+	# The crane turns about the barrel's line, out to the left
+	var cr_rest: Transform3D = sk.get_bone_rest(crane)
+	var par := sk.get_bone_parent(crane)
+	var pg: Basis = sk.get_bone_global_pose(par).basis.orthonormalized() if par >= 0 else Basis()
+	var barrel: Vector3 = (pg.inverse() * (sk.get_meta("barrel") as Vector3)).normalized()
+	sk.set_bone_pose_rotation(crane, Quaternion(barrel, out * RV_CRANE) * cr_rest.basis.get_rotation_quaternion())
+	sk.set_bone_pose_rotation(cyl, sk.get_bone_rest(cyl).basis.get_rotation_quaternion() * Quaternion(Vector3.UP, _rv_shown))
+	if hammer >= 0:
+		var cock := 1.0 - clampf(_quiet / 0.12, 0.0, 1.0) if not _reloading else 0.0
+		sk.set_bone_pose_rotation(hammer, sk.get_bone_rest(hammer).basis.get_rotation_quaternion() * Quaternion(Vector3.RIGHT, -0.5 * cock))
+	# The rounds ride in the cylinder; on a reload they slide out the back and fresh ones in
+	var cg_rest: Transform3D = sk.get_meta("cyl_rest")
+	var cg_now: Transform3D = sk.get_bone_global_pose(cyl)
+	var delta_t: Transform3D = cg_now * cg_rest.affine_inverse()
+	var slide := smoothstep(0.24, 0.36, k) * (1.0 - smoothstep(0.5, 0.68, k))
+	var back: Vector3 = (cg_now.basis.y as Vector3).normalized() * 0.6 * slide   # the bone runs back from the cylinder's face
+	for i in 6:
+		if i >= (sk.get_meta("rounds") as Array).size():
+			break
+		var b: int = (sk.get_meta("rounds") as Array)[i]
+		var rest_g: Transform3D = (sk.get_meta("rounds_rest") as Array)[i]
+		var g: Transform3D = delta_t * rest_g
+		g.origin += back
+		var bp := sk.get_bone_parent(b)
+		var pgt: Transform3D = sk.get_bone_global_pose(bp) if bp >= 0 else Transform3D()
+		var loc := pgt.affine_inverse() * g
+		sk.set_bone_pose_position(b, loc.origin)
+		sk.set_bone_pose_rotation(b, loc.basis.get_rotation_quaternion())
+		sk.set_bone_pose_scale(b, Vector3.ONE * (0.001 if slide > 0.97 else 1.0))
+
+
+## The barrel's line in the revolver's own space, and how far the crane swings out.
+const RV_BARREL := Vector3(0, 0, 1)
+const RV_CRANE := -1.3
+
+
+## Our hands as a moving gun's own arms have them this moment: where each palm is and how it lies, how
+## each finger bends, and where the shoulder and elbow are.
+func _anim_hands() -> Dictionary:
+	var sk: Skeleton3D = _model.get_meta("anim_sk")
+	var b: Dictionary = _model.get_meta("anim_bones")
+	var out := {}
+	for sd in ["R", "L"]:
+		var g := func(k: String) -> Vector3: return sk.global_transform * sk.get_bone_global_pose(b[sd + k]).origin
+		var w: Vector3 = g.call("wrist")
+		var mid: Vector3 = g.call("middle1")
+		var f := mid - w
+		var a: Vector3 = (g.call("point1") as Vector3) - (g.call("pink1") as Vector3)
+		var H := FPHands._frame(f, a, sd)
+		var Hi := H.inverse()
+		var shape := {}
+		for fn in ["thumb", "point", "middle", "ring", "pink"]:
+			shape[fn] = [Hi * ((g.call(fn + "1") as Vector3) - w), Hi * ((g.call(fn + "2") as Vector3) - w),
+				Hi * ((g.call(fn + "3") as Vector3) - w), Hi * ((g.call(fn) as Vector3) - w)]
+		var S: Vector3 = g.call("arm")
+		var E: Vector3 = g.call("elbow")
+		out[sd] = {"at": w.lerp(mid, 0.55) + H.z * 0.022, "f": f, "a": a, "shape_pts": shape, "S": S,
+			"pole": E - (S + w) * 0.5}
+	return out
+
+
 ## How far each rigged gun's selector turns from where the model has it, to sit at full auto.
 const RIG_SELECTOR := {"smg": 3.85}
 ## The top of each rigged gun, where its sights sit.
@@ -2543,6 +2739,8 @@ static func _chain(mi: Node, top: Node) -> Transform3D:
 ## Swaps the plain shapes of a gun for its scanned body, keeping its working parts working.
 ## Gives back the height of its top (where a fitted sight sits), or -1 if it has no scanned body.
 func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
+	if ANIM_GUNS.has(g):
+		return _anim_gun(g, n)
 	if RIGGED_GUNS.has(g):
 		return _rig_gun(g, n)
 	if not SCANNED_GUNS.has(g):
@@ -3403,6 +3601,10 @@ func hand_pose(force := "") -> Dictionary:
 			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL}, "L": down_l}
 	if _model == null or not _holder.visible:
 		return {}
+	if _model.has_meta("anim"):
+		_anim_sync()
+		if (_model.get_meta("anim_bones") as Dictionary).has("Rwrist"):
+			return _anim_hands()
 	var g := ArmsDB.look(gun())
 	var s := spec()
 	var mt := _model.global_transform
@@ -3414,25 +3616,25 @@ func hand_pose(force := "") -> Dictionary:
 	var fwd := Vector3(-0.12, 0.0, -1.0)
 	var f_r := (fwd - axis * fwd.dot(axis)).normalized()
 	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * axis,
-		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL}
+		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL, "shape": "grip", "gb": mb}
 	var L: Dictionary
 	if s.slot == "secondary":
 		# Cupped about the right hand, on the grip's other side
 		L = {"at": mt * (at_r + Vector3(-0.03, -0.01, -0.004)), "f": mb * Vector3(0.25, -0.3, -1.0), "a": mb * axis,
-			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": CUP_CURL}
+			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": CUP_CURL, "shape": "fore", "gb": mb}
 	else:
 		var fore: Vector3 = grip.get("L", (_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
 		var ft := mt
 		if s.mode == "pump" and _pump:
 			ft = _pump.global_transform   # the hand works the pump
 		L = {"at": ft * fore, "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1),
-			"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FORE_CURL, "sh": Vector3(-0.1, -0.3, -0.3)}
+			"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FORE_CURL, "shape": "fore", "gb": mb}
 		if grip.has("L_axis"):
 			# A second upright grip: held in a fist, as the right holds its own
 			var ax2: Vector3 = (grip.L_axis as Vector3).normalized()
 			var f_l := (fwd * Vector3(-1, 1, 1) - ax2 * (fwd * Vector3(-1, 1, 1)).dot(ax2)).normalized()
 			L = {"at": mt * (fore + Vector3(-0.012, 0, 0)), "f": mb * f_l, "a": mb * ax2,
-				"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FIST_CURL}
+				"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FIST_CURL, "shape": "fore", "gb": mb}
 	if _reloading:
 		var k := _hand_k
 		var w := 0.0
@@ -3446,30 +3648,37 @@ func hand_pose(force := "") -> Dictionary:
 			if wh > 0.0 and bones.has("handle"):
 				w = wh
 				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
-					"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "sh": Vector3(-0.06, -0.26, -0.36)}
+					"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}
 			elif wm > 0.0 and bones.has("mag"):
 				w = wm
 				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
-					"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+					"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+		elif _model.has_meta("anim") and _model.has_meta("anim_part"):
+			# The left hand at the swung-out cylinder, rounds out and in
+			var ask: Skeleton3D = _model.get_meta("anim_sk")
+			w = smoothstep(0.08, 0.18, k) * (1.0 - smoothstep(0.82, 0.92, k))
+			to = {"at": ask.global_transform * ask.get_bone_global_pose(_model.get_meta("anim_part")).origin + mb * Vector3(-0.01, -0.03, 0.0),
+				"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
 		elif s.reload == "shell" and _shell_mesh and _shell_mesh.is_inside_tree():
 			w = 1.0 if _shell_mesh.visible else 0.0
 			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.03, 0.025), "f": mb * Vector3(0.3, 1.0, -0.3),
-				"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+				"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
 		else:
 			var src: Node3D = _pump if s.mode == "rocket" else (_model.get_meta("mag") if _model.has_meta("mag") else null)
 			if src and src.find_children("*", "MeshInstance3D", true, false).size() > 0:
 				w = smoothstep(0.06, 0.14, k) * (1.0 - smoothstep(0.78, 0.88, k))
-				to = {"at": src.global_transform * _part_mid(src) + mb * Vector3(0, -0.02, 0.0), "f": mb * Vector3(0.4, 1.0, -0.4),
-					"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL}
+				# A rocket is pushed home from below the tube, the hand only part way out, so the arm stays whole
+				var off := Vector3(-0.02, -0.08, 0.24) if s.mode == "rocket" else Vector3(0, -0.02, 0.0)
+				if s.mode == "rocket":
+					w *= 0.6
+				to = {"at": src.global_transform * _part_mid(src) + mb * off, "f": mb * Vector3(0.4, 1.0, -0.4),
+					"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
 		if w > 0.0:
-			# The arm drops back and low as the hand comes in near the body, so it does not cross the eye
-			if not to.has("sh"):
-				to["sh"] = Vector3(-0.04, -0.48, -0.2) if s.reload == "shell" else Vector3(-0.22, -0.45, -0.02)
-			if not L.has("sh"):
-				L["sh"] = FPHands.SHOULDER.L
-			for key in ["at", "f", "a", "sh"]:
+			for key in ["at", "f", "a"]:
 				L[key] = (L[key] as Vector3).lerp(to[key], w)
 			L.curl = to.curl if w > 0.5 else L.curl
+			L.shape = to.shape if w > 0.5 else L.shape
+			L.reach = "top" if to.shape == "top" and w > 0.5 else "fore"
 	return {"R": R, "L": L}
 
 

@@ -35,6 +35,10 @@ Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases 
 
 **Your hands.** You see your own two arms on every gun: the right on the grip, the left under the fore-end or cupping the right on a side arm. On a reload the left hand takes the magazine out and puts the new one in, feeds shells, or works the SMG's handle.
 
+**Belt gun and revolver.** The belt gun moves as it was made to: it kicks when fired and has its own reload. The revolver's cylinder turns one chamber with each shot, and on a reload it swings out so the rounds can be changed.
+
+**Smoking.** Friends see your cigarette too, and its smoke.
+
 **Shotgun reload.** Each reload pushes a whole 12 gauge shell into the tube, and each pump throws out the fired one.
 
 ## Aiming

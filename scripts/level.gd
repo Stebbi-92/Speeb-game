@@ -2215,7 +2215,7 @@ func _net_tick(delta: float) -> void:
 			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
 			player.weapon.gun() if player.weapon else "shotgun",
 			Game.mounts_of(player.weapon.gun()) if player.weapon else [],
-			_cat_pose()])
+			_cat_pose(), _smoking_now()])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:
@@ -2280,6 +2280,12 @@ func _watch_roster() -> void:
 		if not now.has(id):
 			hud.feed("%s left" % _known[id], Color(0.7, 0.68, 0.64))
 	_known = now
+
+
+## Whether one has a cigarette lit just now (the waste's own; others see it at one's mouth).
+func _smoking_now() -> bool:
+	var sm = get("smoking")
+	return sm != null and is_instance_valid(sm) and bool(sm.lit)
 
 
 func net_pose(id: int, data: Array) -> void:

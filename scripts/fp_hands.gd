@@ -14,6 +14,29 @@ const OFFSET := Vector3(0.0, -0.37, -0.02)
 ## low, out of sight, as a gun held out before the eye needs: life-length arms would not reach its fore-end.
 const SHOULDER := {"R": Vector3(0.19, -0.28, -0.02), "L": Vector3(-0.15, -0.28, -0.08)}
 
+## Each finger's joints (first knuckle to tip), from the wrist, in the hand's own frame (x where the fingers
+## point, y the knuckle line, z out of the palm): taken from "LMG animated" (DJMaesen), whose arms grip for real.
+const SHAPES := {
+	"grip": {"thumb": [Vector3(0.0300, -0.0012, 0.0257), Vector3(0.0621, 0.0199, 0.0578), Vector3(0.0885, 0.0232, 0.0724), Vector3(0.1180, 0.0177, 0.0773)], "point": [Vector3(0.1193, 0.0231, 0.0130), Vector3(0.1484, 0.0247, 0.0226), Vector3(0.1679, 0.0249, 0.0333), Vector3(0.1793, 0.0210, 0.0577)], "middle": [Vector3(0.1181, 0.0000, -0.0000), Vector3(0.1222, -0.0053, 0.0323), Vector3(0.1078, -0.0080, 0.0551), Vector3(0.0759, -0.0069, 0.0576)], "ring": [Vector3(0.1125, -0.0196, 0.0017), Vector3(0.1164, -0.0268, 0.0299), Vector3(0.1047, -0.0295, 0.0520), Vector3(0.0772, -0.0280, 0.0627)], "pink": [Vector3(0.1027, -0.0473, 0.0130), Vector3(0.0981, -0.0487, 0.0316), Vector3(0.0932, -0.0496, 0.0499), Vector3(0.0768, -0.0465, 0.0607)]},
+	"fore": {"thumb": [Vector3(0.0300, -0.0040, 0.0254), Vector3(0.0546, 0.0191, 0.0625), Vector3(0.0772, 0.0200, 0.0826), Vector3(0.1066, 0.0127, 0.0850)], "point": [Vector3(0.1193, 0.0215, 0.0154), Vector3(0.1392, 0.0063, 0.0331), Vector3(0.1289, 0.0038, 0.0528), Vector3(0.1069, 0.0045, 0.0686)], "middle": [Vector3(0.1181, -0.0000, -0.0000), Vector3(0.1244, -0.0105, 0.0306), Vector3(0.1109, -0.0136, 0.0539), Vector3(0.0840, -0.0100, 0.0709)], "ring": [Vector3(0.1155, -0.0286, 0.0095), Vector3(0.1146, -0.0360, 0.0379), Vector3(0.1016, -0.0387, 0.0592), Vector3(0.0831, -0.0390, 0.0822)], "pink": [Vector3(0.0983, -0.0542, 0.0154), Vector3(0.0984, -0.0589, 0.0341), Vector3(0.0940, -0.0595, 0.0525), Vector3(0.0852, -0.0583, 0.0703)]},
+	"mag": {"thumb": [Vector3(0.0299, -0.0040, 0.0254), Vector3(0.0622, 0.0132, 0.0597), Vector3(0.0825, 0.0200, 0.0812), Vector3(0.0994, 0.0275, 0.1053)], "point": [Vector3(0.1193, 0.0215, 0.0154), Vector3(0.1408, 0.0144, 0.0361), Vector3(0.1476, 0.0063, 0.0557), Vector3(0.1481, -0.0059, 0.0799)], "middle": [Vector3(0.1181, 0.0000, 0.0000), Vector3(0.1446, -0.0084, 0.0177), Vector3(0.1522, -0.0169, 0.0423), Vector3(0.1511, -0.0239, 0.0735)], "ring": [Vector3(0.1155, -0.0286, 0.0095), Vector3(0.1437, -0.0346, 0.0153), Vector3(0.1511, -0.0410, 0.0384), Vector3(0.1552, -0.0467, 0.0670)], "pink": [Vector3(0.0983, -0.0542, 0.0154), Vector3(0.1165, -0.0598, 0.0185), Vector3(0.1348, -0.0634, 0.0220), Vector3(0.1532, -0.0676, 0.0280)]},
+	"top": {"thumb": [Vector3(0.0300, -0.0034, 0.0255), Vector3(0.0646, 0.0246, 0.0484), Vector3(0.0897, 0.0363, 0.0608), Vector3(0.1106, 0.0527, 0.0756)], "point": [Vector3(0.1193, 0.0219, 0.0149), Vector3(0.1465, 0.0175, 0.0283), Vector3(0.1610, 0.0130, 0.0447), Vector3(0.1773, 0.0056, 0.0651)], "middle": [Vector3(0.1181, -0.0000, 0.0000), Vector3(0.1407, -0.0071, 0.0229), Vector3(0.1545, -0.0130, 0.0455), Vector3(0.1666, -0.0179, 0.0748)], "ring": [Vector3(0.1156, -0.0282, 0.0083), Vector3(0.1385, -0.0350, 0.0254), Vector3(0.1501, -0.0409, 0.0469), Vector3(0.1640, -0.0467, 0.0722)], "pink": [Vector3(0.0988, -0.0540, 0.0149), Vector3(0.1153, -0.0599, 0.0228), Vector3(0.1292, -0.0633, 0.0353), Vector3(0.1400, -0.0665, 0.0516)]}}
+## Where the shoulder sits from the palm, and which way the elbow points, in the gun's own frame (x right, y up,
+## z back), with the hand's frame there: from the same.
+const REACH := {
+	"grip": {"S": Vector3(0.0311, 0.0412, 0.5740), "pole": Vector3(0.0794, -0.0591, -0.0238), "f": Vector3(0.0574, -0.0087, -0.9983), "a": Vector3(0.1373, 0.9905, -0.0008)},
+	"fore": {"S": Vector3(-0.1263, -0.1095, 0.5272), "pole": Vector3(-0.0768, -0.0826, -0.0590), "f": Vector3(0.3418, 0.2206, -0.9135), "a": Vector3(-0.3455, 0.9335, 0.0962)},
+	"mag": {"S": Vector3(0.1342, 0.1788, 0.4492), "pole": Vector3(-0.0495, -0.1529, 0.0480), "f": Vector3(-0.2587, -0.2757, -0.9258), "a": Vector3(-0.9614, -0.0194, 0.2744)},
+	"top": {"S": Vector3(-0.1623, -0.2513, 0.4005), "pole": Vector3(-0.1384, -0.0135, -0.0828), "f": Vector3(0.6665, 0.6303, -0.3980), "a": Vector3(0.0557, 0.4904, 0.8697)},
+	"lgrip": {"S": Vector3(-0.1263, -0.1095, 0.5272), "pole": Vector3(-0.0768, -0.0826, -0.0590), "f": Vector3(0.3418, 0.2206, -0.9135), "a": Vector3(-0.3455, 0.9335, 0.0962)}}
+
+## How far out to the side of the eye a shoulder must stay (the arm would otherwise pass across the eye)
+const SHOULDER_OUT := 0.2
+## Places a shoulder may go, tried in turn (for the right; mirrored for the left), when the reference's own
+## would leave the sleeve's cut end in sight: back and out, then lower and lower as the hand reaches further
+const SHOULDER_HOMES := [Vector3(0.24, -0.28, 0.15), Vector3(0.22, -0.42, 0.0), Vector3(0.2, -0.55, -0.12),
+	Vector3(0.16, -0.7, -0.25), Vector3(0.1, -0.85, -0.35)]
+
 var arms: Arms
 var _model: Node3D
 var _sk: Skeleton3D
@@ -74,6 +97,13 @@ func _learn(s: String) -> Dictionary:
 	# The palm's middle, a little toward the palm from between the wrist and the knuckles
 	var palm: Vector3 = W.lerp(mid, 0.55) + (d.H as Basis).z * 2.0
 	d.palm = (d.Wb as Basis).inverse() * (palm - W)
+	d.chains = {}
+	for fname in ["thumb", "point", "middle", "ring", "pink"]:
+		var ch := []
+		for j in [1, 2, 3, 4]:
+			ch.append(names.get("%s%d" % [fname, j], -1))
+		if not ch.has(-1):
+			d.chains[fname] = ch
 	d.fingers = []
 	for fname in ["thumb", "point", "middle", "ring", "pink"]:
 		for j in [1, 2, 3]:
@@ -103,10 +133,14 @@ func _process(_delta: float) -> void:
 	visible = not p.is_empty()
 	if not visible:
 		return
-	_reach("R", p.R)
-	_reach("L", p.L)
-	_curl("R", p.R)
-	_curl("L", p.L)
+	for sd in ["R", "L"]:
+		_reach(sd, p[sd])
+		if (p[sd] as Dictionary).has("shape_pts"):
+			_shape(sd, p[sd].shape_pts)
+		elif (p[sd] as Dictionary).has("shape") and SHAPES.has(p[sd].shape):
+			_shape(sd, SHAPES[p[sd].shape])
+		else:
+			_curl(sd, p[sd])
 
 
 ## Brings one hand to its place: p.at is where the palm's middle goes, p.f and p.a the hand's frame
@@ -119,6 +153,42 @@ func _reach(s: String, p: Dictionary) -> void:
 	var Wt: Basis = H * (d.H as Basis).inverse() * (d.Wb as Basis)
 	var T: Vector3 = inv * (p.at as Vector3) - Wt * (d.palm as Vector3)
 	var S: Vector3 = inv * (get_parent().global_transform * (p.get("sh", SHOULDER[s]) as Vector3)) if get_parent() is Node3D else d.S
+	var pole_w: Vector3 = p.get("pole", Vector3.DOWN)
+	if p.has("gb") or p.has("S"):
+		# Held as the reference holds it: the shoulder well back along the gun, the elbow out and down
+		var rk: Dictionary = REACH.get(p.get("reach", p.get("shape", "grip")), REACH.grip)
+		var gb: Basis = p.get("gb", Basis())
+		var Sw: Vector3 = p.S if p.has("S") else (p.at as Vector3) + gb * (rk.S as Vector3)
+		if get_parent() is Node3D:
+			# Never past the eye: the arm runs back beside and below the head, as with a gun brought up to aim
+			var cam: Transform3D = get_parent().global_transform
+			var Sc: Vector3 = cam.affine_inverse() * Sw
+			var hand_c: Vector3 = cam.affine_inverse() * (p.at as Vector3)
+			var reach: float = (float(d.l1) + float(d.l2)) * SCALE * 0.97
+			# The reference's shoulder if it is out of sight and in reach, else the first of a few places
+			# further back, out and down that is: the sleeve's cut end must never show
+			var side := 1.0 if s == "R" else -1.0
+			var tries: Array = [Sc]
+			for h in SHOULDER_HOMES:
+				tries.append(Vector3((h as Vector3).x * side, (h as Vector3).y, (h as Vector3).z))
+			var best := -INF
+			for k in tries.size():
+				var c: Vector3 = tries[k]
+				if k == 0:
+					c.x = maxf(c.x, SHOULDER_OUT) if s == "R" else minf(c.x, -SHOULDER_OUT)
+				if c.distance_to(hand_c) > reach:
+					c = hand_c + (c - hand_c).normalized() * reach
+				if _hidden(c):
+					Sc = c
+					break
+				# None out of sight yet: keep the one furthest below the foot of the view
+				var below := -c.y - maxf(-c.z, 0.0) * 1.25
+				if below > best:
+					best = below
+					Sc = c
+			Sw = cam * Sc
+		S = inv * Sw
+		pole_w = p.pole if p.has("S") else gb * (rk.pole as Vector3)
 	var root := _sk.get_bone_parent(d.arm)
 	var Pt: Transform3D = _sk.get_bone_global_pose(root) if root >= 0 else Transform3D()
 	_sk.set_bone_pose_position(d.arm, Pt.affine_inverse() * S)
@@ -127,7 +197,7 @@ func _reach(s: String, p: Dictionary) -> void:
 	var to := T - S
 	var dist := clampf(to.length(), absf(l1 - l2) + 0.01, (l1 + l2) * 0.999)
 	var dir := to.normalized()
-	var pole: Vector3 = rot * (p.pole as Vector3)
+	var pole: Vector3 = rot * pole_w
 	pole = (pole - dir * pole.dot(dir))
 	if pole.length() < 0.001:
 		pole = (d.E - d.S - dir * (d.E - d.S).dot(dir))
@@ -144,15 +214,21 @@ func _reach(s: String, p: Dictionary) -> void:
 		r_bend = Vector3.UP.cross(r_up)
 	var n_up := (E - S).normalized()
 	var n_lo := (Wp - E).normalized()
-	var n_bend := n_up.cross(n_lo)
-	if n_bend.length() < 0.001:
-		n_bend = pole.cross(n_up)
+	# The bend's axis from the pole, not from the bones: steady even when the arm is all but straight
+	var n_bend := pole.cross(dir)
 	var A: Basis = _turn(r_up, r_bend, n_up, n_bend) * (d.A as Basis)
 	var El: Basis = _turn(r_lo, r_bend, n_lo, n_bend) * (d.El as Basis)
 	var Pb: Basis = Pt.basis.orthonormalized()
 	_sk.set_bone_pose_rotation(d.arm, (Pb.inverse() * A).get_rotation_quaternion())
 	_sk.set_bone_pose_rotation(d.elbow, (A.inverse() * El).get_rotation_quaternion())
 	_sk.set_bone_pose_rotation(d.wrist, (El.inverse() * Wt).get_rotation_quaternion())
+
+
+## Whether a shoulder (seen from the eye) is out of sight: behind the eye, or well below the foot of the view.
+static func _hidden(c: Vector3) -> bool:
+	if c.z > -0.02 and c.y < -0.15:
+		return true
+	return c.z < 0.0 and -c.y > -c.z * 1.25 + 0.04
 
 
 ## The turn that carries the frame (u, v) onto (u2, v2).
@@ -166,6 +242,34 @@ static func _ortho(u: Vector3, v: Vector3) -> Basis:
 	u = u.normalized()
 	v = (v - u * v.dot(u)).normalized()
 	return Basis(u, v, u.cross(v))
+
+
+## Bends each finger joint by joint so it runs as the reference hand's does, in the hand's own frame.
+func _shape(s: String, shape: Dictionary) -> void:
+	var d: Dictionary = _side[s]
+	var g := func(b: int) -> Vector3: return _sk.get_bone_global_pose(b).origin
+	var w: Vector3 = g.call(d.wrist)
+	var f: Vector3 = (g.call(d.chains.middle[0]) as Vector3) - w
+	var a: Vector3 = (g.call(d.chains.point[0]) as Vector3) - (g.call(d.chains.pink[0]) as Vector3)
+	var H := _frame(f, a, s)
+	for fname in d.chains:
+		if not shape.has(fname):
+			continue
+		var ch: Array = d.chains[fname]
+		var pts: Array = shape[fname]
+		for k in 3:
+			var b: int = ch[k]
+			var child: int = ch[k + 1]
+			var want: Vector3 = H * ((pts[k + 1] as Vector3) - (pts[k] as Vector3))
+			var par := _sk.get_bone_parent(b)
+			var Pg: Basis = _sk.get_bone_global_pose(par).basis if par >= 0 else Basis()
+			var G0: Basis = Pg * _sk.get_bone_rest(b).basis
+			var u: Vector3 = G0 * _sk.get_bone_rest(child).origin
+			if u.length() < 0.0001 or want.length() < 0.0001:
+				continue
+			var q := Quaternion(u.normalized(), want.normalized())
+			var G := Basis(q) * G0
+			_sk.set_bone_pose_rotation(b, (Pg.inverse() * G).get_rotation_quaternion())
 
 
 ## Curls each finger by its joint's share of p.curl {finger: [first, second, third joint] in degrees}.

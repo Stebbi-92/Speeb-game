@@ -8654,13 +8654,30 @@ func debug_hands() -> void:
 	arms._reload_pose(0.9, 1.0)
 	var home: bool = arms._handle_back < 0.05 and arms._handle_up < 0.05
 	arms._reload_rest(1.0)
+	# The belt gun moves as it was made to, our arms following its own; the revolver's crane swings out
+	arms.guns = ["lmg", arms.guns[1]]
+	arms._show_model()
+	var lp := arms.hand_pose()
+	var anim: bool = arms._model.has_meta("anim") and lp.has("R") and (lp.R as Dictionary).has("S")
+	arms.guns = ["revolver", arms.guns[1]]
+	arms._show_model()
+	arms._reloading = true
+	arms._reload_pose(0.4, 1.0)
+	arms.hand_pose()
+	var rsk: Skeleton3D = arms._model.get_meta("anim_sk") if arms._model.has_meta("anim_sk") else null
+	var crane := false
+	if rsk:
+		var cb := rsk.find_bone("Extractor_03")
+		crane = cb >= 0 and rsk.get_bone_pose_rotation(cb).angle_to(rsk.get_bone_rest(cb).basis.get_rotation_quaternion()) > 1.0
+	arms._reloading = false
+	arms._reload_rest(1.0)
 	# A cigarette, lit with the gun in hand
 	inv.add("cigarettes", 3)
 	var lit := smoke("cigarettes")
 	var twice := smoke("cigarettes")
 	await get_tree().create_timer(1.0).timeout
 	var burning: bool = smoking != null and smoking.lit and smoking.left < WSmoke.BURN and inv.count("cigarettes") == 2
-	print("HANDS guns=%d far=%s smg_rig=%s locked=%s home=%s cig=%s once=%s burning=%s" % [n, far, rig, locked, home, lit, not twice, burning])
+	print("HANDS guns=%d far=%s smg_rig=%s locked=%s home=%s anim=%s crane=%s cig=%s once=%s burning=%s seen=%s" % [n, far, rig, locked, home, anim, crane, lit, not twice, burning, _smoking_now()])
 	get_tree().quit()
 
 
