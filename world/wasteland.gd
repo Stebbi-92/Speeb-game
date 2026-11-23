@@ -8632,6 +8632,10 @@ func debug_hands() -> void:
 			for i in 3:
 				await get_tree().process_frame
 			var p := arms.hand_pose()
+			if not FPHands.SHOWN:
+				h.debug_pose = "hip"   # drawn only for this check while the arms are off
+				await get_tree().process_frame
+				h.debug_pose = ""
 			if p.is_empty():
 				far.append(g + ":none")
 				continue

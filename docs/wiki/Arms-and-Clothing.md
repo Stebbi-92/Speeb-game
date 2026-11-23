@@ -28,12 +28,12 @@ You start with the Pump Shotgun and the Pistol.
 | **Minigun** | long gun | 200 | 90 Scrap Iron, 14 Lamp Oil, 30 Order Coin, 6 Obsidian, 3 Tempered Steel, 3 Clockwork | Must spin up before it fires. Slows you a lot. |
 | **Flamethrower** | long gun | 100 fuel | 55 Scrap Iron, 12 Lamp Oil, 8 Tar, 3 Salt Crystal, 2 Clockwork | Short reach. Burns all in front of it and leaves the ground alight. |
 | **Pistol** (G17 with a light) | side arm | 12 | (you start with it) | Quick to draw and to load. |
-| **Auto Pistol** (9mm) | side arm | 18 | 30 Scrap Iron, 2 Lamp Oil, 2 Red Iron, 1 Clockwork | Fires while held. It climbs: keep it close. |
+| **Auto Pistol** (9mm) | side arm | 18 | 30 Scrap Iron, 2 Lamp Oil, 2 Red Iron, 1 Clockwork | Fires while held, about 1,200 rounds a minute. It climbs: keep it close. |
 | **Revolver** | side arm | 6 | 24 Scrap Iron, 6 Deadwood | Six heavy rounds. Slow, and sure. |
 
 Ammunition is made at a workbench (see [[Making]]). Each gun throws spent cases of its own calibre.
 
-**Your hands.** You see your own two arms on every gun: the right on the grip, the left under the fore-end or cupping the right on a side arm. On a reload the left hand takes the magazine out and puts the new one in, feeds shells, or works the SMG's handle.
+**Your hands.** Your own arms are not shown on the guns for now. They come back once they hold every gun well.
 
 **Belt gun and revolver.** The belt gun moves as it was made to: it kicks when fired and has its own reload. The revolver's cylinder turns one chamber with each shot, and on a reload it swings out so the rounds can be changed.
 

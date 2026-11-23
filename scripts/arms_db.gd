@@ -41,7 +41,7 @@ const GUNS := {
 		"mag": 12, "rate": 0.16, "reload": "mag", "reload_t": 1.3, "sound": "pistol45", "kick": 0.35, "falloff": 45.0, "unlock": 1,
 		"mounts": ["red_dot", "suppressor", "ext_mag"], "text": "Quick to draw and quick to load. Something to reach for when the long gun runs dry."},
 	"pistol9": {"name": "Auto Pistol", "slot": "secondary", "mode": "auto", "dmg": 13.0, "pellets": 1, "spread": 0.022, "range": 70.0,
-		"mag": 18, "rate": 0.085, "reload": "mag", "reload_t": 1.5, "sound": "pistol", "kick": 0.28, "falloff": 35.0, "unlock": 4,
+		"mag": 18, "rate": 0.05, "reload": "mag", "reload_t": 1.5, "sound": "pistol", "kick": 0.28, "falloff": 35.0, "unlock": 4,
 		"mounts": ["red_dot", "reflex", "suppressor", "compensator", "flash_hider", "ext_mag"], "text": "Eighteen rounds as fast as you can hold it down. It climbs: keep it close."},
 	"revolver": {"name": "Revolver", "slot": "secondary", "mode": "semi", "dmg": 52.0, "pellets": 1, "spread": 0.008, "range": 110.0,
 		"mag": 6, "rate": 0.45, "reload": "mag", "reload_t": 2.0, "sound": "revolver", "kick": 0.8, "falloff": 60.0, "unlock": 5,

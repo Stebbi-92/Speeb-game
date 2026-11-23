@@ -7,6 +7,8 @@ extends Node3D
 ## hand's own knuckle line.
 
 const PATH := "res://assets/models/hands/fps_arms.glb"
+## Whether one's own arms are drawn at all: off for now (Steve, 2026-11-23), until they hold the guns well
+const SHOWN := false
 const SCALE := 0.0108   ## the model is in centimetres; near life size
 ## Where the model sits under the eye
 const OFFSET := Vector3(0.0, -0.37, -0.02)
@@ -130,7 +132,8 @@ func _process(_delta: float) -> void:
 	if arms == null:
 		return
 	arms._rig_sync()
-	if _sk == null:
+	if _sk == null or not (SHOWN or debug_pose != ""):
+		visible = false
 		return
 	var p := arms.hand_pose() if debug_pose == "" else arms.hand_pose(debug_pose)
 	visible = not p.is_empty()

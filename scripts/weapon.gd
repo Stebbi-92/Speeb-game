@@ -2368,7 +2368,7 @@ func _acc_name(g: String, m: String) -> String:
 
 
 ## How far below the top of each scanned gun its own iron sights sit, found by looking down them.
-const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.009, "minigun": -0.1}
+const IRON_DROP := {"pistol": 0.012, "pistol9": 0.012, "revolver": 0.021, "minigun": -0.1}
 ## How far each gun sits to the side when aimed, so its sights (not its body) are on the eye's line.
 const IRON_SIDE := {}
 ## Guns whose own rear and front sights do not sit on one line along the barrel: [the rear aperture's middle,
@@ -2381,7 +2381,7 @@ const SIGHT_LINE := {
 	# The rifle's tangent sight: the notch's shoulders level with the top of the front post's bead
 	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
 	# The SMG's drum aperture and the post in its front hood
-	"smg": [Vector3(0.0, 0.099, 0.066), Vector3(0.0, 0.086, -0.378), 0.22],
+	"smg": [Vector3(0.0, 0.1145, 0.085), Vector3(0.0, 0.113, -0.418), 0.06],
 }
 
 
@@ -2522,6 +2522,8 @@ func _anim_gun(g: String, n: Node3D) -> float:
 	var pivot := Node3D.new()
 	pivot.rotation.y = PI   # made pointing along +Z
 	pivot.scale = Vector3.ONE * float(ag[1])
+	if g == "revolver":   # its bore runs a little down and aside of +Z: turned so the barrel points where we look
+		pivot.basis = Basis(Vector3.UP, PI) * Basis(Quaternion(RV_BARREL.normalized(), Vector3.BACK)) * Basis.from_scale(Vector3.ONE * float(ag[1]))
 	n.add_child(pivot)
 	var inst: Node3D = (load(path) as PackedScene).instantiate()
 	pivot.add_child(inst)
@@ -2656,8 +2658,8 @@ func _revolver_sync() -> void:
 		sk.set_bone_pose_scale(b, Vector3.ONE * (0.001 if slide > 0.97 else 1.0))
 
 
-## The barrel's line in the revolver's own space, and how far the crane swings out.
-const RV_BARREL := Vector3(0, 0, 1)
+## The barrel's line in the revolver's own space (along its chambers), and how far the crane swings out.
+const RV_BARREL := Vector3(0.0065, -0.028, 0.105)
 const RV_CRANE := -1.3
 
 
@@ -3067,7 +3069,7 @@ const BUTT_H := {"shotgun": 0.16, "autoshotgun": 0.15, "machine_gun": 0.16, "lmg
 const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "autoshotgun": Vector3(0, 0.03, -0.735), "smg": Vector3(0, 0.042, -0.43), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
 	"sniper": Vector3(0, 0.0145, -0.975), "rocket": Vector3(0, 0.026, -0.66), "minigun": Vector3(0, -0.1, -0.68),
 	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.18), "pistol9": Vector3(0, 0.047, -0.19),
-	"revolver": Vector3(0, 0.051, -0.26)}
+	"revolver": Vector3(0, 0.039, -0.25)}
 ## Where a receiver's side plates go (x is found from the gun's own side).
 const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "autoshotgun": Vector3(0.027, 0.05, -0.02), "smg": Vector3(0.022, 0.08, -0.05), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
 	"rocket": Vector3(0.045, 0.026, -0.05), "minigun": Vector3(0.066, -0.09, 0.12), "pistol": Vector3(0.014, 0.036, -0.07), "pistol9": Vector3(0.016, 0.05, -0.08),
