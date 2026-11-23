@@ -7,7 +7,17 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
-| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far (`tools/cut_gunshots.py`) |
+| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`) |
+| [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | via OpenGameArt | CC0 | Splashes (`tools/cut_sounds3.py`) |
+| [Hollywood-style pistol silencer sound effect](https://opengameart.org/content/hollywood-style-pistol-silencer-sound-effect) | via OpenGameArt | see page | The suppressed shot |
+| [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | via OpenGameArt | see page | The wind |
+| [Helicopter Sounds](https://opengameart.org/content/helicopter-sounds) | via OpenGameArt | see page | The gunship's rotor |
+| [Fireball](https://opengameart.org/content/fireball-1) | Julien Matthey, via OpenGameArt | see page | The rocket's launch |
+| [Fire Crackling](https://opengameart.org/content/fire-crackling) | via OpenGameArt | see page | The flamethrower's roar |
+| [Dynamite sound effect](https://opengameart.org/content/dynamite-sound-effect) | via OpenGameArt | see page | Blasts: rockets, grenades, mines |
+| [Jet airplane take off with strong ground whoosh](https://opengameart.org/content/jet-airplane-take-off-with-strong-ground-whoosh) | via OpenGameArt | see page | The airstrike's jets passing |
+| [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds) | via OpenGameArt | see page | Magazines out and in, the shotgun's rack |
+| [Shotgun Reload Sound effects](https://opengameart.org/content/shotgun-reload-sound-effects) | via OpenGameArt | see page | The shotgun's rack |
 | [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
 | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
 | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
@@ -121,8 +131,7 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 ## Made for the game
 
-- `flame_loop.wav` (the flamethrower's roar) is generated noise, made for Brelm. No outside source.
-- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: the wind, the rocket and its blast, the suppressed shot, steam hiss, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
+- Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: steam hiss, the gun run's cannon, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
 - The beacon bell (`assets/audio/bell.ogg`) is a recorded bell strike from Kenney's Impact Sounds (CC0), deepened and given a hall tail by `tools/make_bell.py`.
 - The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 

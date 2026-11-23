@@ -42,7 +42,7 @@ static func _ground(lvl: Node, p: Vector3) -> Vector3:
 
 
 static func _airstrike(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
-	lvl.sfx("jet", 0, at + Vector3(0, 60, 0))
+	lvl.sfx("flyby", 0, at + Vector3(0, 60, 0))
 	var side := dir.cross(Vector3.UP)
 	var jets: Array = []
 	for i in 2:
@@ -74,7 +74,7 @@ static func _gunrun(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
 	var aim := at - dir * 30.0
 	var v := (aim + Vector3(0, 30, 0) - start).normalized() * 120.0
 	j.look_at(j.global_position + v, Vector3.UP)
-	lvl.sfx("jet", -2, at + Vector3(0, 40, 0), 1.15)
+	lvl.sfx("flyby", -2, at + Vector3(0, 40, 0), 1.15)
 	_fly(lvl, j, v, 2.4, true)
 	await _wait(lvl, 2.2)
 	if not is_instance_valid(lvl):
