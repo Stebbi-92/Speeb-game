@@ -21,6 +21,9 @@ const SHAPES := {
 	"fore": {"thumb": [Vector3(0.0300, -0.0040, 0.0254), Vector3(0.0546, 0.0191, 0.0625), Vector3(0.0772, 0.0200, 0.0826), Vector3(0.1066, 0.0127, 0.0850)], "point": [Vector3(0.1193, 0.0215, 0.0154), Vector3(0.1392, 0.0063, 0.0331), Vector3(0.1289, 0.0038, 0.0528), Vector3(0.1069, 0.0045, 0.0686)], "middle": [Vector3(0.1181, -0.0000, -0.0000), Vector3(0.1244, -0.0105, 0.0306), Vector3(0.1109, -0.0136, 0.0539), Vector3(0.0840, -0.0100, 0.0709)], "ring": [Vector3(0.1155, -0.0286, 0.0095), Vector3(0.1146, -0.0360, 0.0379), Vector3(0.1016, -0.0387, 0.0592), Vector3(0.0831, -0.0390, 0.0822)], "pink": [Vector3(0.0983, -0.0542, 0.0154), Vector3(0.0984, -0.0589, 0.0341), Vector3(0.0940, -0.0595, 0.0525), Vector3(0.0852, -0.0583, 0.0703)]},
 	"mag": {"thumb": [Vector3(0.0299, -0.0040, 0.0254), Vector3(0.0622, 0.0132, 0.0597), Vector3(0.0825, 0.0200, 0.0812), Vector3(0.0994, 0.0275, 0.1053)], "point": [Vector3(0.1193, 0.0215, 0.0154), Vector3(0.1408, 0.0144, 0.0361), Vector3(0.1476, 0.0063, 0.0557), Vector3(0.1481, -0.0059, 0.0799)], "middle": [Vector3(0.1181, 0.0000, 0.0000), Vector3(0.1446, -0.0084, 0.0177), Vector3(0.1522, -0.0169, 0.0423), Vector3(0.1511, -0.0239, 0.0735)], "ring": [Vector3(0.1155, -0.0286, 0.0095), Vector3(0.1437, -0.0346, 0.0153), Vector3(0.1511, -0.0410, 0.0384), Vector3(0.1552, -0.0467, 0.0670)], "pink": [Vector3(0.0983, -0.0542, 0.0154), Vector3(0.1165, -0.0598, 0.0185), Vector3(0.1348, -0.0634, 0.0220), Vector3(0.1532, -0.0676, 0.0280)]},
 	"top": {"thumb": [Vector3(0.0300, -0.0034, 0.0255), Vector3(0.0646, 0.0246, 0.0484), Vector3(0.0897, 0.0363, 0.0608), Vector3(0.1106, 0.0527, 0.0756)], "point": [Vector3(0.1193, 0.0219, 0.0149), Vector3(0.1465, 0.0175, 0.0283), Vector3(0.1610, 0.0130, 0.0447), Vector3(0.1773, 0.0056, 0.0651)], "middle": [Vector3(0.1181, -0.0000, 0.0000), Vector3(0.1407, -0.0071, 0.0229), Vector3(0.1545, -0.0130, 0.0455), Vector3(0.1666, -0.0179, 0.0748)], "ring": [Vector3(0.1156, -0.0282, 0.0083), Vector3(0.1385, -0.0350, 0.0254), Vector3(0.1501, -0.0409, 0.0469), Vector3(0.1640, -0.0467, 0.0722)], "pink": [Vector3(0.0988, -0.0540, 0.0149), Vector3(0.1153, -0.0599, 0.0228), Vector3(0.1292, -0.0633, 0.0353), Vector3(0.1400, -0.0665, 0.0516)]}}
+const PISTOL_THUMB := [Vector3(0.03, -0.001, 0.026), Vector3(0.058, 0.022, 0.042), Vector3(0.085, 0.04, 0.046), Vector3(0.112, 0.055, 0.046)]
+const SUPPORT_THUMB := [Vector3(0.03, -0.001, 0.026), Vector3(0.058, 0.012, 0.04), Vector3(0.085, 0.019, 0.045), Vector3(0.112, 0.024, 0.046)]
+const PISTOL_POINT := [Vector3(0.1193, 0.0231, 0.013), Vector3(0.142, 0.045, 0.02), Vector3(0.158, 0.062, 0.03), Vector3(0.168, 0.072, 0.045)]
 ## Where the shoulder sits from the palm, and which way the elbow points, in the gun's own frame (x right, y up,
 ## z back), with the hand's frame there: from the same.
 const REACH := {
@@ -137,6 +140,13 @@ func _process(_delta: float) -> void:
 		_reach(sd, p[sd])
 		if (p[sd] as Dictionary).has("shape_pts"):
 			_shape(sd, p[sd].shape_pts)
+		elif (p[sd] as Dictionary).get("shape", "") in ["pistol", "support"]:
+			# A side arm's grip, both hands: as a long gun's, but the thumbs laid forward along the frame
+			var sh: Dictionary = SHAPES.grip.duplicate()
+			sh.thumb = PISTOL_THUMB if p[sd].shape == "pistol" else SUPPORT_THUMB
+			if p[sd].shape == "pistol":
+				sh.point = PISTOL_POINT   # the trigger finger up in the guard
+			_shape(sd, sh)
 		elif (p[sd] as Dictionary).has("shape") and SHAPES.has(p[sd].shape):
 			_shape(sd, SHAPES[p[sd].shape])
 		else:
@@ -218,6 +228,13 @@ func _reach(s: String, p: Dictionary) -> void:
 	var n_bend := pole.cross(dir)
 	var A: Basis = _turn(r_up, r_bend, n_up, n_bend) * (d.A as Basis)
 	var El: Basis = _turn(r_lo, r_bend, n_lo, n_bend) * (d.El as Basis)
+	# The forearm turns with the hand, as a real one does: the turn is taken along the forearm, not wrung
+	# out at the wrist (that pinches the wrist thin, like a sweet's wrapper)
+	var q := (El.inverse() * Wt).get_rotation_quaternion()
+	var ax_l := (El.inverse() * n_lo).normalized()
+	var tw := 2.0 * atan2(Vector3(q.x, q.y, q.z).dot(ax_l), q.w)
+	tw = wrapf(tw, -PI, PI)
+	El = Basis(n_lo, tw * TWIST_SHARE) * El
 	var Pb: Basis = Pt.basis.orthonormalized()
 	_sk.set_bone_pose_rotation(d.arm, (Pb.inverse() * A).get_rotation_quaternion())
 	_sk.set_bone_pose_rotation(d.elbow, (A.inverse() * El).get_rotation_quaternion())
@@ -225,6 +242,10 @@ func _reach(s: String, p: Dictionary) -> void:
 
 
 ## Whether a shoulder (seen from the eye) is out of sight: behind the eye, or well below the foot of the view.
+## How much of the hand's turn the forearm takes.
+const TWIST_SHARE := 0.8
+
+
 static func _hidden(c: Vector3) -> bool:
 	if c.z > -0.02 and c.y < -0.15:
 		return true

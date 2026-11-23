@@ -2686,6 +2686,31 @@ func _anim_hands() -> Dictionary:
 	return out
 
 
+## Hands where a scan's own (left off) arms held it: as _anim_hands, from points kept in the gun's space.
+func _held_hands() -> Dictionary:
+	var held: Dictionary = _model.get_meta("held")
+	var mt := _model.global_transform
+	var out := {}
+	for sd in ["R", "L"]:
+		var g := func(k: String) -> Vector3: return mt * (held[sd + k] as Vector3)
+		var w: Vector3 = g.call("wrist")
+		var mid: Vector3 = g.call("middle1")
+		var f := mid - w
+		var a: Vector3 = (g.call("point1") as Vector3) - (g.call("pink1") as Vector3)
+		var H := FPHands._frame(f, a, sd)
+		var Hi := H.inverse()
+		var shape := {}
+		for fn in ["thumb", "point", "middle", "ring", "pink"]:
+			if held.has(sd + fn + "1") and held.has(sd + fn):
+				shape[fn] = [Hi * ((g.call(fn + "1") as Vector3) - w), Hi * ((g.call(fn + "2") as Vector3) - w),
+					Hi * ((g.call(fn + "3") as Vector3) - w), Hi * ((g.call(fn) as Vector3) - w)]
+		var S: Vector3 = g.call("arm")
+		var E: Vector3 = g.call("elbow")
+		out[sd] = {"at": w.lerp(mid, 0.55) + H.z * 0.022, "f": f, "a": a, "shape_pts": shape, "S": S,
+			"pole": E - (S + w) * 0.5}
+	return out
+
+
 ## How far each rigged gun's selector turns from where the model has it, to sit at full auto.
 const RIG_SELECTOR := {"smg": 3.85}
 ## The top of each rigged gun, where its sights sit.
@@ -2842,6 +2867,19 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		pump.position = axis
 		for c in spun:
 			(c as Node3D).position -= axis
+	# A scan made with arms holding it (its arms left off): where those hands are, so ours hold it the same
+	var sks := inst.find_children("*", "Skeleton3D", true, false)
+	if not sks.is_empty():
+		var sk: Skeleton3D = sks[0]
+		var held := {}
+		var to_n: Transform3D = pivot.transform * _chain(sk, inst)
+		for i in sk.get_bone_count():
+			var nm := sk.get_bone_name(i)
+			if nm.substr(1, 1) == "_" and nm.substr(0, 1) in ["R", "L"]:
+				var key := nm.substr(2).get_slice("_", 0)
+				held[nm.substr(0, 1) + key] = (to_n * sk.get_bone_global_pose(i).origin) * sc + off
+		if held.has("Rwrist") and held.has("Lwrist"):
+			n.set_meta("held", held)
 	inst.free()
 	return bb.end.y * sc + off.y
 
@@ -3564,6 +3602,7 @@ const GRIP_CURL := {"thumb": [5, 25, 20], "point": [20, 30, 20], "middle": [70, 
 const FORE_CURL := {"thumb": [5, 15, 10], "point": [45, 50, 30], "middle": [50, 55, 35], "ring": [52, 55, 35], "pink": [55, 55, 35]}
 const CUP_CURL := {"thumb": [0, 10, 10], "point": [55, 60, 40], "middle": [60, 65, 40], "ring": [62, 65, 40], "pink": [65, 65, 40]}
 const FIST_CURL := {"thumb": [15, 40, 30], "point": [75, 85, 60], "middle": [78, 85, 60], "ring": [80, 85, 60], "pink": [82, 85, 60]}
+const SUPPORT_CURL := {"thumb": [20, 0, 0], "point": [62, 75, 45], "middle": [66, 78, 48], "ring": [68, 80, 50], "pink": [70, 80, 50]}
 const OPEN_CURL := {"thumb": [5, 10, 10], "point": [20, 25, 15], "middle": [22, 25, 15], "ring": [24, 25, 15], "pink": [26, 25, 15]}
 ## Each grip: where the middle of the right hand's hold is, and the grip's line from the little finger up to
 ## the first (a pistol grip rakes back at the foot; a straight stock's wrist slopes up to the action), in the
@@ -3578,11 +3617,11 @@ const GRIP := {"": {"R": Vector3(0.0, -0.03, 0.012), "axis": Vector3(0, 1, -0.3)
 	"sniper": {"R": Vector3(0.0, -0.035, 0.13), "axis": Vector3(0, 0.6, -1)},
 	"rocket": {"R": Vector3(0.0, -0.06, -0.02), "axis": Vector3(0, 1, -0.15), "L": Vector3(0.0, -0.055, 0.08), "L_axis": Vector3(0, 1, -0.1)},
 	"minigun": {"R": Vector3(0.0, 0.064, 0.256), "axis": Vector3(0, 1, 0), "L": Vector3(0.0, 0.016, 0.024), "L_axis": Vector3(0, 1, 0)},
-	"smg": {"R": Vector3(0.0, -0.088, 0.054), "axis": Vector3(0, 1, -0.47), "L": Vector3(0.0, 0.0, -0.25)},
+	"smg": {"R": Vector3(0.0, -0.088, 0.054), "axis": Vector3(0, 1, -0.47), "L": Vector3(-0.01, -0.045, -0.23)},
 	"flamer": {"R": Vector3(0.0, -0.056, -0.032), "axis": Vector3(0, 1, -0.33)},
 	"pistol": {"R": Vector3(0.0, -0.038, -0.004), "axis": Vector3(0, 1, -0.41)},
 	"pistol9": {"R": Vector3(0.0, -0.04, 0.002), "axis": Vector3(0, 1, -0.45)},
-	"revolver": {"R": Vector3(0.0, -0.04, 0.026), "axis": Vector3(0, 1, -0.79)}}
+	"revolver": {"R": Vector3(0.0, -0.042, 0.05), "axis": Vector3(0, 1, -0.79)}}
 
 
 func hand_pose(force := "") -> Dictionary:
@@ -3605,6 +3644,8 @@ func hand_pose(force := "") -> Dictionary:
 		_anim_sync()
 		if (_model.get_meta("anim_bones") as Dictionary).has("Rwrist"):
 			return _anim_hands()
+	if _model.has_meta("held") and not _reloading:
+		return _held_hands()
 	var g := ArmsDB.look(gun())
 	var s := spec()
 	var mt := _model.global_transform
@@ -3619,9 +3660,12 @@ func hand_pose(force := "") -> Dictionary:
 		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL, "shape": "grip", "gb": mb}
 	var L: Dictionary
 	if s.slot == "secondary":
-		# Cupped about the right hand, on the grip's other side
-		L = {"at": mt * (at_r + Vector3(-0.03, -0.01, -0.004)), "f": mb * Vector3(0.25, -0.3, -1.0), "a": mb * axis,
-			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": CUP_CURL, "shape": "fore", "gb": mb}
+		R.shape = "pistol"
+		# Thumbs forward: the left palm on the grip's open side, its fingers wrapped over the right's at the
+		# front of the grip, and its thumb laid along the frame toward the mark
+		var f_l := Vector3(0.55, 0.2, -0.8)
+		L = {"at": mt * (at_r + Vector3(-0.034, 0.008, -0.012)), "f": mb * f_l, "a": mb * axis,
+			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": SUPPORT_CURL, "shape": "support", "reach": "fore", "gb": mb}
 	else:
 		var fore: Vector3 = grip.get("L", (_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
 		var ft := mt
