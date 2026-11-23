@@ -24,7 +24,7 @@ G_NIGHT = "eq=brightness=0.0:contrast=1.05:saturation=0.9:gamma=1.0"
 G_FIGHT = "eq=brightness=-0.02:contrast=1.1:saturation=0.8:gamma=0.97"
 
 # (clip or None for black, in-point s, length s, grade, [(line, t_in, t_out, size, y)], game-audio gain, fade in, fade out)
-EDIT = [
+EDIT_V1 = [
     (None, 0, 4.0, None, [("Speeb sees.", 0.8, 3.4, 52, 0.47)], 0, 0, 0),                                   # 0 open
     ("s01_dawn_ash", 0.8, 5.0, G_WARM, [("The Ashen Waste.", 1.4, 4.5, 44, 0.80)], 0.7, 1.2, 0.3),       # 1 lands
     ("s03_rust_dunes", 1.0, 4.0, G_DUSK, [], 0.7, 0.3, 0.3),
@@ -42,7 +42,39 @@ EDIT = [
     (None, 0, 5.5, "title", [], 0, 0, 0),                                                                   # 16 title
     (None, 0, 4.5, None, [("Alpha out now", 0.6, 4.0, 34, 0.45), ("speeb.org/game", 1.1, 4.0, 52, 0.53)], 0, 0, 0),  # 17 end
 ]
-MARKS = dict(lands=1, town1=5, fight=6, forms=8, breath=11, beacon=12, town2=13, title=14, end=15)
+MARKS_V1 = dict(lands=1, town1=5, fight=6, forms=8, breath=11, beacon=12, town2=13, title=14, end=15)
+# The action cut (2026-11-23): 120 beats a minute, so every cut lands on a beat (0.5 s) and the drop at 26 s.
+# Optional 9th field: {"flash": True} opens the shot from white, for the hits on the drop.
+EDIT_ACTION = [
+    (None, 0, 4.0, None, [("Speeb sees.", 0.8, 3.4, 52, 0.47)], 0, 0, 0),                                          # 0 open
+    ("s03_rust_dunes", 1.0, 3.0, G_DUSK, [("The Ashen Waste.", 0.6, 2.8, 44, 0.80)], 0.5, 0.6, 0.0),             # 1 lands 4
+    ("s06_cinderwick_dusk", 1.0, 3.0, G_DUSK, [], 0.5, 0.0, 0.0),                                                # 7
+    ("s02_dead_forest", 1.0, 2.0, G_DUSK, [], 0.5, 0.0, 0.0),                                                    # 10
+    ("s17_drake", 0.5, 3.5, G_WARM, [("They wear his face.", 0.4, 3.3, 40, 0.80)], 0.6, 0.0, 0.0),                # 4 reveals 12
+    ("s07_forms_wait", 0.5, 4.0, G_DUSK, [("They are not him.", 0.4, 3.6, 40, 0.80)], 0.6, 0.0, 0.0),             # 15.5
+    ("s18_golem", 0.5, 2.5, G_DUSK, [], 0.6, 0.0, 0.0),                                                          # 19.5
+    ("s11_night_horde", 1.5, 3.0, G_NIGHT, [], 0.7, 0.0, 0.3),                                                   # 22
+    (None, 0, 1.0, None, [], 0, 0, 0),                                                                           # 8 breath before the drop 25
+    ("s08_fp_shotgun", 1.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 9 drop 26
+    ("s10_fp_rifle", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                      # 28.5
+    ("s19_minigun", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                       # 31
+    ("s24_gaunt_rise", 0.8, 2.5, G_NIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5
+    ("s20_lmg", 0.8, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
+    ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 38.5
+    ("s12_fp_flamer", 1.0, 2.0, G_NIGHT, [], 1.0, 0.0, 0.0),                                                     # 41
+    ("s13_sniper", 1.0, 3.0, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 43
+    ("s22_matron_charge", 1.0, 3.0, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                 # 46
+    ("s23_drake_live", 1.0, 2.0, G_WARM, [], 1.0, 0.0, 0.0),                                                     # 49
+    (None, 0, 3.0, None, [("Nine beacons stand dead.", 0.6, 2.8, 44, 0.47)], 0, 0, 0),                             # 19 stop 51
+    ("s14_beacon_kindle", 1.4, 6.0, G_NIGHT, [("Light them.", 2.6, 5.8, 46, 0.80)], 0.9, 0.5, 0.0),                # 20 beacon 54
+    ("s15_cinderwick_night", 1.0, 3.0, G_NIGHT, [("Walk it together. Up to eight.", 0.3, 2.9, 42, 0.80)], 0.5, 0.0, 0.6),  # 60
+    (None, 0, 5.5, "title", [], 0, 0, 0),                                                                        # 22 title 63
+    (None, 0, 4.5, None, [("Alpha out now", 0.6, 4.0, 34, 0.45), ("speeb.org/game", 1.1, 4.0, 52, 0.53)], 0, 0, 0),  # 23 end
+]
+MARKS_ACTION = dict(lands=1, reveal=4, breath=8, drop=9, stop=19, beacon=20, town2=21, title=22, end=23)
+
+CUT = os.environ.get("BRELM_EDIT", "action")
+EDIT, MARKS = (EDIT_ACTION, MARKS_ACTION) if CUT == "action" else (EDIT_V1, MARKS_V1)
 
 
 def text_png(txt, size, path, y):
@@ -87,7 +119,8 @@ def title_png(path):
 
 
 def seg(i, e):
-    clip, tin, dur, grade, lines, ga, fin, fout = e
+    clip, tin, dur, grade, lines, ga, fin, fout = e[:8]
+    opts = e[8] if len(e) > 8 else {}
     out = f"{WORK}/seg_{i:02d}.mp4"
     inputs, fl = [], []
     if clip:
@@ -96,6 +129,8 @@ def seg(i, e):
     else:
         inputs += ["-f", "lavfi", "-t", str(dur), "-i", f"color=c=black:s={W}x{H}:r={FPS}"]
         v = "[0:v]null"
+    if opts.get("flash"):
+        v += ",fade=t=in:st=0:d=0.12:color=white"
     if fin:
         v += f",fade=t=in:st=0:d={fin}"
     if fout:
