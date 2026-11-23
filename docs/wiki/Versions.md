@@ -2,6 +2,13 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.20.1 (sights and fixes)
+
+- **Hands** are hidden on the guns for now.
+- **Sights:** the SMG's sights line up; the revolver points where you aim.
+- **Auto Pistol** fires about 1,200 rounds a minute.
+- **Attachments** sit properly on the revolver and Autoshotgun (sights go on its rail). Grips on the Belt Gun count but are not drawn.
+
 ## 0.20.0 (hands and new bodies)
 
 - **Hands on every gun:** your arms hold each gun and follow its reloads. Side arms use a two-hand grip with both thumbs forward. See [Arms and Clothing](Arms-and-Clothing).
