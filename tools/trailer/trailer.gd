@@ -67,6 +67,9 @@ func _process(delta: float) -> void:
 		for e in w.enemies:   # health bars appear the moment a form is hit
 			if is_instance_valid(e) and e.get("_bar") is MeshInstance3D:
 				e._bar.visible = false
+			var fb = e.get("_fb") if is_instance_valid(e) else null
+			if fb != null and fb.get("_plate") is Node3D:
+				fb._plate.visible = false   # the drawn box plates over the Unlit's chests: not wanted on film
 		for sid in w.satchels:   # drops from kills in the shot: their light columns hide the forms
 			var sn = w.satchels[sid].get("node")
 			if sn is Node3D and is_instance_valid(sn):
