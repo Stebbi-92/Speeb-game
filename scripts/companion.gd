@@ -202,12 +202,39 @@ func _show_gun(g: String, mn: Array = []) -> void:
 	_gun_model = maker._build(g, mn.duplicate())
 	maker.free()
 	_gun_model.rotation.y = PI
-	_gun_model.position = Figure.GRIP - Vector3(0, Figure.SHOULDER_Y, 0) + Vector3(0, 0.06, 0.02)
+	# Held as the holder holds it: the right hand on its own grip, the left on its fore-end (a side arm's
+	# both on the grip), a long gun's butt in the shoulder and a side arm out at arm's length
+	var lg := ArmsDB.look(g)
+	var gd: Dictionary = Arms.GRIP.get(lg, Arms.GRIP[""])
+	var r: Vector3 = gd.get("R", Arms.GRIP[""].R)
+	var side_arm: bool = ArmsDB.GUNS[g].slot == "secondary"
+	var l: Vector3 = r + Vector3(-0.034, 0.008, -0.012) if side_arm else gd.get("L", (_gun_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
+	var grip_body := Figure.GRIP
+	if not side_arm:
+		var bb := AABB()
+		var first := true
+		for mi in _gun_model.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = WTrees._chain(mi, _gun_model) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		# Its back end just before the right shoulder, the gun at the cheek
+		var origin := Vector3(0.1, Figure.SHOULDER_Y - 0.03, 0.04 + bb.end.z)
+		if lg == "minigun":
+			origin = Vector3(0.18, 1.05, 0.12 + bb.end.z)   # at the hip, on its handles
+		grip_body = origin + _flip(r)
+	_gun_model.position = grip_body - _flip(r) - Vector3(0, Figure.SHOULDER_Y, 0)
+	_fig.grip_at = grip_body
+	_fig.fore_at = grip_body + _flip(l - r)
 	_gun.add_child(_gun_model)
 	_tip = _gun_model.position + (_gun_model.get_meta("tip") as Vector3) * Vector3(-1, 1, -1)
 	for c in _gun_model.find_children("*", "MeshInstance3D", true, false):
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	_place_flash()
+
+
+## A point of the gun's own (muzzle to -Z) as the held gun has it, turned to face the way they face.
+static func _flip(v: Vector3) -> Vector3:
+	return Vector3(-v.x, v.y, -v.z)
 
 
 func _place_flash() -> void:

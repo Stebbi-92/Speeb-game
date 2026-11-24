@@ -2011,6 +2011,8 @@ func _build(g: String, mnts = null) -> Node3D:
 		top = scan_top   # its own sights are on it; a fitted sight sits on its top
 		# Its mouth and the underside of its fore-end, as the scanned body has them
 		tip = SCAN_TIP.get(g, tip)
+		if has_muzzle(fit):
+			tip.z += float(BRAKE_LEN.get(g, 0.0))
 		rear_z = SCAN_REAR_Z.get(g, rear_z)   # a fitted sight goes on its own rail
 		var under := _cut_line(n, g, 1, 0.0, fore.z)
 		if under.x < 8.0:
@@ -2150,10 +2152,25 @@ const ACC := {
 const SIGHT_CUT := {"red_dot": 0.008, "reflex": 0.0072, "holo": 0.008, "scope": 0.0068, "combat_scope": 0.0092}
 ## The guns with a rail along their top.
 const RAILED := ["machine_gun"]
+## How long a scanned gun's own brake or flash hider is: a fitted muzzle part goes on in its place.
+const BRAKE_LEN := {"lmg": 0.0935, "machine_gun": 0.049}
+
+
+static func has_muzzle(fit: Array) -> bool:
+	return fit.any(func(m): return ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "muzzle")
+
+
 ## Where a scanned gun's rail puts a fitted sight (as rear_z: a sight sits 0.08 before it, a scope 0.12)
-const SCAN_REAR_Z := {"autoshotgun": -0.03}
+const SCAN_REAR_Z := {"autoshotgun": -0.03, "pistol9": 0.055, "pistol": 0.045, "lmg": 0.05, "smg": 0.075}
+## How far a fitted sight's foot sits down round the top of a gun with no rail (its clamp closing on the slide)
+const SIGHT_SINK := {"pistol9": 0.006, "pistol": 0.006}
+## A gun whose top the cut lines cannot read (a rigged body): [its metal's height, where the sight's foot sits]
+## under a fitted sight. The SMG's sight sits on a claw mount over the bumps on its receiver.
+const SIGHT_SEAT := {"smg": [0.095, 0.104]}
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
+## The pack's grips are cut thin (a hand's grip is near 3 cm across): widened to that.
+const ACC_FAT := {"Cube": 2.0, "Cube_001": 1.8, "Plane": 2.0}
 ## The height of the highest visible piece of a gun, in its own space.
 func _geo_top(n: Node3D) -> float:
 	var best := -1.0
@@ -2282,7 +2299,8 @@ func _acc_piece(piece: String) -> Node3D:
 	var plain: StandardMaterial3D = null
 	for mi in src.find_children("*", "MeshInstance3D", true, false):
 		var tr: Transform3D = _chain(mi, _acc_inst)
-		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc)
+		var fat: float = ACC_FAT.get(piece, 1.0)
+		tr = Transform3D(Basis.from_scale(Vector3(fat, 1, 1)) * tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc * Vector3(fat, 1, 1))
 		var copy := MeshInstance3D.new()
 		copy.mesh = (mi as MeshInstance3D).mesh
 		copy.transform = tr
@@ -2385,6 +2403,8 @@ const SIGHT_LINE := {
 	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
 	# The SMG's drum aperture and the post in its front hood
 	"smg": [Vector3(0.0, 0.1145, 0.085), Vector3(0.0, 0.113, -0.418), 0.06],
+	# The Autoshotgun's ghost ring on the back of its receiver, and the tip of its front post
+	"autoshotgun": [Vector3(0.0, 0.0805, -0.015), Vector3(0.0, 0.0816, -0.685), 0.08],
 }
 
 
@@ -2400,7 +2420,38 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 	n.add_child(p)
 	# Its clamp's jaws close round the gun's rail: the cut in its foot takes the rail, so the foot
 	# sits down over it (no riser). A gun with no rail has the foot flat on its top.
-	var sink: float = SIGHT_CUT.get(m, 0.008) if g in RAILED else 0.0
+	var sink: float = SIGHT_CUT.get(m, 0.008) if g in RAILED else float(SIGHT_SINK.get(g, 0.0))
+	if not g in RAILED:
+		# With no rail, the gun's metal under the sight's whole foot is read: the foot rests on the
+		# highest of it (never down through a rear sight or a hump), and a mount block fills the rest
+		# down to the gun, so the sight is held on and not floating.
+		var hi := -9.0
+		var lo := 9.0
+		var k := 0.0
+		while k <= 1.0:
+			var zz := z + bb.size.z * (k - 0.5) * 0.9
+			for xx in [-0.004, 0.0, 0.004]:
+				var h := _cut_line(n, g, 1, xx, zz).y
+				if h > top - 0.04 and h < top + 0.02:
+					hi = maxf(hi, h)
+					lo = minf(lo, h)
+			k += 0.125
+		if SIGHT_SEAT.has(g):
+			lo = SIGHT_SEAT[g][0]
+			hi = SIGHT_SEAT[g][1]
+		if hi > -8.0:
+			top = hi
+			lo = maxf(lo, hi - 0.03)   # not down past an edge into what is below
+			var gap := hi - sink - lo
+			if gap > 0.003:
+				var block := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(minf(bb.size.x * 0.62, 0.024), gap + 0.004, bb.size.z * 0.8)
+				block.mesh = bm
+				block.material_override = _mat(Color(0.07, 0.07, 0.075), 0.45, 0.6)
+				block.position = Vector3(0, lo - 0.004 + bm.size.y * 0.5, z)
+				block.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				n.add_child(block)
 	p.position = Vector3(0, top - sink + bb.size.y * 0.5, z)
 	return p.position.y + float(p.get_meta("aim_y"))
 
@@ -2431,6 +2482,9 @@ func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
 ## [model, turn (degrees), muzzle z, butt z, height of its middle, {part: what it is}]. A part is "pump"
 ## (the bolt or slide, which works), "mag" (taken out on a reload), "glass" (shown only when a scope is
 ## fitted) or "off" (left off). The plain-shape gun is built first for where its sights and parts sit.
+## How far a scanned gun is set over to the side after it is centred, for one whose middle is not its bore: the
+## Autoshotgun's bolt handle stands out to the right, so centring its extent put its sights and rail off the eye's line.
+const SCAN_X := {"autoshotgun": 0.0092}
 const SCANNED_GUNS := {
 	"sniper": ["bolt_action_rifle_7_62", Vector3(0, 90, 0), -0.975, 0.503, -0.068, {
 		"bolt_action_rifle_7_62_bolt_a": "pump", "bolt_action_rifle_7_62_bolt_b": "pump",
@@ -2443,7 +2497,7 @@ const SCANNED_GUNS := {
 	"lmg": ["m60", Vector3(0, 90, 0), -0.82, 0.45, -0.03, {
 		"Object_4": "off", "Object_5": "off", "Object_7": "off", "Object_9": "off", "Object_11": "off", "Object_12": "off",
 		"Object_13": "off", "Object_15": "off", "Object_16": "off", "Object_17": "off", "Object_18": "off",
-		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump"}],
+		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump", "Object_32": "brake"}],
 	"flamer": ["flamer", Vector3(0, 180, 0), -0.5, 0.36, 0.03, {}],
 	"rocket": ["rpg", Vector3(0, -90, 0), -0.66, 0.52, 0.0, {}],
 	"minigun": ["minigun", Vector3(0, 180, 0), -0.68, 0.3, -0.02, {
@@ -2813,8 +2867,10 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		bb = a if first else bb.merge(a)
 		first = false
 	var sc := (float(sg[3]) - float(sg[2])) / maxf(bb.size.z, 0.001)
-	var off := Vector3(-bb.get_center().x * sc, float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
+	var off := Vector3(-bb.get_center().x * sc + float(SCAN_X.get(g, 0.0)), float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
 	var glass: bool = built_glass(g, fit)
+	# A fitted muzzle part takes the place of the gun's own brake or flash hider, screwed on where it was
+	var muzzled := has_muzzle(fit)
 	var copy_mat := {}
 	# The glass is lifted to where the eye looks through it
 	var gbb := AABB()
@@ -2828,7 +2884,7 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		n.set_meta("glass_y", gbb.get_center().y * sc + off.y)
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		var role: String = roles.get(mi.name, "")
-		if role == "off" or (role == "glass" and not glass):
+		if role == "off" or (role == "glass" and not glass) or (role == "brake" and muzzled):
 			continue
 		var tr: Transform3D = pivot.transform * _chain(mi, inst)
 		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc + off)
@@ -2850,7 +2906,12 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 	if CARVE.has(g) and CARVE[g].any(func(c): return c[0] == "cyl"):
 		cyl = Node3D.new()
 		n.add_child(cyl)
-	_carve_parts(g, n, {"pump": pump, "mag": mag, "cyl": cyl})
+	var brake: Node3D = null
+	if muzzled:
+		brake = Node3D.new()
+		brake.visible = false
+		n.add_child(brake)
+	_carve_parts(g, n, {"pump": pump, "mag": mag, "cyl": cyl, "brake": brake})
 	if cyl:
 		# The cylinder turns about its own middle
 		var cb := AABB()
@@ -2892,7 +2953,41 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		if held.has("Rwrist") and held.has("Lwrist"):
 			n.set_meta("held", held)
 	inst.free()
+	if "ext_mag" in fit and mag != null:
+		_ext_mag(g, n, mag)
 	return bb.end.y * sc + off.y
+
+
+## The scanned guns whose own magazine is drawn out for a longer one: [how much longer, its slope (down)].
+const EXT_MAG := {"pistol": [1.2, Vector3(0, -1, 0.3)], "pistol9": [1.22, Vector3(0, -1, 0.3)]}
+
+
+## A longer magazine on a scanned gun: its own magazine drawn out downward from where it seats, so it shows
+## longer below the gun, in its own paint, and still drops out whole on a reload.
+func _ext_mag(g: String, n: Node3D, mag: Node3D) -> void:
+	var mb := AABB()
+	var first := true
+	for c in mag.get_children():
+		if c is MeshInstance3D:
+			var a: AABB = (c as MeshInstance3D).transform * (c as MeshInstance3D).mesh.get_aabb()
+			mb = a if first else mb.merge(a)
+			first = false
+	if first:
+		return
+	if not EXT_MAG.has(g):
+		return
+	var k: float = EXT_MAG[g][0]
+	var u: Vector3 = (EXT_MAG[g][1] as Vector3).normalized()
+	var top := Vector3(0, mb.end.y, mb.get_center().z)
+	# Drawn out along the magazine's own slope (a pistol's leans back with its grip)
+	var b := Basis()
+	b.x = Vector3(1, 0, 0) + u * u.x * (k - 1.0)
+	b.y = Vector3(0, 1, 0) + u * u.y * (k - 1.0)
+	b.z = Vector3(0, 0, 1) + u * u.z * (k - 1.0)
+	var stretch := Transform3D(b, Vector3.ZERO)
+	for c in mag.get_children():
+		if c is Node3D:
+			(c as Node3D).transform = Transform3D(Basis(), top) * stretch * Transform3D(Basis(), -top) * (c as Node3D).transform
 
 
 ## Parts cut out of a scan that came as one piece, so they can move: [role, min corner, max corner, from
@@ -2903,7 +2998,8 @@ const CARVE := {
 		["pump", Vector3(-0.045, 0.0, -0.49), Vector3(-0.017, 0.068, -0.24), ""],
 		["pump", Vector3(-0.017, 0.052, -0.49), Vector3(0.017, 0.066, -0.24), ""],
 		["pump", Vector3(-0.017, -0.005, -0.49), Vector3(0.017, 0.018, -0.24), ""]],
-	"machine_gun": [["mag", Vector3(-0.05, -0.22, -0.125), Vector3(0.05, -0.042, 0.005), ""]],
+	"machine_gun": [["mag", Vector3(-0.05, -0.22, -0.125), Vector3(0.05, -0.042, 0.005), ""],
+		["brake", Vector3(-0.016, 0.038, -0.71), Vector3(0.016, 0.074, -0.646), ""]],
 	"pistol9": [["pump", Vector3(-0.05, 0.032, -0.21), Vector3(0.05, 0.08, 0.04), "Cube_005_9m2_0"],
 		["mag", Vector3(-0.05, -0.1, -0.05), Vector3(0.05, 0.031, 0.06), "Cube_005_9m2_0"]],
 	"rocket": [["pump", Vector3(-0.08, -0.03, -0.72), Vector3(0.08, 0.1, -0.175), ""]],
@@ -3123,6 +3219,18 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 			"padded_stock", "light_stock", "heavy_stock":
 				var b: Vector3 = BUTT.get(g, Vector3(0, -0.04, 0.45))
 				var bh: float = BUTT_H.get(g, 0.12)
+				# The butt as the gun's own body has it: its last metal or wood going back, and how tall it is
+				# just before that, so a pad or heel covers the butt plate and no more
+				var zb := b.z + 0.06
+				while zb > b.z - 0.12:
+					var hit := _cut_line(n, g, 1, 0.0, zb)
+					if hit.x < 8.0:
+						var ub := _cut_line(n, g, 1, 0.0, zb - 0.01)
+						if ub.x < 8.0 and ub.y - ub.x > 0.03:
+							b = Vector3(0, (ub.x + ub.y) * 0.5, zb)
+							bh = ub.y - ub.x
+						break
+					zb -= 0.004
 				# The stock a hand's width before the butt: its top, its bottom and its sides
 				var sz := b.z - 0.05
 				var ud := _cut_line(n, g, 1, 0.0, sz)
@@ -3139,7 +3247,7 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 						for sx in [-1, 1]:
 							for ry in [0.25, 0.75]:
 								_box(Vector3(0.006, 0.006, 0.09), Vector3(sx * (half + 0.003), lerpf(ud.x, ud.y, ry), b.z - 0.04), metal, n)
-						_box(Vector3(half * 2.0 + 0.012, bh * 0.85, 0.008), b + Vector3(0, 0, 0.008), metal, n)
+						_box(Vector3(half * 2.0 + 0.012, bh * 0.85, 0.008), b + Vector3(0, 0, 0.003), metal, n)
 					"heavy_stock":
 						# Solid wood: cheeks on both sides of the stock and a thick wooden heel
 						var wood := _mat(Color(0.22, 0.12, 0.07), 0.0, 0.6)

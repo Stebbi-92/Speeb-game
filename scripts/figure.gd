@@ -35,6 +35,8 @@ var aim := 0.0             ## how far the gun is raised or lowered, in radians
 const SHOULDER_Y := 1.45
 const GRIP := Vector3(0.17, 1.2, 0.44)   ## where the near hand holds a gun, with the gun level
 const FORE := Vector3(0.1, 1.19, 0.52)   ## where the far hand steadies it
+var grip_at := GRIP   ## where the near hand holds the gun now held (set from the gun, see Companion)
+var fore_at := FORE   ## and where the far hand goes on it
 var hand_r: Node3D         ## where a held thing goes
 var talk_t := 0.0          ## seconds left of moving the mouth, while words are spoken
 var _mouth: MeshInstance3D
@@ -411,13 +413,18 @@ func _process(delta: float) -> void:
 		_legs[0].rotation = Vector3(s, 0, 0)
 		_legs[1].rotation = Vector3(-s, 0, 0)
 	if hold:
-		var pts := [FORE, GRIP]
+		var pts := [fore_at, grip_at]
 		for i in 2:
 			var sh: Node3D = _arms[i]
 			var t: Vector3 = pts[i] - Vector3(0, SHOULDER_Y, 0)
 			t = t.rotated(Vector3.RIGHT, aim) + Vector3(0, SHOULDER_Y, 0)
-			sh.basis = Basis(Quaternion(Vector3.DOWN, (t - sh.position).normalized()))
+			# The arm reaches just as far as the hold (0.58 is its length to the middle of the hand)
+			var k := clampf((t - sh.position).length() / 0.58, 0.6, 1.25)
+			sh.basis = Basis(Quaternion(Vector3.DOWN, (t - sh.position).normalized())) * Basis.from_scale(Vector3(1, k, 1))
 		return
+	for sh in _arms:
+		if (sh as Node3D).scale != Vector3.ONE:
+			(sh as Node3D).scale = Vector3.ONE
 	var fwd := -1.15 if arms_forward else 0.0
 	_arms[0].rotation.x = fwd * 0.85 - s * (0.2 if arms_forward else 0.6)
 	_arms[1].rotation.x = fwd + s * (0.15 if arms_forward else 0.6)

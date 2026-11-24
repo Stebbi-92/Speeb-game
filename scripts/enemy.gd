@@ -281,6 +281,11 @@ const KINDS := {
 		"weak": {"blast": 1.4, "fire": 1.3}, "tough": {"shot": 0.6}, "text": "A huge pale thing of the deep sea. It rises under any boat that carries a lit lamp at night. Sail dark, and it does not come."},
 	"knight": {"name": "Ashen Knight", "hp": 240.0, "size": 1.4, "speed": 3.2, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1, "plate": 160.0,
 		"weak": {"blast": 1.3}, "tough": {"shot": 0.7}, "text": "Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it."},
+	# The man in the coat: met alone, rarely, by those who roam the open waste at night. He speaks in riddles,
+	# and draws a shotgun on anyone who comes too close. Leave him be, and he goes his way.
+	"stranger": {"name": "The Man in the Coat", "hp": 240.0, "size": 1.0, "speed": 4.6, "bite": 7.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.68,
+		"sight": 24.0, "burst": 1, "aim": 0.55, "mag": 2, "pellets": 7, "keep": 7.0,
+		"weak": {"blade": 1.2}, "tough": {}, "text": "He walks the waste at night and speaks in riddles. Keep your distance, and he lets you go."},
 	"saltrifle": {"name": "Salt Rifleman", "hp": 45.0, "size": 0.9, "speed": 4.4, "bite": 11.0, "radius": 0.4, "body": "model", "role": "gun", "head_y": 0.62,
 		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "A soldier the salt kept, still holding its rifle. Bullets slip through; use shot."},
 }
@@ -513,9 +518,11 @@ func _ready() -> void:
 	if kind == "lampeater" and _sk == "":
 		_build_serpent(Color(0.78, 0.76, 0.7), 1.9, 7)
 	if spec.get("body", "") == "model":
-		_fb = FoeBody.make(kind)
+		_fb = FoeBody.make(kind, variant)
 		_fb.position.y = -float(spec.radius)
 		add_child(_fb)
+		if kind == "stranger" and _fb.muzzle:
+			_fb.muzzle.get_parent().visible = false   # his shotgun stays under his coat until he draws
 		head.visible = false
 		if _scan:
 			# A scanned body of its own (the draugr): the kind's body still keeps its ways, unseen
@@ -714,16 +721,24 @@ func _physics_process(delta: float) -> void:
 				var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if dist > 7.0 and (not Game.wasteland or WRules.flanks()) else dir
 				want = d2 * speed
 				want += dir.cross(Vector3.UP) * sin(_t * 2.0 + _strafe) * (2.5 if kind == "swarm" else 1.2)
+	# A form in a body of its own walks on the ground: it does not hover at your height as the old heads did
+	var walker: bool = _scan != null and not spec.get("wings", false) and str(spec.get("role", "")) != "float" \
+			and not kind in ["serpent", "lampeater", "saucer", "spitter"]
 	if kind == "unseen":
 		_shade_tick(delta, dist)
 		if _watched:
 			velocity = Vector3.ZERO
-	else:
+	elif not walker:
 		want.y += sin(_t * 2.6) * 0.4
 	if kind == "serpent" or kind == "lampeater":
 		_coil_tick()
 	_shot_slow = maxf(0.0, _shot_slow - delta)
+	var vy_was := velocity.y
 	velocity = (velocity - _knock_on).lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
+	if walker:
+		if motion_mode != CharacterBody3D.MOTION_MODE_GROUNDED:
+			motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
+		velocity.y = (-1.0 if is_on_floor() and vy_was <= 0.0 else vy_was - 20.0 * delta) + _knock.y
 	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
 	var real_v := velocity
@@ -1004,9 +1019,11 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = (-float(spec.radius) + _lift + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
+		_scan.position.y = (-float(spec.radius) + _lift + _seat + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
 		_scan_tick(pace)
+		if _seat_t < SEAT_TIME:
+			_seat_measure(delta)
 		if _dust:
 			_dust.emitting = _buried > 0.3 and pace > 1.0
 	if _box:
@@ -1082,6 +1099,54 @@ var _tail: Node3D
 var _body_node: Node3D
 var _lift := 0.0
 var _dust: CPUParticles3D
+## A scanned body is set down on its feet: over its first steps the lowest of its bones is watched, and the
+## body moved so that lowest point meets the ground (its rest pose's bounds are not where a walk puts its feet).
+var _seat := 0.0
+var _seat_t := 0.0
+var _seat_low := 99.0
+var _seat_bones: Array = []
+const SEAT_TIME := 2.0
+
+
+func _seat_measure(delta: float) -> void:
+	var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
+	# Not for what flies, swims or lies under the sand, nor what has been set by hand
+	if not o.get("bone_bounds", false) or o.get("by_long", false) or o.has("lift") or spec.get("wings", false) \
+			or str(spec.get("role", "")) == "float":
+		_seat_t = SEAT_TIME
+		return
+	if _buried > 0.0:
+		return
+	# Stood on the ground (not every way of walking keeps the floor flag, so look down for it)
+	var base := global_position.y - float(spec.radius)
+	var down := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(
+		global_position, Vector3(global_position.x, base - 0.3, global_position.z), 1))
+	if down.is_empty() or absf((down.position as Vector3).y - base) > 0.2:
+		return
+	_seat_t += delta
+	if _seat_bones.is_empty():
+		# Only the bones its skin hangs on: a root or a control bone left at the old floor is no foot
+		for mi in _scan.find_children("*", "MeshInstance3D", true, false):
+			var mm := mi as MeshInstance3D
+			var sk3 := mm.get_node_or_null(mm.skeleton) as Skeleton3D
+			if mm.skin == null or sk3 == null:
+				continue
+			for bi in mm.skin.get_bind_count():
+				var b := mm.skin.get_bind_bone(bi)
+				if b < 0:
+					b = sk3.find_bone(mm.skin.get_bind_name(bi))
+				if b >= 0:
+					_seat_bones.append([sk3, b])
+		if _seat_bones.is_empty():
+			_seat_t = SEAT_TIME
+			return
+	for sb in _seat_bones:
+		var sk3: Skeleton3D = sb[0]
+		_seat_low = minf(_seat_low, (sk3.global_transform * sk3.get_bone_global_pose(int(sb[1]))).origin.y - base)
+	if _seat_t >= SEAT_TIME and _seat_low < 90.0:
+		# Up or down to meet it, a little short (a bone's head sits just above the sole), and never by much
+		var tall := float(SCANS[_sk][1]) * float(spec.size)
+		_seat = clampf(-(_seat_low - tall * 0.02), -tall * 0.4, tall * 0.4)
 
 
 ## Four legs and a long back under the head, a tail that will not keep still: a cat gone wrong.
@@ -1277,6 +1342,21 @@ func _add_hits(hits: Array, g: float, k := 1.0) -> void:
 				bx.size = (h[1] as Vector3) * k
 				cs.shape = bx
 				cs.position = (h[2] as Vector3) * k + lift
+		# A shape that reaches the ground would stand the whole body on it, lifting it clear of the floor:
+		# each is kept a hand above its feet (the body's own post stands it)
+		var low := cs.position.y
+		match str(h[0]):
+			"capsule":
+				var hh: float = (cs.shape as CapsuleShape3D).height * 0.5
+				var r: float = (cs.shape as CapsuleShape3D).radius
+				low -= absf(cs.transform.basis.y.normalized().y) * (hh - r) + r
+			"sphere":
+				low -= (cs.shape as SphereShape3D).radius
+			"box":
+				low -= (cs.shape as BoxShape3D).size.y * 0.5
+		var floor_y := -float(spec.radius) + 0.12
+		if low < floor_y:
+			cs.position.y += floor_y - low
 		add_child(cs)
 
 
@@ -2997,6 +3077,68 @@ func _alarm(at: Vector3, call := true) -> void:
 				e._alarm(at, false)
 
 
+## The man in the coat's riddles: one is said as you come near. Short, and plain to read.
+const RIDDLES := [
+	"The more you take, the more you leave behind. Mind your steps.",
+	"I have a mouth and never eat, a bed and never sleep. Listen for me.",
+	"The one who makes it sells it. The one who buys it never uses it. The one who uses it never knows.",
+	"Light me and I die. Leave me and I wait. What am I?",
+	"I am always ahead of you, and you will never reach me.",
+	"What grows heavier the emptier it gets? A pilgrim's pack, on the way home.",
+	"What walks on four at dawn, two at noon, and three at dusk?",
+	"What has a coat but is never warm, and a gun but no wish to use it?",
+]
+var _talk := 0        ## the man in the coat: 0 silent, 1 has spoken, 2 has warned, 3 has drawn, 4 is going
+var _talk_t := 0.0
+var _going_t := 0.0
+
+
+## The man in the coat stands and watches. Come near and he speaks; nearer and he warns you; too near, or
+## strike him, and he draws. Walk away and he says his last and is gone. At dawn he is gone too.
+func _stranger_think(delta: float, p: Node3D, fd: float):
+	_talk_t -= delta
+	if _talk == 3:
+		mind = "hunt"
+		return null
+	mind = "calm"
+	if _talk == 4:
+		_going_t -= delta
+		if _going_t <= 0.0:
+			die(false)
+		return Vector3.ZERO
+	var to := p.global_position - global_position
+	rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), minf(1.0, delta * 2.5))
+	if hp < max_hp or fd < 7.0:
+		_talk = 3
+		_stranger_says("Then you have your answer." if fd < 7.0 else "So be it.")
+		if _fb and _fb.muzzle:
+			_fb.muzzle.get_parent().visible = true
+		_attack_cd = 0.4
+		return null
+	if Game.wasteland and not bool(level.get("night")) and not has_meta("raid"):
+		_talk = 4
+		_going_t = 1.0
+		return Vector3.ZERO
+	if _talk == 0 and fd < 26.0:
+		_talk = 1
+		_talk_t = 8.0
+		_stranger_says(RIDDLES[randi() % RIDDLES.size()])
+	elif _talk == 1 and fd < 14.0 and _talk_t <= 0.0:
+		_talk = 2
+		_talk_t = 5.0
+		_stranger_says("Close enough, walker. No nearer.")
+	elif _talk >= 1 and fd > 42.0:
+		_talk = 4
+		_going_t = 2.5
+		_stranger_says("Wise. Another night, then.")
+	return Vector3.ZERO
+
+
+func _stranger_says(line: String) -> void:
+	if level.has_method("_w_stranger_says"):
+		level.shared("_w_stranger_says", [net_id, line])
+
+
 func _show_mark(t: String) -> void:
 	if _mark == null:
 		_mark = Label3D.new()
@@ -3019,6 +3161,8 @@ func _think(delta: float, p: Node3D, fd: float, speed: float):
 	_mark_t -= delta
 	if _mark and _mark_t <= 0.0:
 		_mark.visible = false
+	if kind == "stranger":
+		return _stranger_think(delta, p, fd)
 	if has_meta("raid") or not Game.wasteland or boss != "":
 		mind = "hunt"
 		return null
@@ -3118,7 +3262,7 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	if not frozen:
 		match role:
 			"gun":
-				var keep := 30.0 if hurt_bad else 18.0
+				var keep := 30.0 if hurt_bad else float(spec.get("keep", 18.0))
 				var side := fdir.cross(Vector3.UP) * _strafe
 				if fd > keep + 6.0:
 					want = fdir * speed
@@ -3368,6 +3512,24 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var spread := (0.25 + dist * 0.006) * aimed
 	at += Vector3(randf_range(-spread, spread), randf_range(-spread * 0.6, spread * 0.6), randf_range(-spread, spread))
 	_fb.act("holding-both-shoot")
+	var pellets := int(spec.get("pellets", 1))
+	if pellets > 1:
+		# A shotgun: a spray of shot, hard close up and thin far off
+		level.sfx("shotgun", -2, from, 0.95)
+		var aim_at := p.global_position + Vector3(0, 1.1, 0)
+		for i in pellets:
+			var sp := aim_at + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * (0.15 + dist * 0.06)
+			var pb := Bolt.new()
+			pb.level = level
+			pb.look = "round"
+			pb.damage = float(spec.bite)
+			pb.life = 0.9
+			pb.velocity = (sp - from).normalized() * 55.0
+			level.add_child(pb)
+			pb.global_position = from
+			if Net.online:
+				Net.bolt(from, pb.velocity, pb.damage, "round")
+		return
 	level.sfx("mg", -4, from, 0.85)
 	var speed := 40.0 / clampf(aimed, 0.5, 1.2)
 	var b := Bolt.new()

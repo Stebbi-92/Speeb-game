@@ -3041,6 +3041,189 @@ func debug_gunshot() -> void:
 	maker.free()
 
 
+## Test: the top of the gun named by GUN, slice by slice along it (1 cm), as it is built with FIT= parts:
+## for each slice the highest point near the middle and the middle of the points near that top, to find
+## where its sights and rail truly run. Prints PROFILE lines and the eye the gun is aimed by.
+func debug_gunprofile() -> void:
+	var g := OS.get_environment("GUN")
+	var maker := Arms.new()
+	var n: Node3D = maker._build(g, Array(OS.get_environment("FIT").split(",", false)))
+	add_child(n)
+	var pts := PackedVector3Array()
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if not m.is_visible_in_tree() or m.mesh == null:
+			continue
+		var t: Transform3D = n.global_transform.affine_inverse() * m.global_transform
+		for si in m.mesh.get_surface_count():
+			for p in m.mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]:
+				pts.append(t * p)
+	print("PROFILE eye=%.4f eye_x=%.4f eye_rot=%s tip=%s n=%d" % [n.get_meta("eye", 0.0), n.get_meta("eye_x", 0.0), n.get_meta("eye_rot", Vector3.ZERO), n.get_meta("tip", Vector3.ZERO), pts.size()])
+	var bins := {}
+	for p in pts:
+		if absf(p.x) > 0.04:
+			continue
+		var k := int(floor(p.z * 100.0))
+		if not bins.has(k) or p.y > bins[k]:
+			bins[k] = p.y
+	var ks := bins.keys()
+	ks.sort()
+	for k in ks:
+		var top: float = bins[k]
+		var lo := 1.0
+		var hi := -1.0
+		for p in pts:
+			if int(floor(p.z * 100.0)) == k and p.y > top - 0.004 and absf(p.x) <= 0.04:
+				lo = minf(lo, p.x)
+				hi = maxf(hi, p.x)
+		print("PROFILE z=%.2f top=%.4f x=%.4f..%.4f mid=%.4f" % [k / 100.0, top, lo, hi, (lo + hi) * 0.5])
+	# The whole gun's spread across, for each height band, to see where its body's middle is
+	var xs := {}
+	for p in pts:
+		var hk := int(floor(p.y * 50.0))
+		if not xs.has(hk):
+			xs[hk] = [p.x, p.x]
+		xs[hk][0] = minf(xs[hk][0], p.x)
+		xs[hk][1] = maxf(xs[hk][1], p.x)
+	var hs := xs.keys()
+	hs.sort()
+	for hk in hs:
+		print("PROFILE y=%.2f x=%.4f..%.4f mid=%.4f" % [hk / 50.0, xs[hk][0], xs[hk][1], (xs[hk][0] + xs[hk][1]) * 0.5])
+	maker.free()
+	get_tree().quit()
+
+
+## Test: each gun with each of its parts fitted that can be seen (sights, muzzles, grips, magazines, barrels,
+## stocks), four to a picture, seen from a little above and to the side. GUNS= limits the guns; SHOT_OUT is the prefix.
+## Picture aid: another pilgrim (as co-op shows them) holding each gun, from the side and from ahead, drawn flat.
+## Env GUNS (comma list, all if empty), SHOT_OUT. Saves <SHOT_OUT>_<gun>_<side|front>.png.
+func debug_mateshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	hud.root.visible = false
+	var cam := Camera3D.new()
+	player.cam.add_child(cam)
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = 1.3
+	cam.near = 0.01
+	cam.far = 20.0
+	cam.make_current()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = cam.global_rotation + Vector3(-0.6, 0.5, 0)
+	var only := OS.get_environment("GUNS").split(",", false)
+	var c := Companion.new().setup(999)
+	cam.add_child(c)
+	await get_tree().process_frame
+	c._has_pose = true
+	c.visible = true
+	for g in ArmsDB.GUNS.keys():
+		if not only.is_empty() and not g in only:
+			continue
+		c._show_gun(g, [])
+		c._gun.visible = true
+		c._fig.hold = true
+		c._fig.arms_forward = true
+		for view in ["side", "front"]:
+			# The camera looks down -Z: the figure stands 5 m off, side on (or facing it), its chest framed
+			c.position = Vector3(0, -1.25, -5.0)
+			c._to = c.global_position
+			c.rotation.y = -PI / 2 if view == "side" else 0.0
+			c._yaw = c.rotation.y - PI
+			c._last = c.global_position
+			for f in 6:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png("%s_%s_%s.png" % [OS.get_environment("SHOT_OUT"), g, view])
+			print("MATESHOT %s %s" % [g, view])
+	get_tree().quit()
+
+
+func debug_fitshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	hud.root.visible = false
+	# Drawn flat (no depth), so what touches and what floats is read true
+	var cam := Camera3D.new()
+	player.cam.add_child(cam)
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.near = 0.01
+	cam.far = 10.0
+	cam.make_current()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = cam.global_rotation + Vector3(-0.7, 0.6, 0)
+	var maker := Arms.new()
+	var only := OS.get_environment("GUNS").split(",", false)
+	var seen := ["sight", "muzzle", "grip", "mag", "barrel", "stock"]
+	for g in ArmsDB.GUNS.keys():
+		if not only.is_empty() and not g in only:
+			continue
+		var sets: Array = [[]]
+		for m in WArms.mounts_for(g):
+			if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot in seen:
+				sets.append([m])
+		for i in sets.size():
+			var slot: String = "sight" if sets[i].is_empty() else ArmsDB.ATTACHMENTS[sets[i][0]].slot
+			var views := ["side"]
+			if slot == "sight":
+				views = ["side", "zoom", "back", "top"]
+			elif slot == "muzzle" or slot == "grip":
+				views = ["side", "zoom"]
+			var vonly := OS.get_environment("VIEWS").split(",", false)
+			for view in views:
+				if not vonly.is_empty() and not view in vonly:
+					continue
+				var gun := maker._build(g, sets[i])
+				var bb := AABB()
+				var first := true
+				var aim := Vector3(0, 0, 0)
+				for mi in gun.find_children("*", "MeshInstance3D", true, false):
+					var ab: AABB = WTrees._chain(mi, gun) * (mi as MeshInstance3D).get_aabb()
+					bb = ab if first else bb.merge(ab)
+					first = false
+					if mi.has_meta("reticle"):
+						aim = WTrees._chain(mi, gun).origin
+				var part := Vector3.ZERO
+				for c in gun.find_children("*", "Node3D", true, false):
+					if c.has_meta("bb"):
+						part = WTrees._chain(c, gun).origin
+				var L := clampf(bb.size.z, 0.15, 1.6)
+				var at := bb.get_center()
+				cam.size = maxf(L * 0.62, bb.size.y * 1.15)
+				if view == "zoom":
+					cam.size = 0.13
+					if slot == "sight":
+						at = aim if aim != Vector3.ZERO else Vector3(0, bb.end.y - 0.03, bb.get_center().z)
+					elif part != Vector3.ZERO:
+						at = part
+						cam.size = 0.16 if slot == "muzzle" else 0.2
+				cam.add_child(gun)
+				match view:
+					"side", "zoom":
+						gun.rotation = Vector3(0, -PI / 2, 0)
+					"back":
+						gun.rotation = Vector3.ZERO
+						cam.size = 0.16
+						at = Vector3(0, bb.end.y - 0.05, 0)
+					"top":
+						gun.rotation = Vector3(PI / 2, 0, 0)
+						if slot == "sight" and aim != Vector3.ZERO:
+							at = Vector3(0, 0, aim.z)
+							cam.size = 0.2
+				gun.position = gun.basis * -at + Vector3(0, 0, -3.0)
+				for f in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s_%s_%s_%s.png" % [OS.get_environment("SHOT_OUT"), g, "bare" if sets[i].is_empty() else sets[i][0], view])
+				print("FITSHOT %s %s %s" % [g, sets[i], view])
+				gun.queue_free()
+	maker.free()
+	get_tree().quit()
+
+
 ## Test: the shotgun fed shell by shell, held at k= (0 to 1) so a picture catches the shell on its way in.
 func debug_reloadshot() -> void:
 	var g := "shotgun"

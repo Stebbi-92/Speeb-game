@@ -6597,9 +6597,43 @@ func _night_wave(k := 1.0) -> Array:
 		var dark := 0.1 if bio in ["forest", "marsh", "basalt"] else 0.04
 		if nights >= 1 and tier >= 2 and randf() < dark + nights * 0.01 and _unseen_count() < tg.size():
 			_spawn_near("unseen", t.global_position, 34.0, 46.0)
+		# Rarely, out in the open waste, a man in a long coat stands watching. Once a night at most; he is
+		# no part of the night's round, and goes his way if let be
+		if nights >= 1 and _stranger_night != nights and randf() < STRANGER_CHANCE and _kind_count("stranger") == 0:
+			if _spawn_one("stranger", t.global_position, 28.0, 36.0) != null:
+				_stranger_night = nights
 		if randf() < 0.25:
 			sfx("horror_deep", -10, t.global_position + Vector3(randf_range(-40, 40), 0, randf_range(-40, 40)), randf_range(0.8, 1.0))
 	return made
+
+
+## How often a round of the night brings the man in the coat (at most once a night).
+const STRANGER_CHANCE := 0.07
+var _stranger_night := -1
+
+
+func _kind_count(k: String) -> int:
+	var n := 0
+	for e in foes.values():
+		if is_instance_valid(e) and e.kind == k and e.is_alive():
+			n += 1
+	return n
+
+
+## The man in the coat speaks: those near enough hear him, his words written out and murmured.
+func _w_stranger_says(id: int, line: String) -> void:
+	var e = foes.get(id)
+	if not is_instance_valid(e) or player == null or e.global_position.distance_to(player.global_position) > 48.0:
+		return
+	hud.say("The man in the coat: \"%s\"" % line, clampf(2.5 + line.length() * 0.06, 3.5, 8.0))
+	var v := AudioStreamPlayer3D.new()
+	v.stream = WBabble.make("The man in the coat", line, clampf(line.length() * 0.05, 1.0, 3.0))
+	v.unit_size = 8.0
+	v.volume_db = -4.0
+	e.add_child(v)
+	v.position.y = 1.5
+	v.play()
+	v.finished.connect(v.queue_free)
 
 
 func _unseen_count() -> int:
@@ -11429,6 +11463,96 @@ func debug_buildshot() -> void:
 		await get_tree().process_frame
 	print("BUILDSHOT title=%s hint=%s lines=%d" % [ui._build_title.get_global_rect(), ui._build_hint.get_global_rect(), ui._build_hint.get_line_count()])
 	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_build.png")
+	get_tree().quit()
+
+
+## Testing aid: scanned bodies set down on their feet. Env FOES (comma list). Prints SEAT kind seat= low= after
+## their first steps (low: the lowest skinned bone above the ground under them, which should be near 0).
+func debug_seat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var kinds := OS.get_environment("FOES").split(",", false)
+	var made := []
+	for i in kinds.size():
+		var q := player.global_position + Vector3(cos(i * 1.3), 0, sin(i * 1.3)) * 22.0
+		var e
+		if kinds[i].begins_with("boss_"):
+			e = LesserSpeeb.new().setup(Game.lesser.keys()[3], kinds[i], self)
+			add_child(e)
+			e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + 0.5, q.z)
+		else:
+			e = spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+		if e:
+			e.set_meta("raid", true)
+			e._buried = 0.0
+			made.append(e)
+	await get_tree().create_timer(4.0).timeout
+	for e in made:
+		if not is_instance_valid(e):
+			continue
+		var low := 99.0
+		var ground: float = terrain.height_at(e.global_position.x, e.global_position.z)
+		for sb in e._seat_bones:
+			low = minf(low, (sb[0].global_transform * sb[0].get_bone_global_pose(int(sb[1]))).origin.y - ground)
+		for cs in e.get_children():
+			if cs is CollisionShape3D and cs.shape:
+				var ab: AABB = cs.global_transform * cs.shape.get_debug_mesh().get_aabb()
+				print("SEATSHAPE ", cs.name, " ", cs.shape.get_class(), " low=", snappedf(ab.position.y - ground, 0.01), " dis=", cs.disabled)
+		var dq := PhysicsRayQueryParameters3D.create(e.global_position, e.global_position - Vector3(0, 8, 0), 1)
+		dq.exclude = [e.get_rid()]
+		var dh := get_world_3d().direct_space_state.intersect_ray(dq)
+		if not dh.is_empty():
+			print("SEATRAY hit=", snappedf(dh.position.y - ground, 0.01), " by=", dh.collider, " ", (dh.collider as Node).get_path() if dh.collider is Node else "", " mode=", e.motion_mode, " r=", e.spec.radius)
+		print("SEAT %s seat=%.2f low=%.2f t=%.2f floor=%s buried=%.2f bones=%d sk=%s up=%.2f air=%.2f vy=%.2f" % [e.kind if e.boss == "" else e.boss, e._seat, low, e._seat_t, e.is_on_floor(), e._buried, e._seat_bones.size(), e._sk, e.global_position.y - ground, e._air_t, e.velocity.y])
+	get_tree().quit()
+
+
+## Testing aid: the man in the coat at night. He speaks as you come near, warns you nearer, and draws and
+## fires when you come too close. Prints STRANGER spoke= warned= drew= gun= fired=.
+func debug_stranger() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 23.0
+	night = true
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var q := player.global_position + f * 22.0
+	var e = spawn_at("stranger", Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
+	var spoke := false
+	var warned := false
+	var drew := false
+	var gun := false
+	var fired := false
+	var hp0 := player.health
+	for i in 60:
+		await get_tree().create_timer(0.25).timeout
+		if not is_instance_valid(e):
+			break
+		spoke = spoke or e._talk >= 1
+		warned = warned or e._talk >= 2
+		# Up to twelve metres once he has spoken, then to five once he has warned
+		var want := 12.0 if e._talk == 1 else (5.0 if e._talk == 2 else -1.0)
+		if want > 0.0:
+			var at: Vector3 = e.global_position + (player.global_position - e.global_position).normalized() * want
+			player.global_position = Vector3(at.x, terrain.height_at(at.x, at.z) + 1.0, at.z)
+		if e._talk == 3:
+			if not drew:
+				hp0 = player.health
+			drew = true
+			gun = e._fb != null and e._fb.muzzle != null and e._fb.muzzle.get_parent().visible
+		player.health = maxf(player.health, 1000.0) if not drew else player.health
+		fired = fired or (drew and player.health < hp0)
+		if i % 4 == 0:
+			print("STRANGER t=%.2f talk=%d d=%.1f said=%s" % [i * 0.25, e._talk, e.global_position.distance_to(player.global_position), hud.narration.text.left(60)])
+		if fired:
+			break
+	print("STRANGER spoke=%s warned=%s drew=%s gun=%s fired=%s" % [spoke, warned, drew, gun, fired])
 	get_tree().quit()
 
 
@@ -17591,3 +17715,48 @@ func debug_polish2() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var gone: bool = not is_instance_valid(e)
 	print("POLISH2 words=%s pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [words, pad, reset, turned, rest, fell, gone])
+
+
+## Testing aid: a great one (BOSS, default boss_ash) at noon before the eye, the sky behind it, a few frames in
+## a row (FOG=0 turns the fog off). Saves <SHOT_OUT>_fog<n>.png and prints FOGSHOT odd= (sky pixels gone strange).
+func debug_fogshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	combat_frozen = true
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var env: Environment = get_viewport().get_camera_3d().get_world_3d().environment if get_viewport().get_camera_3d().get_world_3d().environment else null
+	if env == null:
+		for we in find_children("*", "WorldEnvironment", true, false):
+			env = (we as WorldEnvironment).environment
+	if env and OS.get_environment("FOG") == "0":
+		env.volumetric_fog_enabled = false
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var b := OS.get_environment("BOSS") if OS.get_environment("BOSS") != "" else "boss_ash"
+	var q := player.global_position + fwd * 16.0
+	var e
+	if b.begins_with("boss_"):
+		e = LesserSpeeb.new().setup(Game.lesser.keys()[3], b, self)
+		add_child(e)
+		e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z)
+	elif b != "none":
+		e = spawn_at(b, Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+	player.weapon.visible = false
+	await get_tree().create_timer(3.0).timeout
+	_debug_aim(q + Vector3(0, 6.0, 0))
+	for i in 4:
+		await get_tree().create_timer(0.25).timeout
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		img.save_png(OS.get_environment("SHOT_OUT") + "_fog%d.png" % i)
+		var odd := 0
+		for y in range(0, img.get_height() / 3, 4):
+			for x in range(0, img.get_width(), 4):
+				var c := img.get_pixel(x, y)
+				if c.v < 0.05 or (c.s > 0.6 and c.v > 0.3):
+					odd += 1
+		print("FOGSHOT %d odd=%d fog=%s" % [i, odd, env.volumetric_fog_enabled if env else "?"])
+	get_tree().quit()

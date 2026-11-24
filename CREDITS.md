@@ -112,7 +112,9 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Western House - Mobile Game ready"](https://skfb.ly/6R7QG) | Ali haghshenas | Frame houses outside the dune and salt towns |
 | ["Horror Monster"](https://skfb.ly/oCoKK) | GerardoA400 | The Gaunt |
 | ["Cursed Undead Soldier Rig"](https://sketchfab.com/3d-models/cursed-undead-soldier-rig-b2e39de76b834d978adee5716aec814d) | DM-913 | The Draugr (`assets/models/foes/draugr`) |
-| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | The Draugr's walk, run and guard (its animations only, baked onto the Draugr's bones: `assets/models/foes/draugr/draugr_moves.res`) |
+| ["Dune Dweller Rig"](https://skfb.ly/o7NDJ) | DM-913 | The Tunnel Unlit (`assets/models/foes/dweller`) |
+| ["Man In Coat - Human Rigged Model"](https://skfb.ly/oAJQt) | Saitam | The man in the coat (`assets/models/foes/stranger`) |
+| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | Walks, runs and stances for the Draugr, the Harrow, the Tunnel Unlit and the man in the coat (its animations only, baked onto their bones: `draugr_moves.res`, `harrow_moves.res`, `dweller_moves.res`, `stranger_moves.res`) |
 | ["Minigun animated"](https://skfb.ly/o8Qqo) | DJMaesen | The minigun |
 | ["RPG"](https://skfb.ly/osVyW) | Shivansh Singh | The rocket launcher |
 | ["Flamethrower Low Poly"](https://skfb.ly/orCTI) | Shaz | The flamethrower |
