@@ -11415,7 +11415,7 @@ func debug_bloodshot() -> void:
 	print("BLOODSHOT shown=%d" % LesserSpeeb.blood_shown)
 	for n in get_tree().root.find_children("*", "CanvasItem", true, false):
 		var ci := n as CanvasItem
-		if not ci.is_visible_in_tree() or ci is Node3D:
+		if not ci.is_visible_in_tree():
 			continue
 		var r := Rect2()
 		if ci is Control:
