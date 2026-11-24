@@ -154,6 +154,29 @@ func _anchor(s: Dictionary) -> Vector2:
 	return tgt
 
 
+## A great one's model can stand above or below its body (its stored bounds are not its walking feet):
+## its lowest bone is measured against the ground under it and the model moved down or up to meet it.
+func _seat_scans(forms: Array) -> void:
+	for e in forms:
+		if not is_instance_valid(e) or not e.get("_scan") is Node3D:
+			continue
+		var sc: Node3D = e._scan
+		if sc.get_child_count() == 0:
+			continue
+		var gap := 1e9
+		for sk in sc.find_children("*", "Skeleton3D", true, false):
+			var k := sk as Skeleton3D
+			for i in k.get_bone_count():
+				var gp: Vector3 = k.global_transform * k.get_bone_global_pose(i).origin
+				gap = minf(gap, gp.y - float(w.terrain.height_at(gp.x, gp.z)))
+		if gap > 1e8 or absf(gap) < 0.08:
+			continue
+		var m := sc.get_child(0) as Node3D
+		var sy: float = sc.global_transform.basis.get_scale().y
+		m.position.y -= (gap - 0.05) / maxf(sy, 0.001)
+		print("TRAILER seat %s moved %.2f m" % [e.kind, -(gap - 0.05)])
+
+
 ## The levelest ground within reach of a point, for a great one to stand on rather than half sunk in a slope.
 func _flattest(c: Vector2, reach: float) -> Vector2:
 	var best := c
@@ -367,6 +390,7 @@ func _shoot(s: Dictionary) -> void:
 			t += _dt()
 			_set_hour(clock0)
 			_place_cam(path, look, 0.0, fp, s)
+	_seat_scans(forms)
 	for e in forms:
 		if is_instance_valid(e) and e.has_meta("still_yaw"):
 			e.set_physics_process(false)
