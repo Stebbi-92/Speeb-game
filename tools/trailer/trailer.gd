@@ -192,6 +192,22 @@ func _dump_big() -> void:
 			print("TRAILER big %s size=%.0f at=%s mat=%s" % [g.get_path(), big, g.global_position.round(), mat.get_class() if mat else "none"])
 
 
+## The middle of a form's body as drawn: the mean of its bones, or a metre above its feet.
+func _form_centre(e: Node3D) -> Vector3:
+	var sc = e.get("_scan")
+	if sc is Node3D:
+		var sum := Vector3.ZERO
+		var n := 0
+		for sk in (sc as Node3D).find_children("*", "Skeleton3D", true, false):
+			var k := sk as Skeleton3D
+			for i in k.get_bone_count():
+				sum += k.global_transform * k.get_bone_global_pose(i).origin
+				n += 1
+		if n > 0:
+			return sum / float(n)
+	return e.global_position + Vector3(0, 1.0, 0)
+
+
 ## The levelest ground within reach of a point, for a great one to stand on rather than half sunk in a slope.
 func _flattest(c: Vector2, reach: float) -> Vector2:
 	var best := c
@@ -472,6 +488,9 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 	var e := _ease(k, str(s.get("ease", "smooth")))
 	var p := _spline(path, e)
 	var l := _spline(look, e)
+	# A great one framed by where its body actually is, not by the ground it was set on
+	if s.get("look_form", false) and not _forms.is_empty() and is_instance_valid(_forms[0]):
+		l = _form_centre(_forms[0]) + Vector3(0, float(s.get("look_up", 0.0)), 0)
 	var roll := deg_to_rad(float(s.get("roll", 0.0)))
 	if fp:
 		var pl = w.player

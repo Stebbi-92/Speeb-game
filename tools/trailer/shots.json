@@ -171,7 +171,9 @@
      "still": true
     }
    ],
-   "flat": 40
+   "flat": 40,
+   "look_form": true,
+   "look_up": 0.3
   },
   {
    "name": "s18_golem",
