@@ -1015,7 +1015,7 @@ var _flame_snd: AudioStreamPlayer
 var _flame_hold := 0.0
 ## How loud one's own shot is played: the recordings are sharp cracks, quiet beside a growl, so they go in hot
 ## (the Guns line has a limiter). The flamer's roar never stops while held, so it sits well under them.
-const GUN_DB := 6.0
+const GUN_DB := 9.0
 const FLAME_DB := -15.0
 
 

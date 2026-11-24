@@ -2,6 +2,15 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.23.0 (a steadier hand)
+
+- **Gun skill:** shots start wider and steady with every hit, from any gun.
+- **Loot:** walk over a satchel to take it (can be turned off).
+- **Vigils:** waves come from one side, far off, and run in; vigils have their own music.
+- **Air support and guns:** much louder, with screen shake; shots carry much further.
+- **Fixed:** the stall on the first switch to a big gun.
+- **Linux** build (runs on Steam Deck).
+
 ## 0.22.0 (the man in the coat)
 
 - **The man in the coat:** a rare night stranger in the waste who speaks in riddles and draws a shotgun if you come close.

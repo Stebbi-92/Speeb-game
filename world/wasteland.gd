@@ -437,7 +437,49 @@ var _bed_t := 0.0
 
 var _ground_laid := false
 
+## Satchels are taken by walking over them: what fits goes into the pack (each tried at most once a second).
+const AUTO_TAKE_R := 1.9
+var _auto_take_t := 0.0
+var _auto_tried := {}
+var _auto_wait := {}   ## satchels one has just put down: not taken back until one has walked off
+var _drop_ms := -100000   ## when this pilgrim last put something down
+var auto_take_on := true  ## off in the headless checks, which lay satchels at the feet on purpose
+
+
+func _auto_take(delta: float) -> void:
+	if _auto_take_t == 0.0 and DisplayServer.get_name() == "headless" and not "auto_take" in OS.get_cmdline_user_args():
+		auto_take_on = false
+	_auto_take_t -= delta
+	if _auto_take_t > 0.0 or player == null or Net.dedicated or not ready_world or not Game.auto_loot or not auto_take_on:
+		return
+	_auto_take_t = 0.2
+	if player.get("dead") == true:
+		return
+	var now := Time.get_ticks_msec()
+	var at: Vector3 = player.global_position
+	for sid in satchels:
+		var s: Dictionary = satchels[sid]
+		var n: Node3D = s.node
+		if not is_instance_valid(n) or not n.visible:
+			continue
+		var d: Vector3 = n.global_position - at
+		if _auto_wait.has(sid):
+			if Vector2(d.x, d.z).length() > 3.5:
+				_auto_wait.erase(sid)
+			continue
+		if Vector2(d.x, d.z).length() > AUTO_TAKE_R or absf(d.y) > 2.5:
+			continue
+		if now - int(_auto_tried.get(sid, -100000)) < 1000:
+			continue
+		var data: Array = containers.get(sid, [])
+		if data.all(func(x): return x == null):
+			continue
+		_auto_tried[sid] = now
+		take_all(sid, true)
+
+
 func _process(delta: float) -> void:
+	_auto_take(delta)
 	if _stars and player:
 		_stars.global_position = player.global_position
 	if terrain and player and not Net.dedicated and not _steps:
@@ -4351,6 +4393,34 @@ func _w_raid(at: Vector3) -> void:
 	hud.alert_banner("Your camp is under attack", "%d m away. Hold the fire until dawn." % d if d > 30 else "Hold the fire until dawn.")
 
 
+var _vigil_side := 0.0   ## the bearing the next vigil wave comes from
+
+
+## One of a vigil wave: 60 to 85 m off on the wave's side, never close to a keeper, and made to run in.
+func _vigil_foe(kind: String, bowl: Vector3) -> void:
+	for attempt in 8:
+		var a := _vigil_side + randf_range(-0.45, 0.45)
+		var c := bowl + Vector3(cos(a), 0, sin(a)) * randf_range(60.0, 85.0)
+		var close := false
+		for t in targets():
+			if t.global_position.distance_to(c) < 45.0:
+				close = true
+		if close:
+			continue
+		var e = _spawn_near(kind, c, 0.0, 6.0)
+		if e:
+			e.set_meta("raid", true)
+			e.set_meta("rush", true)
+		return
+
+
+## A vigil wave is on its way: a horn from its side, so the keepers turn to meet it.
+func _w_vigil_wave(from: Vector3) -> void:
+	sfx("great_roar", 2, from, 0.8)
+	if player and player.global_position.distance_to(from) < 160.0:
+		player.shake(0.12)
+
+
 func _vigil_tick(delta: float) -> void:
 	for i in vigils.keys():
 		var b: Dictionary = beacon_nodes[i]
@@ -4367,10 +4437,16 @@ func _vigil_tick(delta: float) -> void:
 		if _vigil_t <= 0.0 and alive_count() < WCrowd.scale(self, 9):
 			_vigil_t = 7.0 if i < 8 else 5.0
 			var roster := ["rusher", "rusher", "spitter", "swarm", "swarm", "spider"]
-			for k in WCrowd.scale(self, 3 + int(nights * 0.3)):
-				_spawn_near(roster[randi() % roster.size()], b.pos, 26.0, 40.0)
+			# Each wave comes out of the dark from one side, well off, and runs at the keepers: seen coming,
+			# and met head on, not risen all around them. The side turns from wave to wave.
+			_vigil_side = wrapf(_vigil_side + randf_range(1.2, 2.6) * (1 if randf() < 0.5 else -1), 0.0, TAU)
+			var n := WCrowd.scale(self, 3 + int(nights * 0.3))
+			for k in n:
+				_vigil_foe(roster[randi() % roster.size()], b.pos)
 			if i == 8 and randf() < 0.35:
-				_spawn_near("elite", b.pos, 30.0, 40.0)
+				_vigil_foe("elite", b.pos)
+			if n > 0:
+				shared("_w_vigil_wave", [b.pos + Vector3(cos(_vigil_side), 0, sin(_vigil_side)) * 70.0])
 		if vigils[i] <= 0.0:
 			if near and not _front_held(i):
 				vigils[i] = 0.0   # the bowl holds, and waits for the camp
@@ -4784,7 +4860,7 @@ func _rq_take(by: int, id: String, i: int, n := 0) -> void:
 
 
 ## Takes as much of a container as the pack has room for, in one ask. Returns how many stacks were asked for.
-func take_all(id: String) -> int:
+func take_all(id: String, auto := false) -> int:
 	var data: Array = containers.get(id, [])
 	var room := Inventory.new(inv.slots.size())
 	room.from_data(inv.to_data())
@@ -4799,6 +4875,8 @@ func take_all(id: String) -> int:
 			idxs.append(i)
 		else:
 			left_behind = true
+	if auto and idxs.is_empty():
+		return 0   # walked over with a full pack: say nothing, the satchel stays
 	if not idxs.is_empty():
 		shared("_rq_take_many", [Net.me(), id, idxs])
 		sfx("step", -4, null, 0.7)
@@ -4897,6 +4975,7 @@ func _w_give(items: Array) -> void:
 		if left > 0:
 			spill.append([id, left])
 	if not spill.is_empty():
+		_drop_ms = Time.get_ticks_msec()
 		hud.notify("Your pack is full. The rest is left on the ground.")
 		shared("_rq_satchel", [Net.me(), player.global_position, spill, false])
 	quests.refresh_hud()
@@ -4979,6 +5058,8 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1, k
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = ground_below(p)
+	if player and Time.get_ticks_msec() - _drop_ms < 4000 and player.global_position.distance_to(n.global_position) < 4.0:
+		_auto_wait[sid] = true   # just put down here: leave it be until we walk off
 	if owner != "" and owner != Net.my_name() and not Net.dedicated:
 		# Another pilgrim's share: kept, but not seen or touched here
 		n.visible = false
@@ -9889,6 +9970,73 @@ func debug_pace() -> void:
 		out.append("%d/%.2f" % [named, float(WRules.pace()[0])])
 	var ns: Array = out.map(func(x): return int(str(x).get_slice("/", 0)))
 	print("PACE " + " ".join(out) + " rising=%s" % [ns[0] < ns[1] and ns[1] < ns[2] and ns[0] >= 8 and ns[2] <= 50])
+	get_tree().quit()
+
+
+## Testing aid: a vigil's wave comes from one side, well off the keepers, and runs in; its music is the vigil's.
+func debug_vigilwave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for e in enemies:
+		if is_instance_valid(e):
+			e.die(false)
+	var bowl: Vector3 = beacon_nodes[0].pos
+	player.place(bowl + Vector3(0, 2.5, 8), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	vigils[0] = 120.0
+	_vigil_t = 0.0
+	await get_tree().create_timer(0.6).timeout
+	var foes: Array = enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("rush"))
+	var near := INF
+	var dirs := Vector2.ZERO
+	var d0 := 0.0
+	for e in foes:
+		near = minf(near, e.global_position.distance_to(player.global_position))
+		var v: Vector3 = (e.global_position - bowl)
+		dirs += Vector2(v.x, v.z).normalized()
+		d0 += e.global_position.distance_to(player.global_position)
+	var one_side: bool = foes.size() > 0 and dirs.length() / foes.size() > 0.75
+	await get_tree().create_timer(4.0).timeout
+	var d1 := 0.0
+	var n1 := 0
+	for e in foes:
+		if is_instance_valid(e) and e.is_alive():
+			d1 += e.global_position.distance_to(player.global_position)
+			n1 += 1
+	var closing: bool = n1 > 0 and d1 / n1 < d0 / maxi(foes.size(), 1) - 10.0
+	var tune: String = music.want() if music else "none"
+	print("VIGILWAVE n=%d far=%s one_side=%s closing=%s music=%s near=%.0f" % [foes.size(), near > 45.0, one_side, closing, tune, near])
+	get_tree().quit()
+
+
+## Testing aid: satchels are taken by walking over them, but what one has just put down stays until one walks off.
+func debug_autoloot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	auto_take_on = true
+	for i in inv.slots.size():
+		inv.slots[i] = null   # earlier checks in the same world may have filled the pack
+	var at := player.global_position
+	var bone0 := inv.count("bone")
+	shared("_rq_satchel", [Net.me(), at + Vector3(1.0, 0, 0), [["bone", 5]], false])
+	await get_tree().create_timer(2.0).timeout
+	var took: bool = inv.count("bone") == bone0 + 5
+	_drop_ms = Time.get_ticks_msec()
+	shared("_rq_satchel", [Net.me(), at + Vector3(0, 0, 1.0), [["bone", 3]], false])
+	await get_tree().create_timer(2.0).timeout
+	var stayed: bool = inv.count("bone") == bone0 + 5
+	var fwd := player.global_position + Vector3(8, 0, 0)
+	player.place(Vector3(fwd.x, terrain.height_at(fwd.x, fwd.z) + 1.0, fwd.z), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	player.place(at, 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var back: bool = inv.count("bone") == bone0 + 8
+	Game.auto_loot = false
+	shared("_rq_satchel", [Net.me(), at + Vector3(-1.0, 0, 0), [["bone", 2]], false])
+	await get_tree().create_timer(2.0).timeout
+	var off_ok: bool = inv.count("bone") == bone0 + 8
+	Game.auto_loot = true
+	print("AUTOLOOT took=%s stayed=%s back=%s off=%s" % [took, stayed, back, off_ok])
 	get_tree().quit()
 
 

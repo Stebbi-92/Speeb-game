@@ -1185,6 +1185,7 @@ func _drop(i: int, n: int) -> void:
 	if it == null:
 		return
 	var fwd: Vector3 = -w.player.global_transform.basis.z
+	w._drop_ms = Time.get_ticks_msec()
 	w.shared("_rq_satchel", [Net.me(), w.player.global_position + fwd * 1.2, [it], false])
 	w.hud.notify("Dropped %d %s." % [it[1], Items.iname(it[0])])
 

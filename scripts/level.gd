@@ -1918,7 +1918,7 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		return
 	vol_db += float(MIX.get(name, 0.0))
 	# Heard from far off, a shot has its own recording: the crack gone, the roll of it left
-	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 35.0 \
+	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 45.0 \
 			and not takes_of(name + "_far").is_empty():
 		name += "_far"
 		vol_db += float(MIX.get(name, 0.0))
@@ -1962,10 +1962,27 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.position = pos
 		p.pitch_scale = pitch
 		p.unit_size = 8
+		var far := _carry(name)
+		if far > 0.0:
+			# Shots, blasts and aircraft carry a long way: heard across the waste, muffled by the distance
+			p.unit_size = far
+			p.max_db = 6.0
+			p.attenuation_filter_cutoff_hz = 3500.0
 		add_child(p)
 		p.play()
 		p.finished.connect(p.queue_free)
 		_voices.append(p)
+
+
+## How far a sound carries (its unit size, in metres), for the loud ones; 0 for the rest.
+static func _carry(name: String) -> float:
+	for a in ["flyby", "brrt", "rotor", "jet", "boom", "bomb"]:
+		if name.begins_with(a):
+			return 60.0
+	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket"]:
+		if name.begins_with(g):
+			return 30.0
+	return 0.0
 
 
 const MAX_VOICES := 32   ## sounds in the world playing at once
@@ -2366,7 +2383,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
 						fs.stop())
 			return
-		sfx("supp" if quiet else str(g.sound), -10 if quiet else Arms.shot_db(str(g.sound)) - 6.0, a)
+		sfx("supp" if quiet else str(g.sound), -10 if quiet else Arms.shot_db(str(g.sound)) - 2.0, a)
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
 		if g.mode == "rocket":

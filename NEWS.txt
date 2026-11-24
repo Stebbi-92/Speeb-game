@@ -1,3 +1,14 @@
+Brelm alpha 0.23.0: a steadier hand
+
+- Gun skill: a new survivor's shots wander wider and the sights sway more. Every hit with any gun steadies your hand, rank by rank, until shots go where you aim. Your rank shows on the arms page.
+- Satchels are taken by walking over them. What you just put down stays until you walk off. You can turn this off in Settings, Game.
+- Beacon vigils: the forms come in waves from one side, out of the dark 60 to 85 m off, and run at you. A roar tells you where the next wave comes from. The vigil has its own louder, driving music.
+- Air support is much louder and heavier: jets and the gunship roar past as they fly, bombs and the cannon shake the ground and the view, and the gun run's cannon is made from real recordings.
+- Gunshots are louder and carry much further across the waste, muffled by the distance.
+- No more stall the first time you switch to a big gun: the guns you carry are made ready when you set out.
+- A Linux build, which also runs on Steam Deck.
+- The real gun brand names are gone from the notes and the wiki.
+
 Brelm alpha 0.22.0: the man in the coat
 
 - The man in the coat: on rare nights a stranger stands in the waste. He speaks in riddles. Keep your distance, or he draws a shotgun.

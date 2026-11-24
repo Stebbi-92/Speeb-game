@@ -683,7 +683,7 @@ func _physics_process(delta: float) -> void:
 	if walks():
 		_spider_move(delta, p, dist, frozen)
 		return
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * _rush(dist)
 	if not frozen:
 		match kind:
 			"spitter":
@@ -929,7 +929,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	flat.y = 0
 	var fd := flat.length()
 	var dir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0) * (0.55 if _shot_slow > 0.0 else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0) * (0.55 if _shot_slow > 0.0 else 1.0) * _rush(fd)
 	_shot_slow = maxf(0.0, _shot_slow - delta)
 	var on_floor := is_on_floor()
 	var cat := kind != "spider"
@@ -3036,6 +3036,11 @@ func sees(p: Node3D) -> bool:
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 
+## A beacon's attackers come from afar at a run, and slow to their fighting pace once they close in.
+func _rush(d: float) -> float:
+	return 1.5 if d > 16.0 and has_meta("rush") else 1.0
+
+
 ## A noise at a place, carrying radius far. Near, it knows where it came from; further, it goes to look.
 func hear(at: Vector3, radius: float) -> void:
 	if not _alive or puppet or mind == "hunt" or mind == "flee" or _fb == null:
@@ -3232,7 +3237,7 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	flat.y = 0.0
 	var fd := flat.length()
 	var fdir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * (0.6 if _guard else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * (0.6 if _guard else 1.0) * _rush(fd)
 	_shot_slow = maxf(0.0, _shot_slow - delta)
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	_bar_tick(delta)

@@ -42,7 +42,6 @@ static func _ground(lvl: Node, p: Vector3) -> Vector3:
 
 
 static func _airstrike(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
-	lvl.sfx("flyby", 0, at + Vector3(0, 60, 0))
 	var side := dir.cross(Vector3.UP)
 	var jets: Array = []
 	for i in 2:
@@ -51,6 +50,7 @@ static func _airstrike(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void
 		jets.append(j)
 		j.global_position = at - dir * 420.0 + side * (i * 14.0 - 7.0) + Vector3(0, 110 + i * 6, 0)
 		j.look_at(j.global_position + dir, Vector3.UP)
+		_engine(j, "flyby", 8.0 - i * 3.0, 0.95 + i * 0.08)
 		_fly(lvl, j, dir * 140.0, 6.5)
 	await _wait(lvl, 2.6)
 	if not is_instance_valid(lvl):
@@ -61,6 +61,9 @@ static func _airstrike(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void
 			Arms.blast(lvl, p + Vector3(0, 0.5, 0), 7.0, 220.0, lvl.get("player"))
 		else:
 			Arms.blast_fx(lvl, p + Vector3(0, 0.5, 0), 7.0)
+		if k % 2 == 0:
+			lvl.sfx("bomb", 8, p, randf_range(0.92, 1.05))
+		_shake(lvl, p, 0.55, 140.0)
 		await _wait(lvl, 0.12)
 		if not is_instance_valid(lvl):
 			return
@@ -74,7 +77,7 @@ static func _gunrun(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
 	var aim := at - dir * 30.0
 	var v := (aim + Vector3(0, 30, 0) - start).normalized() * 120.0
 	j.look_at(j.global_position + v, Vector3.UP)
-	lvl.sfx("flyby", -2, at + Vector3(0, 40, 0), 1.15)
+	_engine(j, "flyby", 8.0, 1.15)
 	_fly(lvl, j, v, 2.4, true)
 	await _wait(lvl, 2.2)
 	if not is_instance_valid(lvl):
@@ -83,6 +86,8 @@ static func _gunrun(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
 	for k in 34:
 		var p := _ground(lvl, at + dir * (k * 1.8 - 30.0) + dir.cross(Vector3.UP) * randf_range(-2.0, 2.0))
 		_impact(lvl, p)
+		if k % 3 == 0:
+			_shake(lvl, p, 0.22, 90.0)
 		if real and k % 2 == 0:
 			var hits := {}
 			for e in lvl.get("enemies") if lvl.get("enemies") != null else []:
@@ -92,7 +97,9 @@ static func _gunrun(lvl: Node, at: Vector3, dir: Vector3, real: bool) -> void:
 		await _wait(lvl, 0.04)
 		if not is_instance_valid(lvl):
 			return
-	lvl.sfx("brrt", 2, at)
+	# The cannon's own roar comes after its shells, as it would from that far up
+	lvl.sfx("brrt", 10, at + Vector3(0, 30, 0))
+	_shake(lvl, at, 0.35, 120.0)
 
 
 static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
@@ -101,7 +108,7 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 	var center := at
 	var r := 26.0
 	h.global_position = center + Vector3(-300, 80, 0)
-	lvl.sfx("rotor", -2, h.global_position)
+	_engine(h, "rotor", 9.0, 1.0, true)
 	# Comes in, then circles
 	var t := 0.0
 	var arrive := 5.0
@@ -109,7 +116,6 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 	var fire_t := 0.0
 	var missile_t := 3.0
 	var prev: Vector3 = h.global_position
-	var rotor_t := 0.0
 	while t < arrive + hold + 5.0 and is_instance_valid(h) and is_instance_valid(lvl):
 		var dt := 0.05
 		await _wait(lvl, dt)
@@ -132,10 +138,8 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 		if face.distance_to(p) > 0.5:
 			h.look_at(Vector3(face.x, p.y - 4.0, face.z), Vector3.UP)
 		h.get_node("rotor").rotation.y += dt * 40.0
-		rotor_t -= dt
-		if rotor_t <= 0.0:
-			rotor_t = 2.4
-			lvl.sfx("rotor", -4, p)
+		if p.distance_to(center) < 60.0:
+			_shake(lvl, p, 0.012, 50.0)   # the rotor's beat felt underfoot
 		if t < arrive or t > arrive + hold:
 			continue
 		# Hunts what moves near the mark
@@ -155,18 +159,20 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 		if fire_t <= 0.0:
 			fire_t = 0.22
 			_tracer(lvl, p - Vector3(0, 1.5, 0), tgt)
-			lvl.sfx("mg", -8, p, 0.8)
+			lvl.sfx("mg", 2, p, 0.8)
 			if real:
 				Arms.deal({best: 26.0}, (tgt - p).normalized())
 		if missile_t <= 0.0:
 			missile_t = 5.0
-			lvl.sfx("rocket", -4, p)
+			lvl.sfx("rocket", 4, p)
 			await _wait(lvl, 0.6)
 			if is_instance_valid(lvl):
 				if real:
 					Arms.blast(lvl, tgt, 5.0, 160.0, lvl.get("player"))
 				else:
 					Arms.blast_fx(lvl, tgt, 5.0)
+				lvl.sfx("bomb", 2, tgt, 1.2)
+				_shake(lvl, tgt, 0.4, 80.0)
 	if is_instance_valid(h):
 		h.queue_free()
 
@@ -187,6 +193,38 @@ static func _fly(lvl: Node, n: Node3D, v: Vector3, secs: float, pull_up := false
 		n.queue_free()
 
 
+## A sound carried by an aircraft as it flies, so it comes, passes and goes (with the pitch drop of a pass).
+static func _engine(n: Node3D, sound: String, vol_db: float, pitch := 1.0, loop := false) -> void:
+	var all := Level.takes_of(sound)
+	if all.is_empty():
+		return
+	var st: AudioStream = all[0]
+	if loop and st is AudioStreamOggVorbis:
+		st = st.duplicate()
+		(st as AudioStreamOggVorbis).loop = true
+	var a := AudioStreamPlayer3D.new()
+	a.stream = st
+	a.bus = "Guns"
+	a.volume_db = vol_db
+	a.max_db = 6.0
+	a.pitch_scale = pitch
+	a.unit_size = 60.0
+	a.attenuation_filter_cutoff_hz = 3500.0
+	a.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	n.add_child(a)
+	a.play.call_deferred()
+
+
+## Shakes this pilgrim's view by how near a blow from the sky lands.
+static func _shake(lvl: Node, p: Vector3, strength: float, reach: float) -> void:
+	var pl = lvl.get("player")
+	if pl == null or not is_instance_valid(pl) or not pl.has_method("shake"):
+		return
+	var k := clampf(1.0 - pl.global_position.distance_to(p) / reach, 0.0, 1.0)
+	if k > 0.0:
+		pl.shake(strength * k * k)
+
+
 static func _impact(lvl: Node, p: Vector3) -> void:
 	var mi := MeshInstance3D.new()
 	var sm := SphereMesh.new()
@@ -205,7 +243,7 @@ static func _impact(lvl: Node, p: Vector3) -> void:
 	tw.tween_property(mi, "scale", Vector3(2.2, 3.5, 2.2), 0.6)
 	tw.tween_property(m, "albedo_color:a", 0.0, 0.9)
 	tw.chain().tween_callback(mi.queue_free)
-	lvl.sfx("thud", -8, p, randf_range(0.8, 1.2))
+	lvl.sfx("thud", 2, p, randf_range(0.7, 1.0))
 
 
 static func _tracer(lvl: Node, a: Vector3, b: Vector3) -> void:

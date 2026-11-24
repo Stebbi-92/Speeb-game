@@ -2255,6 +2255,7 @@ func _page_access() -> void:
 func _page_game() -> void:
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())
+	_toggle("Take satchels by walking over them", Game.auto_loot, func(on): Game.auto_loot = on; Game.save())
 	var every := [0, 1, 2, 5, 10]
 	_choice("Autosave", ["Only at key moments", "Every minute", "Every 2 minutes", "Every 5 minutes", "Every 10 minutes"],
 		maxi(every.find(Game.autosave_min), 0), func(i): Game.autosave_min = every[i]; Game.save())
