@@ -3345,6 +3345,44 @@ class Rocket extends Node3D:
 
 ## A round in flight: beyond close range a shot is not instant. It flies straight at its gun's speed,
 ## shown by a faint streak, and does its harm where it lands, with the same falloff and head shots.
+## A line of light (a round's tracer), lying along its -Z and centred: two thin crossed blades of soft light, not
+## a box. Seen end on (a round coming at the eye, or going straight away) a box showed as a flat pale square;
+## blades seen end on are nothing. It fades out close to the eye.
+static var _line_mats := {}
+static func light_line(length: float, c: Color, width := 0.03) -> Node3D:
+	if not _line_mats.has(c):
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0))
+		g.set_color(1, Color(1, 1, 1, 0))
+		g.add_point(0.5, Color(1, 1, 1, 1))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.width = 16
+		gt.height = 4
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.albedo_color = c
+		m.albedo_texture = gt
+		m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+		m.distance_fade_min_distance = 2.0
+		m.distance_fade_max_distance = 7.0
+		_line_mats[c] = m
+	var n := Node3D.new()
+	for k in 2:
+		var mi := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2(width, length)
+		mi.mesh = qm
+		mi.material_override = _line_mats[c]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.basis = Basis(Vector3.BACK, k * PI / 2) * Basis(Vector3.RIGHT, -PI / 2)
+		n.add_child(mi)
+	return n
+
+
 class Slug extends Node3D:
 	var arms: Node = null
 	var shooter: Node = null
@@ -3365,16 +3403,7 @@ class Slug extends Node3D:
 		var t0 := Arms.NEAR / maxf(speed, 1.0)
 		vel = dir * speed + Vector3.DOWN * grav * t0
 		global_position += Vector3.DOWN * 0.5 * grav * t0 * t0
-		var streak := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(0.025, 0.025, 1.6)
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(1.0, 0.85, 0.55, 0.55)
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		bm.material = m
-		streak.mesh = bm
-		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var streak := Arms.light_line(1.6, Color(1.0, 0.8, 0.5, 0.6))
 		streak.position = Vector3(0, 0, 0.8)
 		add_child(streak)
 		look_at(global_position + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)

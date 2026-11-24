@@ -209,14 +209,7 @@ static func _impact(lvl: Node, p: Vector3) -> void:
 
 
 static func _tracer(lvl: Node, a: Vector3, b: Vector3) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.05, 0.05, a.distance_to(b))
-	mi.mesh = bm
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = Color(1.0, 0.8, 0.5)
-	mi.material_override = m
+	var mi := Arms.light_line(a.distance_to(b), Color(1.0, 0.8, 0.5), 0.06)
 	lvl.add_child(mi)
 	mi.global_position = (a + b) * 0.5
 	mi.look_at(b, Vector3.UP if absf((b - a).normalized().y) < 0.99 else Vector3.RIGHT)

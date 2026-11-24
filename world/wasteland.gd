@@ -2720,13 +2720,15 @@ func _embers_tick() -> void:
 		_embers.scale_amount_min = 0.6
 		_embers.scale_amount_max = 1.1
 		var q := QuadMesh.new()
-		q.size = Vector2(0.05, 0.05)
+		q.size = Vector2(0.08, 0.08)
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		m.albedo_color = Color(1.0, 0.62, 0.25, 0.9)
+		# A soft round glow; bare, each ember drew as a little flat square
+		m.albedo_texture = Relics._soft_dot()
 		q.material = m
 		_embers.mesh = q
 		var fade := Gradient.new()
@@ -11259,21 +11261,240 @@ func debug_hitshot() -> void:
 		var q := player.global_position + f * dist + side * (i - (kinds.size() - 1) * 0.5) * gap
 		var e := spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
 		e.set_meta("raid", true)
+		e._buried = 0.0   # not still climbing out of the ground
 		made.append(e)
 	await get_tree().create_timer(1.5).timeout
-	for e in made:
+	for i in made.size():
+		if not is_instance_valid(made[i]):
+			print("HITSHOT %s gone" % kinds[i])
+			continue
+		var e: LesserSpeeb = made[i]
 		e.set_physics_process(false)
+		# Back where it was set, standing on the ground, whatever it did in the meantime
+		var q := player.global_position + f * dist + side * (i - (made.size() - 1) * 0.5) * gap
+		e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+		e.visible = true
 		debug_show_hits(e)
+	made = made.filter(func(e): return is_instance_valid(e))
 	for view in ["side", "front"]:
 		for e in made:
 			var to := side if view == "side" else -f
 			e.rotation.y = atan2(to.x, to.z)
 			var gp: Vector3 = e.global_position
-			print("HITSHOT %s %s at %s hits=%d" % [view, e.variant if e.variant != "" else e.kind, gp, e.find_children("*", "CollisionShape3D", true, false).size()])
+			print("HITSHOT %s %s at %s hits=%d ground=%.2f hidden=%s" % [view, e.variant if e.variant != "" else e.kind, gp, e.find_children("*", "CollisionShape3D", true, false).size(), terrain.height_at(gp.x, gp.z), e.hidden])
 		_debug_aim(player.global_position + f * dist + Vector3(0, float(OS.get_environment("AIM_Y")) if OS.get_environment("AIM_Y") != "" else 0.5, 0))
 		for k in 20:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_" + view + ".png")
+	get_tree().quit()
+
+
+## Testing aid: which drawn thing makes the screen bright at px? Each candidate is hidden in turn.
+func _debug_find_bright(px: Vector2i) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var lum := func() -> float:
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		return get_viewport().get_texture().get_image().get_pixelv(px).get_luminance()
+	var base: float = await lum.call()
+	var s: Array = []
+	for n in get_tree().root.find_children("*", "Node", true, false):
+		if (n is VisualInstance3D or n is CanvasItem) and n.is_visible_in_tree():
+			s.append(n)
+	print("BRIGHT at %s base=%.2f candidates=%d" % [px, base, s.size()])
+	while s.size() > 1:
+		var half: Array = s.slice(0, s.size() / 2)
+		for n in half:
+			n.visible = false
+		var now: float = await lum.call()
+		for n in half:
+			n.visible = true
+		print("BRIGHT step %d -> %.2f" % [half.size(), now])
+		s = half if absf(now - base) > 0.06 else s.slice(s.size() / 2)
+	var g: Node = s[0]
+	g.visible = false
+	var fin: float = await lum.call()
+	print("BRIGHT FOUND %s %s lum %.2f->%.2f path=%s" % [g.name, g.get_class(), base, fin, str(g.get_path()).right(160)])
+	g.visible = true
+	# Go down through its children to the one that draws it
+	while true:
+		var best: Node = null
+		for c in g.get_children():
+			if not (c is CanvasItem or c is VisualInstance3D) or not c.visible:
+				continue
+			c.visible = false
+			var v: float = await lum.call()
+			c.visible = true
+			if absf(v - base) > 0.06:
+				print("BRIGHT child %s %s lum->%.2f rect=%s mod=%s script=%s" % [c.name, c.get_class(), v, (c as Control).get_global_rect() if c is Control else "", c.modulate if c is CanvasItem else "", c.get_script().resource_path if c.get_script() else ""])
+				best = c
+		if best == null:
+			break
+		g = best
+	print("BRIGHT LEAF %s %s path=%s" % [g.name, g.get_class(), str(g.get_path())])
+	if g is Control:
+		for c in g.get_children():
+			print("   kid %s %s vis=%s rect=%s" % [c.name, c.get_class(), c.visible if c is CanvasItem else "", (c as Control).get_global_rect() if c is Control else ""])
+	if g is Node3D:
+		print("   d=%.2f pos=%s parent=%s script=%s" % [cam.global_position.distance_to((g as Node3D).global_position), (g as Node3D).global_position, g.get_parent().name, g.get_script()])
+	if g is MeshInstance3D:
+		print("   mesh=%s mat=%s" % [(g as MeshInstance3D).mesh, (g as MeshInstance3D).material_override])
+		var mm = (g as MeshInstance3D).material_override
+		if mm == null and (g as MeshInstance3D).mesh:
+			mm = (g as MeshInstance3D).mesh.surface_get_material(0)
+		if (g as MeshInstance3D).mesh is BoxMesh:
+			print("   box=%s scale=%s" % [((g as MeshInstance3D).mesh as BoxMesh).size, (g as Node3D).global_transform.basis.get_scale()])
+		if mm is StandardMaterial3D:
+			var sm := mm as StandardMaterial3D
+			print("   albedo=%s emit=%s %s x%.1f shade=%d nodepth=%s bill=%d fixed=%s tr=%d" % [sm.albedo_color, sm.emission_enabled, sm.emission, sm.emission_energy_multiplier, sm.shading_mode, sm.no_depth_test, sm.billboard_mode, sm.fixed_size, sm.transparency])
+		var par := g.get_parent()
+		print("   parent kids=%d pos=%s gp=%s gpscript=%s" % [par.get_child_count(), (par as Node3D).global_position, par.get_parent().name, par.get_parent().get_script()])
+		for k in par.get_children():
+			print("     sib %s %s" % [k.get_class(), (k as MeshInstance3D).mesh if k is MeshInstance3D else ""])
+	if g is CPUParticles3D:
+		print("   amount=%d mesh=%s" % [(g as CPUParticles3D).amount, (g as CPUParticles3D).mesh])
+
+
+## Testing aid: what is drawn near the eye, and what lands where on the screen (to find stray squares)
+func _debug_whats_drawn() -> void:
+	var cam := get_viewport().get_camera_3d()
+	for n in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		if not g.is_visible_in_tree():
+			continue
+		var p := g.global_position
+		var d := cam.global_position.distance_to(p)
+		if cam.is_position_behind(p):
+			continue
+		var sp := cam.unproject_position(p)
+		if d < 3.0 or (d < 60.0 and sp.x > 560 and sp.x < 760 and sp.y > 150 and sp.y < 560):
+			var mesh := ""
+			if g is MeshInstance3D and (g as MeshInstance3D).mesh:
+				mesh = (g as MeshInstance3D).mesh.get_class()
+			print("DRAWN %s %s mesh=%s d=%.2f screen=%s path=%s" % [g.name, g.get_class(), mesh, d, Vector2i(sp), str(g.get_path()).right(90)])
+	for n in get_tree().root.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.is_visible_in_tree() and (c is ColorRect or c is TextureRect or c is Panel) and c.get_global_rect().size.x < 40 and c.get_global_rect().size.y < 40 and c.get_global_rect().size.x > 4:
+			print("UI %s %s rect=%s path=%s" % [c.name, c.get_class(), c.get_global_rect(), str(c.get_path()).right(90)])
+
+
+## Picture aid: forms walking past, side on, pictured three times a little apart: do their bodies move?
+func debug_animshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := OS.get_environment("FOES").split(",", false)
+	var dist := float(OS.get_environment("DIST")) if OS.get_environment("DIST") != "" else 12.0
+	var gap := float(OS.get_environment("GAP")) if OS.get_environment("GAP") != "" else 7.0
+	var made := []
+	for i in kinds.size():
+		var q := player.global_position + f * dist + side * (i - (kinds.size() - 1) * 0.5) * gap
+		var e := spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
+		e.set_meta("raid", true)
+		e._buried = 0.0
+		made.append(e)
+	await get_tree().create_timer(1.0).timeout
+	_debug_aim(player.global_position + f * dist + Vector3(0, 1.0, 0))
+	for k in 3:
+		# Each held side on to the eye and set walking along its own line, back where it began
+		for i in made.size():
+			var e = made[i]
+			if not is_instance_valid(e):
+				continue
+			var q := player.global_position + f * dist + side * (i - (made.size() - 1) * 0.5) * gap
+			e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+			e.rotation.y = atan2(side.x, side.z)
+			print("ANIMSHOT %d %s clip=%s at=%.2f" % [k, e.variant if e.variant != "" else e.kind, e._scan_anim.current_animation if e._scan_anim else "-", e._scan_anim.current_animation_position if e._scan_anim else -1.0])
+		for j in 3:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_%d.png" % k)
+		await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+
+## Picture aid: a form struck from the side three times, pictured as the blood flies and again once it has landed.
+func debug_bloodshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	Game.blood = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var q := player.global_position + f * 5.0
+	var e := spawn_at("rusher", Vector3(q.x, terrain.height_at(q.x, q.z) + 1.0, q.z))
+	await get_tree().create_timer(0.8).timeout
+	e.set_physics_process(false)
+	e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+	_debug_aim(q + Vector3(0, 0.3, 0))
+	for k in 10:
+		await get_tree().process_frame
+	# Slowed right down: drawn here a frame takes about half a second, longer than the spray lives
+	Engine.time_scale = 0.03
+	for k in 3:
+		e.bleed(side.rotated(Vector3.UP, (k - 1) * 0.3), 22.0)
+	# A gunman's shot at the eye from ahead and a round going away, seen end on: lines, no squares
+	_w_tracer(q + Vector3(0, 1.2, 0) + f * 10.0, player.global_position + Vector3(0, 1.5, 0))
+	for k in 4:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_fly.png")
+	Engine.time_scale = 1.0
+	await get_tree().create_timer(1.5).timeout
+	e.queue_free()
+	for k in 3:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_land.png")
+	print("BLOODSHOT shown=%d" % LesserSpeeb.blood_shown)
+	await _debug_find_bright(Vector2i(int(OS.get_environment("PX_X") if OS.get_environment("PX_X") != "" else "1000"), int(OS.get_environment("PX_Y") if OS.get_environment("PX_Y") != "" else "560")))
+	for n in get_tree().root.find_children("*", "CanvasItem", true, false):
+		var ci := n as CanvasItem
+		if not ci.is_visible_in_tree():
+			continue
+		var r := Rect2()
+		if ci is Control:
+			r = (ci as Control).get_global_rect()
+		elif ci is Node2D:
+			r = Rect2((ci as Node2D).global_position, Vector2(1, 1))
+		if r.has_point(Vector2(1000, 560)) and r.size.x < 1200:
+			print("CANVAS %s %s rect=%s mod=%s path=%s" % [ci.name, ci.get_class(), r, ci.modulate, str(ci.get_path()).right(120)])
+	get_tree().quit()
+
+
+## Picture aid: a broken tower and a shrine (RUINS=tower,shrine) set before the eye, their solid shapes drawn red.
+func debug_ruinshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := OS.get_environment("RUINS").split(",", false)
+	for i in kinds.size():
+		var c := player.global_position + f * 24.0 + side * (i - (kinds.size() - 1) * 0.5) * 22.0
+		c.y = terrain.height_at(c.x, c.z)
+		var n := Node3D.new()
+		n.position = c
+		n.rotation.y = atan2(f.x, f.z)
+		add_child(n)
+		var rd := RandomNumberGenerator.new()
+		rd.seed = 77 + i
+		WDress.ruin(self, kinds[i], n, rd, land_at(c))
+		if OS.get_environment("HITS") != "":
+			for b in n.find_children("*", "StaticBody3D", true, false):
+				debug_show_hits(b)
+	_debug_aim(player.global_position + f * 24.0 + Vector3(0, 1.0, 0))
+	for k in 30:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT"))
 	get_tree().quit()
 
 
@@ -11301,6 +11522,13 @@ func debug_show_hits(body: Node) -> void:
 			var m := BoxMesh.new()
 			m.size = (sh as BoxShape3D).size
 			mi.mesh = m
+		elif sh is ConcavePolygonShape3D:
+			var am := ArrayMesh.new()
+			var arr := []
+			arr.resize(Mesh.ARRAY_MAX)
+			arr[Mesh.ARRAY_VERTEX] = (sh as ConcavePolygonShape3D).get_faces()
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			mi.mesh = am
 		elif sh is CylinderShape3D:
 			var m := CylinderMesh.new()
 			m.top_radius = (sh as CylinderShape3D).radius

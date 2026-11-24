@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://6xna6trt4wfh"
-path="res://.godot/imported/drake_0.png-b14d5cd8c03e4511cf86ec1c61c4fe58.ctex"
+uid="uid://sihascwxyrnc"
+path="res://.godot/imported/draugr_cursedsoldier_3.png-20c285be1fb3bc410a15bbeb119e4a17.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "50cbda101bebfd921ab6e1e60e6d7763"
+"md5": "50be081bc5003558fdc218808af97267"
 }
 
 [deps]
 
-source_file="res://assets/models/foes/drake/drake_0.png"
-dest_files=["res://.godot/imported/drake_0.png-b14d5cd8c03e4511cf86ec1c61c4fe58.ctex"]
+source_file="res://assets/models/foes/draugr/draugr_cursedsoldier_3.png"
+dest_files=["res://.godot/imported/draugr_cursedsoldier_3.png-20c285be1fb3bc410a15bbeb119e4a17.ctex"]
 
 [params]
 

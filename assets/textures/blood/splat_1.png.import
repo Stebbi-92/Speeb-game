@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2smxti7eccj4"
-path="res://.godot/imported/drake_3.png-b8f988bfb0788ddfb2ebbfc109fa4d46.ctex"
+uid="uid://c4p5rsrp5khyp"
+path="res://.godot/imported/splat_1.png-55661be1cbd52c4c4acbb1ab911e5849.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "765bf7b9cd2a26928b975cc5b8d9ad20"
 }
 
 [deps]
 
-source_file="res://assets/models/foes/drake/drake_3.png"
-dest_files=["res://.godot/imported/drake_3.png-b8f988bfb0788ddfb2ebbfc109fa4d46.ctex"]
+source_file="res://assets/textures/blood/splat_1.png"
+dest_files=["res://.godot/imported/splat_1.png-55661be1cbd52c4c4acbb1ab911e5849.ctex"]
 
 [params]
 
@@ -24,7 +21,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

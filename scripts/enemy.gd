@@ -134,7 +134,10 @@ func matter() -> String:
 const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
 		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
-	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
+	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
+	# keep their own stirring
+	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
+		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8]}],
 	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
 	# on their necks read as stuck on):
@@ -142,25 +145,76 @@ const SCANS := {
 	#  {bone: the head bone the face rides, shrink: its own head hidden, own_head: its own head kept and no Speeb's
 	#  head worn (the head bone still marks where a head shot lands), idle: standing clip, tint, turn}]
 	"boss_ash": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08)}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "bone_bounds": true}],
 	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42)}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true}],
 	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
-		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true}],
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
 	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
-	# Kulshedra, the she-dragon: "Prowler Dragon Variant Rig" by DM-913, on wings that are its forelegs
-	"kulshedra": ["res://assets/models/foes/drake/drake.glb", 1.9, "Walk", 2.0, Vector2(0.7, 0.5),
-		{"own_head": true, "bone": "Head_65", "head_k": 0.42, "tint": Color(0.85, 0.55, 0.45), "bone_bounds": true}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8), "bone_bounds": true}],
+	# The Nykur: "Horse" by henrysteve973, unsaddled, a grey coat; struck along its body, neck and head
+	"nykur": ["res://assets/models/foes/nykur/horse_henry.glb", 1.35, "Skeleton|Walk", 1.8, Vector2(0.9, 0.6),
+		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true,
+		"hide": ["Object_12", "Object_115"], "coat": ["Horse", Color(0.5, 0.52, 0.54)], "tint": Color(0.7, 0.72, 0.74),
+		"hits": [["capsule", 0.33, Vector3(0, 1.25, -0.72), Vector3(0, 1.25, 0.44)], ["capsule", 0.17, Vector3(0, 1.4, 0.62), Vector3(0, 1.75, 1.0)],
+			["sphere", 0.2, Vector3(0, 1.78, 1.22)], ["box", Vector3(0.42, 0.78, 0.3), Vector3(0, 0.51, 0.48)],
+			["box", Vector3(0.42, 0.78, 0.42), Vector3(0, 0.51, -0.62)]]}],
+	# The sea's great ones: "Emerald Leviathan" by Meleagors, coloured to each kind, swimming with its crest out of the
+	# water. Measured by its length at size 1 (4 m), its body sunk 1.5 m so the crest rides above the swell
+	"serpent": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.62, 0.66, 0.68)}],
+	"weed_eel": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.55, 0.75, 0.42)}],
+	"lampeater": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.95, 0.9, 0.78)}],
+	"bellwound": ["res://assets/models/foes/leviathan/serpent_emerald.glb", 4.0, "Armature|ArmatureAction", 0.0, Vector2(0.4, 0.45),
+		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
+		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
+			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.5, 0.38, 0.55)}],
+	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms
+	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "Take 001", 0.0, Vector2(0.88, 0.46),
+		{"own_head": true, "bone": "C_Head_J", "bone_bounds": true, "turn": PI,
+		"hits": [["capsule", 0.3, Vector3(0, 1.55, -0.15), Vector3(0, 2.0, 0.9)], ["sphere", 0.28, Vector3(0, 2.3, 1.2)],
+			["box", Vector3(0.6, 1.3, 0.5), Vector3(0, 0.8, -0.2)], ["box", Vector3(0.9, 1.5, 0.4), Vector3(0, 1.1, 1.1)]]}],
+	# The Ember Sack: "Living Flesh Blob" by Yury Misiyuk, fire showing through it
+	"bloater": ["res://assets/models/foes/sack/sack_livingblob.glb", 1.1, "Armature|ArmatureAction", 0.0, Vector2(0.7, 0.0),
+		{"own_head": true, "bone_bounds": true, "tint": Color(1.0, 0.62, 0.45), "hits_k": true,
+		"hits": [["sphere", 0.52, Vector3(0, 0.56, 0)]]}],
+	# Kulshedra, the she-dragon: "European Dragon" by Nonexistent 101, wings folded as she walks. Struck along her
+	# body, neck, head, folded wings, legs and tail (measured at size 1, scaled to hers in _add_hits)
+	"kulshedra": ["res://assets/models/foes/kulshedra/dragon_european.glb", 1.9, "Walk", 2.4, Vector2(0.65, 0.75),
+		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
+		"bone_bounds": true, "hits_k": true,
+		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
+			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
+			["box", Vector3(0.7, 0.3, 1.2), Vector3(-0.33, 0.27, 0.45)], ["capsule", 0.12, Vector3(-0.2, 0.26, -0.45), Vector3(0.3, 0.22, -2.1)]]}],
+	# The Draugr: "Cursed Undead Soldier Rig" by DM-913, sword in hand. It came with only its slash; it walks, runs
+	# and stands by Nerd Survivor's (HighPolyDensity), baked onto its own bones (moves: tools/bake_draugr_moves.gd).
+	# Its rest is a low crouch, so 1.12 of height there stands 2 m tall as it walks. Set over its middle (shift,
+	# in parts of its height: its rest is measured with the sword held out); its head shot is sized to its own head
+	# (weak_k). Struck on its body, head (reaching forward for its run), left arm, sword arm and hilt, and legs
+	"draugr": ["res://assets/models/foes/draugr/draugr_cursedsoldier.glb", 1.12, "moves/Walk", 0.9, Vector2(1.21, 0.0),
+		{"own_head": true, "bone": "Head_47", "idle": "moves/Idle", "run": ["moves/Run", 2.3], "moves": "res://assets/models/foes/draugr/draugr_moves.res",
+		"strike": ["Slash", 0.95], "bone_bounds": true, "shift": Vector3(-0.14, 0, 0.128), "tint": Color(0.62, 0.72, 0.8),
+		"head_off": Vector3(0, 0.045, 0.013), "weak_k": 0.34,
+		"hits": [["capsule", 0.21, Vector3(0, 1.08, -0.05), Vector3(0, 1.52, 0.04)], ["capsule", 0.15, Vector3(0, 1.9, 0.0), Vector3(0, 1.87, 0.2)],
+			["box", Vector3(0.22, 0.8, 0.5), Vector3(0.31, 1.2, -0.02)], ["box", Vector3(0.46, 0.9, 0.7), Vector3(-0.43, 1.15, 0.05)],
+			["box", Vector3(0.4, 0.83, 0.8), Vector3(0.02, 0.535, 0.03)]]}],
 }
 static var _scan_bounds := {}
 
@@ -395,7 +449,7 @@ func setup(c: String, k: String, lvl: Level) -> LesserSpeeb:
 		variant = k
 		k = VARIANTS[k].base
 	kind = k
-	_sk = boss if SCANS.has(boss) else (variant if SCANS.has(variant) else "")
+	_sk = boss if SCANS.has(boss) else (variant if SCANS.has(variant) else (kind if SCANS.has(kind) else ""))
 	code = IDOL_CODES[randi() % IDOL_CODES.size()] if k == "idol" else c
 	level = lvl
 	spec = BOSSES[boss] if boss != "" else KINDS[k]
@@ -447,18 +501,24 @@ func _ready() -> void:
 		_build_wings()
 	if kind == "bloater":
 		_build_sack()
-	if variant == "bellwound":
+	if _sk != "":
+		pass   # the sea's great ones have their own body now (see SCANS)
+	elif variant == "bellwound":
 		_build_serpent(Color(0.2, 0.16, 0.22), 2.6, 11)
 	elif kind == "serpent":
 		_build_serpent()
-	if kind == "lampeater":
+	if kind == "lampeater" and _sk == "":
 		_build_serpent(Color(0.78, 0.76, 0.7), 1.9, 7)
 	if spec.get("body", "") == "model":
 		_fb = FoeBody.make(kind)
 		_fb.position.y = -float(spec.radius)
 		add_child(_fb)
 		head.visible = false
-		head.position.y = float(spec.head_y)
+		if _scan:
+			# A scanned body of its own (the draugr): the kind's body still keeps its ways, unseen
+			_fb.visible = false
+		else:
+			head.position.y = float(spec.head_y)
 		_flank = randf_range(-PI, PI)
 		_ammo = 9
 		if Game.wasteland and boss == "":
@@ -469,9 +529,10 @@ func _ready() -> void:
 		# The knight's and the breaker's own armour is their plate: it soaks the same, with nothing drawn over it
 		if plate > 0.0 and not kind in ["knight", "unlit_brute"]:
 			_fb.wear_plate(false)
-		_fit_shape(cs)
-		# Once its arms and plate are on and it has found its stance, fitted again
-		get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
+		if not _scan:
+			_fit_shape(cs)
+			# Once its arms and plate are on and it has found its stance, fitted again
+			get_tree().create_timer(0.4, false).timeout.connect(func(): if is_instance_valid(cs): _fit_shape(cs))
 	if kind != "unseen":
 		_make_name()
 	if kind == "saucer":
@@ -919,7 +980,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = (-float(spec.radius) + _lift) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
+		_scan.position.y = (-float(spec.radius) + _lift + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
 		_scan_tick(pace)
 		if _dust:
@@ -1054,6 +1115,12 @@ func _build_scan(cs: CollisionShape3D) -> void:
 		if c is MeshInstance3D:   # the unseen's own bent-light body gives way
 			(c as MeshInstance3D).visible = false
 	var m: Node3D = (load(sc[0]) as PackedScene).instantiate()
+	if opt.get("only_skinned", false):
+		# The model came as a scene (the widow on her rock, with leaves and egg sacs): only the beast is kept
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).skin == null:
+				mi.get_parent().remove_child(mi)
+				mi.free()
 	if not _scan_bounds.has(sc[0]):
 		var bb := AABB()
 		var first := true
@@ -1080,24 +1147,40 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	# A scan faces +Z, as a form does when it walks
 	var turn := Basis(Vector3.UP, float(opt.get("turn", 0.0)))
 	m.transform = Transform3D(turn.scaled(Vector3.ONE * k), turn * Vector3(-c0.x * k, -b.position.y * k, -c0.z * k))
+	m.position += (opt.get("shift", Vector3.ZERO) as Vector3) * tall
 	_scan = Node3D.new()
 	_scan.add_child(m)
-	_scan.position.y = -float(spec.radius) / g
+	_scan.position.y = -float(spec.radius) / g + float(opt.get("lift", 0.0)) * float(spec.size) / g
 	add_child(_scan)
+	for h in opt.get("hide", []):
+		for n in m.find_children(str(h), "Node3D", true, false):
+			n.queue_free()
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
 		mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if opt.has("coat") and mm.mesh:
+			# A coat of its own colour in place of the model's markings, keeping the hair's lie
+			for si in mm.mesh.get_surface_count():
+				var sm := mm.mesh.surface_get_material(si)
+				if sm is StandardMaterial3D and sm.resource_name == str(opt.coat[0]):
+					var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
+					t.albedo_texture = null
+					t.albedo_color = opt.coat[1]
+					mm.set_surface_override_material(si, t)
 		if opt.has("tint") and mm.mesh:
 			# Tinted to its land: ash, sand, basalt, tar
 			for si in mm.mesh.get_surface_count():
 				var sm := mm.mesh.surface_get_material(si)
-				if sm is StandardMaterial3D:
+				if sm is StandardMaterial3D and mm.get_surface_override_material(si) == null:
 					var t := (sm as StandardMaterial3D).duplicate() as StandardMaterial3D
 					t.albedo_color = t.albedo_color * (opt.tint as Color)
 					mm.set_surface_override_material(si, t)
 	var aps := m.find_children("*", "AnimationPlayer", true, false)
 	if not aps.is_empty():
 		_scan_anim = aps[0]
+		if opt.has("moves") and ResourceLoader.exists(str(opt.moves)) and not _scan_anim.has_animation_library("moves"):
+			# Clips it lacks, baked onto its own bones from another body (see SCANS)
+			_scan_anim.add_animation_library("moves", load(str(opt.moves)))
 		var names := _scan_anim.get_animation_list()
 		_scan_walk = str(sc[2]) if sc[2] is String and str(sc[2]) != "" else str(names[int(sc[2]) if sc[2] is int else 0])
 		_scan_idle = str(opt.get("idle", ""))
@@ -1111,6 +1194,9 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	head.position = Vector3(0, tall * hp.x - float(spec.radius), tall * hp.y)
 	if with_head:
 		head.scale = Vector3.ONE * float(opt.get("head_k", 0.6))
+	elif opt.has("weak_k"):
+		# Its own head kept, the unseen Speeb's head sized to it: the mark a head shot must come near
+		head.scale = Vector3.ONE * float(opt.weak_k)
 	if opt.has("bone"):
 		var sks := m.find_children("*", "Skeleton3D", true, false)
 		if not sks.is_empty():
@@ -1133,6 +1219,41 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	cap.height = maxf(2.0 * r, tall * g * (0.75 if hp.y > 0.3 else 1.0))
 	cs.shape = cap
 	cs.position.y = -r + cap.height * 0.5
+	if opt.has("hits"):
+		_add_hits(opt.hits, g, float(spec.size) / g if opt.get("hits_k", false) else 1.0)
+
+
+## A long body is struck where it is, not only up a post through its middle: its own shapes, measured from its
+## posed silhouette (see SCANS), in metres at the form's size with the ground at 0 and its head ahead (+Z).
+## ["capsule", radius, from, to], ["sphere", radius, centre], ["box", size, centre].
+func _add_hits(hits: Array, g: float, k := 1.0) -> void:
+	var lift := Vector3(0, -float(spec.radius) / g + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0)) * float(spec.size) / g, 0)
+	for h in hits:
+		var cs := CollisionShape3D.new()
+		cs.name = "Hit"
+		match str(h[0]):
+			"capsule":
+				var a: Vector3 = (h[2] as Vector3) * k
+				var b: Vector3 = (h[3] as Vector3) * k
+				var c := CapsuleShape3D.new()
+				c.radius = float(h[1]) * k
+				c.height = maxf(a.distance_to(b) + 2.0 * c.radius, 2.0 * c.radius + 0.01)
+				cs.shape = c
+				var mid := (a + b) * 0.5
+				var up := (b - a).normalized() if a.distance_to(b) > 0.001 else Vector3.UP
+				var side := up.cross(Vector3.RIGHT) if absf(up.dot(Vector3.RIGHT)) < 0.9 else up.cross(Vector3.FORWARD)
+				cs.transform = Transform3D(Basis(side.cross(up).normalized(), up, side.normalized()).orthonormalized(), mid + lift)
+			"sphere":
+				var sp := SphereShape3D.new()
+				sp.radius = float(h[1]) * k
+				cs.shape = sp
+				cs.position = (h[2] as Vector3) * k + lift
+			"box":
+				var bx := BoxShape3D.new()
+				bx.size = (h[1] as Vector3) * k
+				cs.shape = bx
+				cs.position = (h[2] as Vector3) * k + lift
+		add_child(cs)
 
 
 ## The true bounds of a skinned model at rest: each point carried by its bones, as the skin would draw it.
@@ -1177,6 +1298,24 @@ static func _skinned_bounds(m: Node3D) -> AABB:
 	return bb
 
 
+var _scan_busy := 0   ## until when (msec) its own swing is playing
+
+
+## A scanned body with a swing of its own (SCANS "strike": [clip, when the blow lands]) swings it, timed so the
+## blade comes down as the wind-up ends.
+func _scan_strike(wind: float) -> void:
+	if not _scan_anim or SCANS[_sk].size() < 6 or not (SCANS[_sk][5] as Dictionary).has("strike"):
+		return
+	var st: Array = SCANS[_sk][5].strike
+	if not _scan_anim.has_animation(str(st[0])):
+		return
+	var sp := clampf(float(st[1]) / maxf(wind, 0.05), 0.6, 2.5)
+	_scan_gait = str(st[0])
+	_scan_anim.play(str(st[0]), 0.1)
+	_scan_anim.speed_scale = sp
+	_scan_busy = Time.get_ticks_msec() + int(1000.0 * _scan_anim.get_animation(str(st[0])).length / sp)
+
+
 func _scan_play(an: String) -> void:
 	if _scan_anim and an != "" and an != _scan_gait and _scan_anim.has_animation(an):
 		_scan_gait = an
@@ -1185,11 +1324,18 @@ func _scan_play(an: String) -> void:
 
 ## Its body walks with its pace (or stands, if it has a standing clip), and its Speeb's head rides its neck.
 func _scan_tick(pace: float) -> void:
-	if _scan_anim:
+	if _scan_anim and Time.get_ticks_msec() < _scan_busy:
+		pass   # its swing plays through
+	elif _scan_anim:
 		var walk: float = SCANS[_sk][3]
+		var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
 		if _scan_idle != "" and pace < 0.3:
 			_scan_play(_scan_idle)
 			_scan_anim.speed_scale = 1.0
+		elif o.has("run") and pace > walk * 1.6:
+			# Its own run, at the pace it was made for
+			_scan_play(str(o.run[0]))
+			_scan_anim.speed_scale = clampf(pace / float(o.run[1]), 0.6, 1.8)
 		else:
 			_scan_play(_scan_walk)
 			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
@@ -1433,6 +1579,15 @@ func _build_sack() -> void:
 	glow.emission_enabled = true
 	glow.emission = Color(1.0, 0.4, 0.1)
 	glow.emission_energy_multiplier = 2.0
+	if _sk != "":
+		# Its own body: only the fire's light inside it
+		var fl := OmniLight3D.new()
+		fl.light_color = Color(1.0, 0.5, 0.2)
+		fl.light_energy = 1.4
+		fl.omni_range = 4.0
+		fl.position = Vector3(0, -float(spec.radius) + 0.5 * float(spec.size), 0)
+		add_child(fl)
+		return
 	var sack := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.42 * spec.size
@@ -1470,6 +1625,8 @@ func _lift_tags() -> void:
 	if not is_instance_valid(_fb):
 		return
 	var top := _fb.position.y + _fb.top() * _fb.scale.y
+	if _scan:
+		top = head.position.y + 0.15 * float(spec.size)   # the crown of its own head
 	if _name_l:
 		_name_l.position.y = top + 0.42
 	if _bar:
@@ -1816,58 +1973,128 @@ func bleed(from_dir: Vector3, amount: float) -> void:
 	if not Game.blood or Net.dedicated or not is_inside_tree():
 		return
 	blood_shown += 1
-	var c: Color = BLOOD.get(kind, Color(0.34, 0.02, 0.02))
+	var c: Color = BLOOD.get(kind, Color(0.3, 0.015, 0.01))
 	var r: float = spec.get("radius", 0.5)
 	var d := from_dir.normalized() if from_dir.length() > 0.01 else Vector3.FORWARD
-	var at := global_position + Vector3(0, r * 1.2, 0) - d * r * 0.8
+	# Where the round came out: the far side of the body, about chest high
+	var at := global_position + Vector3(0, r * 0.9, 0) + d * r * 0.5
+	var hard := clampf(amount / 20.0, 0.3, 1.5)
+	# A quick wet mist, catching the light of the hour, gone in a blink
+	var mist := CPUParticles3D.new()
+	mist.one_shot = true
+	mist.emitting = false
+	mist.amount = 6
+	mist.lifetime = 0.45
+	mist.explosiveness = 1.0
+	mist.direction = d
+	mist.spread = 25.0
+	mist.initial_velocity_min = 0.8
+	mist.initial_velocity_max = 2.0
+	mist.damping_min = 3.0
+	mist.damping_max = 5.0
+	mist.gravity = Vector3(0, -1.0, 0)
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.4))
+	grow.add_point(Vector2(1, 1.6))
+	mist.scale_amount_curve = grow
+	var fade := Gradient.new()
+	fade.set_color(0, Color(c, 0.75))
+	fade.set_color(1, Color(c, 0.0))
+	mist.color_ramp = fade
+	var mq := QuadMesh.new()
+	mq.size = Vector2(0.35, 0.35) * hard
+	mq.material = _blood_mat("mist")
+	mist.mesh = mq
+	mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Drops thrown out of the far side, falling as they go
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = false
-	p.amount = clampi(int(amount * 0.9), 8, 32)
-	p.lifetime = 0.8
-	p.explosiveness = 0.95
-	p.direction = d
-	p.spread = 35.0
-	p.initial_velocity_min = 2.0
+	p.amount = clampi(int(amount * 0.8), 8, 26)
+	p.lifetime = 0.9
+	p.explosiveness = 0.9
+	p.direction = (d + Vector3(0, 0.25, 0)).normalized()
+	p.spread = 18.0
+	p.initial_velocity_min = 1.5
 	p.initial_velocity_max = 5.5
-	p.gravity = Vector3(0, -14, 0)
+	p.gravity = Vector3(0, -9.8, 0)
 	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
+	p.scale_amount_max = 1.6
+	p.color = c
 	var q := QuadMesh.new()
-	q.size = Vector2(0.16, 0.16)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = c
-	m.albedo_texture = _blot_tex()
-	q.material = m
+	q.size = Vector2(0.045, 0.045)
+	q.material = _blood_mat("drop")
 	p.mesh = q
-	level.add_child(p)
-	p.global_position = at
-	p.emitting = true
-	get_tree().create_timer(1.2, false).timeout.connect(p.queue_free)
-	# A stain on the ground behind, if the blow was a hard one
-	if amount >= 8.0 and kind != "saucer" and randf() < 0.6:
-		var dec := Decal.new()
-		dec.texture_albedo = _blot_tex()
-		dec.modulate = Color(c.darkened(0.35), 0.8)
-		var s := clampf(0.3 + amount * 0.012, 0.35, 1.0) * maxf(1.0, r * 1.5)
-		dec.size = Vector3(s, 1.2, s)
-		dec.normal_fade = 0.9
-		dec.upper_fade = 0.2
-		dec.lower_fade = 0.2
-		level.add_child(dec)
-		var g := global_position + d * randf_range(0.3, 1.2)
-		var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 2, 0), g - Vector3(0, 6, 0), 1))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for fx in [mist, p]:
+		level.add_child(fx)
+		fx.global_position = at
+		fx.emitting = true
+		get_tree().create_timer(1.3, false).timeout.connect(fx.queue_free)
+	if kind == "saucer":
+		return
+	# Where it lands: thrown on a wall close behind, or else on the ground beyond, its streaks pointing the way
+	# the round went. Small blows leave a little, hard ones a lot.
+	var space := get_world_3d().direct_space_state
+	var wall := space.intersect_ray(PhysicsRayQueryParameters3D.create(at, at + d * 3.5, 1))
+	if not wall.is_empty() and absf((wall.normal as Vector3).y) < 0.6:
+		var n: Vector3 = wall.normal
+		_splat(wall.position, n, Vector3.UP.slide(n).normalized() * 0.3 - Vector3.UP, c, clampf(0.5 + amount * 0.03, 0.5, 1.6) * maxf(1.0, r))
+	if amount >= 5.0 or randf() < 0.5:
+		var g := global_position + d * randf_range(0.4, 1.4) * maxf(1.0, r)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 2, 0), g - Vector3(0, 6, 0), 1))
 		if not hit.is_empty():
-			g.y = hit.position.y
-		dec.global_position = g
-		dec.rotation.y = randf() * TAU
-		var tw := dec.create_tween()
-		tw.tween_interval(18.0)
-		tw.tween_property(dec, "modulate:a", 0.0, 4.0)
-		tw.tween_callback(dec.queue_free)
+			_splat(hit.position, hit.normal, d, c, clampf(0.6 + amount * 0.03, 0.6, 1.6) * maxf(1.0, r * 1.3))
+
+
+## A stain laid on a surface (normal n), its throw running along `way`; it dries and fades after a while.
+func _splat(pos: Vector3, n: Vector3, way: Vector3, c: Color, size: float) -> void:
+	var dec := Decal.new()
+	dec.texture_albedo = _blood_tex("splat_%d" % (randi() % 4 + 1))
+	dec.modulate = Color(c, 0.95)
+	dec.size = Vector3(size, 0.6, size * 1.25)
+	dec.normal_fade = 0.6
+	dec.upper_fade = 0.3
+	dec.lower_fade = 0.3
+	dec.cull_mask = 1
+	level.add_child(dec)
+	# The decal projects down its -Y; its picture's "up" (the throw) is its -Z
+	var y := n.normalized()
+	var fwd := -way.slide(y).normalized() if way.slide(y).length() > 0.01 else y.cross(Vector3.RIGHT).normalized()
+	dec.global_transform = Transform3D(Basis(y.cross(fwd).normalized(), y, fwd), pos + y * 0.05)
+	var tw := dec.create_tween()
+	tw.tween_interval(40.0)
+	tw.tween_property(dec, "modulate", Color(c.darkened(0.4), 0.0), 8.0)
+	tw.tween_callback(dec.queue_free)
+
+
+static var _blood_tx := {}
+static var _blood_mats := {}
+
+## Blood's own pictures (made by tools/make_blood.py); the old round blot if one is missing.
+static func _blood_tex(name: String) -> Texture2D:
+	if not _blood_tx.has(name):
+		var path := "res://assets/textures/blood/%s.png" % name
+		_blood_tx[name] = load(path) if ResourceLoader.exists(path) else _blot_tex()
+	return _blood_tx[name]
+
+
+## The drops are wet and take the light; the mist is soft and fades near the eye.
+static func _blood_mat(name: String) -> StandardMaterial3D:
+	if not _blood_mats.has(name):
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = _blood_tex(name)
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+		m.roughness = 0.25 if name == "drop" else 0.9
+		if name == "mist":
+			m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+			m.distance_fade_min_distance = 0.3
+			m.distance_fade_max_distance = 1.5
+		_blood_mats[name] = m
+	return _blood_mats[name]
 
 
 static func _blot_tex() -> Texture2D:
@@ -1918,7 +2145,7 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain and _fb.clips.has("die"):
+	if _fb and slain and _fb.clips.has("die") and not _scan:
 		_fb.act("die")
 		var tf := create_tween()
 		tf.tween_interval(1.6)
@@ -1937,6 +2164,8 @@ func die(slain: bool) -> void:
 func _topple() -> void:
 	if _fb and _fb.anim:
 		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+		if _scan_anim:
+			_scan_anim.speed_scale = 0.0
 	var side := 1.0 if _flinch.x >= 0.0 else -1.0
 	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
 	var big := float(spec.get("size", 1.0)) >= 1.5
@@ -2088,7 +2317,7 @@ func _fit_shape(cs: CollisionShape3D) -> void:
 func weak_point() -> Array:
 	if not is_instance_valid(head) or kind in ["saucer", "bloater"]:
 		return []
-	if _fb and is_instance_valid(_fb.head_node) and _fb.head_node is MeshInstance3D:
+	if _fb and not _scan and is_instance_valid(_fb.head_node) and _fb.head_node is MeshInstance3D:
 		# The model's own head, wherever its walk and swing have carried it
 		var mh: MeshInstance3D = _fb.head_node
 		var ab: AABB = mh.global_transform * mh.get_aabb()
@@ -2141,6 +2370,8 @@ func _puppet_tick(delta: float) -> void:
 		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
 		if _wind > 0.0 and _fb._once <= 0.0:
 			_fb.act("attack-melee-right")
+			if Time.get_ticks_msec() >= _scan_busy:
+				_scan_strike(0.6)
 	if _wind > 0.0:
 		_wind -= delta
 		_show_wind(0.8)
@@ -2818,6 +3049,8 @@ func _think(delta: float, p: Node3D, fd: float, speed: float):
 
 func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool) -> void:
 	var role: String = spec.get("role", "melee")
+	if _scan:
+		_scan_tick(Vector2(velocity.x, velocity.z).length())
 	var flat := p.global_position - global_position
 	flat.y = 0.0
 	var fd := flat.length()
@@ -2986,6 +3219,8 @@ func _begin_move(m: String, k: float, dir: Vector3, reach := 0.0) -> void:
 		_:
 			_fb.act("attack-melee-right", 0.55 / maxf(_wind_total, 0.2))
 			level.sfx("swing", -10, global_position, 0.8)
+	if m != "lunge":
+		_scan_strike(_wind_total)
 
 
 func _land_strike(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:

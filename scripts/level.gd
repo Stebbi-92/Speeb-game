@@ -3295,21 +3295,21 @@ func _w_warn(at: Vector3, r: float, t: float, kind: int, angle := 0.0, half := 1
 func _w_tracer(a: Vector3, b: Vector3) -> void:
 	if a.distance_to(b) < 0.1:
 		return
-	var mi := MeshInstance3D.new()
-	var bx := BoxMesh.new()
-	bx.size = Vector3(0.025, 0.025, a.distance_to(b))
-	mi.mesh = bx
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = Color(1.0, 0.85, 0.5, 0.9)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# A shot at the eye stops short of it: a line of light ending in the eye filled the view with a pale sheet
+	var cam := get_viewport().get_camera_3d()
+	if cam and Geometry3D.get_closest_point_to_segment(cam.global_position, a, b).distance_to(cam.global_position) < 1.0:
+		var to_cam := cam.global_position - a
+		var along := to_cam.dot((b - a).normalized())
+		if along > 0.0:
+			b = a + (b - a).normalized() * maxf(along - 2.5, 0.0)
+		if a.distance_to(b) < 0.5:
+			return
+	var mi := Arms.light_line(a.distance_to(b), Color(1.0, 0.85, 0.5, 0.9))
 	add_child(mi)
 	mi.global_position = (a + b) * 0.5
 	mi.look_at(b, Vector3.UP if absf((b - a).normalized().y) < 0.99 else Vector3.RIGHT)
 	var tw := create_tween()
-	tw.tween_property(m, "albedo_color:a", 0.0, 0.12)
+	tw.tween_property(mi, "scale", Vector3(0.2, 0.2, 1.0), 0.12)
 	tw.tween_callback(mi.queue_free)
 
 

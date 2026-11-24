@@ -2,6 +2,15 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.21.0 (new foes and real blood)
+
+- **New bodies:** Nykur (horse), Kulshedra (dragon), sea serpents, the Unseen, the Bloater, the Draugr, the Harrow (now walks) and the Tar Mother (a black widow). Hit shapes fit each body. See [Creatures](Creatures).
+- **Dune Goat** is a real goat.
+- **Ruins and gargoyles** in the waste and on the islands.
+- **Blood:** mist, drops and stains on the ground and walls that fade in time.
+- **Sounds:** recorded shots, rockets, flamethrower, wind and aircraft; clipped sounds fixed; a full mix pass.
+- **Fixed:** the pale flash over the gun; tracers, embers and sparks no longer draw as squares.
+
 ## 0.20.1 (sights and fixes)
 
 - **Hands** are hidden on the guns for now.
