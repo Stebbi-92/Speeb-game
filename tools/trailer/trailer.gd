@@ -379,6 +379,8 @@ func _shoot(s: Dictionary) -> void:
 	if fp and s.has("blade"):
 		wpn.melee = str(s.blade)
 		wpn.draw_blade()
+	elif fp and wpn.blade_out:
+		wpn._sheathe()   # the last shot's blade stays out otherwise, and the gun fires from behind it
 	t = 0.0
 	# The shot's own clock runs on the film's frames, so slow motion slows the world and not the shot
 	var step := 1.0 / fps
