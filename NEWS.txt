@@ -1,3 +1,15 @@
+Brelm alpha 0.21.0: new foes and real blood
+
+- New bodies for the great and strange ones: the Nykur is a real horse, the Kulshedra a dragon, the sea serpents, the Unseen a deer-headed walker, the Bloater a living blob, and the Draugr a cursed soldier who walks, runs and guards. Each has hit shapes that fit its body.
+- The Harrow now walks, runs and stands on its own legs. The Tar Mother is a black widow, without the rock she came on.
+- The Dune Goat is a real goat, struck where it stands.
+- Gargoyles on the island ruins, and broken ruins in the waste.
+- Blood: a wet mist and drops thrown out the far side of a hit, and stains on the ground and on walls behind, pointing the way the round went. They dry and fade after a while.
+- Recorded sounds: new shots for the SMG, Auto Pistol and Autoshotgun, a suppressed shot, rockets, the flamethrower, wind, the gunship and the jets, magazines and the shotgun's rack, and splashes.
+- Sound mix: many short sounds were clipped to a blip (sword swings, chops, parries, falls, roars, heavy steps) and now play whole. Takes of each sound are even, and every sound has its own level.
+- Fixed: the pale flash over the gun. The spread marks round the dot could grow into large white sheets.
+- Tracers are soft lines of light instead of pale squares. Guiding embers and fire sparks are soft glows instead of little squares.
+
 Brelm alpha 0.20.1: sights and fixes
 
 - Your own hands are hidden on the guns for now, until they hold every gun well.
