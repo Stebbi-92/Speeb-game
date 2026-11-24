@@ -581,6 +581,11 @@ func _guns(wpn, s: Dictionary, t: float) -> void:
 		if t >= float(win[0]) and t < float(win[1]):
 			if wpn.shells <= 1:
 				wpn.refill()
+			if str(wpn.spec().get("mode", "")) == "spin":
+				# The minigun spins up only while the fire key is held, which no one holds on film: spun here
+				wpn._spin = 1.0
+				if wpn.get("_pump") is Node3D:
+					wpn._pump.rotation.z += 40.0 / fps
 			# Following a form, fire only once the sights are on it, so every shot lands
 			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.015)):
 				continue
