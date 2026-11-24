@@ -11290,30 +11290,56 @@ func debug_hitshot() -> void:
 ## Testing aid: which drawn thing makes the screen bright at px? Each candidate is hidden in turn.
 func _debug_find_bright(px: Vector2i) -> void:
 	var cam := get_viewport().get_camera_3d()
-	var base := get_viewport().get_texture().get_image().get_pixelv(px)
-	print("BRIGHT at %s base=%s" % [px, base])
-	var cands := []
-	for n in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
-		var g := n as GeometryInstance3D
-		if not g.is_visible_in_tree():
-			continue
-		if g is CPUParticles3D or g is GPUParticles3D or cam.global_position.distance_to(g.global_position) < 6.0:
-			cands.append(g)
-	print("BRIGHT %d candidates" % cands.size())
-	for g in cands:
-		g.visible = false
+	var lum := func() -> float:
 		await get_tree().process_frame
 		await get_tree().process_frame
-		var now := get_viewport().get_texture().get_image().get_pixelv(px)
-		g.visible = true
-		if absf(now.get_luminance() - base.get_luminance()) > 0.04:
-			print("BRIGHT FOUND %s %s d=%.2f lum %.2f->%.2f path=%s" % [g.name, g.get_class(), cam.global_position.distance_to(g.global_position), base.get_luminance(), now.get_luminance(), str(g.get_path()).right(120)])
-			if g is CPUParticles3D:
-				var cp := g as CPUParticles3D
-				print("   amount=%d life=%.1f mesh=%s mat=%s" % [cp.amount, cp.lifetime, cp.mesh, cp.material_override])
-			if g is MeshInstance3D:
-				print("   mesh=%s mat=%s" % [(g as MeshInstance3D).mesh, g.material_override])
-	await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		return get_viewport().get_texture().get_image().get_pixelv(px).get_luminance()
+	var base: float = await lum.call()
+	var s: Array = []
+	for n in get_tree().root.find_children("*", "Node", true, false):
+		if (n is VisualInstance3D or n is CanvasItem) and n.is_visible_in_tree():
+			s.append(n)
+	print("BRIGHT at %s base=%.2f candidates=%d" % [px, base, s.size()])
+	while s.size() > 1:
+		var half: Array = s.slice(0, s.size() / 2)
+		for n in half:
+			n.visible = false
+		var now: float = await lum.call()
+		for n in half:
+			n.visible = true
+		print("BRIGHT step %d -> %.2f" % [half.size(), now])
+		s = half if absf(now - base) > 0.06 else s.slice(s.size() / 2)
+	var g: Node = s[0]
+	g.visible = false
+	var fin: float = await lum.call()
+	print("BRIGHT FOUND %s %s lum %.2f->%.2f path=%s" % [g.name, g.get_class(), base, fin, str(g.get_path()).right(160)])
+	g.visible = true
+	# Go down through its children to the one that draws it
+	while true:
+		var best: Node = null
+		for c in g.get_children():
+			if not (c is CanvasItem or c is VisualInstance3D) or not c.visible:
+				continue
+			c.visible = false
+			var v: float = await lum.call()
+			c.visible = true
+			if absf(v - base) > 0.06:
+				print("BRIGHT child %s %s lum->%.2f rect=%s mod=%s script=%s" % [c.name, c.get_class(), v, (c as Control).get_global_rect() if c is Control else "", c.modulate if c is CanvasItem else "", c.get_script().resource_path if c.get_script() else ""])
+				best = c
+		if best == null:
+			break
+		g = best
+	print("BRIGHT LEAF %s %s path=%s" % [g.name, g.get_class(), str(g.get_path())])
+	if g is Control:
+		for c in g.get_children():
+			print("   kid %s %s vis=%s rect=%s" % [c.name, c.get_class(), c.visible if c is CanvasItem else "", (c as Control).get_global_rect() if c is Control else ""])
+	if g is Node3D:
+		print("   d=%.2f pos=%s parent=%s script=%s" % [cam.global_position.distance_to((g as Node3D).global_position), (g as Node3D).global_position, g.get_parent().name, g.get_script()])
+	if g is MeshInstance3D:
+		print("   mesh=%s mat=%s" % [(g as MeshInstance3D).mesh, (g as MeshInstance3D).material_override])
+	if g is CPUParticles3D:
+		print("   amount=%d mesh=%s" % [(g as CPUParticles3D).amount, (g as CPUParticles3D).mesh])
 
 
 ## Testing aid: what is drawn near the eye, and what lands where on the screen (to find stray squares)
@@ -11413,6 +11439,7 @@ func debug_bloodshot() -> void:
 		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_land.png")
 	print("BLOODSHOT shown=%d" % LesserSpeeb.blood_shown)
+	await _debug_find_bright(Vector2i(int(OS.get_environment("PX_X") if OS.get_environment("PX_X") != "" else "1000"), int(OS.get_environment("PX_Y") if OS.get_environment("PX_Y") != "" else "560")))
 	for n in get_tree().root.find_children("*", "CanvasItem", true, false):
 		var ci := n as CanvasItem
 		if not ci.is_visible_in_tree():

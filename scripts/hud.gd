@@ -721,13 +721,17 @@ func _place_ticks(d: float) -> void:
 		return
 	var g := clampf(_gap, 5.0, 160.0) + 3.0
 	var at := [Vector2(-1, -g - 7), Vector2(-1, g), Vector2(-g - 7, -1), Vector2(g, -1)]
+	# Offsets are from the middle of the screen (the anchors); `position` and `size` are not, and feeding
+	# them back made the marks grow into great pale sheets over the gun.
 	for i in 4:
 		var t: ColorRect = _ticks[i]
-		var p: Vector2 = t.position.lerp(at[i], minf(1.0, d * 18.0)) if t.position != Vector2.ZERO else at[i]
+		var wh := Vector2(2, 7) if i < 2 else Vector2(7, 2)
+		var now := Vector2(t.offset_left, t.offset_top)
+		var p: Vector2 = now.lerp(at[i], minf(1.0, d * 18.0)) if now.length() <= 200.0 else at[i]
 		t.offset_left = p.x
 		t.offset_top = p.y
-		t.offset_right = p.x + t.size.x
-		t.offset_bottom = p.y + t.size.y
+		t.offset_right = p.x + wh.x
+		t.offset_bottom = p.y + wh.y
 
 
 ## Looking through glass: a dark ring around a clear circle, and fine crosshairs.
