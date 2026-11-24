@@ -447,7 +447,7 @@
    "preroll": 5,
    "track": true,
    "form_settle": 0.2,
-   "sight": "combat_scope",
+   "sight": "red_dot",
    "aim_y": 1.2
   },
   {

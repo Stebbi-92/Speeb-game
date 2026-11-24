@@ -62,10 +62,15 @@ func _process(delta: float) -> void:
 	if _hold_hp:
 		w.player.health = w.player.max_health
 		w.player.stamina = 100.0 if w.player.get("stamina") != null else 0.0
+	_scope_only()
 	if _clean_on:
 		for e in w.enemies:   # health bars appear the moment a form is hit
 			if is_instance_valid(e) and e.get("_bar") is MeshInstance3D:
 				e._bar.visible = false
+		for sid in w.satchels:   # drops from kills in the shot: their light columns hide the forms
+			var sn = w.satchels[sid].get("node")
+			if sn is Node3D and is_instance_valid(sn):
+				(sn as Node3D).visible = false
 		_clean_t -= delta
 		if _clean_t <= 0.0:
 			_clean_t = 0.25
@@ -258,6 +263,8 @@ func _shoot(s: Dictionary) -> void:
 		if is_instance_valid(e):
 			e.queue_free()
 	w.enemies.clear()
+	for sid in w.satchels.keys():   # loot left by the last shot's kills, and the world's own drops
+		w._w_satchel_gone(sid)
 	w.weather.set_kind(str(s.get("weather", "clear")), 99999.0, float(s.get("wind", 0.6)))
 	w.weather.k = 1.0 if str(s.get("weather", "clear")) != "clear" else 0.0
 	for i in w.beacon_nodes.size():
@@ -516,6 +523,20 @@ func _arm(wpn, g: String, sight := "") -> void:
 		wpn.cur = wpn.guns.find(g)
 		wpn._show_model()
 	wpn.refill()
+
+
+## The HUD stays hidden, all but the scope's glass: behind a scope the gun is put away and the glass is the view.
+func _scope_only() -> void:
+	var hud = w.hud
+	if hud == null or hud.get("root") == null or hud.get("scope_view") == null:
+		return
+	var wpn = w.player.get("weapon")
+	var scoped: bool = wpn != null and bool(wpn.get("scoped_now"))
+	hud.root.visible = scoped
+	if scoped:
+		for c in hud.root.get_children():
+			if c is CanvasItem:
+				(c as CanvasItem).visible = c == hud.scope_view
 
 
 ## Slow motion in the windows the shot gives: "slowmo": [[from, to, scale], ...]
