@@ -177,6 +177,21 @@ func _seat_scans(forms: Array) -> void:
 		print("TRAILER seat %s moved %.2f m" % [e.kind, -(gap - 0.05)])
 
 
+## For hunting the great shapes seen over the sky in some takes: every large thing drawn, with where it is.
+func _dump_big() -> void:
+	for n in w.get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		if not g.is_visible_in_tree() or g.layers == 0:
+			continue
+		var bb: AABB = g.get_aabb()
+		var big := bb.size.length() * g.global_transform.basis.get_scale().length() / sqrt(3.0)
+		if big > 60.0 or g.global_position.y > 60.0 + float(w.terrain.height_at(g.global_position.x, g.global_position.z)):
+			var mat = g.material_override
+			if mat == null and g is MeshInstance3D and (g as MeshInstance3D).mesh:
+				mat = (g as MeshInstance3D).mesh.surface_get_material(0)
+			print("TRAILER big %s size=%.0f at=%s mat=%s" % [g.get_path(), big, g.global_position.round(), mat.get_class() if mat else "none"])
+
+
 ## The levelest ground within reach of a point, for a great one to stand on rather than half sunk in a slope.
 func _flattest(c: Vector2, reach: float) -> Vector2:
 	var best := c
@@ -260,6 +275,8 @@ func _set_hour(h: float) -> void:
 	w._apply_time(true)
 	# Some shots want the haze thinner (or thicker) than the hour gives
 	w.env.fog_density *= float(_shot.get("fog", 1.0))
+	# Some takes blew up the glow into great coloured rings over the sky (a bad pixel, spread by the glow): off there
+	w.env.glow_enabled = bool(_shot.get("glow", true)) and Game.quality >= 1
 
 
 func _shoot(s: Dictionary) -> void:
@@ -342,6 +359,7 @@ func _shoot(s: Dictionary) -> void:
 		t += _dt()
 		_set_hour(clock0)
 		_place_cam(path, look, 0.0, fp, s)
+	_dump_big()
 	# The forms, set where the shot wants them
 	var forms: Array = []
 	for f in s.get("forms", []):
@@ -461,7 +479,8 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 			l = _tracked(p, l)
 		var to := l - p
 		pl.yaw = atan2(-to.x, -to.z)
-		pl.pitch = clampf(atan2(to.y, Vector2(to.x, to.z).length()), -1.4, 1.4)
+		# Never up into an empty sky: a form that leaps or is thrown is let go above this
+		pl.pitch = clampf(atan2(to.y, Vector2(to.x, to.z).length()), -1.4, float(s.get("max_pitch", 0.3)))
 		pl.rotation.y = pl.yaw
 		pl.head.rotation.x = pl.pitch
 		# A walking eye sways a little

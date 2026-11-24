@@ -189,7 +189,7 @@ if __name__ == "__main__":
     final = os.environ.get("BRELM_OUT", f"{WORK}/brelm-gameplay-trailer-{H}p.mp4")
     if os.path.exists(score) and not PREVIEW:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f"{WORK}/picture.mov", "-i", score, "-filter_complex",
-                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.79:level=disabled[a]",
+                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.6:level=disabled[a]",
                         "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p",
                         "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", final], check=True)
         if H > 1080:

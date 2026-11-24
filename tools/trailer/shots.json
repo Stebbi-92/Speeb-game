@@ -448,7 +448,8 @@
    "track": true,
    "form_settle": 0.2,
    "sight": "red_dot",
-   "aim_y": 1.2
+   "aim_y": 1.2,
+   "glow": false
   },
   {
    "name": "s12_fp_flamer",
@@ -702,7 +703,7 @@
       0,
       -16
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -711,7 +712,7 @@
       0,
       -20
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -720,7 +721,7 @@
       0,
       -15
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -729,7 +730,7 @@
       0,
       -22
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -738,7 +739,7 @@
       0,
       -18
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -747,7 +748,7 @@
       0,
       -24
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -756,7 +757,7 @@
       0,
       -26
      ],
-     "hp": 15
+     "hp": 8
     },
     {
      "kind": "saltbone",
@@ -765,7 +766,7 @@
       0,
       -28
      ],
-     "hp": 15
+     "hp": 8
     }
    ],
    "aim": [
@@ -1025,7 +1026,8 @@
      0.35
     ]
    ],
-   "flat": 40
+   "flat": 40,
+   "glow": false
   },
   {
    "name": "s23_drake_live",
@@ -1072,7 +1074,8 @@
      ]
     }
    ],
-   "flat": 40
+   "flat": 40,
+   "glow": false
   },
   {
    "mode": "fp",
@@ -1107,7 +1110,7 @@
    ],
    "gun": "shotgun",
    "sight": "holo",
-   "clock": 20.3,
+   "clock": 19.2,
    "fog": 0.4,
    "dur": 3.5,
    "aim_y": 1.6,
@@ -1119,7 +1122,8 @@
       0,
       -5.5
      ],
-     "hp": 15
+     "hp": 15,
+     "aim_y": 1.2
     }
    ],
    "aim": [
