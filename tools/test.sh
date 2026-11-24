@@ -172,6 +172,7 @@ check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=tru
 check hands debug_hands "HANDS guns=14 far=\[\] smg_rig=true locked=true home=true anim=true crane=true cig=true once=true burning=true seen=true"
 check newbodies debug_newbodies "NEWBODIES hollow=moves,ok saltbone=moves,ok,own_arms saltrifle=moves,ok deacon=moves,ok ash_weaver=moves,ok tusker fur=true gait=[A-Za-z_0-9]+ gaits=4"
 check wings debug_wings "WINGS took=true flew=true landed=true high<6=true"
+check gunskill debug_gunskill "GUNSKILL start=0 top=9 wider=true steadier=true blade_free=true top_mult=1.00"
 check stranger debug_stranger "STRANGER spoke=true warned=true drew=true gun=true fired=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

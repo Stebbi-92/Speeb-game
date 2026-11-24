@@ -1531,6 +1531,7 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 	side.add_child(head)
 	_carry_line(side, a, g)
 	side.add_child(_practice_line(g))
+	side.add_child(_shot_line())
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 20)
 	side.add_child(cols)
@@ -1695,6 +1696,18 @@ func _practice_line(id: String) -> Control:
 	row.add_child(bar)
 	row.add_child(_label(WSkills.use_text(lv), 13, DIM))
 	row.tooltip_text = "You get better with a weapon by using it."
+	return row
+
+
+## The gun skill, grown by shooting with any gun: the rank, a bar to the next, and how far shots still wander.
+func _shot_line() -> Control:
+	var lv: int = w.skills.shot_level()
+	var row := _practice_line("")
+	(row.get_child(0) as Label).text = "Gun skill: " + WSkills.SHOT_RANKS[lv]
+	(row.get_child(0) as Label).custom_minimum_size.x = 140
+	(row.get_child(1) as ProgressBar).value = w.skills.shot_progress()
+	(row.get_child(2) as Label).text = WSkills.shot_text(lv)
+	row.tooltip_text = "Hitting with any gun steadies your hand for all of them."
 	return row
 
 

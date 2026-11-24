@@ -150,6 +150,7 @@ func equip_loadout() -> void:
 	grenades = int(ArmsDB.GRENADES[grenade].carry)
 	charges = int(ArmsDB.GADGETS[gadget].charges)
 	_show_model()
+	_warm_guns()
 
 
 func gun() -> String:
@@ -168,7 +169,7 @@ func spec() -> Dictionary:
 			sp.kick = float(sp.kick) * b.kick
 			sp.reload_t = float(sp.reload_t) * b.reload
 			sp.aim = float(sp.aim) * b.aim
-			sp.spread = float(sp.spread) * b.spread
+			sp.spread = float(sp.spread) * b.spread * WSkills.shot_spread(sk.shot_level())
 		_spec_cache[g] = sp
 	return _spec_cache[g]
 
@@ -206,7 +207,15 @@ func _practise(id: String, hits: Dictionary) -> void:
 		n += 1
 		if is_instance_valid(t) and t.has_method("is_alive") and not t.is_alive():
 			n += 4
-	if sk.practise(id, n):
+	var shot_was: int = sk.shot_level()
+	var ranked: bool = sk.practise(id, n)
+	var shot_lv: int = sk.shot_level()
+	if shot_lv > shot_was:
+		_spec_cache.clear()
+		Game.main.hud.notify("Gun skill: %s. %s" % [WSkills.SHOT_RANKS[shot_lv], WSkills.shot_text(shot_lv)])
+		if not ranked:
+			player.get_parent().sfx("choir", -10, null, 1.3)
+	if ranked:
 		_spec_cache.clear()
 		var lv: int = sk.use_level(id)
 		var nm: String = ArmsDB.GUNS[id].name if ArmsDB.GUNS.has(id) else "the blade"
@@ -943,7 +952,7 @@ func sway_amp(scoped: bool) -> float:
 		amp *= 1.6
 	var sk = _skills()
 	if sk:
-		amp *= 1.0 - 0.055 * sk.use_level(g)
+		amp *= (1.0 - 0.055 * sk.use_level(g)) * WSkills.shot_sway(sk.shot_level())
 	return amp
 
 
@@ -1669,6 +1678,7 @@ func refinish() -> void:
 		_models[k].queue_free()
 	_models.clear()
 	_show_model()
+	_warm_guns()
 
 
 func _show_model() -> void:
@@ -1676,14 +1686,7 @@ func _show_model() -> void:
 		_models[k].visible = false
 	var g := gun()
 	if not _models.has(g):
-		_models[g] = _build(g)
-		_holder.add_child(_models[g])
-		# Only in one's own hands is the red dot drawn over all else (on the glass, past the sight's body);
-		# on another's gun, or one set down, it hides behind what stands before it
-		for q in _models[g].find_children("*", "MeshInstance3D", true, false):
-			if q.has_meta("reticle"):
-				var rt: Array = q.get_meta("reticle")
-				(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
+		_make_model(g)
 	_model = _models[g]
 	# Drawn over all else, the dot showed through the sight's body from the hip: it is seen only down the sight
 	_dots = _model.find_children("*", "MeshInstance3D", true, false).filter(func(q): return q.has_meta("reticle"))
@@ -1694,6 +1697,45 @@ func _show_model() -> void:
 	_flash.position = tip
 	_flash_mesh.position = tip
 	_ui()
+
+
+func _make_model(g: String) -> Node3D:
+	var m := _build(g)
+	_models[g] = m
+	_holder.add_child(m)
+	# Only in one's own hands is the red dot drawn over all else (on the glass, past the sight's body);
+	# on another's gun, or one set down, it hides behind what stands before it
+	for q in m.find_children("*", "MeshInstance3D", true, false):
+		if q.has_meta("reticle"):
+			var rt: Array = q.get_meta("reticle")
+			(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
+	return m
+
+
+## Makes every carried gun ahead of need and draws each once, too small to see, so its model, textures and
+## shaders are ready: the first switch to a big gun no longer stalls the game.
+var _warm_gen := 0
+func _warm_guns() -> void:
+	_warm_gen += 1
+	var gen := _warm_gen
+	if not is_inside_tree() or DisplayServer.get_name() == "headless":
+		return
+	for g in guns.duplicate():
+		await get_tree().process_frame
+		if gen != _warm_gen or not is_inside_tree():
+			return
+		if _models.has(g):
+			continue
+		var m := _make_model(g)
+		var was := m.scale
+		m.scale = was * 0.001
+		m.visible = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if not is_instance_valid(m):
+			return
+		m.scale = was
+		m.visible = m == _model
 
 
 ## How near something solid stands ahead of the gun: 0 clear, 1 right at the muzzle's root.

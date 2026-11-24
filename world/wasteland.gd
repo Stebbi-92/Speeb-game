@@ -9892,6 +9892,28 @@ func debug_pace() -> void:
 	get_tree().quit()
 
 
+## Testing aid: a new survivor's shots wander wider, and hitting with any gun steadies them all.
+func debug_gunskill() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	skills.use = {}
+	var w: Arms = player.weapon
+	w._spec_cache.clear()
+	var s0: float = w.shot_spread()
+	var a0: float = w.sway_amp(true)
+	var lv0: int = skills.shot_level()
+	skills.practise("pistol", 300)
+	skills.practise("shotgun", 1800)
+	w._spec_cache.clear()
+	var lv1: int = skills.shot_level()
+	var s1: float = w.shot_spread()
+	var a1: float = w.sway_amp(true)
+	var bonus: float = WSkills.shot_spread(lv1)
+	print("GUNSKILL start=%d top=%d wider=%s steadier=%s blade_free=%s top_mult=%.2f text=%s" % [lv0, lv1, s0 > s1 * 1.3, a0 > a1 * 1.25,
+			not ArmsDB.GUNS.has("blade"), bonus, WSkills.shot_text(lv0)])
+	get_tree().quit()
+
+
 ## Testing aid: vows are kept once sworn, and each one bites and pays.
 func debug_vows() -> void:
 	while not ready_world:
