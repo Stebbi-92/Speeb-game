@@ -2720,13 +2720,15 @@ func _embers_tick() -> void:
 		_embers.scale_amount_min = 0.6
 		_embers.scale_amount_max = 1.1
 		var q := QuadMesh.new()
-		q.size = Vector2(0.05, 0.05)
+		q.size = Vector2(0.08, 0.08)
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		m.albedo_color = Color(1.0, 0.62, 0.25, 0.9)
+		# A soft round glow; bare, each ember drew as a little flat square
+		m.albedo_texture = Relics._soft_dot()
 		q.material = m
 		_embers.mesh = q
 		var fade := Gradient.new()
@@ -11338,6 +11340,18 @@ func _debug_find_bright(px: Vector2i) -> void:
 		print("   d=%.2f pos=%s parent=%s script=%s" % [cam.global_position.distance_to((g as Node3D).global_position), (g as Node3D).global_position, g.get_parent().name, g.get_script()])
 	if g is MeshInstance3D:
 		print("   mesh=%s mat=%s" % [(g as MeshInstance3D).mesh, (g as MeshInstance3D).material_override])
+		var mm = (g as MeshInstance3D).material_override
+		if mm == null and (g as MeshInstance3D).mesh:
+			mm = (g as MeshInstance3D).mesh.surface_get_material(0)
+		if (g as MeshInstance3D).mesh is BoxMesh:
+			print("   box=%s scale=%s" % [((g as MeshInstance3D).mesh as BoxMesh).size, (g as Node3D).global_transform.basis.get_scale()])
+		if mm is StandardMaterial3D:
+			var sm := mm as StandardMaterial3D
+			print("   albedo=%s emit=%s %s x%.1f shade=%d nodepth=%s bill=%d fixed=%s tr=%d" % [sm.albedo_color, sm.emission_enabled, sm.emission, sm.emission_energy_multiplier, sm.shading_mode, sm.no_depth_test, sm.billboard_mode, sm.fixed_size, sm.transparency])
+		var par := g.get_parent()
+		print("   parent kids=%d pos=%s gp=%s gpscript=%s" % [par.get_child_count(), (par as Node3D).global_position, par.get_parent().name, par.get_parent().get_script()])
+		for k in par.get_children():
+			print("     sib %s %s" % [k.get_class(), (k as MeshInstance3D).mesh if k is MeshInstance3D else ""])
 	if g is CPUParticles3D:
 		print("   amount=%d mesh=%s" % [(g as CPUParticles3D).amount, (g as CPUParticles3D).mesh])
 

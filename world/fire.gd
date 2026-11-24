@@ -63,7 +63,7 @@ static func _sparks(size: float) -> CPUParticles3D:
 	p.amount = int(clampf(8.0 * size, 4.0, 40.0))
 	p.lifetime = 1.4
 	var q := QuadMesh.new()
-	q.size = Vector2(0.05, 0.05) * clampf(size, 0.6, 3.0)
+	q.size = Vector2(0.08, 0.08) * clampf(size, 0.6, 3.0)
 	p.mesh = q
 	if _spark_m == null:
 		_spark_m = StandardMaterial3D.new()
@@ -72,6 +72,8 @@ static func _sparks(size: float) -> CPUParticles3D:
 		_spark_m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		_spark_m.vertex_color_use_as_albedo = true
 		_spark_m.albedo_color = Color(1.0, 0.6, 0.2)
+		_spark_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_spark_m.albedo_texture = Relics._soft_dot()
 	p.material_override = _spark_m
 	p.position.y = size * 0.3
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
