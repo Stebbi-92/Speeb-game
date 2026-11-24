@@ -29,7 +29,7 @@ Brelm is in alpha. Each version is on the [Releases page](https://github.com/Ste
 ## 0.20.0 (hands and new bodies)
 
 - **Hands on every gun:** your arms hold each gun and follow its reloads. Side arms use a two-hand grip with both thumbs forward. See [Arms and Clothing](Arms-and-Clothing).
-- **New guns:** a G17 pistol with a moving slide, an Autoshotgun, a full-auto SMG, a 357 Python revolver with a turning cylinder, and a belt gun with its own motions.
+- **New guns:** a pistol with a moving slide, an Autoshotgun, a full-auto SMG, a revolver with a turning cylinder, and a belt gun with its own motions.
 - **New bodies:** zombies, skeleton warriors, liches and the Ash Weaver are animated, and the tusker is a furred wild boar.
 - **Cigarettes:** light one and it burns while you work; friends see it too.
 - **Small things:** the gun pulls back from walls instead of going through them; great ones keep their own heads; dead trees lose the floating red band and yellow box; the red dot shows only down the sight.
@@ -137,7 +137,7 @@ Brelm is in alpha. Each version is on the [Releases page](https://github.com/Ste
 
 ## 0.11.0 (the armoury)
 
-- Real models for every gun: HK 416 machine gun, a new Belt Gun (M60), minigun with spinning barrels, RPG, flamethrower, shotgun, revolver, pistol and rifle.
+- Real models for every gun: machine gun, a new Belt Gun, minigun with spinning barrels, rocket launcher, flamethrower, shotgun, revolver, pistol and rifle.
 - Gun parts from a real accessories set: sights, scopes, suppressors, compensators, a muzzle brake, a flash hider and grips. Nine new parts to make at the bench.
 - Guns throw spent cases of their own calibre. Piles of spilled rounds lie by ruins and near Cinderwick.
 - Box Cats: screaming packs near Cinderwick at night.

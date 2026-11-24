@@ -1335,7 +1335,7 @@ func _make_flash() -> Node3D:
 const MUZZLE := {"carbine": 640.0, "shotgun": 260.0, "autoshotgun": 260.0, "smg": 300.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 ## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
 ## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
-const CALIBER := {"shotgun": ["12 gauge", 1.6], "autoshotgun": ["12 gauge", 1.6], "smg": ["9mm", 1.2], "pistol": ["9mm", 1.2], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
+const CALIBER := {"shotgun": ["12 gauge", 1.6], "autoshotgun": ["12 gauge", 1.6], "smg": ["9mm", 1.2], "pistol": ["9mm", 1.2], "pistol9": ["9mm", 1.2], "revolver": [".45 Long", 1.15],
 	"machine_gun": ["5.56", 1.0], "lmg": ["7.62", 0.9], "minigun": ["7.62", 0.9], "sniper": [".308", 0.8]}
 const GRAVITY := 9.8
 
