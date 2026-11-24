@@ -1027,7 +1027,7 @@
     ]
    ],
    "flat": 40,
-   "glow": false
+   "vfog": false
   },
   {
    "name": "s23_drake_live",
@@ -1075,7 +1075,7 @@
     }
    ],
    "flat": 40,
-   "glow": false
+   "vfog": false
   },
   {
    "mode": "fp",
@@ -1110,8 +1110,8 @@
    ],
    "gun": "shotgun",
    "sight": "holo",
-   "clock": 19.2,
-   "fog": 0.4,
+   "clock": 17.8,
+   "fog": 0.6,
    "dur": 3.5,
    "aim_y": 1.6,
    "forms": [

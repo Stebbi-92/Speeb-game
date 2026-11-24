@@ -277,6 +277,9 @@ func _set_hour(h: float) -> void:
 	w.env.fog_density *= float(_shot.get("fog", 1.0))
 	# Some takes blew up the glow into great coloured rings over the sky (a bad pixel, spread by the glow): off there
 	w.env.glow_enabled = bool(_shot.get("glow", true)) and Game.quality >= 1
+	# Others went to red, black and cyan over the far haze where a great one stood: its light in the fog, it seems
+	if not _shot.get("vfog", true):
+		w.env.volumetric_fog_enabled = false
 
 
 func _shoot(s: Dictionary) -> void:
@@ -409,6 +412,11 @@ func _shoot(s: Dictionary) -> void:
 			_set_hour(clock0)
 			_place_cam(path, look, 0.0, fp, s)
 	_seat_scans(forms)
+	if not s.get("vfog", true):
+		for e in forms:
+			if is_instance_valid(e):
+				for l in e.find_children("*", "Light3D", true, false):
+					(l as Light3D).light_volumetric_fog_energy = 0.0
 	for e in forms:
 		if is_instance_valid(e) and e.has_meta("still_yaw"):
 			e.set_physics_process(false)
