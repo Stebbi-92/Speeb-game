@@ -1,3 +1,12 @@
+Brelm alpha 0.22.0: the man in the coat
+
+- The man in the coat: on rare nights a stranger stands in the waste. He speaks in riddles. Keep your distance, or he draws a shotgun.
+- The Dune Dweller and the man in the coat move on their own walks and stances. The Kulshedra flies on its wings.
+- Red dots and scopes sit on the slide or rail on every gun, clamped on and lined up: the Autoshotgun's sights, and the red dots on the pistol and Auto Pistol now sit just ahead of the rear sight.
+- In co-op, other players hold each gun by its grip and fore grip, with the stock at the shoulder.
+- The Cinder Matron and other big walkers stand on the ground instead of floating.
+- The build menu no longer cuts off its text.
+
 Brelm alpha 0.21.0: new foes and real blood
 
 - New bodies for the great and strange ones: the Nykur is a real horse, the Kulshedra a dragon, the sea serpents, the Unseen a deer-headed walker, the Bloater a living blob, and the Draugr a cursed soldier who walks, runs and guards. Each has hit shapes that fit its body.

@@ -2,6 +2,14 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.22.0 (the man in the coat)
+
+- **The man in the coat:** a rare night stranger in the waste who speaks in riddles and draws a shotgun if you come close.
+- **Animation:** the Dune Dweller and the man in the coat walk; the Kulshedra flies.
+- **Sights:** red dots and scopes clamp onto the slide or rail on every gun.
+- **Co-op:** other players hold every gun by its grips.
+- **Fixed:** the Cinder Matron floating; build menu text cut off.
+
 ## 0.21.0 (new foes and real blood)
 
 - **New bodies:** Nykur (horse), Kulshedra (dragon), sea serpents, the Unseen, the Bloater, the Draugr, the Harrow (now walks) and the Tar Mother (a black widow). Hit shapes fit each body. See [Creatures](Creatures).
