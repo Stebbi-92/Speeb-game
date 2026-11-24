@@ -11419,6 +11419,67 @@ func debug_animshot() -> void:
 	get_tree().quit()
 
 
+## Picture aid: the build strip, at the largest words setting, to see that all its lines show.
+func debug_buildshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(1.0).timeout
+	builder.toggle()
+	for k in 6:
+		await get_tree().process_frame
+	print("BUILDSHOT title=%s hint=%s lines=%d" % [ui._build_title.get_global_rect(), ui._build_hint.get_global_rect(), ui._build_hint.get_line_count()])
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_build.png")
+	get_tree().quit()
+
+
+## Testing aid: a Kulshedra far off takes wing, glides in low on her flying clip, and comes down near.
+func debug_wings() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var q := player.global_position + f * 34.0
+	var e = spawn_at("kulshedra", Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+	e.set_meta("raid", true)
+	e._buried = 0.0
+	e._wing_cd = 0.5
+	var took := false
+	var flew := false
+	var landed := false
+	var high := 0.0
+	var shot := false
+	for i in 80:
+		await get_tree().create_timer(0.25).timeout
+		if not is_instance_valid(e):
+			break
+		var gp: Vector3 = e.global_position
+		var h: float = gp.y - terrain.height_at(gp.x, gp.z)
+		var clip: String = e._scan_anim.current_animation if e._scan_anim else "-"
+		var d := Vector2(gp.x - player.global_position.x, gp.z - player.global_position.z).length()
+		took = took or e._wing > 0.0
+		high = maxf(high, h)
+		if clip == "Fly":
+			flew = true
+			if not shot and OS.get_environment("SHOT_OUT") != "":
+				shot = true
+				_debug_aim(gp + Vector3(0, 1.0, 0))
+				for k in 3:
+					await get_tree().process_frame
+				get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_fly.png")
+		if flew and e._wing <= 0.0 and e._air_t == 0.0:
+			landed = true
+		if i % 4 == 0 or clip == "Fly":
+			print("WING t=%.2f d=%.1f h=%.2f wing=%.2f air=%.2f clip=%s" % [i * 0.25, d, h, e._wing, e._air_t, clip])
+		if landed and d < 12.0:
+			break
+	print("WINGS took=%s flew=%s landed=%s high<6=%s" % [took, flew, landed, high < 6.0])
+	get_tree().quit()
+
+
 ## Picture aid: a form struck from the side three times, pictured as the blood flies and again once it has landed.
 func debug_bloodshot() -> void:
 	while not ready_world:

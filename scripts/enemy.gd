@@ -99,7 +99,7 @@ const VARIANTS := {
 		"weak": {"bullet": 1.3}, "tough": {"shot": 0.8}, "text": "A grey horse by the water, its hooves turned backward. Its bite drags at your legs."},
 	"shtriga": {"base": "deacon", "name": "Shtriga", "hp": 120.0, "bite": 20.0, "speed": 5.4, "drain": 1.6, "tint": Color(0.42, 0.3, 0.45),
 		"weak": {"fire": 2.0, "blade": 1.3}, "tough": {"bullet": 0.8}, "text": "A night witch of the keep. She drinks from you, and each sip heals her. Fire undoes her."},
-	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "tint": Color(0.45, 0.18, 0.1),
+	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "wings": true, "tint": Color(0.45, 0.18, 0.1),
 		"weak": {"blast": 1.5, "bullet": 1.2}, "tough": {"fire": 0.1, "shot": 0.7}, "text": "The she-dragon of the south. She breathes fire in a fan. Get behind stone."},
 	# 0.12: forms with scanned bodies of their own (see SCANS)
 	"ash_weaver": {"base": "spider", "name": "Ash Weaver", "hp": 150.0, "bite": 26.0, "size": 1.0, "speed": 6.0, "radius": 0.8,
@@ -198,7 +198,7 @@ const SCANS := {
 	# Kulshedra, the she-dragon: "European Dragon" by Nonexistent 101, wings folded as she walks. Struck along her
 	# body, neck, head, folded wings, legs and tail (measured at size 1, scaled to hers in _add_hits)
 	"kulshedra": ["res://assets/models/foes/kulshedra/dragon_european.glb", 1.9, "Walk", 2.4, Vector2(0.65, 0.75),
-		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
+		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "air": "Fly", "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
 		"bone_bounds": true, "hits_k": true,
 		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
 			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
@@ -367,6 +367,9 @@ var level: Level
 var head: LesserHead
 var _legs: Array = []
 var _leap_cd := 2.0
+var _wing := 0.0         ## a winged one in flight: seconds of glide left
+var _wing_cd := 6.0      ## before it may take wing again
+var _air_t := 0.0        ## seconds off the ground (its flying clip shows after a moment)
 var spec: Dictionary
 var variant := ""      ## a kin of the base form, if it is one (see VARIANTS)
 var _sk := ""          ## its own scanned body, if it has one (see SCANS): a great one's, or its kin's
@@ -950,10 +953,30 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 				_leap_cd = randf_range(2.0, 3.5) * (1.6 if kind == "elite" else 1.0)
 				velocity = dir * 11.0 + Vector3(0, 6.5, 0)
 				_cry("spider_hiss" if kind == "spider" else "shriek_%d" % (randi() % 4), 0)
+		# The winged ones cross open ground in a long low glide, and come down near
+		if spec.get("wings", false):
+			_wing_cd -= delta
+			if _wing <= 0.0 and on_floor and fd > 20.0 and _wing_cd <= 0.0 and _wind <= 0.0:
+				_wing = clampf(fd / 13.0, 1.5, 4.0)
+				_wing_cd = randf_range(10.0, 16.0)
+				velocity.y = 6.5
+				_cry("roar", 0)
+			if _wing > 0.0:
+				_wing -= delta
+				velocity.x = dir.x * 13.0
+				velocity.z = dir.z * 13.0
+				if fd < 9.0:
+					# Down in front of you, not on top of you
+					_wing = 0.0
+					velocity.x *= 0.3
+					velocity.z *= 0.3
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
-	velocity.y -= 22.0 * delta
+	if _wing > 0.0:
+		velocity.y = maxf(velocity.y - 6.0 * delta, -1.5)
+	else:
+		velocity.y -= 22.0 * delta
 	velocity += _knock - _knock_on
 	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
@@ -966,6 +989,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 		_charge = 0.0
 	if is_on_floor() and velocity.y < 0.0:
 		velocity.y = 0.0
+	_air_t = 0.0 if is_on_floor() else _air_t + delta
 	# Spiders climb what stands in their way; cats scramble over the low things
 	if is_on_wall() and not frozen:
 		velocity.y = 4.5 if not cat else 3.0
@@ -1329,7 +1353,15 @@ func _scan_tick(pace: float) -> void:
 	elif _scan_anim:
 		var walk: float = SCANS[_sk][3]
 		var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
-		if _scan_idle != "" and pace < 0.3:
+		var flying: bool = o.has("air") and _air_t > 0.35
+		if o.has("air"):
+			# Leaning into the glide, then upright again on the ground
+			_scan.rotation.x = lerpf(_scan.rotation.x, 0.45 if flying and _wing > 0.0 else 0.0, minf(1.0, get_process_delta_time() * 4.0))
+		if flying:
+			# Off the ground a while: its wings
+			_scan_play(str(o.air))
+			_scan_anim.speed_scale = 1.0
+		elif _scan_idle != "" and pace < 0.3:
 			_scan_play(_scan_idle)
 			_scan_anim.speed_scale = 1.0
 		elif o.has("run") and pace > walk * 1.6:
@@ -2364,6 +2396,7 @@ func _puppet_tick(delta: float) -> void:
 	if _pan_anim:
 		_pan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _scan:
+		_air_t = _air_t + delta if absf(_net_v.y) > 1.0 else 0.0
 		_scan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _fb:
 		var pv := Vector2(_net_v.x, _net_v.z).length()

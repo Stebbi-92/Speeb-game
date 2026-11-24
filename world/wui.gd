@@ -66,7 +66,7 @@ func _ready() -> void:
 	_compass.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_compass)
 	_build_title = _label("", 24, GOLD)
-	_pin(_build_title, 0.5, 1.0, Rect2(-500, -150, 1000, 34))
+	_pin(_build_title, 0.5, 1.0, Rect2(-500, -236, 1000, 34))
 	_build_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_build_title)
 	_build_hint = RichTextLabel.new()
@@ -75,7 +75,7 @@ func _ready() -> void:
 	_build_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_hint.add_theme_font_size_override("normal_font_size", 17)
 	_build_hint.add_theme_color_override("default_color", DIM)
-	_pin(_build_hint, 0.5, 1.0, Rect2(-560, -118, 1120, 60))
+	_pin(_build_hint, 0.5, 1.0, Rect2(-560, -202, 1120, 92))   # three lines, kept clear of the belt below
 	add_child(_build_hint)
 	_keys = HBoxContainer.new()
 	_keys.add_theme_constant_override("separation", 14)
