@@ -58,8 +58,8 @@ EDIT_ACTION = [
     ("s08_fp_shotgun", 1.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 9 drop 26
     ("s10_fp_rifle", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                      # 28.5
     ("s19_minigun", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                       # 31
-    ("s24_gaunt_rise", 0.8, 2.5, G_NIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5
-    ("s20_lmg", 0.8, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
+    ("s24_gaunt_rise", 0.0, 1.7, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5 (it falls at 1.25)
+    ("s20_lmg", 0.8, 3.3, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
     ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 38.5
     ("s12_fp_flamer", 1.0, 2.0, G_NIGHT, [], 1.0, 0.0, 0.0),                                                     # 41
     ("s13_sniper", 1.0, 3.0, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 43
