@@ -1,4 +1,4 @@
-"""Packages the exported builds into the Windows and macOS zips. Run from the project root after exporting.
+"""Packages the exported builds into the Windows, macOS and Linux zips. Run from the project root after exporting.
 Usage: python3 tools/package.py <out_dir>"""
 import sys, zipfile, os
 out = sys.argv[1]
@@ -38,3 +38,22 @@ with zipfile.ZipFile(os.path.join(out, "Brelm-macOS.zip"), "w", zipfile.ZIP_DEFL
     z.writestr(si, open("build-mac/Brelm Server.command").read())
     z.writestr(text_info("THIRD-PARTY-NOTICES.txt"), open("THIRD-PARTY-NOTICES.txt").read())
 print("ok")
+linux_note = """LINUX AND STEAM DECK
+  Unzip anywhere and run Brelm.x86_64 (it is already marked as a program).
+  If the screen stays black on an older graphics card, run
+  "Brelm (compatibility mode).sh" instead.
+  Steam Deck: in Desktop Mode, add Brelm.x86_64 to Steam as a non-Steam game,
+  then play it from Game Mode. The controller works everywhere.
+
+"""
+def exe_info(name):
+    zi = text_info(name); zi.external_attr = 0o100755 << 16; return zi
+with zipfile.ZipFile(os.path.join(out, "Brelm-Linux.zip"), "w", zipfile.ZIP_DEFLATED) as z:
+    z.writestr(exe_info("Brelm.x86_64"), open("build-linux/Brelm.x86_64", "rb").read())
+    z.writestr(exe_info("Brelm Server.sh"), open("build-linux/Brelm Server.sh").read())
+    z.writestr(exe_info("Brelm (compatibility mode).sh"), open("build-linux/Brelm (compatibility mode).sh").read())
+    z.writestr(text_info("README.txt"), readme.replace("RUNNING\n", linux_note + "RUNNING (WINDOWS)\n", 1))
+    hosting = open("HOSTING.txt").read().replace("Windows may ask whether Brelm may use the network. Allow it, on private\n   networks at least.", "If a firewall is on (ufw, firewalld), allow UDP port 24600.")
+    z.writestr(text_info("HOSTING.txt"), hosting)
+    z.writestr(text_info("THIRD-PARTY-NOTICES.txt"), open("THIRD-PARTY-NOTICES.txt").read())
+print("linux ok")
