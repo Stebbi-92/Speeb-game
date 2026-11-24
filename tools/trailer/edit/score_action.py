@@ -36,7 +36,8 @@ def kick(at, gain=1.0, punch=1.0):
     f = 42 + 110 * np.exp(-tt * 28)
     s = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-tt * 5.5)
     click = rng.normal(0, 1, n) * np.exp(-tt * 300) * 0.3
-    put(at, np.tanh((s + click) * 2.2 * punch) * 0.8, gain)
+    att = np.minimum(1, tt / 0.004)   # a few ms of attack: a step at full scale overshoots in the AAC encode
+    put(at, np.tanh((s + click) * 2.2 * punch) * 0.8 * att, gain)
 
 
 def sub(at, f=36.71, dur=1.4, gain=1.0):

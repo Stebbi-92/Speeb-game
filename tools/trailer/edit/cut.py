@@ -58,8 +58,8 @@ EDIT_ACTION = [
     ("s08_fp_shotgun", 1.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 9 drop 26
     ("s10_fp_rifle", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                      # 28.5
     ("s19_minigun", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                       # 31
-    ("s24_gaunt_rise", 0.0, 1.7, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5 (it falls at 1.25)
-    ("s20_lmg", 0.8, 3.3, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
+    ("s24_gaunt_rise", 0.25, 1.45, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5 (it falls at 1.25)
+    ("s20_lmg", 0.8, 3.55, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
     ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 38.5
     ("s12_fp_flamer", 1.0, 2.0, G_NIGHT, [], 1.0, 0.0, 0.0),                                                     # 41
     ("s13_sniper", 1.0, 3.0, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 43
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     final = os.environ.get("BRELM_OUT", f"{WORK}/brelm-gameplay-trailer-{H}p.mp4")
     if os.path.exists(score) and not PREVIEW:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", f"{WORK}/picture.mov", "-i", score, "-filter_complex",
-                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.6:level=disabled[a]",
+                        "[0:a]volume=0.8[g];[1:a]volume=1.0[s];[g][s]amix=inputs=2:normalize=0,alimiter=limit=0.5:level=disabled[a]",
                         "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p",
                         "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", final], check=True)
         if H > 1080:

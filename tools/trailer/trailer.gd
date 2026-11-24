@@ -168,7 +168,7 @@ func _seat_scans(forms: Array) -> void:
 			var k := sk as Skeleton3D
 			for i in k.get_bone_count():
 				var gp: Vector3 = k.global_transform * k.get_bone_global_pose(i).origin
-				gap = minf(gap, gp.y - float(w.terrain.height_at(gp.x, gp.z)))
+				gap = minf(gap, gp.y - _ground(gp.x, gp.z, [e]))   # rocks under it count as ground
 		if gap > 1e8 or absf(gap) < 0.08:
 			continue
 		var m := sc.get_child(0) as Node3D
@@ -346,6 +346,8 @@ func _shoot(s: Dictionary) -> void:
 		pl.cam.fov = float(s.get("fov", 75.0))
 		wpn.enabled = true
 		wpn.visible = true
+		if wpn.blade_out and not s.has("blade"):
+			wpn._sheathe()   # the last shot's blade stays out otherwise, and the gun fires from behind it
 		_arm(wpn, str(s.get("gun", "")), str(s.get("sight", "")))
 	else:
 		cam.make_current()
@@ -429,8 +431,6 @@ func _shoot(s: Dictionary) -> void:
 	if fp and s.has("blade"):
 		wpn.melee = str(s.blade)
 		wpn.draw_blade()
-	elif fp and wpn.blade_out:
-		wpn._sheathe()   # the last shot's blade stays out otherwise, and the gun fires from behind it
 	t = 0.0
 	# The shot's own clock runs on the film's frames, so slow motion slows the world and not the shot
 	var step := 1.0 / fps
@@ -525,10 +525,14 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 
 ## The height of the solid ground at x/z: a ray down onto whatever stands there, the land's own height if it
 ## finds nothing.
-func _ground(x: float, z: float) -> float:
+func _ground(x: float, z: float, skip: Array = []) -> float:
 	var top: float = w.terrain.height_at(x, z) + 40.0
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, top, z), Vector3(x, top - 120.0, z))
-	q.exclude = [w.player.get_rid()]
+	var ex: Array[RID] = [w.player.get_rid()]
+	for b in skip:
+		if b is CollisionObject3D:
+			ex.append((b as CollisionObject3D).get_rid())
+	q.exclude = ex
 	q.collide_with_areas = false
 	var hit: Dictionary = w.player.get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
