@@ -134,7 +134,10 @@ func matter() -> String:
 const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
 		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
-	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, 0, 0.0, Vector2(0.9, 0.0)],
+	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
+	# keep their own stirring
+	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
+		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8]}],
 	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
 	# on their necks read as stuck on):
@@ -142,22 +145,22 @@ const SCANS := {
 	#  {bone: the head bone the face rides, shrink: its own head hidden, own_head: its own head kept and no Speeb's
 	#  head worn (the head bone still marks where a head shot lands), idle: standing clip, tint, turn}]
 	"boss_ash": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08)}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "bone_bounds": true}],
 	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42)}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true}],
 	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
-		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true}],
+		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true}],
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
 	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95)}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
-		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8)}],
+		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8), "bone_bounds": true}],
 	# The Nykur: "Horse" by henrysteve973, unsaddled, a grey coat; struck along its body, neck and head
 	"nykur": ["res://assets/models/foes/nykur/horse_henry.glb", 1.35, "Skeleton|Walk", 1.8, Vector2(0.9, 0.6),
 		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true,
@@ -1112,6 +1115,12 @@ func _build_scan(cs: CollisionShape3D) -> void:
 		if c is MeshInstance3D:   # the unseen's own bent-light body gives way
 			(c as MeshInstance3D).visible = false
 	var m: Node3D = (load(sc[0]) as PackedScene).instantiate()
+	if opt.get("only_skinned", false):
+		# The model came as a scene (the widow on her rock, with leaves and egg sacs): only the beast is kept
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).skin == null:
+				mi.get_parent().remove_child(mi)
+				mi.free()
 	if not _scan_bounds.has(sc[0]):
 		var bb := AABB()
 		var first := true
@@ -1964,58 +1973,128 @@ func bleed(from_dir: Vector3, amount: float) -> void:
 	if not Game.blood or Net.dedicated or not is_inside_tree():
 		return
 	blood_shown += 1
-	var c: Color = BLOOD.get(kind, Color(0.34, 0.02, 0.02))
+	var c: Color = BLOOD.get(kind, Color(0.3, 0.015, 0.01))
 	var r: float = spec.get("radius", 0.5)
 	var d := from_dir.normalized() if from_dir.length() > 0.01 else Vector3.FORWARD
-	var at := global_position + Vector3(0, r * 1.2, 0) - d * r * 0.8
+	# Where the round came out: the far side of the body, about chest high
+	var at := global_position + Vector3(0, r * 0.9, 0) + d * r * 0.5
+	var hard := clampf(amount / 20.0, 0.3, 1.5)
+	# A quick wet mist, catching the light of the hour, gone in a blink
+	var mist := CPUParticles3D.new()
+	mist.one_shot = true
+	mist.emitting = false
+	mist.amount = 6
+	mist.lifetime = 0.45
+	mist.explosiveness = 1.0
+	mist.direction = d
+	mist.spread = 25.0
+	mist.initial_velocity_min = 0.8
+	mist.initial_velocity_max = 2.0
+	mist.damping_min = 3.0
+	mist.damping_max = 5.0
+	mist.gravity = Vector3(0, -1.0, 0)
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.4))
+	grow.add_point(Vector2(1, 1.6))
+	mist.scale_amount_curve = grow
+	var fade := Gradient.new()
+	fade.set_color(0, Color(c, 0.75))
+	fade.set_color(1, Color(c, 0.0))
+	mist.color_ramp = fade
+	var mq := QuadMesh.new()
+	mq.size = Vector2(0.35, 0.35) * hard
+	mq.material = _blood_mat("mist")
+	mist.mesh = mq
+	mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Drops thrown out of the far side, falling as they go
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = false
-	p.amount = clampi(int(amount * 0.9), 8, 32)
-	p.lifetime = 0.8
-	p.explosiveness = 0.95
-	p.direction = d
-	p.spread = 35.0
-	p.initial_velocity_min = 2.0
+	p.amount = clampi(int(amount * 0.8), 8, 26)
+	p.lifetime = 0.9
+	p.explosiveness = 0.9
+	p.direction = (d + Vector3(0, 0.25, 0)).normalized()
+	p.spread = 18.0
+	p.initial_velocity_min = 1.5
 	p.initial_velocity_max = 5.5
-	p.gravity = Vector3(0, -14, 0)
+	p.gravity = Vector3(0, -9.8, 0)
 	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
+	p.scale_amount_max = 1.6
+	p.color = c
 	var q := QuadMesh.new()
-	q.size = Vector2(0.16, 0.16)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = c
-	m.albedo_texture = _blot_tex()
-	q.material = m
+	q.size = Vector2(0.045, 0.045)
+	q.material = _blood_mat("drop")
 	p.mesh = q
-	level.add_child(p)
-	p.global_position = at
-	p.emitting = true
-	get_tree().create_timer(1.2, false).timeout.connect(p.queue_free)
-	# A stain on the ground behind, if the blow was a hard one
-	if amount >= 8.0 and kind != "saucer" and randf() < 0.6:
-		var dec := Decal.new()
-		dec.texture_albedo = _blot_tex()
-		dec.modulate = Color(c.darkened(0.35), 0.8)
-		var s := clampf(0.3 + amount * 0.012, 0.35, 1.0) * maxf(1.0, r * 1.5)
-		dec.size = Vector3(s, 1.2, s)
-		dec.normal_fade = 0.9
-		dec.upper_fade = 0.2
-		dec.lower_fade = 0.2
-		level.add_child(dec)
-		var g := global_position + d * randf_range(0.3, 1.2)
-		var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 2, 0), g - Vector3(0, 6, 0), 1))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for fx in [mist, p]:
+		level.add_child(fx)
+		fx.global_position = at
+		fx.emitting = true
+		get_tree().create_timer(1.3, false).timeout.connect(fx.queue_free)
+	if kind == "saucer":
+		return
+	# Where it lands: thrown on a wall close behind, or else on the ground beyond, its streaks pointing the way
+	# the round went. Small blows leave a little, hard ones a lot.
+	var space := get_world_3d().direct_space_state
+	var wall := space.intersect_ray(PhysicsRayQueryParameters3D.create(at, at + d * 3.5, 1))
+	if not wall.is_empty() and absf((wall.normal as Vector3).y) < 0.6:
+		var n: Vector3 = wall.normal
+		_splat(wall.position, n, Vector3.UP.slide(n).normalized() * 0.3 - Vector3.UP, c, clampf(0.5 + amount * 0.03, 0.5, 1.6) * maxf(1.0, r))
+	if amount >= 5.0 or randf() < 0.5:
+		var g := global_position + d * randf_range(0.4, 1.4) * maxf(1.0, r)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(g + Vector3(0, 2, 0), g - Vector3(0, 6, 0), 1))
 		if not hit.is_empty():
-			g.y = hit.position.y
-		dec.global_position = g
-		dec.rotation.y = randf() * TAU
-		var tw := dec.create_tween()
-		tw.tween_interval(18.0)
-		tw.tween_property(dec, "modulate:a", 0.0, 4.0)
-		tw.tween_callback(dec.queue_free)
+			_splat(hit.position, hit.normal, d, c, clampf(0.6 + amount * 0.03, 0.6, 1.6) * maxf(1.0, r * 1.3))
+
+
+## A stain laid on a surface (normal n), its throw running along `way`; it dries and fades after a while.
+func _splat(pos: Vector3, n: Vector3, way: Vector3, c: Color, size: float) -> void:
+	var dec := Decal.new()
+	dec.texture_albedo = _blood_tex("splat_%d" % (randi() % 4 + 1))
+	dec.modulate = Color(c, 0.95)
+	dec.size = Vector3(size, 0.6, size * 1.25)
+	dec.normal_fade = 0.6
+	dec.upper_fade = 0.3
+	dec.lower_fade = 0.3
+	dec.cull_mask = 1
+	level.add_child(dec)
+	# The decal projects down its -Y; its picture's "up" (the throw) is its -Z
+	var y := n.normalized()
+	var fwd := -way.slide(y).normalized() if way.slide(y).length() > 0.01 else y.cross(Vector3.RIGHT).normalized()
+	dec.global_transform = Transform3D(Basis(y.cross(fwd).normalized(), y, fwd), pos + y * 0.05)
+	var tw := dec.create_tween()
+	tw.tween_interval(40.0)
+	tw.tween_property(dec, "modulate", Color(c.darkened(0.4), 0.0), 8.0)
+	tw.tween_callback(dec.queue_free)
+
+
+static var _blood_tx := {}
+static var _blood_mats := {}
+
+## Blood's own pictures (made by tools/make_blood.py); the old round blot if one is missing.
+static func _blood_tex(name: String) -> Texture2D:
+	if not _blood_tx.has(name):
+		var path := "res://assets/textures/blood/%s.png" % name
+		_blood_tx[name] = load(path) if ResourceLoader.exists(path) else _blot_tex()
+	return _blood_tx[name]
+
+
+## The drops are wet and take the light; the mist is soft and fades near the eye.
+static func _blood_mat(name: String) -> StandardMaterial3D:
+	if not _blood_mats.has(name):
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = _blood_tex(name)
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+		m.roughness = 0.25 if name == "drop" else 0.9
+		if name == "mist":
+			m.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+			m.distance_fade_min_distance = 0.3
+			m.distance_fade_max_distance = 1.5
+		_blood_mats[name] = m
+	return _blood_mats[name]
 
 
 static func _blot_tex() -> Texture2D:

@@ -401,6 +401,8 @@ func wear_plate(heavy: bool) -> void:
 	iron.roughness = 0.55
 	_plate = Node3D.new()
 	torso.add_child(_plate)
+	# The plates are no longer drawn: the boxes sat on the new bodies like crates. The plate still turns shots.
+	_plate.visible = false
 	var bits := [[Vector3(0.72, 0.6, 0.07), Vector3(0, 0.8, 0.34)], [Vector3(0.72, 0.6, 0.07), Vector3(0, 0.8, -0.34)]]
 	if heavy:
 		bits.append([Vector3(0.36, 0.1, 0.56), Vector3(0.5, 1.24, -0.05)])

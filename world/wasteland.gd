@@ -11259,6 +11259,7 @@ func debug_hitshot() -> void:
 		var q := player.global_position + f * dist + side * (i - (kinds.size() - 1) * 0.5) * gap
 		var e := spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
 		e.set_meta("raid", true)
+		e._buried = 0.0   # not still climbing out of the ground
 		made.append(e)
 	await get_tree().create_timer(1.5).timeout
 	for i in made.size():
@@ -11283,6 +11284,146 @@ func debug_hitshot() -> void:
 		for k in 20:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_" + view + ".png")
+	get_tree().quit()
+
+
+## Testing aid: which drawn thing makes the screen bright at px? Each candidate is hidden in turn.
+func _debug_find_bright(px: Vector2i) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var base := get_viewport().get_texture().get_image().get_pixelv(px)
+	print("BRIGHT at %s base=%s" % [px, base])
+	var cands := []
+	for n in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		if not g.is_visible_in_tree():
+			continue
+		if g is CPUParticles3D or g is GPUParticles3D or cam.global_position.distance_to(g.global_position) < 6.0:
+			cands.append(g)
+	print("BRIGHT %d candidates" % cands.size())
+	for g in cands:
+		g.visible = false
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var now := get_viewport().get_texture().get_image().get_pixelv(px)
+		g.visible = true
+		if absf(now.get_luminance() - base.get_luminance()) > 0.04:
+			print("BRIGHT FOUND %s %s d=%.2f lum %.2f->%.2f path=%s" % [g.name, g.get_class(), cam.global_position.distance_to(g.global_position), base.get_luminance(), now.get_luminance(), str(g.get_path()).right(120)])
+			if g is CPUParticles3D:
+				var cp := g as CPUParticles3D
+				print("   amount=%d life=%.1f mesh=%s mat=%s" % [cp.amount, cp.lifetime, cp.mesh, cp.material_override])
+			if g is MeshInstance3D:
+				print("   mesh=%s mat=%s" % [(g as MeshInstance3D).mesh, g.material_override])
+	await get_tree().process_frame
+
+
+## Testing aid: what is drawn near the eye, and what lands where on the screen (to find stray squares)
+func _debug_whats_drawn() -> void:
+	var cam := get_viewport().get_camera_3d()
+	for n in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		if not g.is_visible_in_tree():
+			continue
+		var p := g.global_position
+		var d := cam.global_position.distance_to(p)
+		if cam.is_position_behind(p):
+			continue
+		var sp := cam.unproject_position(p)
+		if d < 3.0 or (d < 60.0 and sp.x > 560 and sp.x < 760 and sp.y > 150 and sp.y < 560):
+			var mesh := ""
+			if g is MeshInstance3D and (g as MeshInstance3D).mesh:
+				mesh = (g as MeshInstance3D).mesh.get_class()
+			print("DRAWN %s %s mesh=%s d=%.2f screen=%s path=%s" % [g.name, g.get_class(), mesh, d, Vector2i(sp), str(g.get_path()).right(90)])
+	for n in get_tree().root.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.is_visible_in_tree() and (c is ColorRect or c is TextureRect or c is Panel) and c.get_global_rect().size.x < 40 and c.get_global_rect().size.y < 40 and c.get_global_rect().size.x > 4:
+			print("UI %s %s rect=%s path=%s" % [c.name, c.get_class(), c.get_global_rect(), str(c.get_path()).right(90)])
+
+
+## Picture aid: forms walking past, side on, pictured three times a little apart: do their bodies move?
+func debug_animshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := OS.get_environment("FOES").split(",", false)
+	var dist := float(OS.get_environment("DIST")) if OS.get_environment("DIST") != "" else 12.0
+	var gap := float(OS.get_environment("GAP")) if OS.get_environment("GAP") != "" else 7.0
+	var made := []
+	for i in kinds.size():
+		var q := player.global_position + f * dist + side * (i - (kinds.size() - 1) * 0.5) * gap
+		var e := spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
+		e.set_meta("raid", true)
+		e._buried = 0.0
+		made.append(e)
+	await get_tree().create_timer(1.0).timeout
+	_debug_aim(player.global_position + f * dist + Vector3(0, 1.0, 0))
+	for k in 3:
+		# Each held side on to the eye and set walking along its own line, back where it began
+		for i in made.size():
+			var e = made[i]
+			if not is_instance_valid(e):
+				continue
+			var q := player.global_position + f * dist + side * (i - (made.size() - 1) * 0.5) * gap
+			e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+			e.rotation.y = atan2(side.x, side.z)
+			print("ANIMSHOT %d %s clip=%s at=%.2f" % [k, e.variant if e.variant != "" else e.kind, e._scan_anim.current_animation if e._scan_anim else "-", e._scan_anim.current_animation_position if e._scan_anim else -1.0])
+		for j in 3:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_%d.png" % k)
+		await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+
+## Picture aid: a form struck from the side three times, pictured as the blood flies and again once it has landed.
+func debug_bloodshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	Game.blood = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var q := player.global_position + f * 5.0
+	var e := spawn_at("rusher", Vector3(q.x, terrain.height_at(q.x, q.z) + 1.0, q.z))
+	await get_tree().create_timer(0.8).timeout
+	e.set_physics_process(false)
+	e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + float(e.spec.radius), q.z)
+	_debug_aim(q + Vector3(0, 0.3, 0))
+	for k in 10:
+		await get_tree().process_frame
+	# Slowed right down: drawn here a frame takes about half a second, longer than the spray lives
+	Engine.time_scale = 0.03
+	for k in 3:
+		e.bleed(side.rotated(Vector3.UP, (k - 1) * 0.3), 22.0)
+	# A gunman's shot at the eye from ahead and a round going away, seen end on: lines, no squares
+	_w_tracer(q + Vector3(0, 1.2, 0) + f * 10.0, player.global_position + Vector3(0, 1.5, 0))
+	for k in 4:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_fly.png")
+	Engine.time_scale = 1.0
+	await get_tree().create_timer(1.5).timeout
+	e.queue_free()
+	for k in 3:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_land.png")
+	print("BLOODSHOT shown=%d" % LesserSpeeb.blood_shown)
+	for n in get_tree().root.find_children("*", "CanvasItem", true, false):
+		var ci := n as CanvasItem
+		if not ci.is_visible_in_tree() or ci is Node3D:
+			continue
+		var r := Rect2()
+		if ci is Control:
+			r = (ci as Control).get_global_rect()
+		elif ci is Node2D:
+			r = Rect2((ci as Node2D).global_position, Vector2(1, 1))
+		if r.has_point(Vector2(1000, 560)) and r.size.x < 1200:
+			print("CANVAS %s %s rect=%s mod=%s path=%s" % [ci.name, ci.get_class(), r, ci.modulate, str(ci.get_path()).right(120)])
 	get_tree().quit()
 
 
