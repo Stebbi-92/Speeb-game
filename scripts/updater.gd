@@ -279,11 +279,18 @@ func _relaunch(hard: bool) -> void:
 	if user.size() > 0:
 		args.append("--")
 		args.append_array(user)
+	# This is a planned stop, not a crash: take down the "still running" flag (scripts/report.gd) first,
+	# or the new start finds it and offers to send a crash report for the update
+	if FileAccess.file_exists("user://running"):
+		DirAccess.remove_absolute("user://running")
 	if OS.create_process(OS.get_executable_path(), args) > 0:
 		if hard:
 			OS.kill(OS.get_process_id())
 		get_tree().quit.call_deferred()
 	else:
+		var f := FileAccess.open("user://running", FileAccess.WRITE)   # still running after all
+		if f:
+			f.store_string(str(ProjectSettings.get_setting("application/config/version", "")))
 		push_warning("Updater: could not restart onto the new version; running the installed one.")
 
 
