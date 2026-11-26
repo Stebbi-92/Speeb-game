@@ -8,6 +8,8 @@ extends RefCounted
 static var _cache := {}   ## "<clip's id>:<rig>" -> speed in the skeleton's own units a second (0 if it does not walk)
 static var _feet := {}    ## rig -> its foot bones
 static var _back := {}    ## "<clip's id>:<rig>" -> the way its planted feet go, in the skeleton's space
+static var _named := {}   ## rig -> its feet, where they were named (see set_feet)
+static var _ahead := {}   ## rig -> the way its walks go, where it is given (see set_feet)
 
 
 ## Metres a second the clip covers at speed 1 on this body as it stands now (its scale), or 0 when the clip
@@ -47,6 +49,27 @@ static func _rig(sk: Skeleton3D) -> String:
 	return "%d:%s:%s" % [sk.get_bone_count(), sk.get_bone_name(0), sk.get_bone_name(sk.get_bone_count() - 1)]
 
 
+## Names the bones a rig stands on, where their names do not say so (SCANS "feet": the Long Watcher's claws, the
+## Basalt Idol's leg stones), and, if given, the way its walks go (in the skeleton's space): where the feet are
+## lowest as they are set down and lifted, not while they bear it, the way is not to be read from them
+static func set_feet(sk: Skeleton3D, names: Array, ahead := Vector3.ZERO) -> void:
+	var out := []
+	for n in names:
+		var b := sk.find_bone(str(n))
+		if b >= 0:
+			out.append(b)
+	if not out.is_empty():
+		_feet[_rig(sk)] = out
+		_named[_rig(sk)] = out
+	if ahead != Vector3.ZERO:
+		_ahead[_rig(sk)] = ahead.normalized()
+
+
+## The feet named for this rig by set_feet, or none
+static func named_feet(sk: Skeleton3D) -> Array:
+	return _named.get(_rig(sk), [])
+
+
 ## The bones it stands on: feet, toes, paws and hooves by name (the deforming ones, where a rig has both).
 static func feet_of(sk: Skeleton3D) -> Array:
 	var r := _rig(sk)
@@ -64,6 +87,10 @@ static func feet_of(sk: Skeleton3D) -> Array:
 	var defs := out.filter(func(b): return sk.get_bone_name(b).begins_with("DEF"))
 	if not defs.is_empty():
 		out = defs
+	# (a rig that keeps its FK and IK controls as bones beside the skinned ones: only the skinned, the "Bind" ones)
+	var binds := out.filter(func(b): return "_bind_" in sk.get_bone_name(b).to_lower())
+	if not binds.is_empty():
+		out = binds
 	_feet[r] = out
 	return out
 
@@ -118,6 +145,9 @@ static func _measure(sk: Skeleton3D, ap: AnimationPlayer, clip: String) -> float
 				near.append([hh, d / dt])
 				if hh < 0.01 * H:
 					back += d
+	if _ahead.has(_rig(sk)):
+		var ah: Vector3 = _ahead[_rig(sk)]
+		back = -(ah - up * ah.dot(up))
 	var sp := []
 	if back.length() > 1e-6:
 		back = back.normalized()

@@ -138,8 +138,13 @@ const SCANS := {
 	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
 	# keep their own stirring
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
-		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8]}],
-	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05), {"own_head": true, "lift": 0.048}],   # its stored bounds reach under its feet: set up to them (measured)
+		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8],
+		"feet": ["mixamorig_LeftFoot_106", "mixamorig_LeftToeBase_105", "mixamorig_RightFoot_111", "mixamorig_RightToeBase_110"]}],   # (its rig's many foot controls are no feet)
+	# Its own "Walk" staggers in place; it walks, runs and stands on clips baked from Nerd Survivor
+	# (tools/make_scan_moves.sh)
+	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, "moves/Walk", 1.1, Vector2(0.88, 0.05),
+		{"own_head": true, "moves": "res://assets/models/foes/horror_monster/gaunt_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 3.0],
+		"lift": 0.048}],   # its stored bounds reach under its feet: set up to them (measured)
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
 	# on their necks read as stuck on):
 	# [file, height at size 1, walking clip, walking pace, head (height, forward) as parts of its height,
@@ -150,15 +155,21 @@ const SCANS := {
 	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true}],
-	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.36, "turn": PI}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true,
+		"feet": ["Leglow.l_6", "Leglow.r_5"]}],
+	# (the Long Watcher's clip is a walk; its feet are named for Stride, as its bones' names do not say so. The Tar
+	# Mother's clip only breathes on her rock: her eight legs step by a LegStepper)
+	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.36, "turn": PI,
+		"feet": ["joint5_05", "joint5_08", "joint31_032", "joint31_035"], "feet_ahead": Vector3(0, 0, -1)}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
-		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true}],
+		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true, "legs": 8}],
 	# (lift, in metres for each of its size: its one clip holds the Watcher's feet well up off its rest's floor, measured)
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
-	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.48, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.48, "turn": PI, "tint": Color(0.75, 0.85, 0.95),
+		"feet": ["joint5_05", "joint5_08", "joint31_032", "joint31_035"], "feet_ahead": Vector3(0, 0, -1)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true,
+		"feet": ["Leglow.l_6", "Leglow.r_5"]}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
@@ -188,9 +199,12 @@ const SCANS := {
 		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
 		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
 			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.5, 0.38, 0.55)}],
-	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms
-	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "Take 001", 0.0, Vector2(0.88, 0.46),
+	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms.
+	# Its own clip (a sway) is its stillness when watched; its legs walk and run on clips baked from Nerd Survivor,
+	# the rest of it swaying on (tools/make_scan_moves.sh)
+	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "moves/Walk", 1.0, Vector2(0.88, 0.46),
 		{"own_head": true, "bone": "C_Head_J", "bone_bounds": true, "turn": PI,
+		"moves": "res://assets/models/foes/unseen/unseen_moves.res", "idle": "Take 001", "run": ["moves/Run", 3.8],
 		"hits": [["capsule", 0.3, Vector3(0, 1.55, -0.15), Vector3(0, 2.0, 0.9)], ["sphere", 0.28, Vector3(0, 2.3, 1.2)],
 			["box", Vector3(0.6, 1.3, 0.5), Vector3(0, 0.8, -0.2)], ["box", Vector3(0.9, 1.5, 0.4), Vector3(0, 1.1, 1.1)]]}],
 	# The Ember Sack: "Living Flesh Blob" by Yury Misiyuk, fire showing through it
@@ -747,6 +761,9 @@ func _physics_process(delta: float) -> void:
 	velocity *= level.enemy_time
 	move_and_slide()
 	velocity = real_v
+	if walker or (_scan and kind == "spitter"):
+		# (and the great worms, which swim through the air low over the sand: head first)
+		_scan_walk_tick(delta, dir)
 	if is_on_wall():
 		velocity.y += 6.0 * delta * 10.0
 		_claw_at_wall()
@@ -936,7 +953,11 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	var on_floor := is_on_floor()
 	var cat := kind != "spider"
 	if _charge <= 0.0:
-		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
+		# A body of its own (see SCANS) faces the way it goes while it goes, so its walk carries it forward and not
+		# crabwise when it flanks or weaves; standing, it faces its prey
+		var fv := Vector2(velocity.x, velocity.z)
+		var face := atan2(velocity.x, velocity.z) if _scan and fv.length() > 1.0 and _buried < 0.5 else atan2(dir.x, dir.z)
+		rotation.y = lerp_angle(rotation.y, face, minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
 	if not frozen:
 		var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if fd > 7.0 and kind in ["rusher", "spider", "idol"] and (not Game.wasteland or WRules.flanks()) else dir
 		var want := d2 * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
@@ -1310,6 +1331,7 @@ var _scan_anim: AnimationPlayer
 
 var _scan_bone := -1
 var _scan_skel: Skeleton3D
+var _scan_legs: LegStepper   ## a scanned body's legs stepped for it (SCANS "legs"), its clip having no walk
 var _scan_walk := ""
 var _scan_idle := ""
 var _scan_gait := ""
@@ -1407,10 +1429,28 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	elif opt.has("weak_k"):
 		# Its own head kept, the unseen Speeb's head sized to it: the mark a head shot must come near
 		head.scale = Vector3.ONE * float(opt.weak_k)
+	# Its skeleton, for its head bone and for the pace of its walk (Stride)
+	var sks := m.find_children("*", "Skeleton3D", true, false)
+	if not sks.is_empty():
+		_scan_skel = sks[0]
+		if opt.has("feet"):
+			# (its walk's way, given in the model's own frame, is told to Stride in the skeleton's)
+			var rel := m.global_transform.affine_inverse() * _scan_skel.global_transform if m.is_inside_tree() else Transform3D()
+			var ah: Vector3 = opt.get("feet_ahead", Vector3.ZERO)
+			Stride.set_feet(_scan_skel, opt.feet, rel.basis.inverse() * ah if ah != Vector3.ZERO else Vector3.ZERO)
+		if opt.has("legs"):
+			_scan_legs = LegStepper.new()
+			_scan_skel.add_child(_scan_legs)
+			_scan_legs.face = self
+			# its feet on the ground under each, where the land is known; else level with where it stands
+			_scan_legs.ground_at = func(x: float, z: float) -> float:
+				var tr = level.get("terrain")
+				return float(tr.height_at(x, z)) if tr != null and tr.has_method("height_at") else _scan.global_position.y
+			if not _scan_legs.find_legs(int(opt.legs)):
+				_scan_legs.queue_free()
+				_scan_legs = null
 	if opt.has("bone"):
-		var sks := m.find_children("*", "Skeleton3D", true, false)
-		if not sks.is_empty():
-			_scan_skel = sks[0]
+		if _scan_skel:
 			_scan_bone = _scan_skel.find_bone(str(opt.bone))
 			if _scan_bone >= 0 and opt.get("shrink", false):
 				_scan_skel.set_bone_pose_scale(_scan_bone, Vector3.ONE * 0.05)
@@ -1547,6 +1587,17 @@ func _scan_play(an: String) -> void:
 		_scan_anim.play(an, 0.3)
 
 
+## A scanned body that walks the way the floating forms are steered (the Unseen, the Harrow, the Long Watcher):
+## it turns its body the way it goes (or to its prey, standing) and steps at its pace. Its head is kept looking
+## at the prey, as the floating forms' heads do.
+func _scan_walk_tick(delta: float, dir: Vector3) -> void:
+	var v := Vector2(velocity.x, velocity.z)
+	var face := atan2(velocity.x, velocity.z) if v.length() > 0.5 else (atan2(dir.x, dir.z) if Vector2(dir.x, dir.z).length() > 0.05 and not _watched else rotation.y)
+	rotation.y = lerp_angle(rotation.y, face, minf(1.0, delta * 8.0))
+	head.rotation.y = wrapf(atan2(dir.x, dir.z) - rotation.y, -PI, PI)
+	_scan_tick(v.length())
+
+
 ## Its body walks with its pace (or stands, if it has a standing clip), and its Speeb's head rides its neck.
 func _scan_tick(pace: float) -> void:
 	if _scan_anim and Time.get_ticks_msec() < _scan_busy:
@@ -1576,10 +1627,14 @@ func _scan_tick(pace: float) -> void:
 				rs = float(o.run[1])
 			if o.has("run") and pace > ws * 1.6:
 				_scan_play(str(o.run[0]))
-				_scan_anim.speed_scale = clampf(pace / rs, 0.5, 2.0)
+				_scan_anim.speed_scale = clampf(pace / rs, 0.5, 2.6)
 			else:
 				_scan_play(_scan_walk)
 				_scan_anim.speed_scale = clampf(pace / ws, 0.35, 2.4) if ws > 0.0 else 1.0
+		if _scan_legs:
+			# its legs step at its pace over its clip, which plays as it is
+			_scan_legs.pace = pace
+			_scan_anim.speed_scale = 1.0
 	if _scan_skel and _scan_bone >= 0:
 		var opt: Dictionary = SCANS[_sk][5]
 		var at: Vector3 = (_scan_skel.global_transform * _scan_skel.get_bone_global_pose(_scan_bone)).origin
@@ -3146,6 +3201,10 @@ func _charge_tick(delta: float) -> void:
 	velocity = _charge_dir * 24.0 * level.enemy_time
 	velocity.y = -4.0 if walks() or not kind in ["saucer", "unseen"] else 0.0
 	move_and_slide()
+	if _scan and not _fb:
+		# A body of its own runs the charge down, facing it, its legs as quick as they go
+		rotation.y = lerp_angle(rotation.y, atan2(_charge_dir.x, _charge_dir.z), minf(1.0, delta * 10.0))
+		_scan_tick(24.0)
 	for t in level.targets():
 		if _charge_hit.has(t):
 			continue

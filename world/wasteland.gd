@@ -9744,6 +9744,9 @@ func debug_scanfoes() -> void:
 			continue
 		e.set_physics_process(false)
 		await get_tree().create_timer(0.6).timeout
+		if not is_instance_valid(e):
+			out.append(k + "=gone")   # (a sea serpent set down on land sinks back at the sea's next look)
+			continue
 		var body_ok: bool = e._scan != null and e._scan.get_child_count() > 0
 		var moving: bool = e._scan_anim != null and e._scan_anim.is_playing()
 		var tall := 0.0
@@ -18080,17 +18083,24 @@ func debug_feet() -> void:
 	var lines := []
 	# The foes, a handful at a time, coming at the one who stands here
 	var kinds: Array = LesserSpeeb.KINDS.keys() + LesserSpeeb.VARIANTS.keys()
+	# feet=...,bosses: the great ones too (or name them one by one: feet=boss_marsh,boss_forest)
+	var great: bool = "bosses" in only.split(",")
+	kinds += LesserSpeeb.BOSSES.keys()
 	if only != "":
-		kinds = kinds.filter(func(k): return k in only.split(","))
+		kinds = kinds.filter(func(k): return k in only.split(",") or (great and LesserSpeeb.BOSSES.has(k)))
+	else:
+		kinds = kinds.filter(func(k): return not LesserSpeeb.BOSSES.has(k))
 	var i := 0
 	while i < kinds.size():
 		var batch := []
-		for j in 6:
-			if i >= kinds.size():
+		# the great ones two at a time, well apart
+		var big: bool = LesserSpeeb.BOSSES.has(kinds[i])
+		for j in (2 if big else 6):
+			if i >= kinds.size() or LesserSpeeb.BOSSES.has(kinds[i]) != big:
 				break
 			var k: String = kinds[i]
 			i += 1
-			var at: Vector3 = player.global_position - f * 14.0 + side * (j - 2.5) * 4.0
+			var at: Vector3 = player.global_position - f * (24.0 if big else 14.0) + side * ((j - 0.5) * 16.0 if big else (j - 2.5) * 4.0)
 			at.y = terrain.height_at(at.x, at.z) + 0.5
 			var e: LesserSpeeb = spawn_at(k, at)
 			if e == null:
@@ -18211,7 +18221,7 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			var lp := Vector3.ZERO
 			# a Stepper's legs are in the bones only while the skin is drawn: it keeps that pose for us
 			if not d.has("stp"):
-				var sts := sk.get_children().filter(func(c): return c is Stepper)
+				var sts := sk.get_children().filter(func(c): return c is Stepper or c is LegStepper)
 				d["stp"] = sts[0] if not sts.is_empty() else null
 				if is_instance_valid(d.stp):
 					d.stp.keep = true
@@ -18446,6 +18456,16 @@ static func _feet_bones(sk: Skeleton3D) -> Array:
 	var defs := out.filter(func(b): return sk.get_bone_name(b).begins_with("DEF"))
 	if not defs.is_empty():
 		out = defs
+	# (the skinned feet, where a rig keeps its FK and IK controls as bones too)
+	var binds := out.filter(func(b): return "_bind_" in sk.get_bone_name(b).to_lower())
+	if not binds.is_empty():
+		out = binds
+	# feet named for Stride (SCANS "feet"), and the legs a LegStepper steps: their tips
+	if not Stride.named_feet(sk).is_empty():
+		out = Stride.named_feet(sk)
+	for c in sk.get_children():
+		if c is LegStepper and not (c as LegStepper)._legs.is_empty():
+			out = (c as LegStepper)._legs.map(func(l): return l[0][l[0].size() - 1])
 	if out.is_empty():
 		for bi in sk.get_bone_count():
 			var depth := 0

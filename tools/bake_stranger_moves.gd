@@ -145,9 +145,14 @@ func _initialize() -> void:
 	FOOT_R = tsk.get_bone_name(tb(R + "RightFoot"))
 	var tap0: AnimationPlayer = _player()
 	own = Animation.new()
+	# OWN_CLIP=<its own clip>: every bone not baked from the donor keeps its own clip's motion (the Unseen's arms,
+	# back, head and tail sway as drawn while its legs walk)
+	var own_clip := OS.get_environment("OWN_CLIP")
+	if own_clip != "" and tap0.has_animation(own_clip):
+		own = tap0.get_animation(own_clip)
 	for ti in own.get_track_count():
 		var bn := str(own.track_get_path(ti).get_concatenated_subnames())
-		if bn.begins_with("Bone"):
+		if bn.begins_with("Bone") or (own_clip != "" and not MAP.has(bn)):
 			var bi := tsk.find_bone(bn)
 			if bi < 0:
 				continue
@@ -225,12 +230,40 @@ func _setup_map() -> void:
 		MAP[tsk.get_bone_name(tb(R + S + "Leg"))] = ["dir", "Leg_2_%s_%s" % [t, l[1]], "Leg_3_%s_%s" % [t, l[2]], tsk.get_bone_name(tb(R + S + "Foot"))]
 		MAP[tsk.get_bone_name(tb(R + S + "Foot"))] = ["rot", "Leg_3_%s_%s" % [t, l[2]]]
 		MAP[tsk.get_bone_name(tb(R + S + "ToeBase"))] = ["rot", "Leg_4_%s_%s" % [t, l[3]]]
+	# MAP_ONLY=Hips,LeftUpLeg,...: only these of the donor's bones are followed (the rest keep their own clip, see
+	# OWN_CLIP). LEG_ROT=1: thigh and shin turn as the donor's do from their rest, not pointed along the donor's
+	# limbs, so a leg of another shape (the Unseen's bent-back deer's legs) keeps its shape while it swings
+	if OS.get_environment("LEG_ROT") != "":
+		for sd in [["Left", "L", "042", "043"], ["Right", "R", "038", "039"]]:
+			MAP[tsk.get_bone_name(tb(R + str(sd[0]) + "UpLeg"))] = ["rot", "Leg_1_%s_%s" % [sd[1], sd[2]]]
+			MAP[tsk.get_bone_name(tb(R + str(sd[0]) + "Leg"))] = ["rot", "Leg_2_%s_%s" % [sd[1], sd[3]]]
+	if OS.get_environment("LEG_IK") != "":
+		# LEG_IK=1: thigh and shin bent (as they are bent at rest) to set the ankle where the donor's ankle is,
+		# carried over at the body's size: a leg of another shape steps where the donor's foot steps
+		for sd in [["Left", "L", "044"], ["Right", "R", "040"]]:
+			var S := str(sd[0])
+			MAP[tsk.get_bone_name(tb(R + S + "UpLeg"))] = ["ik", "Leg_3_%s_%s" % [sd[1], sd[2]], tsk.get_bone_name(tb(R + S + "Leg")), tsk.get_bone_name(tb(R + S + "Foot"))]
+			MAP[tsk.get_bone_name(tb(R + S + "Leg"))] = ["ikshin", tsk.get_bone_name(tb(R + S + "Foot"))]
+			if OS.get_environment("FOOT_HOLD") != "":
+				# FOOT_HOLD=1: the foot keeps the lie it has at rest, flat as it was drawn standing
+				MAP[tsk.get_bone_name(tb(R + S + "Foot"))] = ["hold"]
+	if OS.get_environment("MAP_ONLY") != "":
+		var keep := {}
+		for role in OS.get_environment("MAP_ONLY").split(","):
+			if tb(R + role) >= 0:
+				keep[tsk.get_bone_name(tb(R + role))] = true
+		for k in MAP.keys():
+			if not keep.has(k):
+				MAP.erase(k)
 	print("MAP ", MAP)
 	# The shared frame: left (from right hip to left hip) and up (hips to head), each at rest
 	var sf := _frame(_sglob(sb("Leg_1_L_042"), true).origin - _sglob(sb("Leg_1_R_038"), true).origin,
 		_sglob(sb("Head_07"), true).origin - _sglob(sb("Spine_1_02"), true).origin)
 	var tf := _frame(bindG[tb(R + "LeftUpLeg")].origin - bindG[tb(R + "RightUpLeg")].origin,
 		bindG[tb(R + "Head")].origin - bindG[tb(R + "Hips")].origin)
+	if OS.get_environment("UP_Y") != "":
+		# a body bent over (its head ahead of its hips, not over them): its up is the model's
+		tf = _frame(bindG[tb(R + "LeftUpLeg")].origin - bindG[tb(R + "RightUpLeg")].origin, Vector3.UP)
 	M = tf * sf.inverse()
 	# Hip heights over the feet, for the hips' bob and sway
 	var sh := _sglob(sb("Leg_1_L_042"), true).origin.y - _sglob(sb("Leg_3_L_044"), true).origin.y
@@ -260,7 +293,7 @@ func _bake(clip: String) -> Animation:
 	var pt := {}
 	var rt := {}
 	for b in order:
-		if not skinned.has(b) or (only_mapped and not MAP.has(tsk.get_bone_name(b))):
+		if not skinned.has(b) or (only_mapped and not MAP.has(tsk.get_bone_name(b)) and not own_tracks.has(b)):
 			continue
 		pt[b] = a.add_track(Animation.TYPE_POSITION_3D)
 		a.track_set_path(pt[b], NodePath("%s:%s" % [base, tsk.get_bone_name(b)]))
@@ -283,6 +316,7 @@ func _bake(clip: String) -> Animation:
 		ap.seek(t, true)
 
 		var G := {}
+		var ik_at := {}   ## foot bone -> where its ankle is set (LEG_IK)
 		for b in order:
 			var nm := tsk.get_bone_name(b)
 			var p := tsk.get_bone_parent(b)
@@ -314,6 +348,38 @@ func _bake(clip: String) -> Animation:
 						var have := g.basis * j
 						if want.length() > 1e-6 and have.length() > 1e-6:
 							g.basis = Basis(Quaternion(have.normalized(), want.normalized())) * g.basis
+					"hold":
+						g.basis = (bindG[b] as Transform3D).basis
+					"ik":
+						var kb := tb(mp[2])
+						var fb := tb(mp[3])
+						var Pb: Vector3 = (bindG[b] as Transform3D).origin
+						var Kb: Vector3 = (bindG[kb] as Transform3D).origin
+						var Ab: Vector3 = (bindG[fb] as Transform3D).origin
+						var l1 := Pb.distance_to(Kb)
+						var l2 := Kb.distance_to(Ab)
+						var sa := sb(mp[1])
+						var A: Vector3 = Ab + M * (_sglob(sa, false).origin - drift * t - _sglob(sa, true).origin) * scale_k
+						var P := g.origin
+						var dd := clampf(P.distance_to(A), absf(l1 - l2) + 1e-4, (l1 + l2) * 0.999)
+						var u := (A - P).normalized()
+						# the knee bends the way it is bent at rest, turned as the hips are turned
+						var ub := (Ab - Pb).normalized()
+						var bend := (Kb - Pb) - ub * (Kb - Pb).dot(ub)
+						bend = (pg.basis.orthonormalized() * pb.basis.orthonormalized().inverse()) * bend
+						var v := (bend - u * bend.dot(u)).normalized()
+						var ca := clampf((l1 * l1 + dd * dd - l2 * l2) / (2.0 * l1 * dd), -1.0, 1.0)
+						var K := P + l1 * (u * ca + v * sqrt(1.0 - ca * ca))
+						A = P + u * dd
+						var j: Vector3 = (bindG[b] as Transform3D).affine_inverse() * Kb
+						var have := g.basis * j
+						g.basis = Basis(Quaternion(have.normalized(), (K - P).normalized())) * g.basis
+						ik_at[mp[3]] = A
+					"ikshin":
+						if ik_at.has(mp[1]):
+							var j: Vector3 = (bindG[b] as Transform3D).affine_inverse() * (bindG[tb(mp[1])] as Transform3D).origin
+							var have := g.basis * j
+							g.basis = Basis(Quaternion(have.normalized(), ((ik_at[mp[1]] as Vector3) - g.origin).normalized())) * g.basis
 					"follow":
 						var fb := tb(mp[1])
 						# The wrist as it is set in the draugr's own standing pose (its rest): the sword held low and forward
