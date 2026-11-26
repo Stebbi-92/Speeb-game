@@ -41,7 +41,9 @@ const MODELS := {
 		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead"}, "head_0111", "DEF-hand.R_0245", "chest_019", 0.0,
 		AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72))],
 	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle -loop", "walk": "rig|walk -loop", "sprint": "rig|run -loop",
-		"attack-melee-right": "rig|knife_action", "holding-both": "rig|idle -loop", "holding-both-shoot": "rig|idle -loop"}, "head_05", "hand_R_022", "neck_04", 0.0],
+		"attack-melee-right": "rig|knife_action", "holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "head_05", "hand_R_022", "neck_04", 0.0,
+		# its rifle raised to the shoulder: Nerd Survivor's aim, baked onto its bones (tools/bake_stranger_moves.gd)
+		null, "res://assets/models/foes/folk/soldier_moves.res", PI],
 }
 ## Kin with a body of their own in place of their kind's: [file, height, base scale, clips, head bone, hand bone,
 ## chest bone, turn, bounds or null, moves library (clips baked onto a model that came with none), and (for a rig
@@ -50,8 +52,8 @@ const VARIANT_MODELS := {
 	# "Dune Dweller Rig" by DM-913: the Tunnel Unlit, wrapped and hooded. Its walk, run and stance are
 	# Nerd Survivor's, baked onto its bones (tools/bake_dweller_moves.gd)
 	"tunnel_unlit": ["dweller/dune_dweller_rig.glb", 1.95, 0.68, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run",
-		"holding-both": "moves/Idle", "holding-both-shoot": "moves/Idle"}, "Head_87", "Hand.R_142", "Torso_148", 0.0, null,
-		"res://assets/models/foes/dweller/dweller_moves.res"],
+		"holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "Head_87", "Hand.R_142", "Torso_148", 0.0, null,
+		"res://assets/models/foes/dweller/dweller_moves.res", PI],
 	# "Man In Coat" by Saitam: the man in the coat. His walk, stance and aim are Nerd Survivor's, baked onto
 	# his bones (tools/bake_stranger_moves.gd); the clip he came with is not used
 	"stranger": ["stranger/man_in_coat.glb", 1.85, 0.68, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run",

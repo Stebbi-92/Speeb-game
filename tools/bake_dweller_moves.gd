@@ -134,7 +134,17 @@ func _initialize() -> void:
 				own_tracks[bi][1] = ti
 	print("OWN back-leg bones ", own_tracks.size())
 	var lib := AnimationLibrary.new()
-	for pair in [["Walk", "Walk Forward"], ["Run", "Run Forward"], ["Idle", OS.get_environment("IDLE") if OS.get_environment("IDLE") != "" else "Melee Idle"]]:
+	var out0 := OS.get_environment("OUT") if OS.get_environment("OUT") != "" else "res://assets/models/foes/dweller/dweller_moves.res"
+	var clips := [["Walk", "Walk Forward"], ["Run", "Run Forward"], ["Idle", OS.get_environment("IDLE") if OS.get_environment("IDLE") != "" else "Melee Idle"]]
+	# ADD=Name=Source clip,... bakes only these, into the clips already made (the Tunnel Unlit's aim, 0.24)
+	if OS.get_environment("ADD") != "":
+		lib = (load(out0) as AnimationLibrary).duplicate(true)
+		clips = []
+		for c in OS.get_environment("ADD").split(","):
+			clips.append([c.get_slice("=", 0), c.get_slice("=", 1)])
+	for pair in clips:
+		if lib.has_animation(pair[0]):
+			lib.remove_animation(pair[0])
 		lib.add_animation(pair[0], _bake(pair[1]))
 	if OS.get_environment("DEBUG") != "":
 		for nm in ["Bind", "Rest"]:

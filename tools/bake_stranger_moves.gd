@@ -19,6 +19,7 @@ var only_mapped := OS.get_environment("ONLY_MAPPED") != ""
 ## USE_REST=1: the body's rest is the pose it is drawn in (its binds are in other units and turned about), so
 ## that is what the donor's moves are laid over
 var use_rest := OS.get_environment("USE_REST") != ""
+var ALIAS := {}
 const OWN := ""
 const FPS := 30.0
 const PELVIS_UP := 0.0
@@ -56,6 +57,12 @@ static func chain(n: Node, top: Node) -> Transform3D:
 
 
 func tb(n: String) -> int:
+	# ALIAS=Hips=hips,Spine1=-,...: a rig that names its bones its own way (the Unlit's soldier); "-" it lacks
+	var key := n.substr(R.length()) if R != "" and n.begins_with(R) else n
+	if ALIAS.has(key):
+		if str(ALIAS[key]) == "-":
+			return -1
+		n = str(ALIAS[key])
 	var i := tsk.find_bone(n)
 	if i < 0:
 		# by the start of its name (the glb adds a number: mixamorig_LeftArm_40)
@@ -80,6 +87,8 @@ func sb(n: String) -> int:
 
 
 func _initialize() -> void:
+	for kv in OS.get_environment("ALIAS").split(",", false):
+		ALIAS[kv.get_slice("=", 0)] = kv.get_slice("=", 1)
 	troot = (load(TGT) as PackedScene).instantiate()
 	root.add_child(troot)
 	tsk = troot.find_children("*", "Skeleton3D", true, false)[0]
@@ -202,6 +211,8 @@ func _sglob(b: int, rest: bool) -> Transform3D:
 func _setup_map() -> void:
 	MAP = {}
 	for pair in [["Hips", "Spine_1_02"], ["Spine", "Spine_3_04"], ["Spine1", "Spine_3_04"], ["Spine2", "Spine_4_05"], ["Neck", "Spine_5_06"], ["Head", "Head_07"]]:
+		if tb(R + pair[0]) < 0:
+			continue
 		MAP[tsk.get_bone_name(tb(R + pair[0]))] = ["rot", pair[1]] if pair[0] != "Spine1" else ["none"]
 	for sd in [["Left", "L", ["021", "022", "023", "024"], ["042", "043", "044", "045"]], ["Right", "R", ["08", "09", "010", "011"], ["038", "039", "040", "041"]]]:
 		var S: String = sd[0]
