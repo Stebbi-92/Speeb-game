@@ -98,7 +98,8 @@ func _ready() -> void:
 	add_child(cam)
 	cam.current = true
 	var drone := AudioStreamPlayer.new()
-	var s = load("res://assets/audio/drone.ogg")
+	# A looping copy: the loaded file is shared, and nightfall plays the same drone once
+	var s = load("res://assets/audio/drone.ogg").duplicate()
 	s.loop = true
 	drone.stream = s
 	drone.volume_db = -10

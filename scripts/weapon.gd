@@ -1169,11 +1169,13 @@ func _try_fire() -> void:
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame":
 		lvl.sfx("supp" if quiet else str(s.sound), -6 if quiet else shot_db(str(s.sound)), null, 0.7 if s.mode == "flame" else 1.0)
+	if not quiet and str(s.sound) in ["shotgun", "autoshotgun"]:
+		player.shake(0.05)   # a 12-gauge's boom is felt as much as heard
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
 	if lvl.has_method("noise"):
 		lvl.noise(player.global_position, 20.0 if quiet else (140.0 if gun() in ["sniper", "revolver"] else 110.0))
 	if s.mode == "pump":
-		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump", -8))
+		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump_rack", -7))   # back at 0.35 s, home at 0.63
 	elif s.mode == "bolt":
 		get_tree().create_timer(0.45, false).timeout.connect(func(): lvl.sfx("pump", -8, null, 1.25))
 	if s.mode == "flame":

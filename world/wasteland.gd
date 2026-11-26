@@ -536,6 +536,8 @@ func _place_sounds() -> void:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(r.pos.x, r.pos.z)) - 10.0) / 30.0, 0.0, 1.0))
 	for l in lairs:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(l.pos.x, l.pos.z)) - 15.0) / 35.0, 0.0, 1.0))
+	if base_at(p) >= 0:
+		cave *= 0.3   # a lit camp built by old stones is a home: their hollow wind no longer drones under it
 	# Each land has its own sound under the wind: the forest's leaves, the marsh's water, birds on the
 	# green isles, insects in the wet places after dark
 	var land := str(terrain.biome_name(p.x, p.z))
@@ -6711,6 +6713,7 @@ func _w_stranger_says(id: int, line: String) -> void:
 	var v := AudioStreamPlayer3D.new()
 	v.stream = WBabble.make("The man in the coat", line, clampf(line.length() * 0.05, 1.0, 3.0))
 	v.unit_size = 8.0
+	v.max_distance = 50.0
 	v.volume_db = -4.0
 	e.add_child(v)
 	v.position.y = 1.5

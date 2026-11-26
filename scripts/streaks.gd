@@ -108,7 +108,13 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 	var center := at
 	var r := 26.0
 	h.global_position = center + Vector3(-300, 80, 0)
-	_engine(h, "rotor", 9.0, 1.0, true)
+	# Its rotor: a heavy, beating loop, heard from far off as it comes and loud overhead
+	var rotor := _engine(h, "rotor_gunship", 4.0, 1.0, true)
+	if rotor:
+		rotor.unit_size = 40.0
+		rotor.max_distance = 900.0
+		rotor.attenuation_filter_cutoff_hz = 6000.0
+		rotor.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED   # it moves in steps: its pitch is set below
 	# Comes in, then circles
 	var t := 0.0
 	var arrive := 5.0
@@ -134,6 +140,11 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 		h.global_position = p
 		var vel := (p - prev) / dt
 		prev = p
+		# The pitch of its coming and going (Doppler), smoothed so the stepped flight does not warble it
+		var cam := lvl.get_viewport().get_camera_3d() if lvl.get_viewport() else null
+		if rotor and cam:
+			var away := vel.dot((p - cam.global_position).normalized())
+			rotor.pitch_scale = lerpf(rotor.pitch_scale, clampf(343.0 / (343.0 + away), 0.85, 1.2), 0.15)
 		var face := center if t > arrive * 0.6 and t < arrive + hold else p + vel
 		if face.distance_to(p) > 0.5:
 			h.look_at(Vector3(face.x, p.y - 4.0, face.z), Vector3.UP)
@@ -159,19 +170,19 @@ static func _gunship(lvl: Node, at: Vector3, real: bool) -> void:
 		if fire_t <= 0.0:
 			fire_t = 0.22
 			_tracer(lvl, p - Vector3(0, 1.5, 0), tgt)
-			lvl.sfx("mg", 2, p, 0.8)
+			lvl.sfx("gunship_cannon", 6, p)   # two heavy rounds a take: a chain gun's chug
 			if real:
 				Arms.deal({best: 26.0}, (tgt - p).normalized())
 		if missile_t <= 0.0:
 			missile_t = 5.0
-			lvl.sfx("rocket", 4, p)
+			lvl.sfx("gunship_missile", 6, p)
 			await _wait(lvl, 0.6)
 			if is_instance_valid(lvl):
 				if real:
 					Arms.blast(lvl, tgt, 5.0, 160.0, lvl.get("player"))
 				else:
 					Arms.blast_fx(lvl, tgt, 5.0)
-				lvl.sfx("bomb", 2, tgt, 1.2)
+				lvl.sfx("gunship_blast", 8, tgt, randf_range(0.95, 1.05))
 				_shake(lvl, tgt, 0.4, 80.0)
 	if is_instance_valid(h):
 		h.queue_free()
@@ -194,14 +205,20 @@ static func _fly(lvl: Node, n: Node3D, v: Vector3, secs: float, pull_up := false
 
 
 ## A sound carried by an aircraft as it flies, so it comes, passes and goes (with the pitch drop of a pass).
-static func _engine(n: Node3D, sound: String, vol_db: float, pitch := 1.0, loop := false) -> void:
+static func _engine(n: Node3D, sound: String, vol_db: float, pitch := 1.0, loop := false) -> AudioStreamPlayer3D:
 	var all := Level.takes_of(sound)
 	if all.is_empty():
-		return
+		return null
 	var st: AudioStream = all[0]
 	if loop and st is AudioStreamOggVorbis:
 		st = st.duplicate()
 		(st as AudioStreamOggVorbis).loop = true
+	elif loop and st is AudioStreamWAV:
+		var wv := (st as AudioStreamWAV).duplicate() as AudioStreamWAV
+		wv.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wv.loop_begin = 0
+		wv.loop_end = wv.data.size() / ((2 if wv.format == AudioStreamWAV.FORMAT_16_BITS else 1) * (2 if wv.stereo else 1))
+		st = wv
 	var a := AudioStreamPlayer3D.new()
 	a.stream = st
 	a.bus = "Guns"
@@ -213,6 +230,7 @@ static func _engine(n: Node3D, sound: String, vol_db: float, pitch := 1.0, loop 
 	a.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
 	n.add_child(a)
 	a.play.call_deferred()
+	return a
 
 
 ## Shakes this pilgrim's view by how near a blow from the sky lands.

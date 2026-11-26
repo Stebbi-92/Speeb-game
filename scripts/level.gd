@@ -1866,7 +1866,7 @@ func rune(pos: Vector3, yaw: float, scale: float, m: Material) -> Node3D:
 
 func ambient(name: String, vol_db := -6.0) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	var s = load("res://assets/audio/%s.ogg" % name)
+	var s = load("res://assets/audio/%s.ogg" % name).duplicate()   # a looping copy: the loaded file is shared with one-shots
 	s.loop = true
 	p.stream = s
 	p.bus = "World"
@@ -1928,6 +1928,10 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 	if all.is_empty():
 		return
 	var s = all[randi() % all.size()]
+	if s is AudioStreamOggVorbis and s.loop:
+		# A one-shot never loops, even if something set the shared file looping (a drone that never ended)
+		s = s.duplicate()
+		s.loop = false
 	if all.size() > 1:
 		pitch *= randf_range(0.97, 1.03)
 		vol_db += randf_range(-1.0, 0.5)
@@ -1942,6 +1946,13 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.play()
 		p.finished.connect(p.queue_free)
 	else:
+		# How far it reaches: past its reach it is not heard at all, and it fades out over the last stretch
+		var reach := _reach(name)
+		var cam := get_viewport().get_camera_3d()
+		var off: float = cam.global_position.distance_to(pos) if cam else 0.0
+		if off >= reach.y:
+			return
+		vol_db -= 30.0 * smoothstep(reach.x, reach.y, off)
 		# No more than MAX_VOICES at once: a new sound takes the place of the faintest, or is not heard
 		var loud := _heard_db(vol_db, pos)
 		_voices = _voices.filter(func(v): return is_instance_valid(v) and v.playing)
@@ -1964,11 +1975,12 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.position = pos
 		p.pitch_scale = pitch
 		p.unit_size = 8
+		p.max_distance = reach.y
 		var far := _carry(name)
 		if far > 0.0:
 			# Shots, blasts and aircraft carry a long way: heard across the waste, muffled by the distance
 			p.unit_size = far
-			p.max_db = 6.0
+			p.max_db = 8.0   # a shot close by may be as hot as it was played
 			p.attenuation_filter_cutoff_hz = 3500.0
 		add_child(p)
 		p.play()
@@ -1976,9 +1988,24 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		_voices.append(p)
 
 
+## Where a sound played in the world starts to fade (x) and where it is gone (y), in metres from the
+## listener. Shots are heard clearly across a fight and gone a few hundred metres off; blasts and
+## aircraft go further; roars and bells a fair way; every small sound stays near where it was made.
+static func _reach(name: String) -> Vector2:
+	var c := _carry(name)
+	if c >= 60.0:
+		return Vector2(200.0, 400.0)
+	if c > 0.0:
+		return Vector2(130.0, 250.0)
+	for n in ["great_roar", "horror", "roar", "bell", "unseen_scream", "crumble", "fall_heavy"]:
+		if name.begins_with(n):
+			return Vector2(60.0, 130.0)
+	return Vector2(30.0, 65.0)
+
+
 ## How far a sound carries (its unit size, in metres), for the loud ones; 0 for the rest.
 static func _carry(name: String) -> float:
-	for a in ["flyby", "brrt", "rotor", "jet", "boom", "bomb"]:
+	for a in ["flyby", "brrt", "rotor", "jet", "boom", "bomb", "gunship"]:
 		if name.begins_with(a):
 			return 60.0
 	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket"]:
@@ -2375,6 +2402,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					fs.name = "FlameRoar"
 					fs.stream = Arms.flame_loop()
 					fs.unit_size = 10
+					fs.max_distance = 70.0
 					fs.volume_db = Arms.FLAME_DB + 3.0
 					fs.bus = Game.bus_of("flame")
 					av.add_child(fs)

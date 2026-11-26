@@ -7,7 +7,7 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
-| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`) |
+| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`); the shotguns' shots are layered onto these recordings (`tools/make_shotgun_audio.py`) |
 | [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | via OpenGameArt | CC0 | Splashes (`tools/cut_sounds3.py`) |
 | [Hollywood-style pistol silencer sound effect](https://opengameart.org/content/hollywood-style-pistol-silencer-sound-effect) | via OpenGameArt | see page | The suppressed shot |
 | [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | via OpenGameArt | see page | The wind |
@@ -19,8 +19,8 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds) | via OpenGameArt | see page | Magazines out and in, the shotgun's rack |
 | [Shotgun Reload Sound effects](https://opengameart.org/content/shotgun-reload-sound-effects) | via OpenGameArt | see page | The shotgun's rack |
 | [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
-| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
-| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
+| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells, the latch and click in the pump's rack |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing, the pump's rack and the shotguns' ring |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks and knocks, the controller tick, the "no" sound |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
 | [Fantasy Game Music Tracks](https://kmontesdev.itch.io/7-fantasy-music-tracks) | kmontesdev (LoreBook) | CC0 | Music: dawn ("Aural"), towns ("Akash Chamber"), night ("Awakening") |
@@ -147,6 +147,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 - Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: steam hiss, the gun run's cannon, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
 - The beacon bell (`assets/audio/bell.ogg`) is a recorded bell strike from Kenney's Impact Sounds (CC0), deepened and given a hall tail by `tools/make_bell.py`.
+- The shotguns' shots (`assets/audio/shotgun_*.ogg`, `autoshotgun_*.ogg`) are the Free Firearm Sound Library's recordings (CC0) with a sub thump, a crack, a ring from Kenney's Impact Sounds (CC0) and an outdoor echo laid under them in code; the pump's rack after each shot (`pump_rack_*.ogg`) is built from Kenney's RPG Audio and Impact Sounds (CC0). Both by `tools/make_shotgun_audio.py`.
+- The Gunship's sounds are made in code by `tools/make_gunship_audio.py`: its rotor loop (`rotor_gunship.wav`), its missile and its blast entirely, and its cannon (`gunship_cannon_*.ogg`) on the Free Firearm Sound Library's AK-47 recording (CC0), deepened.
 - The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 
 ## Engine

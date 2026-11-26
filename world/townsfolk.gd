@@ -46,6 +46,7 @@ func _ready() -> void:
 	add_child(fig)
 	_voice = AudioStreamPlayer3D.new()
 	_voice.unit_size = 4.0
+	_voice.max_distance = 30.0
 	_voice.volume_db = -6.0
 	_voice.position.y = 1.6
 	add_child(_voice)

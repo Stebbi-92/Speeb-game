@@ -818,8 +818,13 @@ func _unhandled_input(e: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+## Guns sit this much above the rest of the mix: the whole is lifted by it, every line but the guns
+## brought back down by it, so shots are louder and nothing else moves. Their bus limiter keeps their crack clean.
+const GUN_LIFT_DB := 3.0
+
+
 func apply_volume() -> void:
-	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.001)))
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.001)) + GUN_LIFT_DB)
 	if AudioServer.get_bus_effect_count(0) == 0:
 		# A last guard on everything heard together
 		var guard := AudioEffectHardLimiter.new()
@@ -838,12 +843,12 @@ func apply_volume() -> void:
 				lim.ceiling_db = -0.5
 				lim.release = 0.06
 				AudioServer.add_bus_effect(i, lim)
-		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(float(bus_vol[k]), 0.001)))
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(float(bus_vol[k]), 0.001)) - (0.0 if k == "Guns" else GUN_LIFT_DB))
 
 
 ## Which line of the mixer a sound plays on, by its name.
 static func bus_of(sound: String) -> String:
-	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket", "supp", "pump", "shell", "mag_", "brrt", "jet", "flyby", "flame", "rotor", "boom", "bomb", "hit_", "swing", "chop", "parry", "draw", "tick"]:
+	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket", "supp", "pump", "shell", "mag_", "brrt", "jet", "flyby", "flame", "rotor", "gunship", "boom", "bomb", "hit_", "swing", "chop", "parry", "draw", "tick"]:
 		if sound.begins_with(g):
 			return "Guns"
 	for c in ["growl", "shriek", "roar", "great_roar", "troll", "bite", "spit", "hiss", "screech", "chitter", "skitter", "critter", "spider", "unseen", "saucer", "fall", "heavy_step", "dissolve", "whispers"]:

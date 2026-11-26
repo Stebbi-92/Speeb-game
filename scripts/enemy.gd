@@ -586,10 +586,11 @@ func _ready() -> void:
 		level.sfx("roar", 2, global_position, 0.9)
 	elif kind == "saucer":
 		var hum := AudioStreamPlayer3D.new()
-		var st = load("res://assets/audio/saucer_hum.ogg")
+		var st = load("res://assets/audio/saucer_hum.ogg").duplicate()
 		st.loop = true
 		hum.stream = st
 		hum.unit_size = 14
+		hum.max_distance = 90.0
 		hum.volume_db = -2
 		hum.autoplay = true
 		add_child(hum)
