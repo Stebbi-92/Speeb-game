@@ -2733,14 +2733,24 @@ static func landmark_column(c: Color, height: float, radius: float, light := fal
 
 ## The goals on the horizon follow the world: a dead beacon's smoke until it burns, a lair's while
 ## its great one waits there.
+## Only the dark beacon to make for next stands out over the whole waste; the others show their smoke
+## once one is close (so the sky is not a forest of columns), and a lair's only near it.
+const DARK_NEAR := 350.0   ## a dark beacon other than the next one shows within this
+const LAIR_NEAR := 450.0   ## and a waiting great one's smoke within this
+
 func _landmarks_tick() -> void:
+	var here: Vector3 = player.global_position if is_instance_valid(player) else Vector3.INF
+	var next := next_dark_beacon(here) if here != Vector3.INF else -1
 	for i in beacon_nodes.size():
 		var b: Dictionary = beacon_nodes[i]
 		if b.has("dark"):
-			(b.dark as Node3D).visible = not (i in lit) and not vigils.has(i) and (i != 8 or lit.size() >= 8)
+			var dark: bool = not (i in lit) and not vigils.has(i) and (i != 8 or lit.size() >= 8)
+			var near: bool = here != Vector3.INF and Vector2(here.x, here.z).distance_to(WPlaces.bpos(i)) < DARK_NEAR
+			(b.dark as Node3D).visible = dark and (i == next or near)
 	for l in lairs:
 		if l.has("smoke") and is_instance_valid(l.smoke):
-			(l.smoke as Node3D).visible = lair_ready(l)
+			var lp: Vector3 = l.pos
+			(l.smoke as Node3D).visible = lair_ready(l) and here != Vector3.INF and Vector2(here.x, here.z).distance_to(Vector2(lp.x, lp.z)) < LAIR_NEAR
 	_embers_tick()
 
 
