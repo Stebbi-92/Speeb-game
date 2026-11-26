@@ -215,7 +215,7 @@ func build() -> void:
 
 
 ## The graphics presets. Low: short, coarse shadows and no glow, for slower machines. Standard: the
-## world as made. High: ambient occlusion, indirect light, and a richer bloom.
+## world as made. High: ambient occlusion and a richer bloom.
 func apply_quality() -> void:
 	if env == null:
 		return
@@ -223,7 +223,9 @@ func apply_quality() -> void:
 	var low := Game.quality == 0
 	env.ssao_enabled = high
 	env.ssao_intensity = 1.6
-	env.ssil_enabled = high
+	# (no indirect light from the screen: on some cards it gives back numbers that are not numbers, and the
+	# glow then floods the sky with flat blue, yellow, red or cyan)
+	env.ssil_enabled = false
 	if not has_meta("glow0"):
 		set_meta("glow0", env.glow_intensity)
 	env.glow_enabled = not low

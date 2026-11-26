@@ -25,8 +25,13 @@ varying vec3 wpos;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	// The grain lies flat on the world (u along x, v along z), so the mesh needs no tangents of its own
-	TANGENT = normalize(vec3(1.0, 0.0, 0.0) - NORMAL * NORMAL.x);
-	BINORMAL = normalize(cross(NORMAL, TANGENT));
+	// (a face turned straight along x has no such tangent: it takes z instead, never a zero length, which
+	// would make the light there not a number and the glow spread it over the sky)
+	vec3 t = vec3(1.0, 0.0, 0.0) - NORMAL * NORMAL.x;
+	if (dot(t, t) < 1e-6) t = vec3(0.0, 0.0, 1.0) - NORMAL * NORMAL.z;
+	TANGENT = normalize(t);
+	vec3 b = cross(NORMAL, TANGENT);
+	BINORMAL = dot(b, b) > 1e-12 ? normalize(b) : vec3(0.0, 0.0, 1.0);
 	wa = CUSTOM0;
 	wb = CUSTOM1;
 	// Steep ground is rock, whatever land it is in
