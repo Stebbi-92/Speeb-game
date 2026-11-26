@@ -63,7 +63,7 @@ const VARIANTS := {
 		"text": "Wound about the drowned tower of the Kraken-Bell. It pulls boats down."},
 	# 0.10: the forms of the far lands, each with one way to learn ("trait", see FoeTraits)
 	"flicker": {"base": "wisp", "name": "Flicker", "hp": 55.0, "bite": 14.0, "trait": "phase", "tint": Color(0.75, 0.85, 1.0),
-		"weak": {"blade": 1.6, "shot": 1.4}, "tough": {"bullet": 0.5, "fire": 0.0}, "text": "Here, then gone, then behind you. Keep turning. A blade finds it best."},
+		"weak": {"blade": 1.6, "shot": 1.4}, "tough": {"bullet": 0.3, "fire": 0.0}, "text": "Here, then gone, then behind you. Keep turning. A blade finds it best."},
 	"archivist_hand": {"base": "hollow", "name": "Archivist's Hand", "hp": 65.0, "speed": 4.4, "bite": 10.0, "trait": "thief", "tint": Color(0.55, 0.5, 0.35),
 		"text": "It grabs at your rounds and runs. Slay it and you get them back."},
 	"tunnel_unlit": {"base": "unlit_gun", "name": "Tunnel Unlit", "hp": 75.0, "trait": "burrow", "tint": Color(0.4, 0.33, 0.25),
@@ -89,7 +89,7 @@ const VARIANTS := {
 	"mound_guard": {"base": "knight", "name": "Mound Guard", "hp": 280.0, "trait": "pair", "pack": 2, "tint": Color(0.35, 0.3, 0.25),
 		"weak": {"blunt": 1.5, "blast": 1.3}, "tough": {"blade": 0.6, "shot": 0.7}, "text": "They guard the old mounds in pairs, and strike harder side by side. Part them."},
 	"herd_ghost": {"base": "brute", "name": "Herd Ghost", "hp": 400.0, "speed": 7.0, "bite": 34.0, "trait": "stampede", "pack": 4, "tint": Color(0.85, 0.85, 0.9),
-		"tough": {"bullet": 0.7, "shot": 0.7, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
+		"tough": {"bullet": 0.45, "shot": 0.5, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
 	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
 		"text": "Something drowned long ago and grown in the tar. It clings."},
 	# 0.12: the old tales of the themed isles. Hrafnsey keeps the north's dead; Kalaja the south's night things.
@@ -274,7 +274,7 @@ const KINDS := {
 	"saltbone": {"name": "Salt-Bones", "hp": 40.0, "size": 0.9, "speed": 6.0, "bite": 13.0, "radius": 0.4, "body": "model", "role": "melee", "head_y": 0.62,
 		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "Bones the salt kept. Quick, and bullets slip through them. Use shot or the blade."},
 	"vigil": {"name": "Lost Vigil", "hp": 70.0, "size": 1.0, "speed": 3.4, "bite": 12.0, "radius": 0.5, "body": "model", "role": "float", "head_y": 0.5,
-		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.5, "shot": 0.6}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth."},
+		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.3, "shot": 0.4}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth. Rounds pass through it: use fire or a blade."},
 	"warden": {"name": "Gravewarden", "hp": 260.0, "size": 1.4, "speed": 3.0, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1,
 		"weak": {"fire": 1.4}, "tough": {"bullet": 0.8}, "text": "It keeps the Hollowed. Where it walks, more of them rise."},
 	# 0.7: more of the waste's foes. Each has one thing to learn about it.
