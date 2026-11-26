@@ -297,8 +297,30 @@ func _flash() -> void:
 func die() -> void:
 	_alive = false
 	collision_layer = 0
+	# A body made with its own fall (the tusker's, to one side or the other) plays it; the rest stop where they
+	# were, buckle and roll onto their side, a last kick, and lie still to be butchered
+	var side := 1.0 if randf() < 0.5 else -1.0
+	var own := ""
+	if _anim:
+		for c in (["Arm_Boar|Death_L", "Arm_Boar|Death_R"] if side > 0.0 else ["Arm_Boar|Death_R", "Arm_Boar|Death_L"]):
+			if _anim.has_animation(c):
+				own = c
+				break
+	if own != "":
+		_anim.get_animation(own).loop_mode = Animation.LOOP_NONE
+		_anim.speed_scale = 1.0
+		_anim.play(own, 0.12)
+		var tw0 := create_tween()
+		tw0.tween_interval(20.0)
+		tw0.tween_callback(queue_free)
+		return
+	if _anim:
+		_anim.pause()
 	var tw := create_tween()
-	tw.tween_property(self, "rotation:z", PI / 2, 0.4)
+	tw.tween_property(self, "position:y", position.y - 0.08, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", side * PI / 2, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", side * PI * 0.47, 0.12).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(self, "rotation:z", side * PI / 2, 0.2).set_trans(Tween.TRANS_SINE)
 	tw.tween_interval(20.0)
 	tw.tween_callback(queue_free)
 

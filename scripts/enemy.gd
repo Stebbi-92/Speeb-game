@@ -2277,7 +2277,7 @@ func die(slain: bool) -> void:
 				da.loop_mode = Animation.LOOP_NONE
 		_sink_away(2.6)
 		return
-	if slain and (kind in WINGED or kind == "saucer"):
+	if slain and (kind in WINGED or kind == "saucer" or (spec.get("wings", false) and _air_t > 0.5)):
 		_fall_from_sky()
 		return
 	if slain and not kind in ["saucer", "wisp", "mite"] and not (_fb and _fb._float):
@@ -2466,7 +2466,7 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 			_attack_cd = cd
 			_knock += dir * 4.0
 			if dist < reach + 0.7 and _perfect_guard(p):
-				_parried(dir)
+				_parried(dir, p)
 			elif dist < reach + 0.7:
 				level.sfx("bite", -2, global_position)
 				if randf() < 0.5:
@@ -2501,15 +2501,19 @@ func _perfect_guard(p: Node3D) -> bool:
 
 static var parries := 0   ## (for the tests)
 
-func _parried(dir: Vector3) -> void:
+func _parried(dir: Vector3, by: Node3D = null) -> void:
 	parries += 1
-	level.sfx("parry", 0, global_position)
 	_stagger = 1.3
 	_wind = 0.0
 	_show_wind(-1.0)
+	_knock = -dir * 3.0
+	if by is Companion and Net.online and level.has_method("_w_parried"):
+		# A friend's guard turned it: they hear the ring of it and feel it in their own hands
+		level.shared("_w_parried", [int(by.peer_id), global_position])
+		return
+	level.sfx("parry", 0, global_position)
 	level.player.shake(0.2)
 	level.hud.hitmarker(false, true)
-	_knock = -dir * 3.0
 
 
 ## The swelling and glow of a gathering bite (k from 0 to 1), or back to rest (k below 0).
@@ -3523,7 +3527,7 @@ func _begin_move(m: String, k: float, dir: Vector3, reach := 0.0) -> void:
 func _land_strike(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
 	if dist < reach + 0.7:
 		if _perfect_guard(p):
-			_parried(dir)
+			_parried(dir, p)
 		else:
 			level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
 			level.hurt_target(p, spec.bite * FoeTraits.bite_mult(self), global_position)
@@ -3558,7 +3562,7 @@ func _land_lunge(p: Node3D, dir: Vector3, reach: float) -> void:
 		var d := global_position.distance_to(p.global_position)
 		if d < reach + 1.0:
 			if _perfect_guard(p):
-				_parried(dir)
+				_parried(dir, p)
 			else:
 				level.sfx("chop", -2, global_position)
 				level.hurt_target(p, spec.bite * 1.3, global_position))
@@ -3570,7 +3574,7 @@ func _land_grab(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
 		level.sfx("swing", -6, global_position, 0.7)
 		return
 	if _perfect_guard(p):
-		_parried(dir)
+		_parried(dir, p)
 		return
 	if p == level.player and level.player.dodge_t > 0.0:
 		return

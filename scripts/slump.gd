@@ -79,6 +79,11 @@ static func start(s: Skeleton3D, how: String, seed: int) -> Slump:
 	var r := roles_of(s)
 	if r.is_empty():
 		return null
+	# Only what stands upright on two legs folds this way (not the she-dragon, nor a beast)
+	var up := s.get_bone_global_pose(r.head).origin - s.get_bone_global_pose(r.hips).origin
+	var world_up := s.global_basis.inverse() * Vector3.UP if s.is_inside_tree() else Vector3.UP
+	if up.length() < 1e-5 or up.normalized().dot(world_up.normalized()) < 0.6:
+		return null
 	# Whatever moved it stops where it was: from here its bones are the fall's
 	var top: Node = s.owner if s.owner else s.get_parent()
 	for ap in top.find_children("*", "AnimationPlayer", true, false):

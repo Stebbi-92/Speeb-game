@@ -599,7 +599,7 @@ func _call_req(s: int, method: String, args: Array) -> void:
 const CALL_PREFIXES := ["_rq_", "_w_", "_drop", "_sworn", "_part_", "_final", "_broken"]
 ## Shared doings that only ever come from the host. A joiner asking for one (a changed or hostile copy of
 ## the game) is refused, so it cannot replace the world, change its rules, end it, or hand out goods.
-const HOST_ONLY := ["_w_snapshot", "_w_snap_part", "_w_rules", "_w_ending", "_w_end_votes", "_w_give", "_w_gift"]
+const HOST_ONLY := ["_w_snapshot", "_w_snap_part", "_w_rules", "_w_ending", "_w_end_votes", "_w_give", "_w_gift", "_w_parried"]
 static var _by_cache := {}
 
 ## Whether a land's method takes the asker's id as its first word.

@@ -2575,6 +2575,16 @@ func _w_guard_up(id: int) -> void:
 		guard_up[id] = Time.get_ticks_msec()
 
 
+## (all) A friend's guard turned a foe's blow on the host's side: the ring of it there, and the one who
+## parried feels it in their hands.
+func _w_parried(id: int, at: Vector3) -> void:
+	sfx("parry", 0, at)
+	if id == Net.me() and player:
+		player.shake(0.2)
+		if hud:
+			hud.hitmarker(false, true)
+
+
 ## (host) Whether a friend raised their guard just now, facing this foe: a perfect guard, across the wire.
 ## A little slack is given for the time the word took to come.
 func friend_guarded(c: Node3D, foe: Vector3) -> bool:
