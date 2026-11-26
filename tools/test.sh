@@ -8,7 +8,11 @@ check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
 	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
-	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
+	if [[ $call == sh:* ]]; then   # a check of its own, in a script (several programs at once)
+		GODOT=$G bash tools/${call#sh:} > "$D/$name.log" 2>&1
+	else
+		XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
+	fi
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
 	for p in "$@"; do grep -qE "$p" "$D/$name.log" || ok=0; done
@@ -178,6 +182,8 @@ check vigilwave debug_vigilwave "VIGILWAVE n=[1-9][0-9]* far=true one_side=true 
 check autoloot debug_autoloot "AUTOLOOT took=true stayed=true back=true off=true"
 check gunskill debug_gunskill "GUNSKILL start=0 top=9 wider=true steadier=true blade_free=true top_mult=1.00"
 check stranger debug_stranger "STRANGER spoke=true warned=true drew=true gun=true fired=true"
-check serverui "none server port=24690 panelcheck" "PANEL tabs=Players,World,Settings,Updates,Log chips=9 settings=9 cfg=true order=true"
+check server_world sh:server_test.sh "SERVERWORLD made=true idle_paused=true held=true joined=true ran=true saved=true repaused=true banned=true"
+check server_api sh:"server_test.sh api" "SERVERAPI override=true,true,true options=true saved=true made=true worlds=apitest,second refused=true loaded=true restarted=true detail=true"
+check serverui "none server port=24690 panelcheck" "PANEL tabs=Players,World,Settings,Updates,Log chips=9 settings=9 cfg=true order=true" "PANELPAUSE paused=true ticks=true log=true save=true confirm=true updater=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

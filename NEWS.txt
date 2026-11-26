@@ -7,6 +7,8 @@ Brelm alpha 0.24.0: people of the waste
 - Spirit-cats run, trot and bite on a real cat's body.
 - Beasts fall properly: the tusker has its own death, and the others buckle and roll onto their side.
 - In co-op, a friend who turns a blow with a perfect guard now hears it and feels it.
+- Dedicated servers keep one world of the waste running. Players walk straight into it. It pauses while no one is there and runs again when someone joins, and it is saved every five minutes, when the last player leaves and when the server closes. Run with world=NAME to choose the world, or persist=0 for the old trial server.
+- The dedicated server has a window to run it from: who is here (kick, ban, a word to all), its worlds (save, load, make, when it runs), its settings (kept in server.cfg), updates and the log. Without a window, the same commands are typed at its terminal.
 - Fixed: restarting the game to update no longer sends a crash report.
 
 Brelm alpha 0.23.0: a steadier hand

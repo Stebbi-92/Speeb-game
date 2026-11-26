@@ -8,6 +8,8 @@ signal roster_changed
 signal status_changed(text: String)
 signal servers_changed
 signal session_ended(reason: String)
+## The dedicated server's state changed: paused or running, saved, a player came or went, a world was loaded.
+signal server_state_changed
 
 const DEFAULT_PORT := 24600
 const DISCOVERY_PORT := 24601
@@ -60,6 +62,28 @@ var _http_post: HTTPRequest
 var _upnp_thread: Thread
 var _upnp: UPNP
 
+## The dedicated server's persistent world (see "the dedicated server's world" below).
+var persist := false          ## the server keeps one open world running, instead of waiting in the gathering
+var world_paused := false     ## the world is stopped because no one is here (or the server was told to stop it)
+var world_name := ""          ## the save slot of the server's world
+var world_seed := 0           ## the seed for a world not yet made (0: chosen at random)
+var autosave_min := 5         ## minutes between the server's saves while the world runs (0: only on leaving and quitting)
+var pause_when_empty := true
+var pause_override := 0       ## 0 pause when empty, 1 always run, 2 always paused
+var max_players := MAX_PLAYERS
+var last_save_unix := 0
+var server_stopping := false  ## the server's window or console saved the world and is ending it: no more saves
+var _world_up := false        ## the server's world is raised and ready
+var _started_unix := 0
+var _old_level := 0           ## the land being left when the server's world is raised again
+var _run_fps := 60            ## the frame cap while the world runs; kept low while it is paused
+const PAUSED_FPS := 5             ## the frame cap while paused, headless (joins are still heard at once)
+const PAUSED_FPS_WINDOW := 10     ## and with the server's window open, so it still answers the hand
+const BANS_PATH := "user://server_bans.json"
+var bans := {"names": [], "ips": []}
+var _saves := 0               ## how many saves have been written (to tell whether one just was)
+var _save_ok := false
+
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -79,6 +103,10 @@ func _ready() -> void:
 	_http_code.timeout = 8.0
 	_http_code.request_completed.connect(_on_code)
 	add_child(_http_code)
+	if "status_log" in OS.get_cmdline_user_args():   # (for the tests: the server says its state each time it changes)
+		server_state_changed.connect(func(): print("STATUS ", JSON.stringify(server_status())))
+	if "api_test" in OS.get_cmdline_user_args():
+		_debug_api.call_deferred()
 
 
 func me() -> int:
@@ -110,7 +138,8 @@ func name_of(id: int) -> String:
 
 ## How many may walk now: eight in the waste and the gathering, four in a trial.
 func cap() -> int:
-	return MAX_TRIALS if in_level >= 0 and in_level != Game.WASTELAND else MAX_PLAYERS
+	var n := MAX_TRIALS if in_level >= 0 and in_level != Game.WASTELAND else MAX_PLAYERS
+	return mini(n, max_players) if dedicated else n
 
 
 func slot_of(id: int) -> int:
@@ -165,6 +194,9 @@ func host(p: int, sname: String, listed: bool, headless := false, priv := false,
 	_open_discovery()
 	_open_port_upnp()
 	_announce_t = 2.0
+	if headless:
+		_started_unix = int(Time.get_unix_time_from_system())
+		_load_bans()
 	roster_changed.emit()
 	_log("Hosting \"%s\" on port %d." % [sname, p])
 	return OK
@@ -229,6 +261,10 @@ func leave(reason := "") -> void:
 		Game.difficulty = _own_difficulty
 		_own_difficulty = -1
 	host_unlimited = false
+	if persist:
+		_set_paused(false)
+		persist = false
+		_world_up = false
 	if was:
 		roster_changed.emit()
 		session_ended.emit(reason)
@@ -318,8 +354,15 @@ func _on_peer_disconnected(id: int) -> void:
 		var lvl = _level()
 		if lvl:
 			lvl.net_left(id)
-	# A dedicated server with no one left returns to waiting
-	if dedicated and players.is_empty() and in_level >= 0:
+		if persist:
+			server_state_changed.emit()
+			if players.is_empty():
+				# The last one has gone: keep the world as it is now, then let it rest
+				if server_save_now():
+					_log("The last player left. The world is saved.")
+				_apply_pause()
+	# A dedicated server with no one left returns to waiting (a persistent world only rests)
+	if dedicated and not persist and players.is_empty() and in_level >= 0:
 		in_level = -1
 		seq += 1
 		Game.main.server_idle()
@@ -353,7 +396,9 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	pname = pname.strip_edges().left(20)
 	if pname == "":
 		pname = "Pilgrim"
-	if sent_away.has(pname.to_lower()):
+	if dedicated:
+		_load_bans()   # read again at each knock, so the file may be edited by hand while the server runs
+	if sent_away.has(pname.to_lower()) or (dedicated and is_banned(pname, _address_of(id))):
 		_refused.rpc_id(id, "The host has sent you away from this fellowship.")
 		get_tree().create_timer(0.5).timeout.connect(func(): if peer: peer.disconnect_peer(id))
 		return
@@ -361,6 +406,9 @@ func _hello(pname: String, proto: String, version: String, word := "") -> void:
 	if leader == 0:
 		leader = id
 	_log("%s has joined the fellowship." % pname)
+	if persist:
+		_apply_pause()   # someone is here: the world wakes before their world is sent them
+		server_state_changed.emit()
 	_roster.rpc(players, leader)
 	roster_changed.emit()
 	_welcome.rpc_id(id, server_name, Game.difficulty)
@@ -377,12 +425,18 @@ var sent_away := {}
 
 ## Host: sends a pilgrim out of the fellowship, and keeps them out for this session.
 func kick(id: int) -> void:
+	_send_away(id, "The host has sent you away from this fellowship.", true)
+
+
+## Sends a pilgrim out with the reason given; kept out for this session if keep_out.
+func _send_away(id: int, reason: String, keep_out: bool) -> void:
 	if not is_host() or id == 1 or not players.has(id):
 		return
 	var nm := str(players[id].name)
-	sent_away[nm.to_lower()] = true
+	if keep_out:
+		sent_away[nm.to_lower()] = true
 	_log("%s was sent away by the host." % nm)
-	_refused.rpc_id(id, "The host has sent you away from this fellowship.")
+	_refused.rpc_id(id, reason)
 	_on_peer_disconnected(id)   # out of the fellowship now: nothing more they ask is heard
 	# The word goes behind whatever is still being sent them, so give it time to arrive before the link is cut
 	get_tree().create_timer(3.0).timeout.connect(func(): if peer and peer.get_peer(id): peer.disconnect_peer(id))
@@ -490,6 +544,8 @@ func begin(i: int) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _choose(i: int, difficulty: int) -> void:
 	if is_host() and multiplayer.get_remote_sender_id() == leader:
+		if persist:
+			return   # the server's world goes on; no one may begin another land in its place
 		if dedicated:
 			Game.difficulty = difficulty
 		begin(i)
@@ -1088,9 +1144,367 @@ func local_addresses() -> Array:
 	return out
 
 
+# ------------------------------------------------------------------ the dedicated server's world
+
+## A world name made safe for a file name: letters, digits, - and _ only.
+static func clean_world_name(n: String) -> String:
+	var out := ""
+	for c in n.strip_edges().left(32):
+		out += c if (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "-" or c == "_" else "_"
+	return out if out != "" else "1"
+
+
+## Where a world of the waste is kept (as Wasteland.world_path; named here so this autoload need not load the waste).
+static func world_file(wname: String) -> String:
+	return "user://wasteland/world_%s.dat" % wname
+
+
+## Dedicated server: raises its own world at once and keeps it running, whoever is here.
+func world_start(wname: String, sd := 0) -> void:
+	persist = true
+	world_name = clean_world_name(wname)
+	world_seed = sd
+	_begin_world()
+
+
+## Raises (or raises again) the server's world from its save. Everyone here comes along.
+func _begin_world() -> void:
+	if not dedicated or not persist:
+		return
+	_set_paused(false)   # a land is raised only while the tree runs
+	_world_up = false
+	_old_level = Game.main.level.get_instance_id() if Game.main and is_instance_valid(Game.main.level) else 0
+	Game.world_slot = world_name
+	Game.new_world_seed = world_seed
+	var had := FileAccess.file_exists(world_file(world_name))
+	_log(("Loading the world \"%s\"..." if had else "Making a new world \"%s\"...") % world_name)
+	begin(Game.WASTELAND)
+	server_state_changed.emit()
+
+
+## Watches for the server's world being ready, then keeps it (a new one is written at once) and
+## lets it rest if no one is here.
+func _world_watch() -> void:
+	if not persist or _world_up:
+		return
+	var lvl = _level()
+	if lvl == null or lvl.get("ready_world") != true or lvl.get_instance_id() == _old_level:
+		return   # not raised yet (the world being left still stands until the new one takes its place)
+	_world_up = true
+	lvl._save_t = lvl._save_every()
+	server_save_now()
+	_log("The world \"%s\" is ready. %s" % [world_name, _when()])
+	_apply_pause()
+	server_state_changed.emit()
+
+
+## The day and hour of the server's world, for the log.
+func _when() -> String:
+	var lvl = _level()
+	if lvl == null or lvl.get("clock") == null:
+		return ""
+	var c: float = lvl.clock
+	return "Day %d, %02d:%02d." % [int(lvl.day), int(c), int(fmod(c, 1.0) * 60.0)]
+
+
+## Whether the world should stand still now.
+func _want_pause() -> bool:
+	if pause_override == 2:
+		return true
+	return pause_override == 0 and pause_when_empty and players.is_empty()
+
+
+## Stops or starts the world to match who is here and what the server was told.
+func _apply_pause() -> void:
+	if not persist or not _world_up:
+		return
+	var want := _want_pause()
+	if want == world_paused:
+		return
+	_set_paused(want)
+	if want:
+		_log("The world is paused%s. %s" % [" (no players)" if players.is_empty() else "", _when()])
+	else:
+		_log("The world runs again. %s" % _when())
+	server_state_changed.emit()
+
+
+## The whole scene stops (time, foes, the watch, growth, nights, timers that belong to it); this node
+## and the network go on, so joins are heard and the internet list still hears from the server.
+func _set_paused(on: bool) -> void:
+	if on == world_paused:
+		return
+	world_paused = on
+	if on:
+		_run_fps = Engine.max_fps
+		Engine.max_fps = PAUSED_FPS if DisplayServer.get_name() == "headless" else PAUSED_FPS_WINDOW
+	else:
+		Engine.max_fps = _run_fps
+	get_tree().paused = on
+
+
+## A save was written by the world (called from the waste on the server).
+func world_saved(ok: bool) -> void:
+	_saves += 1
+	_save_ok = ok
+	if ok:
+		last_save_unix = int(Time.get_unix_time_from_system())
+	else:
+		_log("The world could not be saved. Is the disk full?")
+	server_state_changed.emit()
+
+
+func _address_of(id: int) -> String:
+	if peer and peer.get_peer(id):
+		return peer.get_peer(id).get_remote_address()
+	return ""
+
+
+func _load_bans() -> void:
+	var d = JSON.parse_string(FileAccess.get_file_as_string(BANS_PATH)) if FileAccess.file_exists(BANS_PATH) else null
+	bans = {"names": [], "ips": []}
+	if d is Dictionary:
+		for k in ["names", "ips"]:
+			if d.get(k) is Array:
+				for v in d[k]:
+					bans[k].append(str(v))
+
+
+func _save_bans() -> void:
+	Game.write_safe(ProjectSettings.globalize_path(BANS_PATH), JSON.stringify(bans, "\t"))
+
+
+func is_banned(pname: String, ip: String) -> bool:
+	return pname.to_lower() in bans.names or (ip != "" and ip in bans.ips)
+
+
+# ------------------------------------------------------------------ the server's window and its commands
+
+## All the server window shows, in one place.
+func server_status() -> Dictionary:
+	var list := []
+	for id in players:
+		var row := {"id": int(id), "name": str(players[id].name)}
+		if peer and peer.get_peer(id):
+			row["ping"] = int(peer.get_peer(id).get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME))
+		list.append(row)
+	var lvl = _level()
+	return {"name": server_name, "port": port, "players": list, "max_players": cap(), "paused": world_paused,
+		"world": world_name if persist else "", "level": in_level,
+		"uptime_s": int(Time.get_unix_time_from_system()) - _started_unix if _started_unix > 0 else 0,
+		"last_save_unix": last_save_unix, "listed": listed_public,
+		"version": str(ProjectSettings.get_setting("application/config/version", "")), "difficulty": Game.difficulty,
+		"persist": persist, "ready": _world_up, "pause_override": pause_override, "pause_when_empty": pause_when_empty,
+		"autosave_min": autosave_min, "code": join_code, "locked": password != "", "detail": _detail() if lvl else ""}
+
+
+## Writes the world now. True if it was written.
+func server_save_now() -> bool:
+	var lvl = _level()
+	if lvl == null or not lvl.has_method("save_all") or lvl.get("ready_world") != true:
+		return false
+	var n := _saves
+	lvl.save_all()
+	return _saves > n and _save_ok
+
+
+func server_kick(id: int, reason := "") -> void:
+	if not players.has(id):
+		return
+	_send_away(id, reason if reason != "" else "The server has sent you away. You may come back.", false)
+
+
+## Sends a player away and keeps them out, by name and by address, for good (user://server_bans.json).
+func server_ban(id: int) -> void:
+	if not players.has(id):
+		return
+	var nm := str(players[id].name).to_lower()
+	var ip := _address_of(id)
+	if not nm in bans.names:
+		bans.names.append(nm)
+	if ip != "" and not ip in bans.ips:
+		bans.ips.append(ip)
+	_save_bans()
+	_log("%s is banned from this server%s." % [players[id].name, " (address %s)" % ip if ip != "" else ""])
+	_send_away(id, "The host has sent you away from this fellowship.", true)
+
+
+## A word from the server, shown to every player.
+func server_say(text: String) -> void:
+	text = text.strip_edges().left(200)
+	if text == "" or not is_host():
+		return
+	_server_word.rpc(text)
+	_log("Server: %s" % text)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _server_word(text: String) -> void:
+	if Game.main and Game.main.hud:
+		Game.main.hud.notify("%s: %s" % [server_name if server_name != "" else "The server", text])
+
+
+## 0: pause when no one is here, 1: always run, 2: stay paused.
+func server_set_paused_override(mode: int) -> void:
+	pause_override = clampi(mode, 0, 2)
+	_log(["The world pauses when no one is here.", "The world runs even with no one here.", "The world is held paused."][pause_override])
+	_apply_pause()
+	server_state_changed.emit()
+
+
+## Makes a new world under a new name and moves everyone into it. The world now running is saved first.
+func server_new_world(wname: String, sd := 0) -> void:
+	var n := clean_world_name(wname)
+	if FileAccess.file_exists(world_file(n)):
+		_log("A world named \"%s\" is already kept. Load it, or choose another name." % n)
+		return
+	server_save_now()
+	world_name = n
+	world_seed = sd
+	persist = true
+	_begin_world()
+
+
+## Loads a kept world and moves everyone into it. The world now running is saved first.
+func server_load_world(wname: String) -> void:
+	var n := clean_world_name(wname)
+	if not FileAccess.file_exists(world_file(n)):
+		_log("No world named \"%s\" is kept here." % n)
+		return
+	server_save_now()
+	world_name = n
+	persist = true
+	_begin_world()
+
+
+## The names of the worlds kept on this server, by name.
+func server_list_worlds() -> Array:
+	var out := []
+	for f in DirAccess.get_files_at("user://wasteland"):
+		if f.begins_with("world_") and f.ends_with(".dat"):
+			out.append(f.trim_prefix("world_").trim_suffix(".dat"))
+	out.sort()
+	return out
+
+
+## A short line about a kept world (its day, its fires, its seed), or "" if there is none.
+func server_world_detail(wname: String) -> String:
+	return load("res://world/wasteland.gd").describe(clean_world_name(wname))
+
+
+## Saves the world and raises it again from its save (players are brought back into it).
+func server_restart_world() -> void:
+	if not persist:
+		world_start(Game.world_slot)
+		return
+	server_save_now()
+	_log("Restarting the world...")
+	_begin_world()
+
+
+## Changes a setting of the server while it runs. Returns a line saying what was done.
+func server_set_option(key: String, value) -> String:
+	var said := ""
+	match key:
+		"name":
+			server_name = str(value).strip_edges().left(40)
+			_announce_t = 0.5
+			said = "The server is now called \"%s\"." % server_name
+		"listed":
+			listed_public = bool(value)
+			private = false
+			_announce_t = 0.5
+			said = "The server is %s the internet list." % ("shown in" if listed_public else "hidden from")
+		"password":
+			password = str(value).strip_edges()
+			said = "Joining now needs a word." if password != "" else "Joining needs no word now."
+		"max_players":
+			max_players = clampi(int(value), 1, MAX_PLAYERS)
+			said = "At most %d players may join (those here now stay)." % max_players
+		"difficulty":
+			Game.difficulty = clampi(int(value), 0, 2)
+			_difficulty.rpc(Game.difficulty)
+			said = "Difficulty is now %s." % ["Pilgrim", "Hermit", "Unblinking"][Game.difficulty]
+		"autosave_min":
+			autosave_min = maxi(0, int(value))
+			var lvl = _level()
+			if lvl and lvl.get("_save_t") != null:
+				lvl._save_t = lvl._save_every()
+			said = "The world is saved every %d minutes." % autosave_min if autosave_min > 0 else "The world is saved only when the last player leaves and when the server stops."
+		"pause_when_empty":
+			pause_when_empty = bool(value)
+			_apply_pause()
+			said = "The world pauses when no one is here." if pause_when_empty else "The world runs even with no one here."
+		_:
+			said = "There is no server setting called \"%s\"." % key
+	_log(said)
+	server_state_changed.emit()
+	return said
+
+
+## Testing aid: the server window's commands, each tried on a running server, then it stops.
+func _debug_api() -> void:
+	var wait_up := func():
+		var t0 := Time.get_ticks_msec()
+		while not _world_up and Time.get_ticks_msec() - t0 < 120000:
+			await get_tree().process_frame
+	while not _world_up:
+		await get_tree().process_frame
+	var first := world_name
+	var paused0 := world_paused
+	server_set_paused_override(1)
+	var ran := not world_paused
+	server_set_paused_override(2)
+	var held := world_paused
+	server_set_paused_override(0)
+	var back := world_paused == paused0
+	server_set_option("name", "Renamed hall")
+	server_set_option("max_players", 3)
+	server_set_option("listed", false)
+	server_set_option("password", "ash")
+	server_set_option("difficulty", 2)
+	server_set_option("autosave_min", 7)
+	server_set_option("pause_when_empty", true)
+	var st := server_status()
+	var opts: bool = st.name == "Renamed hall" and st.max_players == 3 and not st.listed and st.difficulty == 2 and st.autosave_min == 7 and password == "ash"
+	server_set_option("password", "")
+	var saved := server_save_now()
+	server_say("Hello, waste.")
+	server_new_world("second", 99)
+	await get_tree().process_frame
+	await wait_up.call()
+	var made: bool = world_name == "second" and FileAccess.file_exists(world_file("second")) and world_paused
+	var listed := server_list_worlds()
+	server_new_world(first)   # already kept: refused
+	var refused := world_name == "second"
+	server_load_world(first)
+	await get_tree().process_frame
+	await wait_up.call()
+	var loaded := world_name == first and world_paused
+	server_restart_world()
+	await get_tree().process_frame
+	await wait_up.call()
+	var restarted := world_name == first and _world_up
+	print("SERVERAPI override=%s,%s,%s options=%s saved=%s made=%s worlds=%s refused=%s loaded=%s restarted=%s detail=%s" % [ran, held, back, opts, saved, made,
+		",".join(listed), refused, loaded, restarted, server_world_detail("second") != ""])
+	get_tree().quit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _difficulty(d: int) -> void:
+	Game.difficulty = d
+
+
+func _notification(what: int) -> void:
+	# A server with its window (scripts/server_admin.gd) saves once as it stops; this is for one without
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and persist and not server_stopping and not (Game.main and Game.main.get("admin")) and server_save_now():
+		_log("The world is saved. The server stops.")
+
+
 # ------------------------------------------------------------------ upkeep
 
 func _process(delta: float) -> void:
+	_world_watch()
 	if _joining:
 		_join_t -= delta
 		if _join_t <= 0.0:

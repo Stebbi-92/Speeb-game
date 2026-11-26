@@ -48,6 +48,8 @@ The world belongs to the host and is saved on the host's computer. Each player's
 
 A server with no player of its own. On Windows, run **Brelm Server.bat**; on a Mac or Linux, **Brelm Server.command** or **Brelm Server.sh** (these run in a terminal). HOSTING.txt has the details, and how to open the port.
 
+The server keeps one world of the Ashen Waste always ready: it loads the world as it starts, and you walk straight into it when you join. While no one is there, the world is paused, so no time passes and nothing happens until someone comes back. It is saved every few minutes, when the last player leaves, and when the server is stopped. Each player's own character is kept on their own computer, as with any host.
+
 On Windows the server opens a window to run it from:
 
 - **Along the top**: the name, whether the world is running or paused (and why), players, world, time up, last save, whether it is on the internet list, the port and the addresses to join at.
@@ -56,8 +58,16 @@ On Windows the server opens a window to run it from:
 - **Settings**: name, password, most players, difficulty, internet list, how often to save, pause when empty, port. **Apply** puts them in place and saves them. A new port needs a restart.
 - **Updates**: check for a new version, read its notes, download it and restart onto it. The world is saved first. It can check by itself when it starts, and update by itself when no one is connected.
 - **Log**: everything the server has said, with **Copy log** and **Open log folder**.
-- **Stop server** saves the world and asks before it stops. Closing the window saves and stops too.
+- **Stop server** asks first, then saves the world and stops. Closing the window does the same.
 
 Without a window, type commands into the terminal: `status`, `list`, `save`, `say <text>`, `kick <name|id>`, `ban <name|id>`, `pause`, `resume`, `auto`, `worlds`, `load <world>`, `new <world> [seed]`, `update`, `restart`, `quit`, `help`.
 
-The settings are kept in **server.cfg** in Brelm's data folder. It is made on the first start and can be edited by hand while the server is stopped. Options on the command line (`port=`, `name=`, `password=`, `max_players=`, `difficulty=`, `autosave=`, `public`, `lobby=`) override it for that run, and `config=<path>` uses another file.
+The settings are kept in **server.cfg** in Brelm's data folder. It is made on the first start and can be edited by hand while the server is stopped. It also remembers the world in use and when it runs. Options on the command line override it for that run:
+
+- `world=NAME` picks which world it keeps, and `seed=` the seed of a new one (a number or a word).
+- `autosave=MINUTES` sets how often it saves while it runs. `always_run` keeps it running with no one there.
+- `port=`, `name=`, `password=`, `max_players=`, `difficulty=`, `public` and `lobby=` as in HOSTING.txt.
+- `config=<path>` uses another settings file.
+- `persist=0` gives the old kind of server: the first to join chooses a trial.
+
+Banned players are listed in **server_bans.json** in the same folder, and it can be edited while the server runs.

@@ -109,11 +109,6 @@ func _ready() -> void:
 	_refresh_updates()
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST and admin:
-		admin.stop()
-
-
 # ------------------------------------------------------------------ the look
 
 func _make_theme() -> Theme:
@@ -280,15 +275,16 @@ func _build_status() -> Control:
 func refresh() -> void:
 	if admin == null:
 		return
+	_refreshes += 1
 	var s: Dictionary = admin.status()
 	_name_lbl.text = str(s.name)
 	var state: String = admin.run_state(s)
 	_chips.state.text = state
 	_chips.state.add_theme_color_override("font_color", GOOD if state == "Running" else WARN)
 	_chips.players.text = "%d/%d" % [s.players.size(), int(s.max_players)]
-	_chips.world.text = str(s.world) if str(s.world) != "" else ("none" if s.known else "-")
+	_chips.world.text = str(s.world) if str(s.world) != "" else "-"
 	_chips.uptime.text = admin.span(int(s.uptime_s))
-	_chips.saved.text = admin.saved_text(int(s.last_save_unix)) if s.known else "-"
+	_chips.saved.text = admin.saved_text(int(s.last_save_unix)) if s.get("persist", false) else "-"
 	_chips.listed.text = "yes" if s.listed else "no"
 	_chips.port.text = str(s.port)
 	_chips.version.text = str(s.version)
@@ -296,9 +292,12 @@ func refresh() -> void:
 	_chips.join.text = ", ".join(ips.map(func(ip): return "%s:%d" % [ip, int(s.port)])) if not ips.is_empty() else "no network"
 	_refresh_players(s)
 	_refresh_world_info(s)
+	_show_mode(s)
 
 
 var _soon := false
+var _refreshes := 0
+var _worlds_seen := []
 
 
 func _refresh_soon() -> void:
@@ -310,7 +309,8 @@ func _refresh_soon() -> void:
 	if not is_inside_tree():
 		return
 	refresh()
-	if tabs.current_tab == 1:
+	# The list reads each world's file: only again when the worlds or the one in use have changed
+	if tabs.current_tab == 1 and [admin.list_worlds(), str(admin.status().world)] != _worlds_seen:
 		_refresh_worlds()
 	_refresh_updates()
 
@@ -503,30 +503,34 @@ func _build_world() -> Control:
 	_new_name = _edit("Name")
 	_new_name.max_length = 40
 	nh.add_child(_new_name)
-	_new_seed = _edit("Seed (empty for any)")
-	_new_seed.custom_minimum_size.x = 200
+	_new_seed = _edit("Seed (number or word)")
+	_new_seed.custom_minimum_size.x = 260
 	_new_seed.size_flags_horizontal = Control.SIZE_FILL
 	nh.add_child(_new_seed)
 	nh.add_child(_btn("Make it", _make_world))
 	v.add_child(nh)
 	v.add_child(_para("The world in use is saved first. Everyone here moves to the new world.", DIM, 15))
-	_show_mode()
 	return _scroller(v)
 
 
-func _show_mode() -> void:
-	var m: int = admin.pause_mode if admin else 0
+## Shows which of the three is in force (the server's own word, pause_override).
+func _show_mode(s := {}) -> void:
+	if s.is_empty():
+		s = admin.status() if admin else {}
+	var m := int(s.get("pause_override", 0))
 	for i in _mode_btns.size():
 		_mode_btns[i].set_pressed_no_signal(i == m)
-	var known: bool = admin != null and admin.has("server_set_paused_override")
-	_mode_note.text = ["The world stands still while no one is here, and wakes when someone joins.",
+	_mode_note.text = ["The world stands still while no one is here, and wakes when someone joins.%s" % ("" if s.get("pause_when_empty", true) else " (Pause when no one is here is off in Settings, so it runs.)"),
 		"The world runs even with no one here: nights fall and crops grow.",
-		"The world stands still until you choose otherwise."][m] + ("" if known else " (Not available in this build.)")
+		"The world stands still until you choose otherwise. Players who are here wait too."][m]
 
 
 func _refresh_world_info(s: Dictionary) -> void:
-	if not s.known:
-		_world_lbl.text = "This build keeps no world of its own on the server. World tools are not available in this build."
+	var keeps: bool = s.get("persist", false)
+	for b in _mode_btns:
+		b.disabled = not keeps
+	if not keeps:
+		_world_lbl.text = "This server keeps no world (persist=0): the first to join chooses a trial. Start it without persist=0 to keep a world."
 		return
 	var lvl := int(s.get("level", -1))
 	var land := ""
@@ -534,8 +538,10 @@ func _refresh_world_info(s: Dictionary) -> void:
 		land = Game.LEVEL_NAMES[lvl]
 	elif lvl >= 10:
 		land = ["The Forgotten Cave", "The Tenth Trial", "The Ashen Waste"][mini(lvl - 10, 2)]
-	_world_lbl.text = "%s%s.  Difficulty %s.  Last saved %s." % [str(s.world) if str(s.world) != "" else "No world loaded",
-		(", in " + land) if land != "" else "", Game.DIFFICULTIES[clampi(int(s.get("difficulty", 1)), 0, 2)], admin.saved_text(int(s.last_save_unix))]
+	var detail := str(s.get("detail", ""))
+	_world_lbl.text = "%s%s.  %s  Difficulty %s.  Last saved %s." % ["World \"%s\"" % s.world if str(s.world) != "" else "No world loaded",
+		(", in " + land) if land != "" else "", (detail + ("." if not detail.ends_with(".") else "")) if detail != "" else ("Being raised..." if not s.get("ready", false) else ""),
+		Game.DIFFICULTIES[clampi(int(s.get("difficulty", 1)), 0, 2)], admin.saved_text(int(s.last_save_unix))]
 
 
 func _refresh_worlds() -> void:
@@ -543,21 +549,24 @@ func _refresh_worlds() -> void:
 		return
 	for c in _worlds.get_children():
 		c.queue_free()
-	if not admin.has("server_list_worlds"):
-		_worlds.add_child(_para("Listing worlds is not available in this build.", DIM, 15))
-		return
 	var cur := str(admin.status().world)
 	var list: Array = admin.list_worlds()
+	_worlds_seen = [list, cur]
 	if list.is_empty():
 		_worlds.add_child(_para("No saved worlds yet.", DIM, 15))
 	for w in list:
-		var wname: String = admin.world_name_of(w)
-		var h := _hbox(10)
-		var l := _lbl(admin.world_label(w), 16, GOLD if wname == cur else PALE)
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var wname := str(w)
+		var h := _hbox(14)
+		var l := _lbl(wname, 17, GOLD if wname == cur else PALE)
+		l.custom_minimum_size.x = 170
 		l.clip_text = true
 		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		h.add_child(l)
+		var d := _lbl(admin.world_detail(wname), 15, DIM)
+		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		d.clip_text = true
+		d.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		h.add_child(d)
 		if wname == cur:
 			var here := _lbl("in use", 15, DIM)
 			here.custom_minimum_size.x = 80
@@ -577,13 +586,10 @@ func _make_world() -> void:
 		_new_name.grab_focus()
 		return
 	var sd := _new_seed.text.strip_edges()
-	if sd != "" and not sd.is_valid_int():
-		_tell("The seed must be a whole number, or empty.")
-		return
-	_ask("Make a new world called %s? The world in use is saved first." % n, "Make it", func():
-		if admin.new_world(n, int(sd) if sd != "" else 0):
-			_new_name.text = ""
-			_new_seed.text = ""
+	_ask("Make a new world called %s? The world in use is saved first, and everyone here moves to the new one." % n, "Make it", func():
+		admin.new_world(n, sd)
+		_new_name.text = ""
+		_new_seed.text = ""
 		_refresh_worlds())
 
 
@@ -837,17 +843,61 @@ func debug_check() -> void:
 	t.name = "From the file"
 	t.port = 25000
 	admin.save_config("user://panel_check.cfg", t)
-	var got: Dictionary = admin.from_args(PackedStringArray(["server", "config=user://panel_check.cfg", "port=25001", "public"]))
+	var got: Dictionary = admin.from_args(PackedStringArray(["server", "config=user://panel_check.cfg", "port=25001", "public", "world=north", "always_run", "persist=0"]))
 	DirAccess.remove_absolute("user://panel_check.cfg")
-	var order: bool = got.name == "From the file" and got.port == 25001 and got.listed
+	var order: bool = got.name == "From the file" and got.port == 25001 and got.listed and got.world == "north" and not got.pause_when_empty and not got.persist
 	print("PANEL tabs=%s chips=%d settings=%d cfg=%s order=%s log=%d" % [",".join(names), _chips.size(), _set.size(),
 		FileAccess.file_exists(admin.config_path) and saved.name == admin.conf.name, order, admin.log_lines.size()])
-	get_tree().quit()
+	# While the world is paused (get_tree().paused) the window must go on: its clock, its log, its buttons, the updater
+	var t0 := Time.get_ticks_msec()
+	while not (Net.world_paused and admin.status().get("ready", false)) and Time.get_ticks_msec() - t0 < 120000:
+		await get_tree().process_frame
+	var n0 := _refreshes
+	await get_tree().create_timer(2.5).timeout
+	var ticked := _refreshes >= n0 + 2
+	var lines := _log.get_paragraph_count()
+	Net._log("A line while paused.")
+	var logged := _log.get_paragraph_count() > lines and _foot.text.ends_with("A line while paused.")
+	var saves := Net.last_save_unix
+	await get_tree().create_timer(1.1).timeout
+	_find_button(self, "Save now").pressed.emit()
+	var saved_now := Net.last_save_unix > saves and str(admin.log_lines[-1]).ends_with("The world is saved.")
+	_find_button(self, "Stop server").pressed.emit()
+	var asked := _confirm.visible and _confirm_yes.can_process()
+	_confirm.visible = false
+	print("PANELPAUSE paused=%s ticks=%s log=%s save=%s confirm=%s updater=%s" % [get_tree().paused, ticked, logged, saved_now, asked,
+		Updater.can_process() and admin.can_process()])
+	admin.stop()
+
+
+func _find_button(n: Node, text: String) -> Button:
+	if n is Button and n.text == text:
+		return n
+	for c in n.get_children():
+		var b := _find_button(c, text)
+		if b:
+			return b
+	return null
 
 
 ## Testing aid: saves a picture of each page at each size ("1280x720,900x600"), then quits.
+## With shotwait=world it waits for the world to be raised and paused first; with shotwait=player, for a player.
 func debug_shots(spec: String) -> void:
 	await get_tree().create_timer(1.5).timeout
+	var wait := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("shotwait="):
+			wait = a.substr(9)
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 240000:
+		var s: Dictionary = admin.status()
+		if wait == "" or (wait == "world" and s.get("ready", false) and s.paused) or (wait == "player" and s.get("ready", false) and not s.players.is_empty()):
+			break
+		await get_tree().process_frame
+	if wait != "":
+		await get_tree().create_timer(2.0).timeout
+		refresh()
+		_refresh_worlds()
 	for sz in spec.split(","):
 		var wh := sz.split("x")
 		get_window().size = Vector2i(int(wh[0]), int(wh[1]))

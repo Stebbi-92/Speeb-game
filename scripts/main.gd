@@ -360,7 +360,8 @@ func _on_session_ended(reason: String) -> void:
 		hud.notify(reason)
 
 
-## A dedicated server: no pilgrim of its own. It waits for a fellowship, then hosts their trials.
+## A dedicated server: no pilgrim of its own. By default it keeps one open world of the waste running
+## (paused while no one is here); with persist=0 it waits for a fellowship, then hosts their trials.
 ## Its settings come from user://server.cfg (or config=<path>), and the command line overrides them.
 func _start_dedicated(args: PackedStringArray) -> void:
 	Engine.max_fps = 60
@@ -384,7 +385,7 @@ func _start_dedicated(args: PackedStringArray) -> void:
 	conf.erase("_path")
 	admin.conf = conf
 	add_child(admin)
-	admin.apply_start()
+	admin.apply_start()   # before the world is raised, so it pauses (or not) as told
 	for ip in Net.local_addresses():
 		Net._log("Local address: %s:%d" % [ip, int(conf.port)])
 	if DisplayServer.get_name() != "headless" or "panelcheck" in args:
@@ -394,7 +395,10 @@ func _start_dedicated(args: PackedStringArray) -> void:
 				_debug_shots(a.substr(6).split(","))
 	else:
 		admin.start_console()
-	server_idle()
+	if conf.persist:
+		Net.world_start(str(conf.world), ServerAdmin.seed_of(str(conf.seed)))
+	else:
+		server_idle()
 
 
 const ServerAdmin := preload("res://scripts/server_admin.gd")
@@ -413,8 +417,10 @@ func _server_window(args: PackedStringArray) -> void:
 		win.title = "Brelm server: %s" % Net.server_name
 		win.move_to_center()
 		get_tree().auto_accept_quit = false   # the panel saves the world first
+		get_viewport().disable_3d = true   # no one looks at the world here: draw only the window
 	var layer := CanvasLayer.new()
 	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS   # the log goes on while the world is paused
 	add_child(layer)
 	var panel: Control = load("res://scripts/server_panel.gd").new()
 	panel.admin = admin
@@ -427,6 +433,9 @@ func _server_window(args: PackedStringArray) -> void:
 
 
 func server_idle() -> void:
+	if Net.persist:
+		Net._begin_world()   # the server's world is never put away: an ending raises it again from its save
+		return
 	_state = "lobby"
 	await _swap(null)
 	Net._log("Waiting for players. The first to join chooses the trial.")

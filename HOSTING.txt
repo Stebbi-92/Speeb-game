@@ -35,8 +35,20 @@ fellowship must run the same version of Brelm.
 
 3. A DEDICATED SERVER (no player of its own)
    Good for a spare PC or a rented Windows or Mac machine with an open port.
-   The first pilgrim to join chooses the trial; when everyone leaves, the
-   server waits for the next fellowship.
+   The server keeps one world of the Ashen Waste. It loads it (or makes it)
+   as it starts, and players who join walk straight into it. While no one
+   is there the world is paused: no time passes, nothing grows, no foe or
+   night comes. It runs again as soon as someone joins.
+   The world is saved every 5 minutes while it runs, when the last player
+   leaves, and when the server is stopped (Stop server, closing the window,
+   or "quit" in the terminal). Ctrl+C stops a headless server at once,
+   without a last save: at most the last few minutes of play are lost, and
+   nothing is lost while it is paused.
+   Each player's own character is kept on their own computer, as when
+   joining any host. Worlds are kept in Brelm's data folder, under
+   wasteland/world_NAME.dat, and can be copied between machines.
+   With persist=0 the server works as before: the first pilgrim to join
+   chooses the trial, and when everyone leaves it waits for the next.
 
    Windows:  double-click "Brelm Server.bat". The server window opens.
    macOS:    double-click "Brelm Server.command" (it runs in Terminal with
@@ -53,7 +65,8 @@ fellowship must run the same version of Brelm.
                to everyone.
      World     Save now, Restart world, load a saved world or make a new
                one (a seed is optional), and choose when the world runs:
-               pause when empty, always run, or paused.
+               pause when empty, always run, or paused. The world in use
+               and the choice are kept for the next start.
      Settings  name, password, most players, difficulty, internet list,
                autosave, pause when empty, port. Apply puts them in place
                and saves them (a new port needs a restart).
@@ -62,8 +75,9 @@ fellowship must run the same version of Brelm.
                can check by itself at start, and update by itself when no
                one is connected.
      Log       everything the server has said. Copy log, Open log folder.
-   Stop server saves the world first and asks before it stops. Closing
-   the window also saves and stops.
+   Stop server asks first, then saves the world once and stops. Closing
+   the window does the same. The window keeps working while the world is
+   paused.
 
    WITHOUT A WINDOW (--headless)
    Type commands into the terminal: status, list, save, say <text>,
@@ -84,8 +98,12 @@ fellowship must run the same version of Brelm.
        difficulty=1          (0 Pilgrim, 1 Hermit, 2 Unblinking)
        listed=false          (show it on the internet list)
        lobby=""              (internet list address; empty for the usual)
-       autosave_min=5        (0 for never)
+       autosave_min=5        (0: only when the last player leaves, and on stopping)
        pause_when_empty=true
+       pause_mode=0          (0 pause when empty, 1 always run, 2 paused)
+       world="1"             (the world to keep; 1 is the same file as the
+                              first world on the title screen)
+       seed=""               (the seed of a new world: a number or a word)
        [updates]
        check_on_start=true
        auto_update=false
@@ -94,12 +112,21 @@ fellowship must run the same version of Brelm.
        config=path         use another settings file
        port=24600          the UDP port to listen on
        name="..."          the fellowship's name in the list
-       password=...        the word joiners must give
-       max_players=8       most players at once
-       difficulty=0|1|2    Pilgrim, Hermit or Unblinking
-       autosave=5          minutes between saves
+       world=NAME          which world to keep
+       seed=NUMBER         the seed of a new world (a word works too)
+       password=WORD       the word a player must give to join
+       max_players=8       how many may join at once (up to 8)
+       difficulty=0|1|2    Pilgrim, Hermit or Unblinking (with persist=0,
+                           the first joiner can change it)
+       autosave=5          minutes between saves while it runs
+       always_run          keep the world running when no one is there
+       persist=0           no kept world: the first joiner chooses a trial
        public              list it on the internet list
        lobby=https://...   the internet list address (see 4)
+
+   Banned players are kept in server_bans.json in Brelm's data folder
+   ({"names": [...], "ips": [...]}). It is read at every join, so it can
+   be edited while the server runs.
 
    The server needs the port open toward it exactly as in section 2. On a
    rented machine, also open UDP 24600 in its firewall / security group.

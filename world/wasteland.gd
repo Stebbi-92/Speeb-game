@@ -353,7 +353,7 @@ func intro() -> void:
 
 func _exit_tree() -> void:
 	super._exit_tree()
-	if ready_world:
+	if ready_world and not Net.server_stopping:   # a stopping server has just saved
 		save_all()
 	WPlaylog.end()
 	Game.wasteland = false
@@ -488,7 +488,8 @@ func _process(delta: float) -> void:
 		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
 		_ground_laid = true
 	if Net.dedicated and ready_world:
-		# No one plays here, but the towns' watch still walks and shoots
+		# No one plays here, but the towns' watch still walks and shoots (while the server's world is
+		# paused, with no one in it, this stops with everything else)
 		_gate_t -= delta
 		if _gate_t <= 0.0:
 			_gate_t = 1.0
@@ -8277,14 +8278,18 @@ func _write_jobs(jobs: Array, threaded: bool) -> void:
 func _saved(ok: bool) -> void:
 	if not is_instance_valid(self):
 		return
+	if Net.dedicated and _owns_world:
+		Net.world_saved(ok)
 	if is_instance_valid(ui) and ui.is_inside_tree() and not Net.dedicated:
 		ui.saved_mark(ok)
 	if not ok:
 		push_warning("Wasteland: a save could not be written")
 
 
+## How often the world is kept: the player's choice, or on a dedicated server its autosave= minutes.
 func _save_every() -> float:
-	return 60.0 * Game.autosave_min if Game.autosave_min > 0 else 1e9
+	var m: int = Net.autosave_min if Net.dedicated else Game.autosave_min
+	return 60.0 * m if m > 0 else 1e9
 
 
 ## Asks for a save a few seconds from now: something worth keeping just happened. Several such
@@ -8297,7 +8302,7 @@ func autosave_soon(delay := 3.0) -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_CRASH:
-			if ready_world:
+			if ready_world and not Net.server_stopping:
 				save_all()
 		NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Alt-tabbing away: keep things, but not more than once every 20 seconds
@@ -9460,6 +9465,17 @@ func debug_snapclient() -> void:
 		if str(k).begins_with("pad_"):
 			pads += 1
 	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s brisk=%s" % [ready_world, day, pads, snap_wait, Net.brisk_links.has(1)])
+	get_tree().quit()
+
+
+## Testing aid: a player walks into a dedicated server's running world, stays a while, and leaves.
+func debug_serverclient() -> void:
+	var t := 0
+	while not ready_world and t < 150:
+		await get_tree().create_timer(1.0).timeout
+		t += 1
+	print("SERVERCLIENT ready=%s day=%d waiting=%s" % [ready_world, day, snap_wait])
+	await get_tree().create_timer(8.0).timeout
 	get_tree().quit()
 
 
