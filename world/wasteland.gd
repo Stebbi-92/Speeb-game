@@ -1890,6 +1890,8 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 		var most0 := most_lit()
 		if not i in lit:
 			lit.append(i)
+			if is_instance_valid(player) and player.relics:
+				player.relics.add_faith(FAITH_BEACON)
 		flags["clean_%d" % i] = true   # its key went in: it stays clean, even if the fire goes out
 		flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
 		if most_lit() > most0:
@@ -6928,6 +6930,22 @@ func on_blocked(_e: LesserSpeeb, col: Object, dmg: float) -> bool:
 	return false
 
 
+## Faith in the waste is slow to gather: the prayer is earned before it is first spoken, and again after.
+## About ninety common forms fill it, or fewer with the great deeds: a beacon kindled, a great one undone.
+const FAITH_KILL := 0.011        ## a common form
+const FAITH_SWARM := 0.003       ## one of a swarm
+const FAITH_CHAMPION := 0.04     ## an elite or a champion
+const FAITH_BEACON := 0.4        ## a beacon kindled (for everyone who keeps it)
+const FAITH_GREAT := 0.5         ## a great one undone
+
+func faith_for(e: LesserSpeeb) -> float:
+	if e.kind in ["swarm", "mite"]:
+		return FAITH_SWARM
+	if e.kind == "elite" or e.champion != "":
+		return FAITH_CHAMPION
+	return FAITH_KILL
+
+
 func on_enemy_slain(e: LesserSpeeb) -> void:
 	life_kill()
 	kills += 1
@@ -6937,7 +6955,7 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	_streak_t = 3.5
 	hud.set_streak(streak)
 	if player.relics:
-		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.1)
+		player.relics.add_faith(faith_for(e))
 	shared("_w_slain", [e.global_position, e.kind, Net.me()])
 	_bestiary(e)
 	if e.boss != "":
@@ -8057,7 +8075,7 @@ func char_data() -> Dictionary:
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds, "completed": rewards_had,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
+		"meals": meals, "rested": rested, "faith": player.relics.faith if player.relics else 0.0, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
 
 
@@ -8084,6 +8102,8 @@ func apply_char(d: Dictionary) -> void:
 	slain_kinds = d.get("slain", {}) if d.get("slain") is Dictionary else {}
 	rewards_had = d.get("completed", {}) if d.get("completed") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
+	if player and player.relics:
+		player.relics.faith = clampf(float(d.get("faith", 0.0)), 0.0, 1.0)   # a new pilgrim starts with none
 	meals = {}
 	if d.get("meals") is Dictionary:
 		for k in d.meals:
@@ -10512,6 +10532,8 @@ func _w_lair_wake(b: String) -> void:
 
 func _w_boss_down(b: String, at: Vector3) -> void:
 	var land: String = LesserSpeeb.BOSSES[b].land
+	if is_instance_valid(player) and player.relics:
+		player.relics.add_faith(FAITH_GREAT)
 	flags["lair_" + land] = day
 	for l in lairs:
 		if l.id == land and l.has("glow") and is_instance_valid(l.glow):

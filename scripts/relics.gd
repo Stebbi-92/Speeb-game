@@ -10,7 +10,7 @@ const CENSER_REACH := 10.0
 
 var player: Player
 var slot := 0
-var faith := 1.0
+var faith := 0.0 if Game.wasteland else 1.0   ## in the waste the prayer is earned before it is first spoken
 var lantern_lit := false
 var censer_lit := false
 var _models := {}
@@ -350,7 +350,7 @@ func _process(delta: float) -> void:
 		"claw":
 			hint = "[LMB]  Cast the claw" if _find_anchor() != null else ("Nothing in reach to hold" if Game.wasteland else "")
 		"hands":
-			hint = "[LMB]  Pray" if faith >= 1.0 else "Faith gathers as you kill enemies"
+			hint = "[LMB]  Pray" if faith >= 1.0 else ("Faith %d%%: it gathers as you slay forms, kindle beacons and undo great ones" % int(faith * 100) if Game.wasteland else "Faith gathers as you kill enemies")
 		"lantern":
 			hint = "[LMB]  " + ("Quench the lantern" if lantern_lit else "Light the lantern")
 		"censer":
