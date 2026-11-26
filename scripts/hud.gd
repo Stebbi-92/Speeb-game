@@ -997,7 +997,7 @@ func set_fx(param: String, value: float) -> void:
 func reset_fx() -> void:
 	for p in ["vignette", "glitch", "desat", "dark", "flash", "blur", "hurt"]:
 		set_fx(p, 0.0)
-	set_fx("vignette", 0.35)
+	set_fx("vignette", 0.0)
 
 
 func show_reveal(code: String) -> void:

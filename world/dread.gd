@@ -74,11 +74,11 @@ func _show() -> void:
 	if k <= 0.0:
 		if _fx:
 			_fx = false
-			w.hud.set_fx("vignette", 0.35)
+			w.hud.set_fx("vignette", 0.0)
 			w.hud.set_fx("desat", 0.0)
 		return
 	_fx = true
-	w.hud.set_fx("vignette", 0.35 + 0.5 * k)
+	w.hud.set_fx("vignette", 0.85 * k)
 	w.hud.set_fx("desat", 0.45 * k)
 
 

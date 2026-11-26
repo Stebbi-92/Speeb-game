@@ -1,7 +1,7 @@
 shader_type canvas_item;
 // Full-screen veil: vignette, the Riftwalker's glitch, the drowsy dimming and the white of revelation.
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
-uniform float vignette = 0.35;
+uniform float vignette = 0.0;
 uniform float glitch = 0.0;
 uniform float desat = 0.0;
 uniform float dark = 0.0;

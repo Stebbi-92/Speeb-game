@@ -1562,7 +1562,7 @@ func _unblinking_eye() -> void:
 	for i in _ambient.size():
 		create_tween().tween_property(_ambient[i], "volume_db", saved_db[i] + 30.0, 2.0)
 	hud.set_fx("desat", 0.0)
-	hud.set_fx("vignette", 0.35)
+	hud.set_fx("vignette", 0.0)
 	if not _gathering:
 		combat_frozen = was_frozen
 	eye_watching = false
