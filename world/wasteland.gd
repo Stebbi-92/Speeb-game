@@ -17841,6 +17841,8 @@ func debug_people() -> void:
 	print("PEOPLE ok=%d/%d walking=%d tall=%s" % [ok, figs.size(), walking, ",".join(tall)])
 	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
 		get_tree().quit()
+	else:
+		clock = 16.5   # in the afternoon light, to be seen
 
 
 ## Testing aid: a figure is drawn in a handful of meshes, not thirty.

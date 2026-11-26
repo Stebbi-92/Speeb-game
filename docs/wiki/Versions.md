@@ -2,6 +2,14 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.24.0 (people of the waste)
+
+- **People:** townsfolk and the people you speak with have real, animated bodies.
+- **Deaths:** foes fall the way the last blow drove them; fliers drop from the sky, ghosts burn out.
+- **Foes:** Unlit gunmen raise their rifles to aim. Spirit-cats run on a real cat's body.
+- **Co-op:** a friend's perfect guard is now heard and felt by them.
+- **Fixed:** a crash report after restarting to update.
+
 ## 0.23.0 (a steadier hand)
 
 - **Gun skill:** shots start wider and steady with every hit, from any gun.

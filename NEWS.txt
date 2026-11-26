@@ -1,3 +1,14 @@
+Brelm alpha 0.24.0: people of the waste
+
+- The townsfolk, the people you speak with, the lost and Lena have real bodies: men and women of the waste who stand, walk, run, talk with their hands, wave and work.
+- Foes die the way the last blow drove them: shot from the front they are thrown back, from behind they crumple at the knees, from the side they twist as they fall. The Hollowed, the Salt-Bones, the Ash Weaver and the Nykur keep their own deaths. The dead lie a moment and sink into the ash.
+- Winged forms and the Watching Discs fall out of the sky when they die, and the discs burst where they land. A Kulshedra slain in the air falls too. Ghosts and Ember Wisps burn out.
+- The Unlit gunmen, their marksmen and the Tunnel Unlit raise their rifles to aim.
+- Spirit-cats run, trot and bite on a real cat's body.
+- Beasts fall properly: the tusker has its own death, and the others buckle and roll onto their side.
+- In co-op, a friend who turns a blow with a perfect guard now hears it and feels it.
+- Fixed: restarting the game to update no longer sends a crash report.
+
 Brelm alpha 0.23.0: a steadier hand
 
 - Gun skill: a new survivor's shots wander wider and the sights sway more. Every hit with any gun steadies your hand, rank by rank, until shots go where you aim. Your rank shows on the arms page.

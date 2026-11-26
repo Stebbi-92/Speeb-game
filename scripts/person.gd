@@ -57,7 +57,28 @@ func setup(k: String, seed: int, build := 1) -> Person:
 	return self
 
 
+## Built only once someone comes near: a town's people far off cost nothing, and the land loads sooner
+const BUILD_AT := 170.0
+var _built := false
+var _wait_t := 0.0
+
+
 func _ready() -> void:
+	hand_r = Node3D.new()
+	add_child(hand_r)
+	hand_r.position.y = 0.8
+	if _cam_dist() > BUILD_AT:
+		return
+	_build()
+
+
+func _cam_dist() -> float:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	return cam.global_position.distance_to(global_position) if cam else 0.0
+
+
+func _build() -> void:
+	_built = true
 	_m = (load(DIR + key + ".scn") as PackedScene).instantiate()
 	add_child(_m)
 	_sk = _m.find_children("*", "Skeleton3D", true, false)[0]
@@ -80,8 +101,6 @@ func _ready() -> void:
 	_m.rotation.y = float(f[1])
 	_m.position.y = float(f[2]) * s
 	_hand = _bone("RightHand")
-	hand_r = Node3D.new()
-	add_child(hand_r)
 	_play("Idle", 0.0)
 	_ap.seek(_rng.randf() * 3.0, true)
 	if seated:
@@ -156,6 +175,13 @@ func _sit() -> void:
 
 
 func _process(delta: float) -> void:
+	if not _built:
+		_wait_t -= delta
+		if _wait_t <= 0.0:
+			_wait_t = 1.0 + _rng.randf() * 0.5
+			if _cam_dist() < BUILD_AT:
+				_build()
+		return
 	if seated:
 		return
 	_far_t -= delta
