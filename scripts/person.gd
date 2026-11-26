@@ -29,7 +29,8 @@ var _far_t := 0.0
 var _far := false
 var _gesture_t := 0.0
 var _rng := RandomNumberGenerator.new()
-static var _fit := {}     ## key -> [scale, turn, lift], measured once from the rest
+static var _fit := {}     ## key -> [scale, turn, lift, {way: lift}], measured once from the rest and its moves
+var _s := 1.0             ## its scale
 
 
 ## The body that suits a look: its skin picks the people, and the seed whether a man or a woman.
@@ -100,6 +101,7 @@ func _build() -> void:
 	_m.scale = Vector3.ONE * s
 	_m.rotation.y = float(f[1])
 	_m.position.y = float(f[2]) * s
+	_s = s
 	_hand = _bone("RightHand")
 	_play("Idle", 0.0)
 	_ap.seek(_rng.randf() * 3.0, true)
@@ -128,7 +130,8 @@ func _dust(mm: MeshInstance3D) -> void:
 		mm.set_surface_override_material(i, _dusted[id])
 
 
-## Its height, its turn to face +Z and how far its soles sit under its middle, from its rest (at scale 1).
+## Its height and its turn to face +Z, from its rest, and how far its soles sit under its middle as it stands
+## and walks (the baked moves do not carry the hips where the rest has them), at scale 1.
 func _measure() -> Array:
 	var rel := _m.global_transform.affine_inverse() * _sk.global_transform
 	var at := func(n: String) -> Vector3: return rel * _sk.get_bone_global_rest(_bone(n)).origin
@@ -140,7 +143,24 @@ func _measure() -> Array:
 	var up: Vector3 = at.call("Head") - at.call("Hips")
 	var fwd := left.cross(up)
 	fwd.y = 0.0
-	return [1.0 / maxf(top - lo, 0.01), -atan2(fwd.x, fwd.z), -lo]
+	# Its soles in each of its ways: the lowest point of its skin, the middle of a few moments of each (the
+	# baked moves hold the hips higher or lower than one another, a run's well up off a stance's)
+	var pts := LesserSpeeb._sole_points(_m)
+	var to := _m.global_transform.affine_inverse()
+	var lifts := {}
+	for c in ["Idle", "Walk", "Run", "Stand", "Talk", "Wave"]:
+		if pts.is_empty() or not _ap.has_animation("moves/" + c):
+			continue
+		_ap.play("moves/" + c, 0.0)
+		var lows := []
+		for i in 6:
+			_ap.seek(_ap.get_animation("moves/" + c).length * i / 6.0, true)
+			lows.append(LesserSpeeb._sole_low(pts, to))
+		lows.sort()
+		if lows[3] < INF:
+			lifts[c] = -float(lows[3])
+	_ap.stop()
+	return [1.0 / maxf(top - lo, 0.01), -atan2(fwd.x, fwd.z), float(lifts.get("Idle", -lo)), lifts]
 
 
 func _bone(n: String) -> int:
@@ -222,5 +242,8 @@ func _process(delta: float) -> void:
 			_play("Idle")
 		elif _clip in ["Walk", "Run"]:
 			_play("Stand" if _rng.randf() < 0.3 else "Idle")
+	# Its soles kept on the ground as it goes from one way to another
+	var lifts: Dictionary = _fit[key][3]
+	_m.position.y = lerpf(_m.position.y, float(lifts.get(_clip, _fit[key][2])) * _s, minf(1.0, delta * 6.0))
 	if hand_r and _hand >= 0:
 		hand_r.global_position = _sk.global_transform * _sk.get_bone_global_pose(_hand).origin

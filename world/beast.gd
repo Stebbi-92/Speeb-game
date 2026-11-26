@@ -59,6 +59,7 @@ func _ready() -> void:
 		cs.rotation.x = PI / 2
 		cs.position.y = 0.55 * s
 		add_child(cs)
+	_foot()
 	_build()
 	_label = Label3D.new()
 	_label.text = spec.name
@@ -109,6 +110,25 @@ const HITS := {
 	"goat": [["capsule", 0.31, 1.22, Vector3(0, 0.77, -0.17)], ["sphere", 0.22, Vector3(0, 0.98, 0.66)],
 		["box", Vector3(0.4, 0.32, 0.95), Vector3(0, 0.28, -0.17)]],
 }
+
+
+## Its shapes are kept clear of the ground (they would catch on it), so alone they would let it down only as far
+## as its belly, its legs sunk to the knee: a small round under its middle stands it on its feet instead.
+func _foot() -> void:
+	var low := INF
+	for c in get_children():
+		if c is CollisionShape3D and (c as CollisionShape3D).shape:
+			var ab: AABB = (c as CollisionShape3D).transform * (c as CollisionShape3D).shape.get_debug_mesh().get_aabb()
+			low = minf(low, ab.position.y)
+	if low == INF or low < 0.02:
+		return
+	var cs := CollisionShape3D.new()
+	var sp := SphereShape3D.new()
+	sp.radius = low * 0.5 + 0.005
+	cs.shape = sp
+	cs.position.y = sp.radius
+	cs.name = "Foot"
+	add_child(cs)
 
 
 func _fit_hits(k: float) -> void:

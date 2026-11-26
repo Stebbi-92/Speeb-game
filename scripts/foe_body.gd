@@ -31,14 +31,12 @@ const LOOKS := {
 const MODELS := {
 	"character-zombie.glb": ["folk/zombie_mud.glb", 1.85, 3.3, {"idle": "idle01", "walk": "walk01", "sprint": "run", "attack-melee-right": "attack01",
 		"holding-both": "caution", "die": "death"}, "head_014_16", "hand_R_010_39", "chest_017_14", 0.0],
-	# its own "Walk" barely steps: its walk, run and sword-bearer's stance are Nerd Survivor's, baked onto its
-	# bones (tools/bake_stranger_moves.gd, see tools/make_knight_moves.sh); the flamberge stays in its right hand
-	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0,
-		null, "res://assets/models/foes/folk/knight_moves.res"],
+	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
 	"character-vampire.glb": ["folk/lich_guigodead.glb", 2.0, 3.2, {"idle": "Lich_Esqueleto|Lich_Parado_Voando", "walk": "Lich_Esqueleto|Lich_Parado_Voando",
 		"sprint": "Lich_Esqueleto|Lich_Parado_Voando", "attack-melee-right": "Lich_Esqueleto|Lich_Ataque_Perto",
 		"holding-both-shoot": "Lich_Esqueleto|Lich_Ataque_Distancia"}, "Cabeca_05", "Mao.R_022", "Peito_03", 0.0,
-		AABB(Vector3(-57.3, 11.1, -57.7), Vector3(106.5, 251.1, 114.3))],
+		# its floor is where its robe's hem hangs as it hovers (its staff's foot reaches lower, into the ground)
+		AABB(Vector3(-57.3, 20.3, -57.7), Vector3(106.5, 251.1, 114.3))],
 	"character-ghost.glb": ["folk/ghost.glb", 1.9, 3.0, {}, "", "", "", 0.0],
 	"character-skeleton.glb": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "rig|Idel", "walk": "rig|Walck", "sprint": "rig|Run",
 		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead"}, "head_0111", "DEF-hand.R_0245", "chest_019", 0.0,

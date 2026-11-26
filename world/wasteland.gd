@@ -11639,7 +11639,7 @@ func debug_buildshot() -> void:
 
 
 ## Testing aid: scanned bodies set down on their feet. Env FOES (comma list). Prints SEAT kind seat= low= after
-## their first steps (low: the lowest skinned bone above the ground under them, which should be near 0).
+## their first steps (low: the lowest point of the skin above the ground under them, which should be near 0).
 func debug_seat() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
@@ -11661,14 +11661,27 @@ func debug_seat() -> void:
 			e.set_meta("raid", true)
 			e._buried = 0.0
 			made.append(e)
-	await get_tree().create_timer(4.0).timeout
+	# The lowest point of each skin over the ground under it, now and then as they come on
+	var lows := {}
+	for k in 20:
+		await get_tree().create_timer(0.2).timeout
+		for e in made:
+			if is_instance_valid(e) and e._scan and e.is_on_floor():
+				var pts0 := LesserSpeeb._sole_points(e._scan)
+				var gy: float = terrain.height_at(e.global_position.x, e.global_position.z)
+				if not pts0.is_empty():
+					lows.get_or_add(e, []).append(snappedf(LesserSpeeb._sole_low(pts0) - gy, 0.01))
+	for e in made:
+		if is_instance_valid(e) and lows.has(e):
+			var l: Array = lows[e]
+			l.sort()
+			print("SEATLOWS %s med=%.2f %s" % [e.kind if e.boss == "" else e.boss, l[l.size() / 2], l])
 	for e in made:
 		if not is_instance_valid(e):
 			continue
-		var low := 99.0
 		var ground: float = terrain.height_at(e.global_position.x, e.global_position.z)
-		for sb in e._seat_bones:
-			low = minf(low, (sb[0].global_transform * sb[0].get_bone_global_pose(int(sb[1]))).origin.y - ground)
+		var pts: Array = e._seat_pts if not e._seat_pts.is_empty() else (LesserSpeeb._sole_points(e._scan) if e._scan else [])
+		var low: float = LesserSpeeb._sole_low(pts) - ground if not pts.is_empty() else 99.0
 		for cs in e.get_children():
 			if cs is CollisionShape3D and cs.shape:
 				var ab: AABB = cs.global_transform * cs.shape.get_debug_mesh().get_aabb()
@@ -11678,7 +11691,7 @@ func debug_seat() -> void:
 		var dh := get_world_3d().direct_space_state.intersect_ray(dq)
 		if not dh.is_empty():
 			print("SEATRAY hit=", snappedf(dh.position.y - ground, 0.01), " by=", dh.collider, " ", (dh.collider as Node).get_path() if dh.collider is Node else "", " mode=", e.motion_mode, " r=", e.spec.radius)
-		print("SEAT %s seat=%.2f low=%.2f t=%.2f floor=%s buried=%.2f bones=%d sk=%s up=%.2f air=%.2f vy=%.2f" % [e.kind if e.boss == "" else e.boss, e._seat, low, e._seat_t, e.is_on_floor(), e._buried, e._seat_bones.size(), e._sk, e.global_position.y - ground, e._air_t, e.velocity.y])
+		print("SEAT %s seat=%.2f low=%.2f t=%.2f floor=%s buried=%.2f bones=%d sk=%s up=%.2f air=%.2f vy=%.2f" % [e.kind if e.boss == "" else e.boss, e._seat, low, e._seat_t, e.is_on_floor(), e._buried, e._seat_pts.size(), e._sk, e.global_position.y - ground, e._air_t, e.velocity.y])
 	get_tree().quit()
 
 
@@ -18285,6 +18298,26 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 				if hb >= 0 and tb >= 0:
 					var ax: Vector3 = sk.global_transform * sk.get_bone_global_pose(hb).origin - sk.global_transform * sk.get_bone_global_pose(tb).origin
 					d["ang"] = d.get("ang", []) + [rad_to_deg(Vector2(ax.x, ax.z).angle_to(Vector2(vb.x, vb.z)))]
+			if _feet_sole and t >= float(d.get("st", 0.0)):
+				# The skin itself, now and then: where its lowest point is over the ground below it
+				d["st"] = t + 0.1
+				var sl0 := _sole_low(e)
+				var own := here.y - (float((e as LesserSpeeb).spec.radius) if e is LesserSpeeb else 0.0)
+				var aloft := e is CharacterBody3D and not (e as CharacterBody3D).is_on_floor()
+				if sl0.x < 1e8 and (mv > 0.6 or mv < 0.05):
+					var tag := ("m" if mv > 0.6 else "i")
+					if aloft:
+						d["air" + tag] = int(d.get("air" + tag, 0)) + 1
+					else:
+						d.get_or_add("s" + tag, []).append(sl0.y - terrain.height_at(sl0.x, sl0.z))
+					d.get_or_add("r" + tag, []).append(sl0.y - own)
+					var cn := "-"
+					for ap in e.find_children("*", "AnimationPlayer", true, false):
+						if (ap as AnimationPlayer).is_playing():
+							cn = str((ap as AnimationPlayer).current_animation).get_slice("|", 1) if "|" in str((ap as AnimationPlayer).current_animation) else str((ap as AnimationPlayer).current_animation)
+							break
+					(d.get_or_add("rc", {}) as Dictionary).get_or_add(cn + ("(buried)" if e is LesserSpeeb and (e as LesserSpeeb)._buried > 0.05 else ("" if not aloft else "(air)")), []).append(sl0.y - own)
+					d.get_or_add("g" + tag, []).append(own - terrain.height_at(here.x, here.z))
 			if mv > 0.6:
 				d.v.append(mv)
 				d.h.append(h)
@@ -18326,8 +18359,76 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			b[0] += " stepper"
 		if d.has("ang"):
 			b[0] += " heading_off=%.0f signed=%.0f" % [_med((d.ang as Array).map(func(x): return absf(x))), _med(d.ang)]
+		if _feet_sole:
+			# Judged by the skin when it is watched: its lowest point against the body's own floor, on the ground
+			var on_ground := []
+			for cn in d.get("rc", {}):
+				if not "(" in cn:
+					on_ground.append_array(d.rc[cn])
+			flag = " BAD" if on_ground.size() >= 10 and absf(_med(on_ground)) > 0.04 else (flag.replace("BAD", "bones-only") if flag != "" else "")
+			b[0] += " SOLE=%.3f/%.3f REL=%.3f/%.3f GAP=%.3f/%.3f (n=%d/%d air=%d/%d)" % [_med(d.get("sm", [])), _med(d.get("si", [])),
+				_med(d.get("rm", [])), _med(d.get("ri", [])), _med(d.get("gm", [])), _med(d.get("gi", [])),
+				d.get("sm", []).size(), d.get("si", []).size(), int(d.get("airm", 0)), int(d.get("airi", 0))]
+			var rc: Dictionary = d.get("rc", {})
+			for cn in rc:
+				b[0] += " {%s:%.3f n%d}" % [cn, _med(rc[cn]), rc[cn].size()]
 		out.append("%s v=%.2f h=%.2f idle_h=%.2f slide=%.2f footv=%.1f n=%d/%d [%s]%s" % [b[0], v, h, hi, sl, d.span, d.h.size(), d.hi.size(), fb, flag])
 	return out
+
+
+## (testing aid, feet_sole=1) also the lowest point of the skin, skinned on the CPU: what the eye sees on the ground
+var _feet_sole := "feet_sole=1" in OS.get_cmdline_user_args()
+var _sole_arrs := {}
+
+
+## The lowest point of a body's visible skinned meshes, in the world (x, y, z); x is 1e9 when it has none.
+func _sole_low(e: Node) -> Vector3:
+	var best := Vector3(1e9, 1e9, 0)
+	for mi in e.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		if mm.mesh == null or mm.skin == null or not mm.is_visible_in_tree():
+			continue
+		var sk := mm.get_node_or_null(mm.skeleton) as Skeleton3D
+		if sk == null:
+			continue
+		var skin := mm.skin
+		var mats := {}
+		for si in mm.mesh.get_surface_count():
+			var key := mm.mesh.get_rid().get_id() * 64 + si
+			if not _sole_arrs.has(key):
+				_sole_arrs[key] = mm.mesh.surface_get_arrays(si)
+			var arr: Array = _sole_arrs[key]
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var bones = arr[Mesh.ARRAY_BONES]
+			var wts = arr[Mesh.ARRAY_WEIGHTS]
+			if v.is_empty() or bones == null or wts == null:
+				continue
+			var per: int = bones.size() / v.size()
+			for i in range(0, v.size(), 2):
+				var p: Vector3 = v[i]
+				var sum := Vector3.ZERO
+				var wsum := 0.0
+				for j in per:
+					var wj: float = wts[i * per + j]
+					if wj <= 0.0:
+						continue
+					var bi: int = bones[i * per + j]
+					if not mats.has(bi):
+						var bone := -1
+						if bi < skin.get_bind_count():
+							bone = skin.get_bind_bone(bi)
+							if bone < 0:
+								bone = sk.find_bone(skin.get_bind_name(bi))
+						mats[bi] = null if bone < 0 else sk.global_transform * sk.get_bone_global_pose(bone) * skin.get_bind_pose(bi)
+					if mats[bi] == null:
+						continue
+					sum += (mats[bi] as Transform3D) * p * wj
+					wsum += wj
+				if wsum > 0.0:
+					var q := sum / wsum
+					if q.y < best.y:
+						best = q
+	return Vector3(best.x, best.y, best.z) if best.x < 1e8 else best
 
 
 ## The bones a body stands on: its feet, toes, paws and hooves by name, or else the ends of its limbs (the bones

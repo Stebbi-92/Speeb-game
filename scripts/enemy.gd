@@ -133,12 +133,13 @@ func matter() -> String:
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
-		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true, "die": "Armature|die"}],
+		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true, "die": "Armature|die",
+		"lift": 0.043}],   # its walk and stance hold its legs lower than its rest does: set up to its feet (measured)
 	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
 	# keep their own stirring
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
 		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8]}],
-	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
+	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05), {"own_head": true, "lift": 0.048}],   # its stored bounds reach under its feet: set up to them (measured)
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
 	# on their necks read as stuck on):
 	# [file, height at size 1, walking clip, walking pace, head (height, forward) as parts of its height,
@@ -150,11 +151,12 @@ const SCANS := {
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
 		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true}],
-	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI}],
+	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.36, "turn": PI}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
 		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true}],
+	# (lift, in metres for each of its size: its one clip holds the Watcher's feet well up off its rest's floor, measured)
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
-	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.48, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
 		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
@@ -199,7 +201,7 @@ const SCANS := {
 	# body, neck, head, folded wings, legs and tail (measured at size 1, scaled to hers in _add_hits)
 	"kulshedra": ["res://assets/models/foes/kulshedra/dragon_european.glb", 1.9, "Walk", 2.4, Vector2(0.65, 0.75),
 		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "air": "Fly", "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
-		"bone_bounds": true, "hits_k": true,
+		"bone_bounds": true, "hits_k": true, "lift": -0.015,   # her rest's lowest point is not her feet: set down to them
 		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
 			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
 			["box", Vector3(0.7, 0.3, 1.2), Vector3(-0.33, 0.27, 0.45)], ["capsule", 0.12, Vector3(-0.2, 0.26, -0.45), Vector3(0.3, 0.22, -2.1)]]}],
@@ -1019,7 +1021,9 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = (-float(spec.radius) + _lift + _seat + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
+		# In metres under its middle: a great one's grown body (see _grow_into_boss) is grown about its own
+		# origin, which stays at its feet; only what was set at build time was shrunk for the growing
+		_scan.position.y = -float(spec.radius) + _lift + _seat + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
 		_scan_tick(pace)
 		if _seat_t < SEAT_TIME:
@@ -1099,13 +1103,21 @@ var _tail: Node3D
 var _body_node: Node3D
 var _lift := 0.0
 var _dust: CPUParticles3D
-## A scanned body is set down on its feet: over its first steps the lowest of its bones is watched, and the
-## body moved so that lowest point meets the ground (its rest pose's bounds are not where a walk puts its feet).
+## A scanned body is set down on its feet: over its first steps the lowest point of its skin is watched (skinned
+## here, from the points that stand lowest), and the body moved so that point meets the ground. Its rest pose's
+## bounds are not where a walk puts its feet, and a bone sits inside the foot, some way above the sole. Measured
+## once for each kind of body, then kept.
 var _seat := 0.0
 var _seat_t := 0.0
-var _seat_low := 99.0
-var _seat_bones: Array = []
+var _seat_next := 0.0
+var _seat_lows: Array = []
+var _seat_pts: Array = []
 const SEAT_TIME := 2.0
+static var _seats := {}
+
+
+func _seat_key() -> String:
+	return "%s:%s:%s" % [_sk, str(spec.size), boss]
 
 
 func _seat_measure(delta: float) -> void:
@@ -1115,8 +1127,12 @@ func _seat_measure(delta: float) -> void:
 			or str(spec.get("role", "")) == "float":
 		_seat_t = SEAT_TIME
 		return
-	if _buried > 0.0:
+	if _seats.has(_seat_key()):
+		_seat = float(_seats[_seat_key()])
+		_seat_t = SEAT_TIME
 		return
+	if _buried > 0.0 or Time.get_ticks_msec() < _scan_busy or is_on_wall() or absf(velocity.y) > 1.0:
+		return   # under the sand, in a swing, climbing or leaping: not how it stands
 	# Stood on the ground (not every way of walking keeps the floor flag, so look down for it)
 	var base := global_position.y - float(spec.radius)
 	var down := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(
@@ -1124,29 +1140,134 @@ func _seat_measure(delta: float) -> void:
 	if down.is_empty() or absf((down.position as Vector3).y - base) > 0.2:
 		return
 	_seat_t += delta
-	if _seat_bones.is_empty():
-		# Only the bones its skin hangs on: a root or a control bone left at the old floor is no foot
-		for mi in _scan.find_children("*", "MeshInstance3D", true, false):
-			var mm := mi as MeshInstance3D
-			var sk3 := mm.get_node_or_null(mm.skeleton) as Skeleton3D
-			if mm.skin == null or sk3 == null:
-				continue
-			for bi in mm.skin.get_bind_count():
-				var b := mm.skin.get_bind_bone(bi)
-				if b < 0:
-					b = sk3.find_bone(mm.skin.get_bind_name(bi))
-				if b >= 0:
-					_seat_bones.append([sk3, b])
-		if _seat_bones.is_empty():
+	if _seat_pts.is_empty():
+		_seat_pts = _sole_points(_scan)
+		if _seat_pts.is_empty():
 			_seat_t = SEAT_TIME
 			return
-	for sb in _seat_bones:
-		var sk3: Skeleton3D = sb[0]
-		_seat_low = minf(_seat_low, (sk3.global_transform * sk3.get_bone_global_pose(int(sb[1]))).origin.y - base)
-	if _seat_t >= SEAT_TIME and _seat_low < 90.0:
-		# Up or down to meet it, a little short (a bone's head sits just above the sole), and never by much
-		var tall := float(SCANS[_sk][1]) * float(spec.size)
-		_seat = clampf(-(_seat_low - tall * 0.02), -tall * 0.4, tall * 0.4)
+	_seat_next -= delta
+	if _seat_next <= 0.0:
+		_seat_next = 0.2
+		var lo := _sole_low(_seat_pts)
+		if lo < 1e8:
+			_seat_lows.append(lo - (base + _seat))
+	if _seat_t >= SEAT_TIME:
+		if _seat_lows.size() >= 4:
+			# Where its lowest point mostly is as it goes (a heel's dip or a lifted stride is not its stand)
+			_seat_lows.sort()
+			var tall := float(SCANS[_sk][1]) * float(spec.size)
+			_seat = clampf(-float(_seat_lows[_seat_lows.size() / 2]), -tall * 0.4, tall * 0.4)
+			_seats[_seat_key()] = _seat
+		else:
+			_seat_t = SEAT_TIME * 0.5   # too little seen yet: watch a while longer
+		_seat_lows.clear()
+
+
+## The points of a body's skin that could be its soles: those in the lowest quarter of it as it now stands (its
+## rest may hold its legs up), with their bones and weights. [[mesh, skeleton, points, bones, weights, per point], ...]
+static func _sole_points(top: Node3D) -> Array:
+	var out := []
+	var lo := INF
+	var hi := -INF
+	var parts := []
+	for mi in top.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		var sk := mm.get_node_or_null(mm.skeleton) as Skeleton3D if mm.mesh else null
+		if mm.mesh == null or mm.skin == null or sk == null:
+			continue
+		var shown := true
+		var up: Node = mm
+		while up and up != top:
+			if up.is_queued_for_deletion() or up is Node3D and not (up as Node3D).visible:
+				shown = false   # a part it does not wear (hidden, or on its way out)
+			up = up.get_parent()
+		if not shown:
+			continue
+		for si in mm.mesh.get_surface_count():
+			var arr: Array = mm.mesh.surface_get_arrays(si)
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			if v.is_empty() or arr[Mesh.ARRAY_BONES] == null or arr[Mesh.ARRAY_WEIGHTS] == null:
+				continue
+			var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+			var wts: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+			var per: int = bones.size() / v.size()
+			var ys := PackedFloat32Array()
+			ys.resize(v.size())
+			for i in v.size():
+				var q := Vector3.ZERO
+				var ws := 0.0
+				for j in per:
+					var wj := wts[i * per + j]
+					var bi := bones[i * per + j]
+					if wj <= 0.0 or bi >= mm.skin.get_bind_count():
+						continue
+					var bone := _skin_bone(mm.skin, sk, bi)
+					if bone < 0:
+						continue
+					q += (sk.global_transform * sk.get_bone_global_pose(bone) * mm.skin.get_bind_pose(bi) * v[i]) * wj
+					ws += wj
+				ys[i] = q.y / ws if ws > 0.0 else INF
+				if ws > 0.0:
+					lo = minf(lo, ys[i])
+					hi = maxf(hi, ys[i])
+			parts.append([mm, sk, v, bones, wts, per, ys])
+	if parts.is_empty() or lo == INF:
+		return out
+	var cut := lo + (hi - lo) * 0.25
+	for pt in parts:
+		var keep_v := PackedVector3Array()
+		var keep_b := PackedInt32Array()
+		var keep_w := PackedFloat32Array()
+		var per: int = pt[5]
+		var v: PackedVector3Array = pt[2]
+		var ys: PackedFloat32Array = pt[6]
+		for i in v.size():
+			if ys[i] <= cut:
+				keep_v.append(v[i])
+				for j in per:
+					keep_b.append((pt[3] as PackedInt32Array)[i * per + j])
+					keep_w.append((pt[4] as PackedFloat32Array)[i * per + j])
+		if not keep_v.is_empty():
+			out.append([pt[0], pt[1], keep_v, keep_b, keep_w, per])
+	return out
+
+
+static func _skin_bone(skin: Skin, sk: Skeleton3D, bi: int) -> int:
+	var bone := skin.get_bind_bone(bi)
+	return sk.find_bone(skin.get_bind_name(bi)) if bone < 0 else bone
+
+
+## The lowest of those points as the body now stands, in the world or in the space given (INF when it has none).
+static func _sole_low(pts: Array, to := Transform3D()) -> float:
+	var lo := INF
+	for pt in pts:
+		var mm: MeshInstance3D = pt[0]
+		var sk: Skeleton3D = pt[1]
+		if not is_instance_valid(mm) or not is_instance_valid(sk):
+			continue
+		var v: PackedVector3Array = pt[2]
+		var bones: PackedInt32Array = pt[3]
+		var wts: PackedFloat32Array = pt[4]
+		var per: int = pt[5]
+		var mats := {}
+		for i in v.size():
+			var q := Vector3.ZERO
+			var ws := 0.0
+			for j in per:
+				var wj := wts[i * per + j]
+				if wj <= 0.0:
+					continue
+				var bi := bones[i * per + j]
+				if not mats.has(bi):
+					var bone := _skin_bone(mm.skin, sk, bi) if bi < mm.skin.get_bind_count() else -1
+					mats[bi] = null if bone < 0 else to * sk.global_transform * sk.get_bone_global_pose(bone) * mm.skin.get_bind_pose(bi)
+				if mats[bi] == null:
+					continue
+				q += (mats[bi] as Transform3D) * v[i] * wj
+				ws += wj
+			if ws > 0.0:
+				lo = minf(lo, q.y / ws)
+	return lo
 
 
 ## Four legs and a long back under the head, a tail that will not keep still: a cat gone wrong.
