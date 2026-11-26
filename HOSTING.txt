@@ -33,23 +33,72 @@ fellowship must run the same version of Brelm.
    cause; a dedicated server on a rented machine (below) gets around it.
 
 
-3. A DEDICATED SERVER (no player of its own, runs without a window)
+3. A DEDICATED SERVER (no player of its own)
    Good for a spare PC or a rented Windows or Mac machine with an open port.
    The first pilgrim to join chooses the trial; when everyone leaves, the
    server waits for the next fellowship.
 
-   Windows:  double-click "Brelm Server.bat". A small window shows who
-             joins and leaves; close it to end the fellowship. Or run
-       Brelm.exe -- server port=24600 name="My fellowship"
-   macOS:    double-click "Brelm Server.command" (it runs in Terminal;
-             close Terminal or press Ctrl+C to end it), or run
-       Brelm.app/Contents/MacOS/Brelm* --headless -- server port=24600 name="My fellowship"
+   Windows:  double-click "Brelm Server.bat". The server window opens.
+   macOS:    double-click "Brelm Server.command" (it runs in Terminal with
+             no window; type commands there, see below).
+   Or by hand:
+       Brelm.exe -- server
+       Brelm.app/Contents/MacOS/Brelm* --headless -- server
 
-   Options, after "server":
+   THE SERVER WINDOW
+   Along the top: the server's name, whether the world is running or
+   paused (and why), players, world, time up, last save, whether it is on
+   the internet list, the port and the addresses to join at.
+     Players   who is here, with ping. Kick or Ban them, or send a message
+               to everyone.
+     World     Save now, Restart world, load a saved world or make a new
+               one (a seed is optional), and choose when the world runs:
+               pause when empty, always run, or paused.
+     Settings  name, password, most players, difficulty, internet list,
+               autosave, pause when empty, port. Apply puts them in place
+               and saves them (a new port needs a restart).
+     Updates   check for a new version, read its notes, download it and
+               restart the server onto it (the world is saved first). It
+               can check by itself at start, and update by itself when no
+               one is connected.
+     Log       everything the server has said. Copy log, Open log folder.
+   Stop server saves the world first and asks before it stops. Closing
+   the window also saves and stops.
+
+   WITHOUT A WINDOW (--headless)
+   Type commands into the terminal: status, list, save, say <text>,
+   kick <name|id>, ban <name|id>, pause, resume, auto, worlds,
+   load <world>, new <world> [seed], update, restart, quit, help.
+
+   THE SETTINGS FILE
+   The server keeps its settings in server.cfg, in Brelm's data folder:
+     Windows:  %APPDATA%\Godot\app_userdata\Brelm- The Hermit of Nine Visions
+     macOS:    ~/Library/Application Support/Godot/app_userdata/Brelm- The Hermit of Nine Visions
+   (the Settings page shows the exact place). It is made on the first
+   start and can be edited by hand while the server is stopped:
+       [server]
+       name="A fellowship of Brelm"
+       port=24600
+       password=""
+       max_players=8
+       difficulty=1          (0 Pilgrim, 1 Hermit, 2 Unblinking)
+       listed=false          (show it on the internet list)
+       lobby=""              (internet list address; empty for the usual)
+       autosave_min=5        (0 for never)
+       pause_when_empty=true
+       [updates]
+       check_on_start=true
+       auto_update=false
+
+   Options after "server" override the file for that run:
+       config=path         use another settings file
        port=24600          the UDP port to listen on
        name="..."          the fellowship's name in the list
-       difficulty=0|1|2    Pilgrim, Hermit or Unblinking (the first joiner can change it)
-       public              list it on the internet list (needs lobby=...)
+       password=...        the word joiners must give
+       max_players=8       most players at once
+       difficulty=0|1|2    Pilgrim, Hermit or Unblinking
+       autosave=5          minutes between saves
+       public              list it on the internet list
        lobby=https://...   the internet list address (see 4)
 
    The server needs the port open toward it exactly as in section 2. On a

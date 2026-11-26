@@ -178,5 +178,6 @@ check vigilwave debug_vigilwave "VIGILWAVE n=[1-9][0-9]* far=true one_side=true 
 check autoloot debug_autoloot "AUTOLOOT took=true stayed=true back=true off=true"
 check gunskill debug_gunskill "GUNSKILL start=0 top=9 wider=true steadier=true blade_free=true top_mult=1.00"
 check stranger debug_stranger "STRANGER spoke=true warned=true drew=true gun=true fired=true"
+check serverui "none server port=24690 panelcheck" "PANEL tabs=Players,World,Settings,Updates,Log chips=9 settings=9 cfg=true order=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]
