@@ -197,13 +197,20 @@ func _process(delta: float) -> void:
 				_ap.play()
 	if _far:
 		return
+	# Each step as long as the body's own: the walk (or run) is played as fast as its feet carry it
 	var tall: float = TALL[key.right(1)] * _k / 1.75
-	if pace > 2.2:
+	var ws := Stride.of(_sk, _ap, "moves/Walk")
+	var rs := Stride.of(_sk, _ap, "moves/Run")
+	if ws < 0.05:
+		ws = WALK_PACE * tall
+	if rs < 0.05:
+		rs = RUN_PACE * tall
+	if pace > ws * 1.7:
 		_play("Run")
-		_ap.speed_scale = clampf(pace / (RUN_PACE * tall), 0.6, 1.6)
+		_ap.speed_scale = clampf(pace / rs, 0.5, 1.8)
 	elif pace > 0.15:
 		_play("Walk")
-		_ap.speed_scale = clampf(pace / (WALK_PACE * tall), 0.5, 1.8)
+		_ap.speed_scale = clampf(pace / ws, 0.4, 2.2)
 	else:
 		_ap.speed_scale = 1.0
 		_gesture_t -= delta

@@ -18045,3 +18045,223 @@ func debug_fogshot() -> void:
 					odd += 1
 		print("FOGSHOT %d odd=%d fog=%s" % [i, odd, env.volumetric_fog_enabled if env else "?"])
 	get_tree().quit()
+
+
+## Testing aid: every body that walks the waste, measured as it moves: how high its lowest bone stays over the
+## ground (a body that floats stands off it, one that sinks goes under), and how fast that foot slides while it
+## bears the weight, against how fast the body goes (a walk played too slow or too fast skates).
+func debug_feet() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	if dev:
+		dev.god = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var only := ""
+	for a in OS.get_cmdline_user_args():
+		if str(a).begins_with("feet="):
+			only = str(a).substr(5)
+	var lines := []
+	# The foes, a handful at a time, coming at the one who stands here
+	var kinds: Array = LesserSpeeb.KINDS.keys() + LesserSpeeb.VARIANTS.keys()
+	if only != "":
+		kinds = kinds.filter(func(k): return k in only.split(","))
+	var i := 0
+	while i < kinds.size():
+		var batch := []
+		for j in 6:
+			if i >= kinds.size():
+				break
+			var k: String = kinds[i]
+			i += 1
+			var at: Vector3 = player.global_position - f * 14.0 + side * (j - 2.5) * 4.0
+			at.y = terrain.height_at(at.x, at.z) + 0.5
+			var e: LesserSpeeb = spawn_at(k, at)
+			if e == null:
+				lines.append("%s none" % k)
+				continue
+			batch.append([k, e])
+		await get_tree().create_timer(0.8).timeout
+		_feet_lead = f * 3.2
+		lines.append_array(await _feet_measure(batch, 5.0))
+		_feet_lead = Vector3.ZERO
+		await _debug_home()
+		for b in batch:
+			if is_instance_valid(b[1]):
+				b[1].queue_free()
+		await get_tree().create_timer(0.3).timeout
+	if only == "" or "folk" in only:
+		var batch := []
+		for p in Person.PAIRS:
+			for sx in ["m", "f"]:
+				var at: Vector3 = player.global_position + f * 8.0 + side * (batch.size() - 3.5) * 2.5
+				at.y = terrain.height_at(at.x, at.z)
+				var t := WTownsfolk.new().setup(self, at, 5.0, 900 + batch.size() * 13)
+				t.person_key = p[0] + "_" + sx
+				add_child(t)
+				t.global_position = at
+				batch.append(["folk:" + t.person_key, t])
+		await get_tree().create_timer(1.0).timeout
+		for b in batch:
+			var t: WTownsfolk = b[1]
+			print("FOLKDBG ", is_instance_valid(t), " ", t.fig.person if is_instance_valid(t) and t.fig else null, " ", t.fig.person._built if is_instance_valid(t) and t.fig and t.fig.person else false, " ", _feet_skel(t) if is_instance_valid(t) else null)
+		lines.append_array(await _feet_measure(batch, 8.0))
+		for b in batch:
+			b[1].queue_free()
+	if only == "" or "beast" in only:
+		var batch := []
+		var n := 0
+		for k in WBeast.KINDS.keys():
+			var at: Vector3 = player.global_position + f * 14.0 + side * (n - 2) * 5.0
+			at.y = terrain.height_at(at.x, at.z)
+			var b := _w_beast(991000 + n, k, at)
+			n += 1
+			batch.append(["beast:" + k, b])
+		await get_tree().create_timer(1.0).timeout
+		lines.append_array(await _feet_measure(batch, 8.0))
+	var bad := 0
+	for l in lines:
+		if "BAD" in l:
+			bad += 1
+		print("FEET ", l)
+	print("FEET done bad=%d of %d" % [bad, lines.size()])
+	get_tree().quit()
+
+
+## Watches these bodies for a while; one line each. The body's pace is taken over a quarter second (it moves in
+## physics steps, its bones every frame); the foot that bears it moves in the body's own frame by its walk, so a
+## walk in step carries that foot back exactly as fast as the body goes forward.
+var _feet_lead := Vector3.ZERO   ## (testing aid) the one they follow walks on, so they walk after him
+
+
+func _feet_measure(batch: Array, secs: float) -> Array:
+	var data := {}
+	for b in batch:
+		data[b[0]] = {"h": [], "hi": [], "slide": [], "hist": [], "lb": -1, "lq": Vector3.ZERO, "v": [], "span": 0.0}
+	var t := 0.0
+	while t < secs:
+		await get_tree().process_frame
+		var dt := get_process_delta_time()
+		if dt <= 0.0:
+			continue
+		t += dt
+		if _feet_lead != Vector3.ZERO:
+			var pp := player.global_position + _feet_lead * dt
+			pp.y = terrain.height_at(pp.x, pp.z) + 0.05
+			player.global_position = pp
+		for b in batch:
+			var e: Node3D = b[1]
+			var d: Dictionary = data[b[0]]
+			if not is_instance_valid(e) or e.is_queued_for_deletion():
+				continue
+			var sk := _feet_skel(e)
+			if sk == null:
+				continue
+			d["seen"] = true
+			if not d.has("feet"):
+				d["feet"] = _feet_bones(sk)
+			var lo := 1e9
+			var lb := -1
+			var lp := Vector3.ZERO
+			for bi in d.feet:
+				var wp: Vector3 = sk.global_transform * sk.get_bone_global_pose(bi).origin
+				if wp.y < lo:
+					lo = wp.y
+					lb = bi
+					lp = wp
+			if lb < 0:
+				continue
+			var here := e.global_position
+			d.hist.append([t, here])
+			while d.hist.size() > 2 and t - float(d.hist[0][0]) > 0.25:
+				d.hist.pop_front()
+			var vb := Vector3.ZERO
+			if t - float(d.hist[0][0]) > 0.15:
+				vb = (here - (d.hist[0][1] as Vector3)) / (t - float(d.hist[0][0]))
+			vb.y = 0.0
+			var h := lp.y - terrain.height_at(lp.x, lp.z)
+			var q := e.global_transform.affine_inverse() * lp
+			if lb == d.lb:
+				d.span = maxf(d.span, (q - d.lq).length() / dt)
+			var mv := vb.length()
+			if e is WTownsfolk and (e as WTownsfolk).fig and (e as WTownsfolk).fig.person:
+				d["pace"] = d.get("pace", []) + [(e as WTownsfolk).fig.person.pace] if mv > 0.6 else d.get("pace", [])
+			if e is LesserSpeeb and (e as LesserSpeeb)._pan_step:
+				d["step"] = true
+			if mv > 0.6:
+				d.v.append(mv)
+				d.h.append(h)
+				if lb == d.lb:
+					var fw: Vector3 = e.global_transform.basis * ((q - (d.lq as Vector3)) / dt)
+					fw.y = 0.0
+					d.slide.append((vb + fw).length() / mv)
+			elif mv < 0.05:
+				d.hi.append(h)
+			d.lb = lb
+			d.lq = q
+	var out := []
+	for b in batch:
+		var d: Dictionary = data[b[0]]
+		if not d.has("seen"):
+			out.append("%s nobones" % b[0])
+			continue
+		var h := _med(d.h)
+		var hi := _med(d.hi)
+		var sl := _med(d.slide)
+		var v := _med(d.v)
+		var flag := ""
+		if d.h.size() >= 20 and (h > 0.16 or h < -0.12 or sl > 0.35):
+			flag = " BAD"
+		if d.hi.size() >= 20 and (hi > 0.16 or hi < -0.12):
+			flag = " BAD"
+		var sk2 := _feet_skel(b[1]) if is_instance_valid(b[1]) else null
+		var fb := ",".join(PackedStringArray((d.get("feet", []) as Array).slice(0, 2).map(func(x): return sk2.get_bone_name(x) if sk2 else "?")))
+		if d.has("pace"):
+			b[0] += " pace=%.2f" % _med(d.pace)
+		if d.has("step"):
+			b[0] += " stepper"
+		out.append("%s v=%.2f h=%.2f idle_h=%.2f slide=%.2f footv=%.1f n=%d/%d [%s]%s" % [b[0], v, h, hi, sl, d.span, d.h.size(), d.hi.size(), fb, flag])
+	return out
+
+
+## The bones a body stands on: its feet, toes, paws and hooves by name, or else the ends of its limbs (the bones
+## with no children, past the first three from the root).
+static func _feet_bones(sk: Skeleton3D) -> Array:
+	var out := []
+	for bi in sk.get_bone_count():
+		var nm := sk.get_bone_name(bi).to_lower()
+		if "tail" in nm or "wing" in nm or "weapon" in nm or "hair" in nm or "pole" in nm or "target" in nm:
+			continue
+		for w in ["foot", "toe", "ankle", "heel", "paw", "hoof", "feet", "pie", "talon", "claw"]:
+			if w in nm:
+				out.append(bi)
+				break
+	if out.is_empty():
+		for bi in sk.get_bone_count():
+			var depth := 0
+			var p := bi
+			while p >= 0:
+				p = sk.get_bone_parent(p)
+				depth += 1
+			if sk.get_bone_children(bi).is_empty() and depth > 3:
+				out.append(bi)
+	return out
+
+
+func _feet_skel(e: Node) -> Skeleton3D:
+	var best: Skeleton3D = null
+	for s in e.find_children("*", "Skeleton3D", true, false):
+		if best == null or (s as Skeleton3D).get_bone_count() > best.get_bone_count():
+			best = s
+	return best
+
+
+static func _med(a: Array) -> float:
+	if a.is_empty():
+		return NAN
+	var s := a.duplicate()
+	s.sort()
+	return float(s[s.size() / 2])

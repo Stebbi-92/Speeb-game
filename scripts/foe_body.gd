@@ -40,7 +40,7 @@ const MODELS := {
 	"character-skeleton.glb": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "rig|Idel", "walk": "rig|Walck", "sprint": "rig|Run",
 		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead"}, "head_0111", "DEF-hand.R_0245", "chest_019", 0.0,
 		AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72))],
-	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle -loop", "walk": "rig|walk -loop", "sprint": "rig|run -loop",
+	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle ", "walk": "rig|walk ", "sprint": "rig|run ",
 		"attack-melee-right": "rig|knife_action", "holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "head_05", "hand_R_022", "neck_04", 0.0,
 		# its rifle raised to the shoulder: Nerd Survivor's aim, baked onto its bones (tools/bake_stranger_moves.gd)
 		null, "res://assets/models/foes/folk/soldier_moves.res", PI],
@@ -89,6 +89,7 @@ var _float := false       ## a ghost with no bones: it drifts and sways instead
 var _t := 0.0
 var _fit: Array = []      ## [node, wanted size in the body's units, place in those units]: set once the body stands in the world
 var anim: AnimationPlayer
+var skel: Skeleton3D      ## its bones (a real body's), for how far its steps carry it
 var hand: Node3D          ## the right arm, where a weapon is held
 var level_hold := false   ## what it holds points the way the body faces, gripped at the hand (a rig whose hand bone lies another way)
 var head_node: Node3D
@@ -246,6 +247,7 @@ static func _make_real(kind: String, look: Array, own: Array = []) -> FoeBody:
 				b.anim.get_animation(cn).loop_mode = Animation.LOOP_LINEAR
 	var sks := m.find_children("*", "Skeleton3D", true, false)
 	var sk: Skeleton3D = sks[0] if not sks.is_empty() else null
+	b.skel = sk
 	# Where shots find the head: a small unseen box on the head bone (or where a head would be)
 	var hb := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -496,6 +498,28 @@ func play(a: String, speed := 1.0) -> void:
 	if _now != a:
 		_now = a
 		anim.play(a, 0.15)
+
+
+## Walks, runs or stands by its pace over the ground (metres a second): a walk or run is played as fast as its
+## steps carry the body, so its feet do not skate.
+func pace_play(pace: float) -> void:
+	if pace <= 0.4 or anim == null:
+		play("idle")
+		return
+	if skel == null:
+		play("sprint" if pace > 4.5 else "walk", clampf(pace / 3.0, 0.7, 1.6))
+		return
+	var wn := str(clips.get("walk", "walk")) if not clips.is_empty() else "walk"
+	var rn := str(clips.get("sprint", "sprint")) if not clips.is_empty() else "sprint"
+	var ws := Stride.of(skel, anim, wn)
+	var rs := Stride.of(skel, anim, rn) if rn != wn else 0.0
+	# Its run once the pace is well past what its walk can carry; each played as fast as its steps go
+	if rs > 0.05 and (ws < 0.05 or pace > ws * 1.7):
+		play("sprint", clampf(pace / rs, 0.5, 2.0))
+	elif ws > 0.05:
+		play("walk", clampf(pace / ws, 0.4, 2.6))
+	else:
+		play("sprint" if pace > 4.5 else "walk", clampf(pace / 3.0, 0.7, 1.6))
 
 
 ## A one-off: a swing, a shot, a fall. It plays through before the walking takes up again.

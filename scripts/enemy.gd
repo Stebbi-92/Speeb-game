@@ -1444,13 +1444,21 @@ func _scan_tick(pace: float) -> void:
 		elif _scan_idle != "" and pace < 0.3:
 			_scan_play(_scan_idle)
 			_scan_anim.speed_scale = 1.0
-		elif o.has("run") and pace > walk * 1.6:
-			# Its own run, at the pace it was made for
-			_scan_play(str(o.run[0]))
-			_scan_anim.speed_scale = clampf(pace / float(o.run[1]), 0.6, 1.8)
 		else:
-			_scan_play(_scan_walk)
-			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
+			# Its walk and run, each played as fast as its steps carry it over the ground (measured from the
+			# clips where its feet can be found; the paces written down where not)
+			var ws := Stride.of(_scan_skel, _scan_anim, _scan_walk)
+			var rs := Stride.of(_scan_skel, _scan_anim, str(o.run[0])) if o.has("run") else 0.0
+			if ws < 0.05:
+				ws = walk
+			if o.has("run") and rs < 0.05:
+				rs = float(o.run[1])
+			if o.has("run") and pace > ws * 1.6:
+				_scan_play(str(o.run[0]))
+				_scan_anim.speed_scale = clampf(pace / rs, 0.5, 2.0)
+			else:
+				_scan_play(_scan_walk)
+				_scan_anim.speed_scale = clampf(pace / ws, 0.35, 2.4) if ws > 0.0 else 1.0
 	if _scan_skel and _scan_bone >= 0:
 		var opt: Dictionary = SCANS[_sk][5]
 		var at: Vector3 = (_scan_skel.global_transform * _scan_skel.get_bone_global_pose(_scan_bone)).origin
@@ -1553,6 +1561,7 @@ var _pan_skel: Skeleton3D
 var _pan_anim: AnimationPlayer
 var _pan_head := -1
 var _pan_gait := ""
+var _pan_step: Stepper
 
 
 static func _cut_panther(an: Animation, head_path: String) -> AnimationLibrary:
@@ -1655,6 +1664,13 @@ func _panther_body(s: float, coat: Color) -> Node3D:
 			tinted.rim = 0.25
 			tinted.rim_tint = 0.0
 			mm.material_override = tinted
+	# Its take has no walk in it: its legs step by a Stepper, timed to its pace, over its idle
+	_pan_step = Stepper.new()
+	_pan_skel.add_child(_pan_step)
+	_pan_step.face = self
+	if not _pan_step.find_legs():
+		_pan_step.queue_free()
+		_pan_step = null
 	_pan_gait = ""
 	_pan_play("idle")
 	_pan_anim.seek(randf() * 1.0, true)
@@ -1673,7 +1689,11 @@ func _pan_tick(pace: float) -> void:
 	if _pan_anim == null:
 		return
 	var s: float = spec.size
-	if pace > 0.3:
+	if _pan_step:
+		_pan_step.pace = pace
+		_pan_play("idle")
+		_pan_anim.speed_scale = 1.0
+	elif pace > 0.3:
 		_pan_play("stalk" if kind == "lurker" or _buried > 0.05 else "walk")
 		_pan_anim.speed_scale = clampf(pace / (PANTHER_WALK * s), 0.6, 3.2)
 	else:
@@ -2370,6 +2390,8 @@ func _topple(way := "crumple", bones := false) -> void:
 		_scan_anim.speed_scale = 0.0
 	if _pan_anim:
 		_pan_anim.speed_scale = 0.0
+	if _pan_step:
+		_pan_step.active = false
 	var side := 1.0 if way != "back" else -1.0
 	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
 	var axis := "rotation:x"
@@ -2599,7 +2621,7 @@ func _puppet_tick(delta: float) -> void:
 		_scan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _fb:
 		var pv := Vector2(_net_v.x, _net_v.z).length()
-		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
+		_fb.pace_play(pv)
 		if _wind > 0.0 and _fb._once <= 0.0:
 			_fb.act("attack-melee-right")
 			if Time.get_ticks_msec() >= _scan_busy:
@@ -3381,7 +3403,7 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 		if is_on_wall() and role != "float":
 			velocity.y = 3.5
 		var pc := Vector2(velocity.x, velocity.z).length()
-		_fb.play("sprint" if pc > 4.5 else ("walk" if pc > 0.4 else "idle"), clampf(pc / 3.0, 0.7, 1.6) if pc > 0.4 else 1.0)
+		_fb.pace_play(pc)
 		return
 	if not frozen:
 		match role:
@@ -3434,7 +3456,10 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	if is_on_wall() and not frozen and role != "float":
 		velocity.y = 3.5
 	var pace := Vector2(velocity.x, velocity.z).length()
-	_fb.play("sprint" if pace > 4.5 else ("walk" if pace > 0.4 else ("holding-both" if role == "gun" and fd < 40.0 else "idle")), clampf(pace / 3.0, 0.7, 1.6) if pace > 0.4 else 1.0)
+	if pace <= 0.4 and role == "gun" and fd < 40.0:
+		_fb.play("holding-both")
+	else:
+		_fb.pace_play(pace)
 	if frozen or level.completed or level.failing:
 		return
 	_attack_cd -= delta
@@ -3635,7 +3660,8 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var aimed := float(spec.get("aimed", 1.0))
 	var spread := (0.25 + dist * 0.006) * aimed
 	at += Vector3(randf_range(-spread, spread), randf_range(-spread * 0.6, spread * 0.6), randf_range(-spread, spread))
-	_fb.act("holding-both-shoot")
+	if Vector2(velocity.x, velocity.z).length() < 0.4:
+		_fb.act("holding-both-shoot")   # (on the move it fires from the hip, its legs still walking)
 	var pellets := int(spec.get("pellets", 1))
 	if pellets > 1:
 		# A shotgun: a spray of shot, hard close up and thin far off
