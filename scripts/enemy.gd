@@ -133,7 +133,7 @@ func matter() -> String:
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
-		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
+		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true, "die": "Armature|die"}],
 	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
 	# keep their own stirring
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
@@ -163,7 +163,7 @@ const SCANS := {
 		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8), "bone_bounds": true}],
 	# The Nykur: "Horse" by henrysteve973, unsaddled, a grey coat; struck along its body, neck and head
 	"nykur": ["res://assets/models/foes/nykur/horse_henry.glb", 1.35, "Skeleton|Walk", 1.8, Vector2(0.9, 0.6),
-		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true,
+		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true, "die": "Skeleton|Death",
 		"hide": ["Object_12", "Object_115"], "coat": ["Horse", Color(0.5, 0.52, 0.54)], "tint": Color(0.7, 0.72, 0.74),
 		"hits": [["capsule", 0.33, Vector3(0, 1.25, -0.72), Vector3(0, 1.25, 0.44)], ["capsule", 0.17, Vector3(0, 1.4, 0.62), Vector3(0, 1.75, 1.0)],
 			["sphere", 0.2, Vector3(0, 1.78, 1.22)], ["box", Vector3(0.42, 0.78, 0.3), Vector3(0, 0.51, 0.48)],
@@ -2257,39 +2257,154 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain and _fb.clips.has("die") and not _scan:
-		_fb.act("die")
-		var tf := create_tween()
-		tf.tween_interval(1.6)
-		tf.tween_property(self, "scale", Vector3.ONE * 0.01, 0.6)
-		tf.tween_callback(queue_free)
+	var way := _fall_way()
+	# A body made with its own fall plays it (a head shot or a heavy blow throws it back by its bones instead),
+	# lies a while, and sinks into the ash
+	var own_die := ""
+	if _fb and _fb.clips.has("die") and not _scan:
+		own_die = "fb"
+	elif _scan_anim and SCANS.has(_sk) and SCANS[_sk].size() > 5 and (SCANS[_sk][5] as Dictionary).has("die"):
+		own_die = "scan"
+	if slain and own_die != "" and not (way == "back" and (harm_head or harm_heavy)):
+		if own_die == "fb":
+			_fb.act("die")
+		else:
+			var dc: String = SCANS[_sk][5].die
+			if _scan_anim.has_animation(dc):
+				_scan_anim.speed_scale = 1.0
+				_scan_anim.play(dc, 0.15)
+				var da := _scan_anim.get_animation(dc)
+				da.loop_mode = Animation.LOOP_NONE
+		_sink_away(2.6)
+		return
+	if slain and (kind in WINGED or kind == "saucer"):
+		_fall_from_sky()
 		return
 	if slain and not kind in ["saucer", "wisp", "mite"] and not (_fb and _fb._float):
-		_topple()
+		var sk := _bones()
+		var sl: Slump = Slump.start(sk, way, net_id) if sk else null
+		_topple(way, sl != null)
+		return
+	if slain and (kind == "wisp" or (_fb and _fb._float)):
+		_burn_out()
 		return
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
 
 
-## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash.
-func _topple() -> void:
-	if _fb and _fb.anim:
-		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
-		if _scan_anim:
-			_scan_anim.speed_scale = 0.0
-	var side := 1.0 if _flinch.x >= 0.0 else -1.0
-	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
-	var big := float(spec.get("size", 1.0)) >= 1.5
-	var fall := 0.75 if big else 0.5
+## A winged form or a disc, slain in the air, drops: wings still, turning as it falls, it strikes the ground
+## (the disc bursts there), lies a moment and sinks.
+func _fall_from_sky() -> void:
+	if _wings:
+		for ap in _wings.find_children("*", "AnimationPlayer", true, false):
+			(ap as AnimationPlayer).pause()
+	var from := global_position
+	var ground := from.y - 30.0
+	var space := get_world_3d().direct_space_state if is_inside_tree() else null
+	if space:
+		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 80.0, 1)
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			ground = (hit.position as Vector3).y
+	var lie := float(spec.radius) * (0.4 if kind == "saucer" else 0.6)
+	var h := maxf(from.y - ground - lie, 0.0)
+	var t := clampf(sqrt(2.0 * h / 9.8), 0.25, 2.4)
+	var spin := randf_range(-1.0, 1.0)
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(self, "rotation:x", rotation.x + side * 1.45, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
-	tw.chain().tween_property(self, "rotation:x", rotation.x + side * 1.33, 0.12).set_trans(Tween.TRANS_SINE)
-	tw.chain().tween_interval(1.3)
+	tw.tween_property(self, "global_position:y", ground + lie, t).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:y", rotation.y + spin * 4.0, t)
+	tw.tween_property(self, "rotation:z", rotation.z + (1.2 if kind == "saucer" else 2.6) * signf(spin + 0.01), t)
+	tw.chain().tween_callback(func():
+		level.sfx("fall_heavy" if kind == "saucer" else "fall", -2 if kind == "saucer" else -8, global_position)
+		if kind == "saucer":
+			level.sfx("boom", -2, global_position)
+			level.burst(global_position, Color(1.0, 0.5, 0.2))
+			level.burst(global_position + Vector3.UP * 0.5, Color(0.3, 0.28, 0.26)))
+	tw.chain().tween_property(self, "rotation:x", rotation.x + 0.25, 0.15).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_interval(1.4)
+	tw.chain().tween_property(self, "position:y", ground - 1.0 * float(spec.get("size", 1.0)), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)
+
+
+## A ghost or a wisp burns out: it rises, drawn thin, sheds embers and fades.
+func _burn_out() -> void:
+	var col: Color = Color(1.0, 0.55, 0.2) if kind == "wisp" or spec.has("burn") else Color(0.7, 0.85, 1.0)
+	level.burst(global_position + Vector3.UP * 0.6, col)
+	for l in find_children("*", "OmniLight3D", true, false):
+		create_tween().tween_property(l, "light_energy", 0.0, 0.9)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "position:y", position.y + 1.4, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "scale", Vector3(0.15, 1.7, 0.15), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:y", rotation.y + PI * 1.5, 1.0)
+	tw.chain().tween_callback(func(): level.burst(global_position + Vector3.UP * 1.2, col))
+	tw.chain().tween_property(self, "scale", Vector3(0.01, 0.01, 0.01), 0.15)
+	tw.chain().tween_callback(queue_free)
+
+
+## How the last blow drives it down: driven forward it crumples, driven back (from before it) it is thrown
+## back, and struck from the side it twists as it goes (see Slump).
+func _fall_way() -> String:
+	if absf(_flinch.y) > absf(_flinch.x) * 1.5:
+		return "twist"
+	return "crumple" if _flinch.x >= 0.0 else "back"
+
+
+## The skeleton of its body, if it has one a fall can be made by (not the lesser forms' panthers).
+func _bones() -> Skeleton3D:
+	var top: Node = _scan if _scan else (_fb if _fb and not _fb._float else null)
+	if top == null:
+		return null
+	var sks := top.find_children("*", "Skeleton3D", true, false)
+	return sks[0] if not sks.is_empty() else null
+
+
+## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash. A body with
+## bones folds by them first (bones: the knees give a moment before it tips).
+func _topple(way := "crumple", bones := false) -> void:
+	if _fb and _fb.anim:
+		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+	if _scan_anim:
+		_scan_anim.speed_scale = 0.0
+	if _pan_anim:
+		_pan_anim.speed_scale = 0.0
+	var side := 1.0 if way != "back" else -1.0
+	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
+	var axis := "rotation:x"
+	var tip := 1.45
+	if way == "twist":
+		axis = "rotation:z"
+		side = 1.0 if _flinch.y >= 0.0 else -1.0
+		roll = 0.0
+	if bones:
+		# The legs fold under it: it goes down more than over
+		tip = 1.25 if way != "crumple" else 1.05
+	var start: float = rotation.x if axis == "rotation:x" else rotation.z
+	var big := float(spec.get("size", 1.0)) >= 1.5
+	var fall := (0.75 if big else 0.5) + (0.15 if bones else 0.0)
+	var tw := create_tween()
+	if bones:
+		tw.tween_interval(0.18)
+	tw.set_parallel(true)
+	tw.tween_property(self, axis, start + side * tip, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if axis == "rotation:x":
+		tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
+	tw.chain().tween_property(self, axis, start + side * (tip - 0.12), 0.12).set_trans(Tween.TRANS_SINE)
+	if bones:
+		tw.parallel().tween_property(self, "position:y", position.y - 0.25 * float(spec.get("size", 1.0)), 0.2)
+	tw.chain().tween_interval(1.6)
 	tw.chain().tween_property(self, "position:y", position.y - 1.2 * float(spec.get("size", 1.0)), 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(queue_free)
+
+
+## A body that fell by its own clip lies a while, then sinks into the ash.
+func _sink_away(lie: float) -> void:
+	var tf := create_tween()
+	tf.tween_interval(lie)
+	tf.tween_property(self, "position:y", position.y - 1.3 * float(spec.get("size", 1.0)), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tf.tween_callback(queue_free)
 
 
 ## The ember sack bursts: fire on everything near, the forms included.

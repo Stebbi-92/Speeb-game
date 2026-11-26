@@ -31,7 +31,7 @@ const LOOKS := {
 const MODELS := {
 	"character-zombie.glb": ["folk/zombie_mud.glb", 1.85, 3.3, {"idle": "idle01", "walk": "walk01", "sprint": "run", "attack-melee-right": "attack01",
 		"holding-both": "caution", "die": "death"}, "head_014_16", "hand_R_010_39", "chest_017_14", 0.0],
-	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk", "die": "WakeUp01"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
+	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
 	"character-vampire.glb": ["folk/lich_guigodead.glb", 2.0, 3.2, {"idle": "Lich_Esqueleto|Lich_Parado_Voando", "walk": "Lich_Esqueleto|Lich_Parado_Voando",
 		"sprint": "Lich_Esqueleto|Lich_Parado_Voando", "attack-melee-right": "Lich_Esqueleto|Lich_Ataque_Perto",
 		"holding-both-shoot": "Lich_Esqueleto|Lich_Ataque_Distancia"}, "Cabeca_05", "Mao.R_022", "Peito_03", 0.0,

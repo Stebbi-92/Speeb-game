@@ -25,6 +25,9 @@ var _voice: AudioStreamPlayer3D
 var _rng := RandomNumberGenerator.new()
 
 
+var person_key := ""   ## (testing aid) which body to wear, in place of the one the look picks
+
+
 func setup(lvl, at: Vector3, r: float, seed: int) -> WTownsfolk:
 	w = lvl
 	home = at
@@ -38,6 +41,8 @@ func setup(lvl, at: Vector3, r: float, seed: int) -> WTownsfolk:
 func _ready() -> void:
 	fig = Figure.new().setup(Figure.townsman(who.hash(), w.settlement_at(home) if w.has_method("settlement_at") else ""))
 	fig.arms_forward = false
+	fig.real = true
+	fig.person_key = person_key
 	add_child(fig)
 	_voice = AudioStreamPlayer3D.new()
 	_voice.unit_size = 4.0
@@ -63,6 +68,7 @@ func _chat() -> void:
 	var line: String = on_talk.call() if on_talk.is_valid() else pool[_rng.randi() % pool.size()]
 	w.hud.notify(line)
 	_voice.stream = WBabble.make(who, line, clampf(line.length() / 55.0, 0.5, 2.0))
+	fig.talk_t = clampf(line.length() / 15.0, 1.5, 4.0)
 	_voice.play()
 	_wait = 3.0
 	look_at(Vector3(w.player.global_position.x, global_position.y, w.player.global_position.z), Vector3.UP, true)

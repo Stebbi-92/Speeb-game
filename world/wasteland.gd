@@ -1569,6 +1569,7 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 			c.queue_free()
 	var dressed := Figure.new().setup(Figure.townsman(pid.hash(), str(pd.at)))
 	dressed.arms_forward = false
+	dressed.real = true
 	f.add_child(dressed)
 	var body: StaticBody3D = f.get_meta("body")
 	body.collision_layer = 1 | 16
@@ -8542,6 +8543,7 @@ func make_lost(qid: String, p: Vector3, nm: String) -> Node3D:
 	var dressed := Figure.new().setup(Figure.seeded(qid.hash()))
 	dressed.arms_forward = true
 	dressed.seated = true
+	dressed.real = true
 	dressed.position.y = -0.32
 	f.add_child(dressed)
 	WDress.kp(f, "pirate", "crate", Vector3(0, 0, -0.1), PI * 0.5, 0.75, false, Vector3.ZERO, 120.0)
@@ -17728,6 +17730,117 @@ func debug_nights() -> void:
 	var paid := inv.count("fittings_rare") > r0
 	print("NIGHTS kinds=%d early_plain=%s same=%s themed=%s paid=%s" % [seen.size(), early, same, themed, paid])
 	get_tree().quit()
+
+
+## Testing aid: foes of every body slain by blows from the front, the back and the side: each goes down by its
+## bones (a Slump), by its own fall, or (lesser forms, ghosts) as before, and is gone a few seconds later.
+func debug_falls() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	combat_frozen = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := ["unlit_gun", "unlit_blade", "unlit_brute", "knight", "warden", "hollow", "saltbone", "deacon", "stranger",
+		"tunnel_unlit", "draugr", "harrow", "ash_weaver", "nykur", "rusher", "vigil", "spitter", "saucer", "wisp"]
+	var out := []
+	var bones := 0
+	var own := 0
+	var foes := []
+	for i in kinds.size():
+		var at: Vector3 = player.global_position + f * 9.0 + side * (i - kinds.size() * 0.5) * 2.2
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e: LesserSpeeb = spawn_at(kinds[i], at)
+		if e == null:
+			out.append(kinds[i] + "=none")
+			continue
+		foes.append(e)
+	await get_tree().create_timer(1.2).timeout
+	var dirs := [f, -f, side]
+	for i in foes.size():
+		var e: LesserSpeeb = foes[i]
+		if not is_instance_valid(e):
+			continue
+		var d: Vector3 = dirs[i % 3]
+		e.flinch(200.0, d)
+		e.hurt(e.hp + 9999.0, d)
+	await get_tree().create_timer(0.5).timeout
+	for e in foes:
+		if not is_instance_valid(e):
+			out.append("gone")
+			continue
+		var how := "plain"
+		if not e.find_children("*", "Slump", true, false).is_empty():
+			how = "bones"
+			bones += 1
+		elif (e._fb and e._fb._now != "" and e._fb.anim and e._fb.anim.current_animation == e._fb.clips.get("die", "-")) or (e._scan_anim and e._scan_anim.current_animation.to_lower().contains("die") or e._scan_anim and e._scan_anim.current_animation.contains("Death")):
+			how = "own"
+			own += 1
+		out.append("%s=%s" % [e.variant if e.variant != "" else e.kind, how])
+	await get_tree().create_timer(6.0).timeout
+	var left := foes.filter(func(x): return is_instance_valid(x)).size()
+	print("FALLS bones=%d own=%d left=%d %s" % [bones, own, left, " ".join(out)])
+	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
+		get_tree().quit()
+
+
+## Testing aid: the people of the waste in their own bodies (one of each), four standing and talking and four
+## walking about. With shots= on the command line they stay to be seen.
+func debug_people() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var keys := []
+	for p in Person.PAIRS:
+		keys.append(p[0] + "_m")
+		keys.append(p[0] + "_f")
+	var figs := []
+	for i in keys.size():
+		var at: Vector3 = player.global_position + f * 6.0 + side * (i - 3.5) * 1.3
+		at.y = terrain.height_at(at.x, at.z)
+		if i % 2 == 0:
+			var t := WTownsfolk.new().setup(self, at, 4.0, 300 + i * 17)
+			t.person_key = keys[i]
+			add_child(t)
+			t.global_position = at
+			figs.append(t.fig)
+		else:
+			var g := Figure.new().setup(Figure.townsman(i * 31, "hesk"))
+			g.real = true
+			g.person_key = keys[i]
+			add_child(g)
+			g.global_position = at
+			g.look_at(player.global_position, Vector3.UP, true)
+			g.talk_t = 30.0
+			figs.append(g)
+	# Over six seconds: each body moves, and each of the wanderers is seen walking at some time
+	var walked := {}
+	var moved := {}
+	for i in 24:
+		await get_tree().create_timer(0.25).timeout
+		for g in figs:
+			var fg := g as Figure
+			if fg.person and fg.person._clip in ["Walk", "Run"]:
+				walked[fg] = true
+			if fg.person and fg.person._ap.is_playing():
+				moved[fg] = true
+	var ok := moved.size()
+	var walking := walked.size()
+	var tall := []
+	for g in figs:
+		var fg := g as Figure
+		if fg.person:
+			var hi := fg.person._sk.global_transform * fg.person._sk.get_bone_global_pose(fg.person._bone("HeadTop_End")).origin
+			tall.append("%.2f" % (hi.y - fg.global_position.y))
+	print("PEOPLE ok=%d/%d walking=%d tall=%s" % [ok, figs.size(), walking, ",".join(tall)])
+	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
+		get_tree().quit()
 
 
 ## Testing aid: a figure is drawn in a handful of meshes, not thirty.

@@ -9,7 +9,16 @@ extends SceneTree
 ## world rotation away from its rest; the draugr's hands and feet are IK targets (not children of its arms
 ## and legs), so they are carried to the end of the baked forearm and shin.
 
-const TGT := "res://assets/models/foes/stranger/man_in_coat.glb"
+const TGT_COAT := "res://assets/models/foes/stranger/man_in_coat.glb"
+## TGT=<scene> bakes for another Mixamo-named body (PREFIX: its bones' prefix, "mixamorig_" by default). The PS2
+## people (tools/make_people.gd) are baked with ONLY_MAPPED=1: only the bones the donor moves get tracks, and the
+## rest (their faces' many bones, their fingers) keep their own rest under them
+var TGT := OS.get_environment("TGT") if OS.get_environment("TGT") != "" else TGT_COAT
+var R := OS.get_environment("PREFIX").strip_edges() if OS.has_environment("PREFIX") else "mixamorig_"
+var only_mapped := OS.get_environment("ONLY_MAPPED") != ""
+## USE_REST=1: the body's rest is the pose it is drawn in (its binds are in other units and turned about), so
+## that is what the donor's moves are laid over
+var use_rest := OS.get_environment("USE_REST") != ""
 const OWN := ""
 const FPS := 30.0
 const PELVIS_UP := 0.0
@@ -54,6 +63,12 @@ func tb(n: String) -> int:
 			var bn := tsk.get_bone_name(k)
 			if bn.begins_with(n + "_") and bn.substr(n.length() + 1).is_valid_int():
 				return k
+		# (some of the PS2 people keep the "mixamorig_" their rigging gave their bones)
+		if R == "" and not n.begins_with("mixamorig_"):
+			for k in tsk.get_bone_count():
+				var bn := tsk.get_bone_name(k)
+				if bn.begins_with("mixamorig_" + n + "_") and bn.substr(n.length() + 11).is_valid_int():
+					return k
 	assert(i >= 0, "no target bone " + n)
 	return i
 
@@ -87,7 +102,7 @@ func _initialize() -> void:
 				b = tsk.find_bone(mm.skin.get_bind_name(i))
 			if b >= 0:
 				skinned[b] = true
-			if b >= 0 and not bindG.has(b):
+			if b >= 0 and not bindG.has(b) and not use_rest:
 				# Its binds carry the armature's scale: taken out, so they are in the skeleton's own units
 				var bi := mm.skin.get_bind_pose(i).affine_inverse()
 				var sc := bi.basis.x.length()
@@ -116,9 +131,9 @@ func _initialize() -> void:
 			x = tsk.get_bone_parent(x)
 	order.append_array(late)
 	_setup_map()
-	HIPS = tsk.get_bone_name(tb("mixamorig_Hips"))
-	FOOT_L = tsk.get_bone_name(tb("mixamorig_LeftFoot"))
-	FOOT_R = tsk.get_bone_name(tb("mixamorig_RightFoot"))
+	HIPS = tsk.get_bone_name(tb(R + "Hips"))
+	FOOT_L = tsk.get_bone_name(tb(R + "LeftFoot"))
+	FOOT_R = tsk.get_bone_name(tb(R + "RightFoot"))
 	var tap0: AnimationPlayer = _player()
 	own = Animation.new()
 	for ti in own.get_track_count():
@@ -185,7 +200,6 @@ func _sglob(b: int, rest: bool) -> Transform3D:
 
 
 func _setup_map() -> void:
-	var R := "mixamorig_"
 	MAP = {}
 	for pair in [["Hips", "Spine_1_02"], ["Spine", "Spine_3_04"], ["Spine1", "Spine_3_04"], ["Spine2", "Spine_4_05"], ["Neck", "Spine_5_06"], ["Head", "Head_07"]]:
 		MAP[tsk.get_bone_name(tb(R + pair[0]))] = ["rot", pair[1]] if pair[0] != "Spine1" else ["none"]
@@ -204,12 +218,12 @@ func _setup_map() -> void:
 	# The shared frame: left (from right hip to left hip) and up (hips to head), each at rest
 	var sf := _frame(_sglob(sb("Leg_1_L_042"), true).origin - _sglob(sb("Leg_1_R_038"), true).origin,
 		_sglob(sb("Head_07"), true).origin - _sglob(sb("Spine_1_02"), true).origin)
-	var tf := _frame(bindG[tb("mixamorig_LeftUpLeg")].origin - bindG[tb("mixamorig_RightUpLeg")].origin,
-		bindG[tb("mixamorig_Head")].origin - bindG[tb("mixamorig_Hips")].origin)
+	var tf := _frame(bindG[tb(R + "LeftUpLeg")].origin - bindG[tb(R + "RightUpLeg")].origin,
+		bindG[tb(R + "Head")].origin - bindG[tb(R + "Hips")].origin)
 	M = tf * sf.inverse()
 	# Hip heights over the feet, for the hips' bob and sway
 	var sh := _sglob(sb("Leg_1_L_042"), true).origin.y - _sglob(sb("Leg_3_L_044"), true).origin.y
-	var th := (bindG[tb("mixamorig_LeftUpLeg")] as Transform3D).origin.y - (bindG[tb("mixamorig_LeftFoot")] as Transform3D).origin.y
+	var th := (bindG[tb(R + "LeftUpLeg")] as Transform3D).origin.y - (bindG[tb(R + "LeftFoot")] as Transform3D).origin.y
 	scale_k = th / sh
 	print("FRAME src=", sf, " tgt=", tf, " M=", M, " k=", scale_k)
 
@@ -235,7 +249,7 @@ func _bake(clip: String) -> Animation:
 	var pt := {}
 	var rt := {}
 	for b in order:
-		if not skinned.has(b):
+		if not skinned.has(b) or (only_mapped and not MAP.has(tsk.get_bone_name(b))):
 			continue
 		pt[b] = a.add_track(Animation.TYPE_POSITION_3D)
 		a.track_set_path(pt[b], NodePath("%s:%s" % [base, tsk.get_bone_name(b)]))
@@ -300,7 +314,7 @@ func _bake(clip: String) -> Animation:
 						var d := M * (_sglob(s, false).basis.orthonormalized() * _sglob(s, true).basis.orthonormalized().inverse()) * M.inverse()
 						g = Transform3D(d * (bindG[b] as Transform3D).basis, at)
 			G[b] = g
-			if not skinned.has(b):
+			if not pt.has(b):
 				continue
 			var loc: Transform3D = pg.affine_inverse() * g
 			if nm == FOOT_L or nm == FOOT_R:
