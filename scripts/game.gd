@@ -185,6 +185,7 @@ const CONTROLS := [
 	["codex", "The Book of Emojis", [KEY_TAB]], ["fellowship", "Player list (together)", [KEY_L]],
 	["pack", "Pack (the waste)", [KEY_I]], ["map", "Map (the waste)", [KEY_M]], ["journal", "Journal (the waste)", [KEY_J]],
 	["skills", "Skills (the waste)", [KEY_K]], ["build", "Build (the waste)", [KEY_B]],
+	["auto_loot", "Auto pickup of satchels on or off", [KEY_U]],
 	["pause", "Menu", [KEY_ESCAPE, KEY_P]],
 ]
 var binds := {}   ## action -> [codes], only for those the player has changed

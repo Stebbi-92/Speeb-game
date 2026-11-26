@@ -1815,6 +1815,11 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("fellowship") and Net.online and Game.main.in_game():
 		fellowship_open = not fellowship_open
 		get_viewport().set_input_as_handled()
+	elif e.is_action_pressed("auto_loot") and Game.main.in_game():
+		Game.auto_loot = not Game.auto_loot
+		Game.save()
+		notify("Auto pickup %s." % ("on: walk over satchels to take them" if Game.auto_loot else "off: press %s to take satchels" % Game.key_text("interact")))
+		get_viewport().set_input_as_handled()
 	elif e.is_action_pressed("codex"):
 		if Game.main.in_game() or codex_panel.visible:
 			toggle_codex()

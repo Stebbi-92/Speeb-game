@@ -41,6 +41,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Journal (the waste) | J |
 | Skills (the waste) | K |
 | Build (the waste) | B |
+| Auto pickup of satchels on or off | U |
 | Menu | Escape or P |
 
 ## Controller
