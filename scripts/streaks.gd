@@ -3,17 +3,17 @@ extends RefCounted
 ## Kill streaks: forms slain without falling call down help from the sky. Real aircraft, played grim:
 ## no music, no fanfare, only the sound of them arriving and what they leave behind.
 ##
-##   5 kills    Airstrike      two jets lay a line of bombs across the marked ground
-##   9 kills    Gun Run        a ground-attack jet dives and rakes a line with its cannon
-##   14 kills   Gunship        an attack helicopter circles the mark and hunts what moves
+##   15 kills   Airstrike      two jets lay a line of bombs across the marked ground
+##   25 kills   Gun Run        a ground-attack jet dives and rakes a line with its cannon
+##   40 kills   Gunship        an attack helicopter circles the mark and hunts what moves
 ##
 ## H calls the oldest earned one onto the point under the crosshair. Only the caller's game deals
 ## harm; everyone else sees and hears the same pass.
 
 const KINDS := {
-	"airstrike": {"name": "Airstrike", "kills": 5, "text": "Two jets lay a line of bombs across the marked ground."},
-	"gunrun": {"name": "Gun Run", "kills": 9, "text": "A ground-attack jet rakes a line with its cannon."},
-	"gunship": {"name": "Gunship", "kills": 14, "text": "An attack helicopter circles the mark for half a minute, hunting what moves."},
+	"airstrike": {"name": "Airstrike", "kills": 15, "text": "Two jets lay a line of bombs across the marked ground."},
+	"gunrun": {"name": "Gun Run", "kills": 25, "text": "A ground-attack jet rakes a line with its cannon."},
+	"gunship": {"name": "Gunship", "kills": 40, "text": "An attack helicopter circles the mark for half a minute, hunting what moves."},
 }
 const ORDER := ["airstrike", "gunrun", "gunship"]
 
