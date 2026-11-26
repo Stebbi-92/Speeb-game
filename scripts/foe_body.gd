@@ -48,7 +48,8 @@ const MODELS := {
 }
 ## Kin with a body of their own in place of their kind's: [file, height, base scale, clips, head bone, hand bone,
 ## chest bone, turn, bounds or null, moves library (clips baked onto a model that came with none), and (for a rig
-## whose hand bone lies another way) the turn of what it holds; that is then held level, the way the body faces].
+## whose hand bone lies another way) the turn of what it holds; that is then held level, the way the body faces;
+## and what it holds sized by so much, where the old figure's arm made it too big].
 const VARIANT_MODELS := {
 	# "Dune Dweller Rig" by DM-913: the Tunnel Unlit, wrapped and hooded. Its walk, run and stance are
 	# Nerd Survivor's, baked onto its bones (tools/bake_dweller_moves.gd)
@@ -60,6 +61,14 @@ const VARIANT_MODELS := {
 	"stranger": ["stranger/man_in_coat.glb", 1.85, 0.68, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run",
 		"holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "mixamorig_Head_06", "mixamorig_RightHand_035", "mixamorig_Spine2_04", 0.0, null,
 		"res://assets/models/foes/stranger/stranger_moves.res", PI],
+	# The Salt Rifleman: the skeleton warrior (as the saltbone), its rifle raised to the shoulder and held at the
+	# ready by Nerd Survivor's aim and rifle stance baked onto its bones (tools/make_saltrifle_moves.sh); it walks
+	# and runs by its own clips, the rifle carried level, a metre long and not near two. (The saltbone keeps its
+	# sword's clips.)
+	"saltrifle": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "moves/Idle", "walk": "rig|Walck", "sprint": "rig|Run",
+		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead", "holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"},
+		"head_0111", "DEF-hand.R_0245", "chest_019", 0.0, AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72)),
+		"res://assets/models/foes/folk/skelet_rifle_moves.res", PI, 0.6],
 }
 const DROP := ["holster", "hand_knife", "Flamberge"]   ## parts left off: a stray holster, and blades our own arms replace
 static var _bounds := {}
@@ -274,7 +283,8 @@ static func _make_real(kind: String, look: Array, own: Array = []) -> FoeBody:
 		var grip := Node3D.new()
 		grip.rotation.x = float(spec[10]) if spec.size() > 10 else PI   # the hand's bone runs toward the fingers; the old arm hung the other way
 		hand_at.add_child(grip)
-		b._fit.append([grip, float(look[2]) * girth * _kenney_unit(look[0], "arm-right"), Vector3(0, -0.8, 0)])
+		# (sized as the old figure's arm would hold it, or by the entry's own measure where that came out too big)
+		b._fit.append([grip, float(look[2]) * girth * _kenney_unit(look[0], "arm-right") * (float(spec[11]) if spec.size() > 11 else 1.0), Vector3(0, -0.8, 0)])
 		b.level_hold = spec.size() > 10
 		b.hand = grip
 	var chest_at := _bone_node(sk, str(spec[6]))

@@ -19,6 +19,7 @@ var only_mapped := OS.get_environment("ONLY_MAPPED") != ""
 ## USE_REST=1: the body's rest is the pose it is drawn in (its binds are in other units and turned about), so
 ## that is what the donor's moves are laid over
 var use_rest := OS.get_environment("USE_REST") != ""
+var all_tracks := OS.get_environment("ALL_TRACKS") != ""
 var ALIAS := {}
 const OWN := ""
 const FPS := 30.0
@@ -140,6 +141,22 @@ func _initialize() -> void:
 			x = tsk.get_bone_parent(x)
 	order.append_array(late)
 	_setup_map()
+	# FOLLOW=a=b,...: bone a (a control the rig hangs armour from) goes with bone b as it stands to it at rest; it
+	# and all it carries are reckoned after the rest
+	var late2 := []
+	for kv in OS.get_environment("FOLLOW").split(",", false):
+		var fa := tsk.find_bone(kv.get_slice("=", 0))
+		assert(fa >= 0, "no bone " + kv)
+		MAP[tsk.get_bone_name(fa)] = ["follow", kv.get_slice("=", 1)]
+		for b in order.duplicate():
+			var x: int = b
+			while x >= 0:
+				if x == fa:
+					late2.append(b)
+					order.erase(b)
+					break
+				x = tsk.get_bone_parent(x)
+	order.append_array(late2)
 	HIPS = tsk.get_bone_name(tb(R + "Hips"))
 	FOOT_L = tsk.get_bone_name(tb(R + "LeftFoot"))
 	FOOT_R = tsk.get_bone_name(tb(R + "RightFoot"))
@@ -293,7 +310,9 @@ func _bake(clip: String) -> Animation:
 	var pt := {}
 	var rt := {}
 	for b in order:
-		if not skinned.has(b) or (only_mapped and not MAP.has(tsk.get_bone_name(b)) and not own_tracks.has(b)):
+		# ALL_TRACKS=1: every bone gets its tracks, the unskinned too (a rig whose deforming bones hang from control
+		# bones its own clips move: those are set back to rest, or they would keep the last clip's pose)
+		if not all_tracks and (not skinned.has(b) or (only_mapped and not MAP.has(tsk.get_bone_name(b)) and not own_tracks.has(b))):
 			continue
 		pt[b] = a.add_track(Animation.TYPE_POSITION_3D)
 		a.track_set_path(pt[b], NodePath("%s:%s" % [base, tsk.get_bone_name(b)]))
