@@ -31,7 +31,10 @@ const LOOKS := {
 const MODELS := {
 	"character-zombie.glb": ["folk/zombie_mud.glb", 1.85, 3.3, {"idle": "idle01", "walk": "walk01", "sprint": "run", "attack-melee-right": "attack01",
 		"holding-both": "caution", "die": "death"}, "head_014_16", "hand_R_010_39", "chest_017_14", 0.0],
-	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
+	# its own "Walk" barely steps: its walk, run and sword-bearer's stance are Nerd Survivor's, baked onto its
+	# bones (tools/bake_stranger_moves.gd, see tools/make_knight_moves.sh); the flamberge stays in its right hand
+	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0,
+		null, "res://assets/models/foes/folk/knight_moves.res"],
 	"character-vampire.glb": ["folk/lich_guigodead.glb", 2.0, 3.2, {"idle": "Lich_Esqueleto|Lich_Parado_Voando", "walk": "Lich_Esqueleto|Lich_Parado_Voando",
 		"sprint": "Lich_Esqueleto|Lich_Parado_Voando", "attack-melee-right": "Lich_Esqueleto|Lich_Ataque_Perto",
 		"holding-both-shoot": "Lich_Esqueleto|Lich_Ataque_Distancia"}, "Cabeca_05", "Mao.R_022", "Peito_03", 0.0,
@@ -502,7 +505,13 @@ func play(a: String, speed := 1.0) -> void:
 
 ## Walks, runs or stands by its pace over the ground (metres a second): a walk or run is played as fast as its
 ## steps carry the body, so its feet do not skate.
-func pace_play(pace: float) -> void:
+func pace_play(pace: float, backward := false) -> void:
+	_pace_play(pace)
+	if backward and _now != str(clips.get("idle", "idle")) and anim:
+		anim.speed_scale = -absf(anim.speed_scale)   # stepping back: the walk run backward
+
+
+func _pace_play(pace: float) -> void:
 	if pace <= 0.4 or anim == null:
 		play("idle")
 		return

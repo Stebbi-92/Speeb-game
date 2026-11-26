@@ -219,10 +219,12 @@ func _process(delta: float) -> void:
 	if _anim:
 		# Its own gaits, by its pace; a bite plays through
 		if _gait != "Cat_Bite_Attack" or not _anim.is_playing():
-			var g := "Cat_Idle" if _speed < 0.4 else ("Cat_Walk" if _speed < 2.5 else ("Cat_Trot" if _speed < 6.0 else "Cat_Gallop_Run"))
+			# each gait's own pace measured from its clip (see Stride), at its half size
+			var walk := Stride.of(_skel, _anim, "Cat_Walk")
+			var trot := Stride.of(_skel, _anim, "Cat_Trot")
+			var g := "Cat_Idle" if _speed < 0.4 else ("Cat_Walk" if _speed < (walk * 1.5 if walk > 0.0 else 2.5) else ("Cat_Trot" if _speed < (trot * 1.6 if trot > 0.0 else 6.0) else "Cat_Gallop_Run"))
 			_gait_to(g)
-			var ref: float = {"Cat_Walk": 0.9, "Cat_Trot": 2.6, "Cat_Gallop_Run": 5.2}.get(g, 0.0)
-			_anim.speed_scale = clampf(_speed / ref, 0.6, 1.8) if ref > 0.0 else 1.0
+			_anim.speed_scale = Stride.scale_for(_skel, _anim, g, _speed, 0.6, 2.5) if g != "Cat_Idle" else 1.0
 		_place_head()
 		_body.position.y = sin(_t * 2.0) * 0.05
 	else:

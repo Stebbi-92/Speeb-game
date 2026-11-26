@@ -7,6 +7,7 @@ extends RefCounted
 
 static var _cache := {}   ## "<clip's id>:<rig>" -> speed in the skeleton's own units a second (0 if it does not walk)
 static var _feet := {}    ## rig -> its foot bones
+static var _back := {}    ## "<clip's id>:<rig>" -> the way its planted feet go, in the skeleton's space
 
 
 ## Metres a second the clip covers at speed 1 on this body as it stands now (its scale), or 0 when the clip
@@ -18,7 +19,20 @@ static func of(sk: Skeleton3D, ap: AnimationPlayer, clip: String) -> float:
 	var key := "%d:%s" % [an.get_instance_id(), _rig(sk)]
 	if not _cache.has(key):
 		_cache[key] = _measure(sk, ap, clip)
-	return float(_cache[key]) * sk.global_basis.get_scale().x
+	# (a planted foot rolls from heel to toe while down, which reads a little fast: carried along by hand at
+	# trial paces, the feet of the clips here hold stillest at about nine tenths of the measure)
+	return float(_cache[key]) * sk.global_basis.get_scale().x * 0.9
+
+
+## The way the body goes when this clip walks it (opposite to its planted feet), in the world as it stands now;
+## zero if unknown. A body set the wrong way about walks crabwise or backward against it.
+static func ahead(sk: Skeleton3D, ap: AnimationPlayer, clip: String) -> Vector3:
+	if of(sk, ap, clip) <= 0.0:
+		return Vector3.ZERO
+	var b: Vector3 = _back.get("%d:%s" % [ap.get_animation(clip).get_instance_id(), _rig(sk)], Vector3.ZERO)
+	var w := -(sk.global_basis * b)
+	w.y = 0.0
+	return w.normalized() if w.length() > 1e-6 else Vector3.ZERO
 
 
 ## The speed to play a clip at so its steps keep to this pace (between lo and hi), or 1 if it has no steps.
@@ -85,7 +99,10 @@ static func _measure(sk: Skeleton3D, ap: AnimationPlayer, clip: String) -> float
 		ap.seek(k * dt, true)
 		for b in feet:
 			tr[b].append(sk.get_bone_global_pose(b).origin)
-	var sp := []
+	# The way a planted foot goes (back under the body): the mean motion of the feet at their very lowest.
+	# A foot skimming low as it swings goes the other way, and is not counted
+	var back := Vector3.ZERO
+	var near := []   ## [foot height over its lowest, its motion over the ground]
 	for b in feet:
 		var a: Array = tr[b]
 		var mn := 1e9
@@ -94,10 +111,21 @@ static func _measure(sk: Skeleton3D, ap: AnimationPlayer, clip: String) -> float
 		for k in range(1, a.size()):
 			var p0: Vector3 = a[k - 1]
 			var p1: Vector3 = a[k]
-			if p0.dot(up) < mn + 0.025 * H and p1.dot(up) < mn + 0.025 * H:
+			var hh := maxf(p0.dot(up), p1.dot(up)) - mn
+			if hh < 0.025 * H:
 				var d := p1 - p0
 				d -= up * d.dot(up)
-				sp.append(d.length() / dt)
+				near.append([hh, d / dt])
+				if hh < 0.01 * H:
+					back += d
+	var sp := []
+	if back.length() > 1e-6:
+		back = back.normalized()
+		_back["%d:%s" % [ap.get_animation(clip).get_instance_id(), _rig(sk)]] = back
+		for e in near:
+			var v: float = (e[1] as Vector3).dot(back)
+			if v > 0.0:
+				sp.append(v)
 	# put the player back as it was
 	if was != "":
 		ap.play(was, 0.0)

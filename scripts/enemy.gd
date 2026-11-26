@@ -1562,6 +1562,7 @@ var _pan_anim: AnimationPlayer
 var _pan_head := -1
 var _pan_gait := ""
 var _pan_step: Stepper
+var _back_step := false   ## backing away from its foe, still facing it: its walk plays backward
 
 
 static func _cut_panther(an: Animation, head_path: String) -> AnimationLibrary:
@@ -1700,6 +1701,8 @@ func _pan_tick(pace: float) -> void:
 		_pan_play("idle")
 		_pan_anim.speed_scale = 1.0
 	var at: Vector3 = (_pan_skel.global_transform * _pan_skel.get_bone_global_pose(_pan_head)).origin
+	if _pan_step:
+		at.y -= _pan_step.sink   # (the bones are read here as the clip left them: the Stepper's sink is not in them)
 	head.position = _body_node.to_local(at) + Vector3(0, 0.06, 0.1) * s
 
 
@@ -3438,8 +3441,20 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 		elif is_on_floor():
 			velocity.x = lerpf(velocity.x, want.x, minf(1.0, delta * 8.0))
 			velocity.z = lerpf(velocity.z, want.z, minf(1.0, delta * 8.0))
-		rotation.y = lerp_angle(rotation.y, atan2(fdir.x, fdir.z), minf(1.0, delta * 8.0))
+		# It faces its foe while it closes or backs away (stepping backward then); going across, it turns the
+		# way it goes, so its legs never walk one way while the body slides another
+		var face_y := atan2(fdir.x, fdir.z)
+		var wv := Vector2(want.x, want.z)
+		_back_step = false
+		if wv.length() > 0.8:
+			var off := absf(angle_difference(face_y, atan2(want.x, want.z)))
+			if off > PI * 0.65:
+				_back_step = true
+			elif off > PI * 0.33:
+				face_y = atan2(want.x, want.z)
+		rotation.y = lerp_angle(rotation.y, face_y, minf(1.0, delta * 8.0))
 	else:
+		_back_step = false
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
 	if role != "float":
@@ -3459,7 +3474,7 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	if pace <= 0.4 and role == "gun" and fd < 40.0:
 		_fb.play("holding-both")
 	else:
-		_fb.pace_play(pace)
+		_fb.pace_play(pace, _back_step)
 	if frozen or level.completed or level.failing:
 		return
 	_attack_cd -= delta

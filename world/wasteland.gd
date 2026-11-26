@@ -18093,6 +18093,33 @@ func debug_feet() -> void:
 			if is_instance_valid(b[1]):
 				b[1].queue_free()
 		await get_tree().create_timer(0.3).timeout
+	if "synth" in only:
+		# A body walked by hand along the way it faces, at a pace its walk is played for: the measure's own check
+		var batch := []
+		var walkers := []
+		for sp in [0.9, 1.3]:
+			var holder := Node3D.new()
+			add_child(holder)
+			var at: Vector3 = player.global_position + f * 6.0 + side * (batch.size() * 3.0 - 1.5)
+			holder.global_position = at
+			holder.look_at(at - side, Vector3.UP)   # faces +Z along -side... set below
+			holder.rotation = Vector3(0, atan2(side.x, side.z), 0)
+			var ps := Person.new().setup("nordic_m", 7, 1)
+			holder.add_child(ps)
+			batch.append(["synth%.1f" % sp, holder])
+			walkers.append([holder, ps, sp])
+		var mover := func(dt: float) -> void:
+			for wk in walkers:
+				var h: Node3D = wk[0]
+				var ps2: Person = wk[1]
+				ps2.pace = wk[2]
+				var p2: Vector3 = h.global_position + h.global_basis.z * float(wk[2]) * dt
+				p2.y = terrain.height_at(p2.x, p2.z)
+				h.global_position = p2
+		_feet_tick = mover
+		await get_tree().create_timer(1.0).timeout
+		lines.append_array(await _feet_measure(batch, 5.0))
+		_feet_tick = Callable()
 	if only == "" or "folk" in only:
 		var batch := []
 		for p in Person.PAIRS:
@@ -18134,6 +18161,7 @@ func debug_feet() -> void:
 ## Watches these bodies for a while; one line each. The body's pace is taken over a quarter second (it moves in
 ## physics steps, its bones every frame); the foot that bears it moves in the body's own frame by its walk, so a
 ## walk in step carries that foot back exactly as fast as the body goes forward.
+var _feet_tick := Callable()       ## (testing aid) moves bodies by hand each frame while they are watched
 var _feet_lead := Vector3.ZERO   ## (testing aid) the one they follow walks on, so they walk after him
 
 
@@ -18148,6 +18176,8 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 		if dt <= 0.0:
 			continue
 		t += dt
+		if _feet_tick.is_valid():
+			_feet_tick.call(dt)
 		if _feet_lead != Vector3.ZERO:
 			var pp := player.global_position + _feet_lead * dt
 			pp.y = terrain.height_at(pp.x, pp.z) + 0.05
@@ -18166,8 +18196,43 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			var lo := 1e9
 			var lb := -1
 			var lp := Vector3.ZERO
+			# a Stepper's legs are in the bones only while the skin is drawn: it keeps that pose for us
+			if not d.has("stp"):
+				var sts := sk.get_children().filter(func(c): return c is Stepper)
+				d["stp"] = sts[0] if not sts.is_empty() else null
+				if is_instance_valid(d.stp):
+					d.stp.keep = true
+			var posed: Dictionary = d.stp.posed if is_instance_valid(d.stp) else {}
+			if is_instance_valid(d.stp) and (posed.is_empty() or d.stp.posed_n == d.get("pn", -1)):
+				continue   # (not drawn yet, or not drawn again since: its bones go with its clip's ticks)
+			if is_instance_valid(d.stp):
+				d["pn"] = d.stp.posed_n
+			var dts: float = t - float(d.get("lt", t - dt))
+			d["lt"] = t
+			# Each foot on its own: while it stays down (within a few cm of its lowest), how far it drifts over
+			# the ground in that time, against how far the body went
+			if not d.has("runs"):
+				d["runs"] = {}
+				d["drift"] = 0.0
+				d["went"] = 0.0
 			for bi in d.feet:
-				var wp: Vector3 = sk.global_transform * sk.get_bone_global_pose(bi).origin
+				var wp: Vector3 = sk.global_transform * ((posed[bi] as Transform3D).origin if posed.has(bi) else sk.get_bone_global_pose(bi).origin)
+				var fh := wp.y - terrain.height_at(wp.x, wp.z)
+				var r: Dictionary = d.runs.get(bi, {"min": 1e9})
+				r.min = minf(float(r.min), fh)
+				if fh < float(r.min) + 0.03:
+					if not r.has("from"):
+						r["from"] = wp
+						r["body"] = e.global_position
+						r["t"] = t
+				elif r.has("from"):
+					var span := t - float(r.t)
+					var bw := Vector2(e.global_position.x - (r.body as Vector3).x, e.global_position.z - (r.body as Vector3).z).length()
+					if span > 0.12 and bw > 0.1:
+						d.drift += Vector2(wp.x - (r.from as Vector3).x, wp.z - (r.from as Vector3).z).length()
+						d.went += bw
+					r.erase("from")
+				d.runs[bi] = r
 				if wp.y < lo:
 					lo = wp.y
 					lb = bi
@@ -18185,17 +18250,46 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			var h := lp.y - terrain.height_at(lp.x, lp.z)
 			var q := e.global_transform.affine_inverse() * lp
 			if lb == d.lb:
-				d.span = maxf(d.span, (q - d.lq).length() / dt)
+				d.span = maxf(d.span, (q - d.lq).length() / dts)
 			var mv := vb.length()
 			if e is WTownsfolk and (e as WTownsfolk).fig and (e as WTownsfolk).fig.person:
 				d["pace"] = d.get("pace", []) + [(e as WTownsfolk).fig.person.pace] if mv > 0.6 else d.get("pace", [])
-			if e is LesserSpeeb and (e as LesserSpeeb)._pan_step:
+			if is_instance_valid(d.stp):
 				d["step"] = true
+			if e is LesserSpeeb and (e as LesserSpeeb)._fb and (e as LesserSpeeb)._fb.anim and mv > 0.6:
+				var fb2: FoeBody = (e as LesserSpeeb)._fb
+				var key2 := "%s@%.1f/%.2f" % [fb2.anim.current_animation.get_slice("/", 1) if "/" in fb2.anim.current_animation else fb2.anim.current_animation, fb2.anim.speed_scale, Stride.of(fb2.skel, fb2.anim, fb2.anim.current_animation)]
+				var hist: Dictionary = d.get("clips", {})
+				hist[key2] = int(hist.get(key2, 0)) + 1
+				d["clips"] = hist
+			if mv > 0.6:
+				var apx: AnimationPlayer = null
+				for c in e.find_children("*", "AnimationPlayer", true, false):
+					apx = c
+					break
+				if apx and apx.current_animation != "":
+					var ah := Stride.ahead(sk, apx, apx.current_animation)
+					if ah != Vector3.ZERO:
+						var fwd2 := ah * signf(apx.speed_scale)
+						d["ang"] = d.get("ang", []) + [rad_to_deg(Vector2(fwd2.x, fwd2.z).angle_to(Vector2(vb.x, vb.z)))]
+			if false and mv > 0.6 and e is WBeast:
+				# which way its body points against the way it goes (head bone from its spine's base)
+				var hb := -1
+				var tb := -1
+				for bi2 in sk.get_bone_count():
+					var bn2 := sk.get_bone_name(bi2).to_lower()
+					if hb < 0 and bn2.begins_with("head"):
+						hb = bi2
+					if tb < 0 and ("spine_base" in bn2 or "pelvis" in bn2):
+						tb = bi2
+				if hb >= 0 and tb >= 0:
+					var ax: Vector3 = sk.global_transform * sk.get_bone_global_pose(hb).origin - sk.global_transform * sk.get_bone_global_pose(tb).origin
+					d["ang"] = d.get("ang", []) + [rad_to_deg(Vector2(ax.x, ax.z).angle_to(Vector2(vb.x, vb.z)))]
 			if mv > 0.6:
 				d.v.append(mv)
 				d.h.append(h)
 				if lb == d.lb:
-					var fw: Vector3 = e.global_transform.basis * ((q - (d.lq as Vector3)) / dt)
+					var fw: Vector3 = e.global_transform.basis * ((q - (d.lq as Vector3)) / dts)
 					fw.y = 0.0
 					d.slide.append((vb + fw).length() / mv)
 			elif mv < 0.05:
@@ -18210,7 +18304,7 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			continue
 		var h := _med(d.h)
 		var hi := _med(d.hi)
-		var sl := _med(d.slide)
+		var sl: float = float(d.drift) / float(d.went) if float(d.get("went", 0.0)) > 0.5 else NAN
 		var v := _med(d.v)
 		var flag := ""
 		if d.h.size() >= 20 and (h > 0.16 or h < -0.12 or sl > 0.35):
@@ -18221,8 +18315,17 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 		var fb := ",".join(PackedStringArray((d.get("feet", []) as Array).slice(0, 2).map(func(x): return sk2.get_bone_name(x) if sk2 else "?")))
 		if d.has("pace"):
 			b[0] += " pace=%.2f" % _med(d.pace)
+			var ps: Person = (b[1] as WTownsfolk).fig.person
+			b[0] += " stride=%.2f sc=%.2f" % [Stride.of(ps._sk, ps._ap, "moves/Walk"), ps._ap.speed_scale]
+		if d.has("clips"):
+			var hk: Dictionary = d.clips
+			var ks := hk.keys()
+			ks.sort_custom(func(a, b2): return hk[a] > hk[b2])
+			b[0] += " " + ",".join(PackedStringArray(ks.slice(0, 3).map(func(k): return "%s x%d" % [k, hk[k]])))
 		if d.has("step"):
 			b[0] += " stepper"
+		if d.has("ang"):
+			b[0] += " heading_off=%.0f signed=%.0f" % [_med((d.ang as Array).map(func(x): return absf(x))), _med(d.ang)]
 		out.append("%s v=%.2f h=%.2f idle_h=%.2f slide=%.2f footv=%.1f n=%d/%d [%s]%s" % [b[0], v, h, hi, sl, d.span, d.h.size(), d.hi.size(), fb, flag])
 	return out
 
@@ -18239,6 +18342,9 @@ static func _feet_bones(sk: Skeleton3D) -> Array:
 			if w in nm:
 				out.append(bi)
 				break
+	var defs := out.filter(func(b): return sk.get_bone_name(b).begins_with("DEF"))
+	if not defs.is_empty():
+		out = defs
 	if out.is_empty():
 		for bi in sk.get_bone_count():
 			var depth := 0
