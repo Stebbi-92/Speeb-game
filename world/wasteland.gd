@@ -18322,6 +18322,11 @@ func debug_gfx() -> void:
 	get_tree().quit()
 
 
+## Testing aid: at every common screen size and text size, no words on the HUD are drawn over others.
+func debug_hudfit() -> void:
+	await load("res://world/hud_check.gd").new().run(self)
+
+
 ## Testing aid: at the largest menu size, the pack and every tab still fit on the screen.
 func debug_uiscale() -> void:
 	while not ready_world:

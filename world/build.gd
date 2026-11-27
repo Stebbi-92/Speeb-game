@@ -64,6 +64,8 @@ func toggle() -> void:
 		ghost.queue_free()
 		ghost = null
 		ghost_kind = ""
+	if not active and w.ui:
+		w.ui.set_upgrade_tip("", 0)
 	_hint()
 
 
@@ -99,6 +101,12 @@ func _hint() -> void:
 func _process(_delta: float) -> void:
 	if not active or w.player == null:
 		return
+	# Aimed at a wall or floor: what building it up gives and costs, under the crosshair
+	var ap := aimed()
+	if ap >= 0 and w.pieces[ap].kind in UPGRADES:
+		w.ui.set_upgrade_tip(w.pieces[ap].kind, int(w.pieces[ap].get("tier", 0)))
+	else:
+		w.ui.set_upgrade_tip("", 0)
 	var k := kind()
 	if ghost_kind != k:
 		if ghost:
@@ -345,12 +353,18 @@ func dismantle() -> void:
 	w.shared("_rq_unbuild", [Net.me(), pid])
 
 
-## Builds the wall or floor in sight up a tier: timber to stone, stone to iron. False if nothing is in sight.
-func upgrade() -> bool:
+## The built piece in sight and within reach, or -1.
+func aimed() -> int:
 	var cam: Camera3D = w.player.cam
 	var q := PhysicsRayQueryParameters3D.create(cam.global_position, cam.global_position - cam.global_transform.basis.z * REACH, 1 | 16)
 	q.exclude = [w.player.get_rid()]
 	var pid := _piece_from(get_world_3d().direct_space_state.intersect_ray(q))
+	return pid if w.pieces.has(pid) else -1
+
+
+## Builds the wall or floor in sight up a tier: timber to stone, stone to iron. False if nothing is in sight.
+func upgrade() -> bool:
+	var pid := aimed()
 	if pid < 0:
 		return false
 	upgrade_pid(pid)

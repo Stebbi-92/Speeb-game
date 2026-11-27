@@ -16,8 +16,9 @@ var _frame: PanelContainer
 var _body: VBoxContainer
 var _clock: Label
 var _build_title: Label
-var _keys: HBoxContainer
+var _keys: HFlowContainer   ## the keys to the screens; wraps to two rows on a narrow screen
 var _build_hint: RichTextLabel
+var _up_tip: RichTextLabel   ## while building, aimed at a wall or floor: what building it up gives and costs
 var _keys_sig := ""
 var _sel := -1
 var debug_bench := false
@@ -62,7 +63,7 @@ func _ready() -> void:
 	add_child(_clock)
 	_compass = Compass.new()
 	_compass.w = w
-	_pin(_compass, 0.5, 0.0, Rect2(-320, 14, 640, 56))
+	_pin(_compass, 0.5, 0.0, Rect2(-320, 14, 640, 72))   # the band, and two rows of names under it
 	_compass.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_compass)
 	_build_title = _label("", 24, GOLD)
@@ -77,8 +78,21 @@ func _ready() -> void:
 	_build_hint.add_theme_color_override("default_color", DIM)
 	_pin(_build_hint, 0.5, 1.0, Rect2(-560, -202, 1120, 92))   # three lines, kept clear of the belt below
 	add_child(_build_hint)
-	_keys = HBoxContainer.new()
-	_keys.add_theme_constant_override("separation", 14)
+	_up_tip = RichTextLabel.new()
+	_up_tip.bbcode_enabled = true
+	_up_tip.scroll_active = false
+	_up_tip.fit_content = true
+	_up_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_up_tip.add_theme_font_size_override("normal_font_size", 17)
+	_up_tip.add_theme_color_override("default_color", PALE)
+	_up_tip.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	_up_tip.add_theme_constant_override("shadow_offset_x", 1)
+	_up_tip.add_theme_constant_override("shadow_offset_y", 1)
+	_pin(_up_tip, 0.5, 0.5, Rect2(-300, 36, 600, 100))   # under the crosshair and the use prompt (_stack_middle)
+	add_child(_up_tip)
+	_keys = HFlowContainer.new()
+	_keys.add_theme_constant_override("h_separation", 14)
+	_keys.add_theme_constant_override("v_separation", 4)
 	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pin(_keys, 0.0, 1.0, Rect2(36, -98, 700, 26))
 	add_child(_keys)
@@ -122,6 +136,7 @@ func _ready() -> void:
 	_xp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_xp_bar)
 	_xp_text = _label("", 15, Color(DIM, 0.8))
+	_xp_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pin(_xp_text, 0.0, 1.0, Rect2(36, -132, 420, 22))
 	add_child(_xp_text)
 	_xp_pop = _label("", 17, GOLD)
@@ -146,17 +161,20 @@ func _ready() -> void:
 		_pin(l, 0.0, 1.0, Rect2(36 + k[2] * 134, -30, 126, 18))
 		add_child(l)
 		_needs[k[0]] = [b, l, bf, k[1]]
-	_boons = _label("", 13, Color(0.92, 0.82, 0.55, 0.9))
-	_pin(_boons, 0.0, 1.0, Rect2(36, -56, 420, 18))
+	# The rows over the bars are stacked in stack_left(), each on its own row above the health bar
+	_boons = _label("", 14, Color(0.92, 0.82, 0.55, 0.9))
+	_boons.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pin(_boons, 0.0, 1.0, Rect2(36, -80, 420, 18))
 	add_child(_boons)
 	_hazard = _label("", 15, Color(0.95, 0.45, 0.35, 0.95))
-	_pin(_hazard, 0.0, 1.0, Rect2(36, -80, 520, 20))
+	_hazard.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pin(_hazard, 0.0, 1.0, Rect2(36, -100, 420, 20))
 	_hazard.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	_hazard.add_theme_constant_override("shadow_offset_x", 1)
 	_hazard.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(_hazard)
 	_saved = _label("", 16, DIM)
-	_pin(_saved, 1.0, 1.0, Rect2(-330, -64, 300, 26))
+	_pin(_saved, 1.0, 1.0, Rect2(-330, -108, 300, 26))   # over the ammunition
 	_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_saved.modulate.a = 0.0
 	add_child(_saved)
@@ -521,14 +539,31 @@ func _input(e: InputEvent) -> void:
 	var typing = get_viewport().gui_get_focus_owner()
 	if (typing is LineEdit or typing is TextEdit) and e is InputEventKey:
 		# While a name is being typed, every key is a letter: only Escape and Enter leave the field
-		if e.pressed and e.physical_keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER]:
+		if e.pressed and e.physical_keycode == KEY_ESCAPE and typing == _search_edit:
+			# The search box: Escape empties it first, then closes the screen
+			if _search_edit.text != "":
+				_search[_tab] = ""
+				_search_focus = true
+				_redraw()
+			else:
+				close_all()
+			accept_event()
+		elif e.pressed and e.physical_keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER]:
 			typing.release_focus()
 			accept_event()
 		return
 	if e is InputEventKey and e.pressed and not e.echo:
 		var k: int = e.physical_keycode
 		if k == KEY_ESCAPE and _panel != null:
-			close_all()
+			if is_instance_valid(_search_edit) and _search_edit.text != "":
+				_search[_tab] = ""   # a search is emptied before the screen closes
+				_redraw()
+			else:
+				close_all()
+			accept_event()
+			return
+		if (k == KEY_SLASH or (k == KEY_F and e.ctrl_pressed)) and is_instance_valid(_search_edit) and _search_edit.is_visible_in_tree():
+			_search_edit.grab_focus()
 			accept_event()
 			return
 		if k == KEY_ESCAPE and w.builder.active:
@@ -700,6 +735,9 @@ var redraws := 0   ## how many times a screen was drawn (a testing aid)
 
 func _redraw_now() -> void:
 	redraws += 1
+	if is_instance_valid(_search_edit):
+		_search_focus = _search_focus or _search_edit.has_focus()
+	_search_edit = null
 	match _panel_name:
 		"pack":
 			_draw_pack()
@@ -756,6 +794,7 @@ func _process(_delta: float) -> void:
 	_compass.queue_redraw()
 	_keys.visible = _panel == null and not w.builder.active
 	_refresh_keys()
+	stack_left()
 	if _panel_name == "journal" and journal_dirty:
 		journal_dirty = false
 		_draw_journal()
@@ -763,6 +802,104 @@ func _process(_delta: float) -> void:
 		_map_draw.queue_redraw()
 		if map_dirty:
 			_update_fog()
+
+
+const LEFT_W := 420.0   ## the widest the rows at the lower left may be, so they stay clear of the belt
+const BARS_TOP := -64.0   ## the top of the plate and health bars, from the foot of the screen
+
+
+## The rows at the lower left, from the bars up: what was eaten and rest, the land's hardship, the keys,
+## the level bar and the level. Each takes as many lines as its words need, so none is drawn over another.
+func stack_left() -> void:
+	if _boons == null:
+		return
+	var y := BARS_TOP
+	var lw := minf(LEFT_W, size.x * 0.5 - 330.0 - 36.0 - 16.0)   # the belt is 646 wide, low in the middle
+	lw = maxf(lw, 220.0)
+	for c in [_boons, _hazard, _keys, _xp_bar, _xp_text]:
+		var ctl: Control = c
+		var h := 0.0
+		if c is Label:
+			var l: Label = c
+			if l.text == "" or not l.visible:
+				continue
+			l.offset_right = l.offset_left + lw
+			h = float(maxi(l.get_line_count(), 1)) * (l.get_line_height() + 1.0)
+		elif ctl.visible:
+			if c == _keys:
+				ctl.offset_right = ctl.offset_left + lw
+				h = ctl.get_combined_minimum_size().y
+			else:
+				h = 4.0
+		else:
+			continue
+		ctl.offset_bottom = y
+		ctl.offset_top = y - h
+		y -= h + (8.0 if c == _xp_bar else 4.0)
+	_xp_pop.offset_top = _xp_bar.offset_top - 11.0
+	_xp_pop.offset_bottom = _xp_pop.offset_top + 22.0
+	_stack_middle(y, lw)
+
+
+## The middle of the screen, low and high. Low: the building strip over the belt, then the spoken line
+## and the narration over that, as wide as the room between the lower corners allows. High: the use
+## prompt and the building-up tip under the crosshair. On a screen too short for all of it, the tip,
+## then the narration, go above the crosshair instead.
+func _stack_middle(left_top: float, lw: float) -> void:
+	var hud = w.hud
+	var mid := clampf(size.x - 2.0 * (36.0 + lw + 16.0), 560.0, 1120.0)
+	var base := -128.0   # over the stamina bar and the belt
+	if w.builder.active and _build_title.text != "":
+		_build_hint.offset_left = -mid * 0.5
+		_build_hint.offset_right = mid * 0.5
+		var hh := maxf(float(_build_hint.get_content_height()), 22.0)
+		_build_hint.offset_bottom = -112.0
+		_build_hint.offset_top = -112.0 - hh
+		_build_title.offset_bottom = _build_hint.offset_top - 2.0
+		_build_title.offset_top = _build_title.offset_bottom - 34.0
+		base = _build_title.offset_top - 6.0
+	if size.x - 2.0 * (36.0 + lw + 16.0) < mid - 1.0:
+		base = minf(base, left_top - 8.0)   # no room beside the lower left: go over it
+	var c := size.y * 0.5
+	var low := size.y + base   # where the low stack begins, from the top
+	# Under the crosshair: the use prompt, then the tip on building up
+	var below := c + 30.0
+	if hud.prompt.text != "":
+		below = c + (112.0 if hud.prompt_bar.visible else 104.0)
+	var above := c - 24.0   # the lowest a line over the crosshair may reach
+	if _up_tip.visible:
+		var th := float(_up_tip.get_content_height())
+		if below + 6.0 + th <= low - 6.0:
+			_up_tip.offset_top = below + 6.0 - c
+			below += 6.0 + th
+		else:
+			_up_tip.offset_top = above - th - c
+			above -= th + 8.0
+		_up_tip.offset_bottom = _up_tip.offset_top + th
+	var narr: Label = hud.narration
+	var sub: Label = hud.subtitle_l
+	if narr.vertical_alignment == VERTICAL_ALIGNMENT_TOP:
+		return   # raised above the veil, for the opening and closing words: left where it is
+	var nh := 0.0
+	if narr.text != "" and narr.modulate.a > 0.01:
+		nh = float(narr.get_line_count() * narr.get_line_height())
+	var sh := 0.0
+	if sub.text != "" and sub.modulate.a > 0.01:
+		sh = sub.get_line_height() + 4.0
+	var bottom := low
+	if low - nh - sh - 6.0 < below + 8.0:
+		bottom = above   # too short a screen: over the crosshair
+	narr.offset_left = -mid * 0.5
+	narr.offset_right = mid * 0.5
+	narr.offset_bottom = bottom - size.y
+	narr.offset_top = narr.offset_bottom - 150.0
+	sub.offset_left = -mid * 0.5
+	sub.offset_right = mid * 0.5
+	sub.offset_bottom = narr.offset_bottom - nh - (4.0 if nh > 0.0 else 0.0)
+	if bottom == above and below + 4.0 + sh <= low - 4.0:
+		sub.offset_bottom = below + 4.0 + sh - size.y   # the one spoken line still fits under the prompt
+	sub.offset_top = sub.offset_bottom - 40.0
+	sub.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
 
 ## The row of keys under the level bar: each key in a small frame, and what it opens beside it.
@@ -1236,7 +1373,7 @@ var _asel := ""
 
 ## A card in a grid: picture, name, a line beneath, what it costs (if anything), and one button.
 func _card(pic: String, title: String, sub: String, sub_c: Color, cost: Dictionary, btn: String, cb: Callable, enabled: bool, on: bool, pick: Callable, info := "") -> PanelContainer:
-	var card := PanelContainer.new()
+	var card := RichTip.new()
 	card.tooltip_text = title + ("\n" + info if info != "" else "")
 	card.custom_minimum_size = Vector2(272, 0)
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -1342,8 +1479,9 @@ func _draw_arms() -> void:
 	rail.add_theme_constant_override("separation", 4)
 	rail.custom_minimum_size.x = 170
 	split.add_child(rail)
+	_search_box(rail)
 	for g in ARMS_GROUPS:
-		rail.add_child(_rail_btn(g[1], 0, g[0] == _acat, func(): _acat = g[0]; _asel = ""; _redraw()))
+		rail.add_child(_rail_btn(g[1], 0, g[0] == _acat and search_q() == "", func(): _acat = g[0]; _asel = ""; _search[_tab] = ""; _redraw()))
 	var grid := _card_grid()
 	split.add_child(grid.get_parent())
 	if _acat == "guns":
@@ -1351,8 +1489,34 @@ func _draw_arms() -> void:
 		grid.get_parent().custom_minimum_size.x = 284
 	var side := _side_panel(split)
 	side.custom_minimum_size.x = 250
+	var q := search_q()
+	var rows: Array = []
+	if q == "":
+		rows = _arms_rows(_acat, a, bench, home)
+	else:
+		# Searching: every group, by name, what it is and its group
+		for g in ARMS_GROUPS:
+			for r in _arms_rows(g[0], a, bench, home):
+				if search_hit(q, [r[1], r[2], g[1], _arm_blurb(r[0])]):
+					rows.append(r)
+		if not rows.any(func(r): return r[0] == _asel):
+			_asel = ""
+		grid.columns = 2
+		grid.get_parent().custom_minimum_size.x = 560
+	if rows.is_empty() and q != "":
+		_no_match(grid)
+	if _asel == "" and not rows.is_empty():
+		_asel = rows[0][0]
+	for r in rows:
+		var id: String = r[0]
+		grid.add_child(_card(id, r[1], r[2], r[3], r[4], r[5], r[6], r[7], id == _asel, func(): _asel = id; _psel = ""; _redraw()))
+	_arms_side(side, a, bench)
+
+
+## The rows of one group of the arms screen: [id, title, sub, sub colour, cost, button, callback, enabled].
+func _arms_rows(cat: String, a: Dictionary, bench: bool, home: bool) -> Array:
 	var rows: Array = []   # [id, title, sub, sub colour, cost, button, callback, enabled]
-	match _acat:
+	match cat:
 		"guns":
 			var order: Array = ArmsDB.GUNS.keys()
 			order.sort_custom(func(x, y): return int(x in a.owned) > int(y in a.owned))
@@ -1373,7 +1537,7 @@ func _draw_arms() -> void:
 		"blades", "thrown", "kits":
 			var k: Array = []
 			for kk in WArms.KINDS:
-				if kk[0] == _acat:
+				if kk[0] == cat:
 					k = kk
 			var tb := WArms.table(k[0])
 			for id in tb:
@@ -1406,12 +1570,15 @@ func _draw_arms() -> void:
 				else:
 					var c: Dictionary = _acost(it.cost)
 					rows.append([id, it.name, "%s  ·  not made" % slot_name, Color(DIM, 0.7), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c)])
-	if _asel == "" and not rows.is_empty():
-		_asel = rows[0][0]
-	for r in rows:
-		var id: String = r[0]
-		grid.add_child(_card(id, r[1], r[2], r[3], r[4], r[5], r[6], r[7], id == _asel, func(): _asel = id; _psel = ""; _redraw()))
-	_arms_side(side, a, bench)
+	return rows
+
+
+## An arm's short text, for the search.
+static func _arm_blurb(id: String) -> String:
+	for t in [ArmsDB.GUNS, ArmsDB.MELEE, ArmsDB.GRENADES, ArmsDB.GADGETS, WArms.RELICS, WArms.WEAR]:
+		if t.has(id):
+			return str(t[id].get("text", ""))
+	return ""
 
 
 ## What is chosen in the arms screen, in full.
@@ -1923,10 +2090,12 @@ func _draw_wear() -> void:
 	rail.add_theme_constant_override("separation", 4)
 	rail.custom_minimum_size.x = 230
 	split.add_child(rail)
+	_search_box(rail)
+	var q := search_q()
 	for sl in WArms.WEAR_SLOTS:
 		var on := str(a.wear.get(sl[0], ""))
 		var t: String = "%s:  %s" % [sl[1], WArms.WEAR[on].name if on != "" else "nothing"]
-		var b := _rail_btn(t, 0, sl[0] == _wslot, func(): _wslot = sl[0]; _redraw())
+		var b := _rail_btn(t, 0, sl[0] == _wslot and q == "", func(): _wslot = sl[0]; _search[_tab] = ""; _redraw())
 		b.clip_text = true
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_theme_font_size_override("font_size", 16)
@@ -1939,21 +2108,25 @@ func _draw_wear() -> void:
 	# What can go there
 	var grid := _card_grid(400.0)
 	split.add_child(grid.get_parent())
+	var found := 0
 	for id in WArms.WEAR:
 		var it: Dictionary = WArms.WEAR[id]
-		if it.slot != _wslot:
+		if (q == "" and it.slot != _wslot) or (q != "" and not search_hit(q, [it.name, str(it.slot).capitalize(), it.get("text", "")])):
 			continue
-		if it.has("needs") and not w.flags.has(it.needs) and w.inv.count(id) <= 0 and str(a.wear.get(_wslot, "")) != id:
+		if it.has("needs") and not w.flags.has(it.needs) and w.inv.count(id) <= 0 and str(a.wear.get(it.slot, "")) != id:
 			continue   # taught by a lost book not yet found
+		found += 1
 		var sub := _wear_sub(it)
 		var told := made_from(str(it.get("text", "")), _acost(it.cost))
-		if str(a.wear.get(_wslot, "")) == id:
+		if str(a.wear.get(it.slot, "")) == id:
 			grid.add_child(_card(id, it.name, "Worn" + sub, GOLD, {}, "Take off", func(): _unwear(it.slot), true, true, func(): pass, told))
 		elif w.inv.count(id) > 0:
 			grid.add_child(_card(id, it.name, "In your pack" + sub, PALE, {}, "Wear", func(): _wear(id), true, false, func(): pass, told))
 		else:
 			var c: Dictionary = _acost(it.cost)
 			grid.add_child(_card(id, it.name, "Not made" + sub, Color(DIM, 0.8), c, "Make", func(): _arms_pay(it.cost, func(): w.give([[id, 1]])), bench and w.stock_has_all(c), false, func(): pass, str(it.get("text", ""))))
+	if found == 0 and q != "":
+		_no_match(grid)
 
 
 ## What a thing is, and what it is made from (shown on worn and carried clothes, whose card has no cost).
@@ -2199,6 +2372,14 @@ func _make_group(r: Dictionary) -> String:
 
 
 ## At a cooking station (and no workbench near), only the station's own list: what is cooked.
+## A group of things to make, by name ("heal" is "Healing").
+static func _group_name(g: String) -> String:
+	for mg in MAKE_GROUPS:
+		if mg[0] == g:
+			return mg[1]
+	return g
+
+
 static func station_shows(r: Dictionary, bench: bool, at_pot: bool) -> bool:
 	return bench or not at_pot or r.get("fire", false)
 
@@ -2217,6 +2398,12 @@ func _draw_craft() -> void:
 		top.add_child(_pill("%d chest%s in reach" % [chests, "" if chests == 1 else "s"], true))
 	if w.trades.trade == "":
 		top.add_child(_chip("No trade yet: choose one", true, func(): open_trade()))
+	# The search sits on this row here: the groups below have no room to spare beside a cooking station
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(gap)
+	_search_box(top)
 	_body.add_child(top)
 	if pot >= 0:
 		_body.add_child(_fuel_row(pot))
@@ -2229,6 +2416,7 @@ func _draw_craft() -> void:
 	rail.add_theme_constant_override("separation", 4 if pot < 0 else 0)
 	rail.custom_minimum_size.x = 170
 	split.add_child(rail)
+	var q := search_q()
 	var shown: Array = []
 	var ready_in := {}
 	for i in Items.RECIPES.size():
@@ -2243,10 +2431,10 @@ func _draw_craft() -> void:
 		if ok:
 			ready_in[grp] = int(ready_in.get(grp, 0)) + 1
 			ready_in["all"] = int(ready_in.get("all", 0)) + 1
-		if _rcat == "all" or grp == _rcat:
+		if (q == "" and (_rcat == "all" or grp == _rcat)) or (q != "" and search_hit(q, [Items.iname(r.id), _group_name(grp), Items.info(r.id).get("text", "")])):
 			shown.append([i, here, ok])
 	for g in MAKE_GROUPS:
-		rail.add_child(_rail_btn(g[1], int(ready_in.get(g[0], 0)), g[0] == _rcat, func(): _rcat = g[0]; _rsel = -1; _redraw()))
+		rail.add_child(_rail_btn(g[1], int(ready_in.get(g[0], 0)), g[0] == _rcat and q == "", func(): _rcat = g[0]; _rsel = -1; _search[_tab] = ""; _redraw()))
 	# Ready to make first, then what is here but short, then what needs another place
 	shown.sort_custom(func(a, b): return (2 if a[2] else (1 if a[1] else 0)) > (2 if b[2] else (1 if b[1] else 0)))
 	var sc := ScrollContainer.new()
@@ -2260,12 +2448,16 @@ func _draw_craft() -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	sc.add_child(grid)
 	var chosen = null
+	if q != "" and not shown.is_empty() and not shown.any(func(rw): return rw[0] == _rsel):
+		_rsel = shown[0][0]   # what was chosen is not in the list the search left
 	for row in shown:
 		if _rsel == -1:
 			_rsel = row[0]
 		if row[0] == _rsel:
 			chosen = row
 		grid.add_child(_recipe_card(row[0], row[1], row[2]))
+	if shown.is_empty() and q != "":
+		_no_match(grid)
 	var side := _side_panel(split)
 	side.custom_minimum_size.x = 250
 	_rhere = false
@@ -4049,6 +4241,78 @@ func _draw_portal() -> void:
 	_body.add_child(_action("Close", close_all, "Esc", DIM))
 
 
+# ------------------------------------------------------------------ searching the lists
+
+var _search := {}            ## what is typed in each list's search box, by tab
+var _search_edit: LineEdit   ## the search box on the screen now, if any
+var _search_focus := false   ## the box had the keys when the screen was drawn again
+
+## Letters with marks, and the plain letter each is searched as ("grim" finds "Grímur").
+const FOLD := {"á": "a", "à": "a", "â": "a", "ä": "a", "ã": "a", "å": "a", "ā": "a", "æ": "ae", "ç": "c",
+	"é": "e", "è": "e", "ê": "e", "ë": "e", "ē": "e", "í": "i", "ì": "i", "î": "i", "ï": "i", "ī": "i",
+	"ñ": "n", "ó": "o", "ò": "o", "ô": "o", "ö": "o", "õ": "o", "ø": "o", "ō": "o", "œ": "oe", "ú": "u",
+	"ù": "u", "û": "u", "ü": "u", "ū": "u", "ý": "y", "ÿ": "y", "ð": "d", "þ": "th", "ß": "ss"}
+
+
+## Lower case, without marks on the letters.
+static func fold(t: String) -> String:
+	var out := ""
+	for ch in t.to_lower():
+		out += FOLD.get(ch, ch)
+	return out
+
+
+## True when every word typed is found in the fields (a name, its group, its short text).
+static func search_hit(q: String, fields: Array) -> bool:
+	var hay := fold(" ".join(fields.map(func(f): return str(f))))
+	for word in fold(q).split(" ", false):
+		if not word in hay:
+			return false
+	return true
+
+
+## What is typed in the search box of the tab open now.
+func search_q() -> String:
+	return str(_search.get(_tab, "")).strip_edges()
+
+
+## The search box over a list's groups. It takes the keys only when clicked, or with / or Ctrl+F, so
+## the keys that open and close screens still work; a controller passes over it. Escape empties it,
+## then closes the screen. While something is typed, the whole list is searched, not one group.
+func _search_box(rail: BoxContainer) -> void:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 2)
+	var e := LineEdit.new()
+	e.placeholder_text = "Search   /"
+	e.text = str(_search.get(_tab, ""))
+	e.focus_mode = Control.FOCUS_CLICK
+	e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	e.custom_minimum_size.x = 120 if rail is VBoxContainer else 220
+	e.add_theme_font_size_override("font_size", 16)
+	e.tooltip_text = "Find by name, group or what it does.  Click, or press / or Ctrl+F."
+	e.text_changed.connect(func(t):
+		_search[_tab] = t
+		_search_focus = true
+		_redraw())
+	hb.add_child(e)
+	if e.text != "":
+		var x := _btn("✕", func(): _search[_tab] = ""; _redraw(), 16, DIM)
+		x.focus_mode = Control.FOCUS_NONE
+		x.tooltip_text = "Clear the search (Esc)"
+		hb.add_child(x)
+	rail.add_child(hb)
+	_search_edit = e
+	if _search_focus:
+		_search_focus = false
+		e.caret_column = e.text.length()
+		e.grab_focus.call_deferred()
+
+
+## Said in a list that the search has emptied.
+func _no_match(grid: GridContainer) -> void:
+	grid.add_child(_wrap("Nothing matches \"%s\"." % search_q(), 17, DIM, 260))
+
+
 # ------------------------------------------------------------------ the build guide
 
 var _bcat := "Camp"
@@ -4068,17 +4332,17 @@ func _draw_build_guide() -> void:
 	rail.add_theme_constant_override("separation", 4)
 	rail.custom_minimum_size.x = 170
 	split.add_child(rail)
+	_search_box(rail)
+	var q := search_q()
 	for g in Items.GROUPS:
-		rail.add_child(_rail_btn(g, 0, g == _bcat, func(): _bcat = g; _redraw()))
+		rail.add_child(_rail_btn(g, 0, g == _bcat and q == "", func(): _bcat = g; _search[_tab] = ""; _redraw()))
 	var grid := _card_grid()
 	split.add_child(grid.get_parent())
 	var side := _side_panel(split)
 	side.custom_minimum_size.x = 250
 	var chosen := ""
-	for k in Items.PIECE_ORDER:
+	for k in build_list(q):
 		var pc: Dictionary = Items.PIECES[k]
-		if pc.group != _bcat:
-			continue
 		var cost: Dictionary = w.skills.cost(pc.cost)
 		if chosen == "" or Items.PIECE_ORDER[w.builder.sel] == k:
 			chosen = k
@@ -4098,8 +4362,12 @@ func _draw_build_guide() -> void:
 		var card := _card("pc_" + k, pc.name, sub, DIM if barred == "" else LOCKED_C, cost, "Build", go, barred == "" and w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick)
 		if barred != "":
 			card.modulate = Color(1, 1, 1, 0.5)
+		card.tooltip_text = "%s\n%s\nStrength %d" % [pc.name, pc.text, int(pc.hp)]
+		card.bb = piece_tip_bb(k)
 		grid.add_child(card)
 	if chosen == "":
+		if q != "":
+			_no_match(grid)
 		return
 	var pcs: Dictionary = Items.PIECES[chosen]
 	side.add_child(WGlyph.make("pc_" + chosen, 72))
@@ -4109,6 +4377,59 @@ func _draw_build_guide() -> void:
 		side.add_child(_wrap("Not yet: %s." % WBuildTiers.why(w, chosen), 16, LOCKED_C, 220))
 	_stat(side, "Strength", str(int(pcs.hp)), clampf(float(pcs.hp) / 900.0, 0.05, 1.0))
 	side.add_child(_cost_line(w.skills.cost(pcs.cost)))
+	if chosen in WBuilder.UPGRADES:
+		side.add_child(_upgrade_box(chosen))
+
+
+## The pieces the build guide lists: those of the chosen group, or with something typed, every piece
+## whose name, group or text has it (those not yet open too, shown greyed).
+func build_list(q: String) -> Array:
+	var out: Array = []
+	for k in Items.PIECE_ORDER:
+		var pc: Dictionary = Items.PIECES[k]
+		if (q == "" and pc.group == _bcat) or (q != "" and search_hit(q, [pc.name, pc.group, pc.text])):
+			out.append(k)
+	return out
+
+
+## A build card's tip: what the piece is and does, and for a wall or floor, how it is built up.
+func piece_tip_bb(k: String) -> String:
+	var pc: Dictionary = Items.PIECES[k]
+	var bb := "[color=#dccca8]%s[/color]\n%s\nStrength %d    Costs  %s" % [pc.name, pc.text, int(pc.hp), cost_bb(w.skills.cost(pc.cost))]
+	if k in WBuilder.UPGRADES:
+		for t in WBuildTiers.MATERIALS.size() - 1:
+			bb += "\n\n" + upgrade_bb(k, t, false)
+		bb += "\n[color=#9e988c]Build it, then aim at it while building and press [%s].[/color]" % Game.key_text("interact")
+	return bb
+
+
+## Under a wall or floor in the build guide: building it up, stone then iron, with a tip that says it all.
+func _upgrade_box(k: String) -> Control:
+	var box := RichTip.new()
+	box.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.mouse_default_cursor_shape = Control.CURSOR_HELP
+	box.tooltip_text = "Build it up"
+	var steps: Array = []
+	for st in WBuildTiers.MATERIALS.size() - 1:
+		steps.append(upgrade_bb(k, st, false))
+	box.bb = "\n\n".join(steps) + "\n[color=#9e988c]Aim at it while building and press [%s].[/color]" % Game.key_text("interact")
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(v)
+	var head := _label("Build it up  (?)", 17, GOLD)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(head)
+	var hp: float = float(Items.PIECES[k].hp)
+	var mats: Array = WBuildTiers.MATERIALS
+	var bits: Array = []
+	for m in range(1, mats.size()):
+		bits.append("%s: %d" % [mats[m].name, roundi(hp * float(mats[m].hp))])
+	var t := _wrap("%s strength.\n[%s] on it while building." % ["  ".join(bits), Game.key_text("interact")], 15, DIM, 220)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(t)
+	return box
 
 
 ## A cost with what is carried beside each part: pale when there is enough, red when not.
@@ -4122,10 +4443,72 @@ func cost_bb(cost: Dictionary) -> String:
 	return "   ".join(parts)
 
 
+## What building a piece up one step gives and costs, in short lines (BBCode): the kind of piece, and
+## the step it stands at now (0 timber, 1 stone, 2 iron). Empty for a piece that cannot be built up.
+func upgrade_bb(k: String, t: int, with_key := true) -> String:
+	if not k in WBuilder.UPGRADES:
+		return ""
+	var mats: Array = WBuildTiers.MATERIALS
+	if t >= mats.size() - 1:
+		return "[color=#dccca8]%s, %s:[/color]  [color=#9e988c]as strong as it can be built[/color]" % [Items.PIECES[k].name, str(mats[-1].name).to_lower()]
+	var hp: float = float(Items.PIECES[k].hp)
+	var to: String = mats[t + 1].name
+	var lines := ["[color=#dccca8]Build up to %s:[/color]  strength %d to %d, mended whole" % [to.to_lower(), roundi(hp * float(mats[t].hp)), roundi(hp * float(mats[t + 1].hp))]]
+	var why := WBuildTiers.material_why(w, t + 1)
+	if why != "":
+		lines.append("[color=#d0904a]Not yet: %s[/color]" % why)
+	if t == 0 and k != "floor" and not with_key:
+		lines.append("A stone or iron wall makes a home snug.")
+	var cost := "Costs  " + cost_bb(w.skills.cost(mats[t + 1].cost))
+	if with_key:
+		cost += "      [color=#9e988c][%s] build it up[/color]" % Game.key_text("interact")
+	lines.append(cost)
+	return "\n".join(lines)
+
+
+var _up_sig := ""
+
+
+## The tip under the crosshair while building: what the aimed wall or floor would gain from building it up.
+## An empty kind hides it.
+func set_upgrade_tip(k: String, t: int) -> void:
+	if _up_tip == null:
+		return
+	var bb := upgrade_bb(k, t) if k != "" else ""
+	if bb == _up_sig:
+		return
+	_up_sig = bb
+	_up_tip.text = "[center]%s[/center]" % bb if bb != "" else ""
+	_up_tip.visible = bb != ""
+
+
+## A tip that can be coloured: BBCode, shown in the tooltip's own frame.
+class RichTip extends PanelContainer:
+	var bb := ""
+
+	func _make_custom_tooltip(_for_text: String) -> Object:
+		if bb == "":
+			return null
+		var l := RichTextLabel.new()
+		l.bbcode_enabled = true
+		l.fit_content = true
+		l.scroll_active = false
+		l.custom_minimum_size.x = 330
+		l.add_theme_font_size_override("normal_font_size", 17)
+		l.add_theme_color_override("default_color", Color(0.93, 0.92, 0.88))
+		l.text = bb
+		return l
+
+
 # ================================================================== drawn things
 
 class Compass extends Control:
+	const LABEL_SIZE := 12
+	const LABEL_ROWS := [48.0, 65.0]   ## baselines of the two rows of names under the band, a line apart
+	const LABEL_PAD := 5.0             ## room kept clear on each side of a name
 	var w
+	var labels: Array = []   ## the names drawn last, as place_labels gives them (for the HUD check)
+	var test_marks: Array = []   ## testing aid: more marks, as [where, colour, size, name]
 
 	func _draw() -> void:
 		if w == null or w.player == null or not w.ready_world:
@@ -4195,21 +4578,47 @@ class Compass extends Control:
 			var a = w.avatars[id]
 			if is_instance_valid(a) and a.visible:
 				marks.append([a.global_position, Net.color_of(id).lightened(0.2), 6.0, Net.name_of(id)])
+		marks.append_array(test_marks)
 		var me: Vector3 = w.player.global_position
+		var names: Array = []
 		for m in marks:
 			var p: Vector3 = m[0]
 			var d := p - me
-			if Vector2(d.x, d.z).length() < 6.0:
+			var dist := Vector2(d.x, d.z).length()
+			if dist < 6.0:
 				continue
 			var ang := atan2(d.x, -d.z)
 			var dx := wrapf(ang - heading, -PI, PI)
 			var x := cx + clampf(dx / 1.2, -1.0, 1.0) * cx
 			var r: float = m[2]
 			draw_colored_polygon(PackedVector2Array([Vector2(x, 26 - r), Vector2(x + r, 26), Vector2(x, 26 + r), Vector2(x - r, 26)]), m[1])
+			# The tracked quest's name comes first, then fellows and events, then the rest, nearest first
 			if m.size() > 3:
-				draw_string(font, Vector2(x - 60, 48), "%s  %d m" % [m[3], int(Vector2(d.x, d.z).length())], HORIZONTAL_ALIGNMENT_CENTER, 120, 12, m[1])
+				names.append([x, "%s  %d m" % [m[3], int(dist)], m[1], 1000000.0 + dist])
 			elif r > 5.0:
-				draw_string(font, Vector2(x - 30, 48), "%d m" % int(Vector2(d.x, d.z).length()), HORIZONTAL_ALIGNMENT_CENTER, 60, 12, Color(0.95, 0.85, 0.6, 0.9))
+				names.append([x, "%d m" % int(dist), Color(0.95, 0.85, 0.6, 0.9), (0.0 if r >= 7.0 else 2000000.0) + dist])
+		labels = place_labels(names, wd, font)
+		for l in labels:
+			draw_string(font, Vector2(l[0].position.x + LABEL_PAD, l[3]), l[1], HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, l[2])
+
+	## Lays out the names and distances under the band so that none is drawn over another: in order of
+	## [x, text, colour, rank] (lowest rank first), each on the first row where it fits; one that fits
+	## on neither row is left out (its mark still shows). Returns [rect, text, colour, baseline] in the band's space.
+	static func place_labels(items: Array, wd: float, font: Font) -> Array:
+		items.sort_custom(func(a, b): return a[3] < b[3])
+		var out: Array = []
+		# The letters' own height, not the font's line (which can be scaled with the screen)
+		var asc := LABEL_SIZE * 0.85
+		var h := LABEL_SIZE * 1.15
+		for it in items:
+			var tw := font.get_string_size(it[1], HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE).x
+			var x0 := clampf(float(it[0]) - tw * 0.5, 0.0, maxf(wd - tw, 0.0))
+			for y in LABEL_ROWS:
+				var r := Rect2(x0 - LABEL_PAD, y - asc, tw + LABEL_PAD * 2.0, h)
+				if out.all(func(o): return not o[0].intersects(r)):
+					out.append([r, it[1], it[2], y])
+					break
+		return out
 
 
 class MapFrame extends Control:
