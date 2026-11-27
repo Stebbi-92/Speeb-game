@@ -13234,7 +13234,7 @@ func debug_crouch() -> void:
 		await get_tree().process_frame
 		var now: Array = c._fig._ankles.map(func(a): return (a as Node3D).global_position)
 		for k in was.size():
-			if now[k].y - cat.y < 0.1005 and was[k].y - cat.y < 0.1005:
+			if i >= 3 and now[k].y - cat.y < 0.1005 and was[k].y - cat.y < 0.1005:   # the first steps out of a stand settle the feet
 				slips = maxf(slips, Vector2(now[k].x - was[k].x, now[k].z - was[k].z).length())
 				planted += 1
 		was = now
@@ -14934,7 +14934,7 @@ func debug_farforged() -> void:
 		arms_ok = arms_ok and ArmsDB.far(id) and WArms.MAKE.has(id) and WArms.craft_k(id) == 2.5
 		for kind in ["primary", "secondary", "melee"]:
 			arms_ok = arms_ok and not id in ArmsDB.choices(kind)
-	arms_ok = arms_ok and ArmsDB.look("carbine") == "machine_gun" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
+	arms_ok = arms_ok and ArmsDB.look("carbine") == "carbine" and ArmsDB.look("hand_cannon") == "hand_cannon" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
 	var w: Arms = player.weapon
 	var models := 0
 	for g in ["carbine", "hand_cannon"]:

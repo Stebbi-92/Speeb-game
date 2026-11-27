@@ -215,7 +215,7 @@ func _show_gun(g: String, mn: Array = []) -> void:
 	var gd: Dictionary = Arms.GRIP.get(lg, Arms.GRIP[""])
 	var r: Vector3 = gd.get("R", Arms.GRIP[""].R)
 	var side_arm: bool = ArmsDB.GUNS[g].slot == "secondary"
-	var l: Vector3 = r + Vector3(-0.034, 0.008, -0.012) if side_arm else gd.get("L", (_gun_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
+	var l: Vector3 = r + Vector3(-0.034, 0.008, -0.012) if side_arm and not gd.has("L") else gd.get("L", (_gun_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
 	var grip_body := Figure.GRIP
 	if not side_arm:
 		var bb := AABB()

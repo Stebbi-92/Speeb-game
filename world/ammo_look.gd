@@ -13,7 +13,7 @@ const CAL := {
 const SPENT_SHELL := "Circle_008"
 ## What each gun fires
 const GUN_CAL := {"pistol": "9x19", "smg": "9x19", "pistol9": "9x19", "revolver": "454", "machine_gun": "556", "lmg": "762x51", "minigun": "762x51",
-	"sniper": "762x54r", "shotgun": "shell", "autoshotgun": "shell"}
+	"sniper": "762x54r", "shotgun": "shell", "autoshotgun": "shell", "carbine": "762x51", "hand_cannon": "shell"}
 ## The calibres a heap of each kind of ammunition shows
 const ITEM_CAL := {"shells": ["shell"], "rounds": ["9x19", "454"], "rifle": ["556", "762x51", "762x54r"]}
 

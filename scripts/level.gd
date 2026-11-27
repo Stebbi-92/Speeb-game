@@ -3408,6 +3408,157 @@ func debug_reloadshot() -> void:
 	player.weapon._reload_t = player.weapon._reload_len * (1.0 - k)
 
 
+## Test: the guns named by GUN (a comma list; the carbine and the hand cannon if none; FIT= what is fitted) in one's own
+## hands, our arms drawn on them, through each of PHASES (hip, aim, fire, case, switch, rl<k> for a reload held at k): a
+## picture of each saved as <SHOT_OUT>_<phase>.png (none without SHOT_OUT, or with no screen), and the arms measured at
+## each: HANDCHECK lines give, per phase and arm, how far each bone is from its own length (stretch, %), the elbow's
+## bend (degrees, 180 straight) and whether it bends down and out as an elbow does, the wrist's bend off its rest
+## (flex and to the side, degrees; and in brackets off the forearm's own line), and how far the palm is from where it
+## was sent. A last line per gun gives the worst of each over all phases. CLOSE=1 narrows the view onto the hands.
+func debug_gunlook() -> void:
+	while get("ready_world") == false:
+		await get_tree().create_timer(0.5).timeout
+	combat_frozen = true
+	if hud:
+		hud.root.visible = false
+	var gs: Array = Array((OS.get_environment("GUN") if OS.get_environment("GUN") != "" else "carbine,hand_cannon").split(","))
+	var fit: Array = Array(OS.get_environment("FIT").split(",", false))
+	var phases: Array = Array((OS.get_environment("PHASES") if OS.get_environment("PHASES") != "" else "hip,aim,fire,rl0.15,rl0.3,rl0.5,rl0.7,rl0.88,switch").split(","))
+	var out := OS.get_environment("SHOT_OUT") if DisplayServer.get_name() != "headless" else ""
+	var w: Arms = player.weapon
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = player.cam.global_rotation + Vector3(-0.6, 0.6, 0)
+	if OS.get_environment("CLOSE") == "1":
+		player.cam.fov = 45.0
+	for g in gs:
+		Game.plevel = ArmsDB.MAX_LEVEL
+		Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
+		Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
+		Game.loadout.mounts = {g: fit}
+		var am = Game.arms_now().get("mounts")
+		if am is Dictionary:
+			am[g] = fit
+		w.equip_loadout()
+		if w.gun() != g:
+			w.swap()
+		if w.gun() != g:
+			# (in the waste the carried arms are the pilgrim's own: the gun is put in hand directly)
+			if not w._st.has(g):
+				w._st[g] = {"mag": 5, "reserve": 10}
+			w.guns = [g, w.guns[w.guns.size() - 1]]
+			w.cur = 0
+			w._models.erase(g)
+			w._show_model()
+		await get_tree().create_timer(0.6, false).timeout
+		var h: FPHands = w.hands
+		h.debug_pose = "look"   # our arms drawn for this, though they are off in play
+		var worst := {"stretch": 0.0, "elbow_min": 180.0, "elbow_max": 0.0, "flex": 0.0, "side": 0.0, "miss": 0.0, "wrong_bend": 0}
+		for ph in phases:
+			w.debug_aim = ph == "aim"
+			w._reloading = false
+			w._reload_rest(1.0)
+			w.reload_mult = 1.0
+			w._switch = 0.0
+			w._flash_mesh.visible = false
+			if ph.begins_with("rl"):
+				var k := float(ph.substr(2))
+				w.reload_mult = 10000.0
+				w.shells = 0
+				w.reserve = 40
+				w._start_reload()
+				# Run up to k, so what happens on the way (spent shells thrown) happens
+				for i in 12:
+					w._reload_t = w._reload_len * (1.0 - k * (i + 1) / 12.0)
+					await get_tree().process_frame
+			elif ph == "switch":
+				w._switch = 0.15
+			# Settle by time, not frames: a headless run's frames are far shorter
+			var settle := 0.0
+			while settle < (0.8 if ph == "aim" else 0.4):
+				if ph == "switch":
+					w._switch = 0.15
+				await get_tree().process_frame
+				settle += get_process_delta_time()
+			if ph == "switch":
+				w._switch = 0.15
+			if ph == "fire" or ph == "case":
+				w._quiet = 0.03
+				w._flash_mesh.visible = true
+				w._flash_mesh.scale = Vector3.ONE * float(w.FLASH_SIZE.get(g, 0.18))
+				var tip: Vector3 = w._model.get_meta("tip")
+				if w.BORES.has(g):
+					tip.x += float(w.BORES[g])
+				w._flash_mesh.position = w._model.transform * tip
+				if ph == "case" and Arms.case_delay(g) >= 0.0:
+					w._eject()
+					w._eject()
+				await get_tree().process_frame
+			if out != "":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s_%s.png" % [out, ph])
+			_hand_measure(w, h, ph, worst)
+		w.debug_aim = false
+		w._reloading = false
+		w._reload_rest(1.0)
+		w.reload_mult = 1.0
+		h.debug_pose = ""
+		print("HANDCHECK %s worst stretch=%.2f%% elbow=%.0f..%.0f wrist_flex=%.0f wrist_side=%.0f palm_miss=%.3f wrong_bend=%d" % [g, worst.stretch, worst.elbow_min, worst.elbow_max, worst.flex, worst.side, worst.miss, worst.wrong_bend])
+	get_tree().quit()
+
+
+## One measure of our arms as they are drawn now (see debug_gunlook).
+func _hand_measure(w: Arms, h: FPHands, ph: String, worst: Dictionary) -> void:
+	var sk: Skeleton3D = h._sk
+	if sk == null or not h.visible:
+		print("HANDCHECK %s %s no arms drawn" % [w.gun(), ph])
+		return
+	var p := w.hand_pose("look")
+	var cam: Transform3D = player.cam.global_transform
+	var gp := func(b: int) -> Vector3: return sk.global_transform * sk.get_bone_global_pose(b).origin
+	var gr := func(b: int) -> Vector3: return sk.global_transform * sk.get_bone_global_rest(b).origin
+	for sd in ["R", "L"]:
+		var d: Dictionary = h._side[sd]
+		var S: Vector3 = gp.call(d.arm)
+		var E: Vector3 = gp.call(d.elbow)
+		var W: Vector3 = gp.call(d.wrist)
+		var l1: float = (gr.call(d.arm) as Vector3).distance_to(gr.call(d.elbow))
+		var l2: float = (gr.call(d.elbow) as Vector3).distance_to(gr.call(d.wrist))
+		var stretch: float = maxf(absf(S.distance_to(E) / l1 - 1.0), absf(E.distance_to(W) / l2 - 1.0)) * 100.0
+		var elbow := rad_to_deg((S - E).angle_to(W - E))
+		# An elbow bends down and out, never up or in across the body
+		var mid := (S + W) * 0.5
+		var off_c: Vector3 = cam.basis.inverse() * (E - mid)
+		var out_ok := off_c.x * (1.0 if sd == "R" else -1.0) > -0.02
+		var down_ok := off_c.y < 0.02
+		# The wrist: the hand's line off the forearm's, against the same at rest
+		var names := {}
+		for i in sk.get_bone_count():
+			var nm := sk.get_bone_name(i)
+			if nm.begins_with(sd + "_"):
+				names[nm.get_slice("_", 1)] = i
+		var Hn := FPHands._frame((gp.call(names.middle1) as Vector3) - W, (gp.call(names.point1) as Vector3) - (gp.call(names.pink1) as Vector3), sd)
+		var Hr := FPHands._frame((gr.call(names.middle1) as Vector3) - (gr.call(d.wrist) as Vector3), (gr.call(names.point1) as Vector3) - (gr.call(names.pink1) as Vector3), sd)
+		var u_n: Vector3 = Hn.inverse() * (W - E).normalized()
+		var u_r: Vector3 = Hr.inverse() * ((gr.call(d.wrist) as Vector3) - (gr.call(d.elbow) as Vector3)).normalized()
+		var flex := rad_to_deg(atan2(u_n.z, u_n.x) - atan2(u_r.z, u_r.x))
+		var side := rad_to_deg(atan2(u_n.y, u_n.x) - atan2(u_r.y, u_r.x))
+		var palm: Vector3 = W + sk.global_transform.basis * (sk.get_bone_global_pose(d.wrist).basis.orthonormalized() * (d.palm as Vector3))
+		var miss: float = palm.distance_to(p[sd].at) if p.has(sd) else -1.0
+		# (and the same against the forearm's own line, as the bones have no bend at the wrist at rest)
+		var flex_abs := rad_to_deg(atan2(u_n.z, u_n.x))
+		var side_abs := rad_to_deg(atan2(u_n.y, u_n.x))
+		print("HANDCHECK %s %s %s stretch=%.2f%% elbow=%.0f out=%s down=%s wrist_flex=%.0f wrist_side=%.0f (line %.0f/%.0f) palm_miss=%.3f" % [w.gun(), ph, sd, stretch, elbow, out_ok, down_ok, flex, side, flex_abs, side_abs, miss])
+		worst.stretch = maxf(worst.stretch, stretch)
+		worst.elbow_min = minf(worst.elbow_min, elbow)
+		worst.elbow_max = maxf(worst.elbow_max, elbow)
+		worst.flex = maxf(worst.flex, absf(flex))
+		worst.side = maxf(worst.side, absf(side))
+		worst.miss = maxf(worst.miss, miss)
+		worst.wrong_bend += 0 if out_ok and down_ok else 1
+
+
 ## Test: looking down the sights of the gun named by gun=, with fit= listing what is on it.
 func debug_aimshot() -> void:
 	combat_frozen = true

@@ -131,6 +131,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["G17 Gen 5 Handgun + Olight - NSW Police Force"](https://skfb.ly/pOAnq) | 8sianDude | The pistol |
 | ["M4 Super 90 (JW2) Brand-Friendly version"](https://skfb.ly/oLU7v) | 8sianDude | The autoshotgun |
 | ["MP5 A2"](https://skfb.ly/psnHQ) | Gintoki1234 | The SMG |
+| ["Low-Poly M14"](https://sketchfab.com/3d-models/97d26ba96e4a4a06a80a163314ffc745) | notcplkerry | The Sunglass Carbine |
+| ["Sawed-off (Low Poly)"](https://sketchfab.com/3d-models/05c564f20178457783189dfe8bed6801) | Berk Gedik | The Dome-steel Hand Cannon |
 | ["fps arms"](https://skfb.ly/6R6yX) | DJMaesen | Your own arms on the weapon in hand |
 | ["LMG animated"](https://skfb.ly/o8PRS) | DJMaesen | The belt gun in your hands, and how hands hold a gun |
 | ["357 Python Revolver (Rigged/Game Ready)"](https://skfb.ly/oFISA) | Erai | The revolver in your hands |

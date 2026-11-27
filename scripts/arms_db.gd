@@ -46,14 +46,15 @@ const GUNS := {
 	"revolver": {"name": "Revolver", "slot": "secondary", "mode": "semi", "dmg": 52.0, "pellets": 1, "spread": 0.008, "range": 110.0,
 		"mag": 6, "rate": 0.45, "reload": "mag", "reload_t": 2.0, "sound": "revolver", "kick": 0.8, "falloff": 60.0, "unlock": 5,
 		"mounts": ["red_dot"], "text": "Six heavy rounds. Slow, and sure."},
-	# The far arms: made only of the far lands' stuff, never in the trials. "look" is the gun whose body they borrow.
+	# The far arms: made only of the far lands' stuff, never in the trials. "look" is the gun whose body they borrow
+	# (the carbine and the hand cannon have bodies of their own).
 	"carbine": {"name": "Sunglass Carbine", "slot": "primary", "mode": "semi", "dmg": 50.0, "pellets": 1, "spread": 0.005, "range": 240.0,
 		"mag": 15, "rate": 0.2, "reload": "mag", "reload_t": 2.0, "sound": "rifle", "kick": 0.45, "falloff": 120.0, "unlock": 99, "far": true,
-		"look": "machine_gun", "mounts": ["red_dot", "scope", "suppressor", "foregrip", "ext_mag"],
+		"mounts": ["red_dot", "scope", "suppressor", "foregrip", "ext_mag"],
 		"text": "Sunglass sights and a long, true barrel. One heavy rifle round per pull, as fast as you can aim."},
 	"hand_cannon": {"name": "Dome-steel Hand Cannon", "slot": "secondary", "mode": "semi", "dmg": 17.0, "pellets": 7, "spread": 0.055, "range": 40.0,
 		"mag": 2, "rate": 0.3, "reload": "mag", "reload_t": 1.7, "sound": "shotgun", "kick": 1.3, "falloff": 22.0, "unlock": 99, "far": true,
-		"look": "revolver", "mounts": ["red_dot"], "text": "Two shells in a short dome-steel barrel. A side arm that hits like a shotgun, close in."},
+		"mounts": ["red_dot"], "text": "Two shells in a pair of short dome-steel barrels. A side arm that hits like a shotgun, close in."},
 }
 
 ## "arc" is how wide a swing sweeps (the least facing a foe needs: lower is wider); "back" multiplies a blow
