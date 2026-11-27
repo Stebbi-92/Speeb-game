@@ -1,0 +1,65 @@
+
+
+## Fixture maker (added only to an old version's copy): plays a world on, fills it, keeps it,
+## and writes down what it holds, so a newer Brelm can be checked to read it all back.
+func debug_makesave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(3.0).timeout
+	day = 23
+	nights = 22
+	var n := 0
+	for k in Items.DB:
+		if n >= 24:
+			break
+		if inv.add(k, 3) < 3:
+			n += 1
+	for g in ArmsDB.GUNS:
+		if not g in arms.owned:
+			arms.owned.append(g)
+		arms.tier[g] = 2
+	for kd in WArms.KINDS:
+		for id in WArms.table(kd[0]):
+			if not id in arms[kd[0]]:
+				arms[kd[0]].append(id)
+	Game.warms = arms
+	var at: Vector3 = player.global_position + Vector3(30, 0, 30)
+	var i := 0
+	for k in Items.PIECES:
+		var p := at + Vector3((i % 8) * 4.0, 0, (i / 8) * 4.0)
+		builder._w_piece(piece_next, k, p, 0.5, float(Items.PIECES[k].get("hp", 100)))
+		piece_next += 1
+		i += 1
+	for b in [0, 1, 2]:
+		if not b in lit:
+			lit.append(b)
+			_light_beacon(b, true)
+	skills.gain(4000)
+	await get_tree().create_timer(1.0).timeout
+	save_all()
+	Game.save()
+	var f := FileAccess.open(OS.get_environment("FIXTURE_OUT"), FileAccess.WRITE)
+	f.store_string(var_to_str(fixture_summary()))
+	f.close()
+	print("MAKESAVE pieces=%d items=%d guns=%d" % [pieces.size(), n, arms.owned.size()])
+	get_tree().quit()
+
+
+## What a kept world and pilgrim hold, in a form that can be set beside another version's.
+func fixture_summary() -> Dictionary:
+	var pk := {}
+	for pid in pieces:
+		var k := str(pieces[pid].kind)
+		pk[k] = int(pk.get(k, 0)) + 1
+	var items := {}
+	for s in inv.to_data():
+		if s != null:
+			items[str(s[0])] = int(items.get(str(s[0]), 0)) + int(s[1])
+	var ls: Array = lit.duplicate()
+	ls.sort()
+	var own: Array = arms.owned.duplicate()
+	own.sort()
+	var bl: Array = arms.blades.duplicate()
+	bl.sort()
+	return {"uid": world_uid, "seed": world_seed, "day": day, "lit": ls, "pieces": pk, "items": items, "owned": own, "blades": bl,
+		"tier": arms.tier.duplicate(), "level": skills.level, "xp": skills.xp, "pos": player.global_position}

@@ -113,6 +113,7 @@ check playlog    debug_playlog  "PLAYLOG begun=true first_beacon=true two_ruins=
 check voices     debug_voices   "VOICES capped=true n=32 near_in=true"
 check bolts      debug_bolts    "BOLTS lights=6 shared=true freed=true"
 check bgsave     debug_bgsave   "BGSAVE back=true after=true"
+check oldsaves   sh:oldsave_test.sh "OLDSAVES n=[1-9][0-9]* all=true"
 check ghosts     debug_ghosts   "GHOSTS n=0"
 check fogcap     debug_fogcap   "FOGCAP worst=[0-9.]+ capped=true"
 check isleground debug_isleground "ISLEGROUND tried=[0-9]+ holes=0 off=0"

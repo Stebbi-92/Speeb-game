@@ -1,0 +1,1785 @@
+{
+"boat_next": 1,
+"boats": {},
+"clock": 7.07017,
+"containers": {},
+"crates": {},
+"day": 23,
+"deeds": {},
+"flags": {
+"intro_seen_1": true,
+"most_lit": 0
+},
+"gen": 3,
+"lit": [0, 1, 2],
+"marks": [],
+"mined": {},
+"night": false,
+"nights": 22,
+"piece_next": 63,
+"pieces": {
+1: ["floor", Vector3(91.9285, -4.912, -674.354), 0.5, 400.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+3: ["wall", Vector3(95.9285, -4.912, -674.354), 0.5, 350.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+5: ["window", Vector3(99.9285, -4.912, -674.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+7: ["stonewall", Vector3(103.929, -4.912, -674.354), 0.5, 900.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+9: ["doorway", Vector3(107.929, -4.912, -674.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+11: ["door", Vector3(111.929, -4.912, -674.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+13: ["roof", Vector3(115.929, -4.912, -674.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+15: ["stairs", Vector3(119.929, -4.912, -674.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+17: ["campfire", Vector3(91.9285, -4.912, -670.354), 0.5, 200.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+19: ["cookpot", Vector3(95.9285, -4.912, -670.354), 0.5, 160.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+21: ["torch", Vector3(99.9285, -4.912, -670.354), 0.5, 80.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+23: ["bedroll", Vector3(103.929, -4.912, -670.354), 0.5, 120.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+25: ["chest", Vector3(107.929, -4.912, -670.354), 0.5, 250.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+27: ["planter", Vector3(111.929, -4.912, -670.354), 0.5, 150.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+29: ["bench", Vector3(115.929, -4.912, -670.354), 0.5, 300.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+31: ["lamp", Vector3(119.929, -4.912, -670.354), 0.5, 150.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+33: ["portal", Vector3(91.9285, -4.912, -666.354), 0.5, 600.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+35: ["trophy_hall", Vector3(95.9285, -4.912, -666.354), 0.5, 600.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+37: ["shrine", Vector3(99.9285, -4.912, -666.354), 0.5, 400.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+39: ["spikes", Vector3(103.929, -4.912, -666.354), 0.5, 220.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+41: ["bed", Vector3(107.929, -4.912, -666.354), 0.5, 160.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+43: ["table", Vector3(111.929, -4.912, -666.354), 0.5, 140.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+45: ["chair", Vector3(115.929, -4.912, -666.354), 0.5, 100.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+47: ["shelf", Vector3(119.929, -4.912, -666.354), 0.5, 200.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+49: ["stove", Vector3(91.9285, -4.912, -662.354), 0.5, 260.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+51: ["rug", Vector3(95.9285, -4.912, -662.354), 0.5, 60.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+53: ["floorlamp", Vector3(99.9285, -4.912, -662.354), 0.5, 80.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+55: ["tent", Vector3(103.929, -4.912, -662.354), 0.5, 180.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+57: ["barrel", Vector3(107.929, -4.912, -662.354), 0.5, 200.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+59: ["anvil", Vector3(111.929, -4.912, -662.354), 0.5, 500.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}],
+61: ["palisade", Vector3(115.929, -4.912, -662.354), 0.5, 650.0, false, {
+"crop": "",
+"fuel": -1.0,
+"hung": [],
+"name": "",
+"owner": "",
+"sown": 0.0,
+"tier": 0
+}]
+},
+"quests": {
+"next": 1,
+"offers": {
+"cinderwick": [{
+"at": "cinderwick",
+"giver": "tobin",
+"have": 0,
+"id": "",
+"kind": "nest",
+"pitch": "Something is swelling at Sunken Reach, a nest of the lesser forms. If it is left, it will burst. Burn it out.",
+"reward": {
+"items": [["scrap", 4], ["salve", 1]],
+"rep": 1,
+"salt": 45
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "r7",
+"t": "nest",
+"text": "Destroy the nest at Sunken Reach."
+}, {
+"ask": "The nest at Sunken Reach is burned.",
+"say": "Then we will sleep tonight, some of us. Thank you.",
+"t": "talk",
+"text": "Return to Tobin at Cinderwick.",
+"who": "tobin"
+}],
+"title": "A Nest at Sunken Reach"
+}, {
+"at": "cinderwick",
+"giver": "maud",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left my father's knife behind at Sunken Steps, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["salve", 1], ["meat", 3]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "r26_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Sunken Steps for my father's knife."
+}, {
+"ask": "I found it. My Father's Knife.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Maud at Cinderwick.",
+"who": "maud"
+}],
+"title": "Something Left at Sunken Steps"
+}, {
+"at": "cinderwick",
+"giver": "maud",
+"have": 0,
+"id": "",
+"kind": "scout",
+"pitch": "No one has come back from Bitter Pan in a month. Go and look upon it. Tell me if anyone is left.",
+"reward": {
+"items": [["oil", 1]],
+"rep": 1,
+"salt": 56
+},
+"rid": "r39",
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "r39",
+"t": "reach",
+"text": "Go and look upon Bitter Pan."
+}, {
+"ask": "I have been to Bitter Pan.",
+"say": "And? No. Do not tell me. I can see it in your face. Here, for your trouble.",
+"t": "talk",
+"text": "Return to Maud at Cinderwick.",
+"who": "maud"
+}],
+"title": "A Look at Bitter Pan"
+}, {
+"at": "cinderwick",
+"giver": "tobin",
+"have": 0,
+"id": "story_wagon",
+"pitch": "There is a wagon down in the gully <dir:R:tobin_wagon:cinderwick> of here. I knew the driver. Will you go and look?",
+"reward": {
+"items": [["hatchet", 1]],
+"rep": 2,
+"salt": 40
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "tobin_wagon",
+"t": "reach",
+"text": "Find the wagon in the gully, <dir:R:tobin_wagon:cinderwick> of Cinderwick."
+}, {
+"crate": "tobin_wagon_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search the wagon for anything of the driver's."
+}, {
+"ask": "I found these in the wagon. Prayer beads.",
+"say": "Hers. She counted them every night on the road. Forty-one beads, one for every year she drove.
+
+I will put them with the salt. It keeps things. Thank you. Here, take this. It was hers too, and she would want it used.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Bring what you found to Tobin.",
+"who": "tobin"
+}],
+"story": "wagon",
+"title": "The Gully Wagon"
+}, {
+"at": "cinderwick",
+"giver": "wren",
+"have": 0,
+"id": "story_caravans",
+"pitch": "The caravans <dir:R:salt_caravans:cinderwick> of the camp died in one night. Forms roost in the wagons now. They come down at dusk and test our wall.",
+"reward": {
+"items": [["shells", 40], ["bandage", 2]],
+"rep": 2,
+"salt": 30
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 10,
+"ruin": "salt_caravans",
+"t": "kill",
+"text": "Undo the forms roosting in the Salt-Pan Caravans, <dir:R:salt_caravans:cinderwick> of Cinderwick."
+}, {
+"ask": "The caravans are clear.",
+"say": "Good. I will not thank you; we are past that. Take these. You will need them more than I will, tonight.",
+"t": "talk",
+"text": "Tell Wren it is done.",
+"who": "wren"
+}],
+"story": "caravans",
+"title": "The Salt-Pan Caravans"
+}],
+"emberhollow": [{
+"at": "emberhollow",
+"giver": "gorm",
+"hands": [["letter", 1]],
+"have": 0,
+"id": "",
+"kind": "deliver",
+"pitch": "This must reach Halvard Grim at Hearthholm. I cannot leave the camp, and there is no one else I trust on the road.",
+"reward": {
+"items": [["shells", 20], ["scrap", 4]],
+"rep": 1,
+"salt": 222
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Gorm sent this, from Ember Hollow.",
+"item": "letter",
+"say": "From Gorm? I had thought them dead. Thank you for carrying it. Take this for the road.",
+"t": "deliver",
+"take": ["letter", 1],
+"text": "Carry the sealed letter to Halvard Grim at Hearthholm.",
+"who": "halvard"
+}],
+"title": "Carried to Hearthholm"
+}, {
+"at": "emberhollow",
+"giver": "pell",
+"have": 0,
+"id": "",
+"kind": "hunt",
+"pitch": "Forms have been gathering at Weeping Hill. They come closer every night. Undo 11 of them there, before they come all the way.",
+"reward": {
+"items": [["salve", 1], ["meat", 3]],
+"rep": 1,
+"salt": 58
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 11,
+"ruin": "r118",
+"t": "kill",
+"text": "Undo 11 forms at Weeping Hill."
+}, {
+"ask": "Weeping Hill is quiet, for now.",
+"say": "For now is all any of us get. Thank you.",
+"t": "talk",
+"text": "Return to Pell at Ember Hollow.",
+"who": "pell"
+}],
+"title": "The Forms at Weeping Hill"
+}, {
+"at": "emberhollow",
+"giver": "pell",
+"have": 0,
+"id": "",
+"kind": "nest",
+"pitch": "Something is swelling at Weeping Hill, a nest of the lesser forms. If it is left, it will burst. Burn it out.",
+"reward": {
+"items": [["shells", 20]],
+"rep": 1,
+"salt": 45
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "r118",
+"t": "nest",
+"text": "Destroy the nest at Weeping Hill."
+}, {
+"ask": "The nest at Weeping Hill is burned.",
+"say": "Then we will sleep tonight, some of us. Thank you.",
+"t": "talk",
+"text": "Return to Pell at Ember Hollow.",
+"who": "pell"
+}],
+"title": "A Nest at Weeping Hill"
+}, {
+"at": "emberhollow",
+"giver": "gorm",
+"have": 0,
+"id": "story_coal",
+"pitch": "My grandfather's coal ship went down off Cogwright. There was a chart aboard showing where the good seam was. With it I could keep these fires lit for a generation.",
+"reward": {
+"items": [["coin", 3], ["torchwood", 4]],
+"rep": 3,
+"salt": 90
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "wreck_cog_0",
+"item": "coal_chart",
+"t": "recover",
+"text": "Search the wreck off Cogwright, <dir:R:wreck_cog_0:emberhollow> across the sea, for the coal chart."
+}, {
+"ask": "The chart. Coal, it says, here.",
+"say": "On Cogwright itself. So that is what fed the engines.
+
+I will send men when the sea is calm. You have done the hollow a great service, and it will not forget.",
+"t": "talk",
+"take": ["coal_chart", 1],
+"text": "Bring the chart to Gorm at Emberhollow.",
+"who": "gorm"
+}],
+"story": "coal",
+"title": "The Coal Ship"
+}],
+"gallowmere": [{
+"at": "gallowmere",
+"giver": "corvin",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left a painted icon of Speeb behind at Hollow Hill, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["cloth", 4]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "r51_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Hollow Hill for a painted icon of Speeb."
+}, {
+"ask": "I found it. A Painted Icon Of Speeb.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Corvin at Gallowmere.",
+"who": "corvin"
+}],
+"title": "Something Left at Hollow Hill"
+}, {
+"at": "gallowmere",
+"giver": "corvin",
+"hands": [["letter", 1]],
+"have": 0,
+"id": "",
+"kind": "deliver",
+"pitch": "This must reach Maud at Cinderwick. I cannot leave the camp, and there is no one else I trust on the road.",
+"reward": {
+"items": [["meat", 3]],
+"rep": 1,
+"salt": 94
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Corvin sent this, from Gallowmere.",
+"item": "letter",
+"say": "From Corvin? I had thought them dead. Thank you for carrying it. Take this for the road.",
+"t": "deliver",
+"take": ["letter", 1],
+"text": "Carry the sealed letter to Maud at Cinderwick.",
+"who": "maud"
+}],
+"title": "Carried to Cinderwick"
+}, {
+"at": "gallowmere",
+"giver": "ash_lena",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "The wall needs mending and the stores are bare. 8 ash-bloom would see us through.",
+"reward": {
+"items": [["oil", 1]],
+"rep": 1,
+"salt": 48
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the ash-bloom you asked for.",
+"item": "herb",
+"n": 8,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 8 Ash-bloom to Lena.",
+"who": "ash_lena"
+}],
+"title": "Ash-bloom for Gallowmere"
+}, {
+"at": "gallowmere",
+"giver": "ash_lena",
+"have": 0,
+"id": "story_ferry1",
+"pitch": "Before the lake died, my husband rowed people out to the isles. His boat went down off Hrafnsey, <dir:R:wreck_hrafn_0:gallowmere> of here, across the sea. His log was aboard.",
+"reward": {
+"items": [["cloth", 6], ["wood", 20]],
+"rep": 2,
+"salt": 60
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "wreck_hrafn_0",
+"item": "ferry_log",
+"t": "recover",
+"text": "Find the ferryman's wreck on the shore of Hrafnsey, <dir:R:wreck_hrafn_0:gallowmere> across the sea, and search it."
+}, {
+"ask": "His log. It was dry, under the seat.",
+"say": "His hand. Every crossing, every name, every fare. He wrote down the weather too, like it mattered to anyone.
+
+The last page is not a crossing. It says: the chapel on the fen rings by itself at night. Someone must take the bell away, or it will call them all. Then nothing.",
+"t": "talk",
+"take": ["ferry_log", 1],
+"text": "Bring the log to Lena at Gallowmere.",
+"who": "ash_lena"
+}],
+"story": "ferry1",
+"title": "The Last Crossing"
+}],
+"hanging": [{
+"at": "hanging",
+"giver": "tobiah",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "The wall needs mending and the stores are bare. 11 salted meat would see us through.",
+"reward": {
+"items": [["meat", 3]],
+"rep": 1,
+"salt": 80
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the salted meat you asked for.",
+"item": "meat",
+"n": 11,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 11 Salted Meat to Tobiah.",
+"who": "tobiah"
+}],
+"title": "Salted Meat for The Hanging Town"
+}, {
+"at": "hanging",
+"giver": "tobiah",
+"have": 0,
+"id": "",
+"kind": "scout",
+"pitch": "No one has come back from Bone Cistern in a month. Go and look upon it. Tell me if anyone is left.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 44
+},
+"rid": "fs_sun_2",
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "fs_sun_2",
+"t": "reach",
+"text": "Go and look upon Bone Cistern."
+}, {
+"ask": "I have been to Bone Cistern.",
+"say": "And? No. Do not tell me. I can see it in your face. Here, for your trouble.",
+"t": "talk",
+"text": "Return to Tobiah at The Hanging Town.",
+"who": "tobiah"
+}],
+"title": "A Look at Bone Cistern"
+}, {
+"at": "hanging",
+"giver": "asha",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "I need 12 salted meat before the week is out. I will not ask where you find it.",
+"reward": {
+"items": [["bandage", 2]],
+"rep": 1,
+"salt": 86
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the salted meat you asked for.",
+"item": "meat",
+"n": 12,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 12 Salted Meat to Asha Redwater.",
+"who": "asha"
+}],
+"title": "Salted Meat for The Hanging Town"
+}],
+"hearthholm": [{
+"at": "hearthholm",
+"giver": "halvard",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "The wall needs mending and the stores are bare. 5 ash-bloom would see us through.",
+"reward": {
+"items": [["coin", 2], ["salve", 1]],
+"rep": 1,
+"salt": 34
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the ash-bloom you asked for.",
+"item": "herb",
+"n": 5,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 5 Ash-bloom to Halvard Grim.",
+"who": "halvard"
+}],
+"title": "Ash-bloom for Hearthholm"
+}, {
+"at": "hearthholm",
+"giver": "halvard",
+"have": 0,
+"id": "",
+"kind": "watch",
+"pitch": "Stand the wall with us tonight. We are too few. Undo 14 of the forms that come for Hearthholm, and see us to the dawn.",
+"reward": {
+"items": [["cloth", 4]],
+"rep": 1,
+"salt": 72
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"at": "hearthholm",
+"n": 14,
+"t": "watch",
+"text": "Keep Hearthholm through the night: undo 14 forms within sight of it."
+}, {
+"ask": "We kept the wall.",
+"say": "We did. I have not slept so well in a month as I did after the dawn. Take this.",
+"t": "talk",
+"text": "Return to Halvard Grim at Hearthholm.",
+"who": "halvard"
+}],
+"title": "The Wall of Hearthholm"
+}, {
+"at": "hearthholm",
+"giver": "halvard",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left the bell from our chapel behind at Frost Croft, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["meat", 3], ["salve", 1]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "fs_frost_27_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Frost Croft for the bell from our chapel."
+}, {
+"ask": "I found it. The Bell From Our Chapel.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Halvard Grim at Hearthholm.",
+"who": "halvard"
+}],
+"title": "Something Left at Frost Croft"
+}],
+"hesk": [{
+"at": "hesk",
+"giver": "orla",
+"have": 0,
+"id": "",
+"kind": "hunt",
+"pitch": "Forms have been gathering at Rust Gully. They come closer every night. Undo 7 of them there, before they come all the way.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 46
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 7,
+"ruin": "r21",
+"t": "kill",
+"text": "Undo 7 forms at Rust Gully."
+}, {
+"ask": "Rust Gully is quiet, for now.",
+"say": "For now is all any of us get. Thank you.",
+"t": "talk",
+"text": "Return to Orla at Saint Hesk's Crossing.",
+"who": "orla"
+}],
+"title": "The Forms at Rust Gully"
+}, {
+"at": "hesk",
+"giver": "orla",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "I need 10 cloth before the week is out. I will not ask where you find it.",
+"reward": {
+"items": [["oil", 1], ["shells", 20]],
+"rep": 1,
+"salt": 42
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the cloth you asked for.",
+"item": "cloth",
+"n": 10,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 10 Cloth to Orla.",
+"who": "orla"
+}],
+"title": "Cloth for Saint Hesk's Crossing"
+}, {
+"at": "hesk",
+"giver": "orla",
+"have": 0,
+"id": "",
+"kind": "nest",
+"pitch": "Something is swelling at Bitter Pan, a nest of the lesser forms. If it is left, it will burst. Burn it out.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 45
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "r39",
+"t": "nest",
+"text": "Destroy the nest at Bitter Pan."
+}, {
+"ask": "The nest at Bitter Pan is burned.",
+"say": "Then we will sleep tonight, some of us. Thank you.",
+"t": "talk",
+"text": "Return to Orla at Saint Hesk's Crossing.",
+"who": "orla"
+}],
+"title": "A Nest at Bitter Pan"
+}, {
+"at": "hesk",
+"giver": "hesk_marro",
+"have": 0,
+"id": "story_archive",
+"pitch": "The Order kept its records in a tower <dir:R:order_tower:hesk> of the Crossing. The ledgers would be worth a great deal to me. And to you.",
+"reward": {
+"items": [["coin", 4]],
+"rep": 2,
+"salt": 80
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "order_tower",
+"t": "reach",
+"text": "Find the Archive Tower, <dir:R:order_tower:hesk> of Saint Hesk's Crossing."
+}, {
+"crate": "order_tower_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search the tower for the Order's ledgers."
+}, {
+"ask": "Your ledgers.",
+"reveal": "beacons",
+"say": "Hm. Accounts of oil carried, salt paid, and keepers fed, beacon by beacon. And here: a map of where each bowl stood, drawn by someone who had walked to every one.
+
+Copy it. You will want it more than I will. The rest I will sell to someone who misses the past.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Bring the ledgers to Marro.",
+"who": "hesk_marro"
+}],
+"story": "archive",
+"title": "The Archive Tower"
+}, {
+"at": "hesk",
+"giver": "orla",
+"have": 0,
+"id": "story_olives",
+"pitch": "When I was a girl, ships came from Kalaja with olives. One of them never made it in. It lies on Kalaja's shore, <dir:R:wreck_kala_0:hesk> of here, across the sea.",
+"reward": {
+"items": [["stew", 2]],
+"rep": 2,
+"salt": 70
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "wreck_kala_0",
+"item": "olive_cask",
+"t": "recover",
+"text": "Search the wreck on Kalaja's shore, <dir:R:wreck_kala_0:hesk> across the sea."
+}, {
+"ask": "One cask, still sealed.",
+"say": "Sealed with pitch, and stamped with the keep's mark. My father paid three salt a cask for these.
+
+The keep sold them to keep its garrison fed. I wonder who it was feeding all those years, after the ships stopped.",
+"t": "talk",
+"take": ["olive_cask", 1],
+"text": "Bring the cask to Orla at the Crossing.",
+"who": "orla"
+}],
+"story": "olives",
+"title": "Salt for Olives"
+}],
+"kiln": [{
+"at": "kiln",
+"giver": "ysolde",
+"hands": [["letter", 1]],
+"have": 0,
+"id": "",
+"kind": "deliver",
+"pitch": "This must reach Gorm at Ember Hollow. I cannot leave the camp, and there is no one else I trust on the road.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 95
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Ysolde sent this, from The Quiet Kiln.",
+"item": "letter",
+"say": "From Ysolde? I had thought them dead. Thank you for carrying it. Take this for the road.",
+"t": "deliver",
+"take": ["letter", 1],
+"text": "Carry the sealed letter to Gorm at Ember Hollow.",
+"who": "gorm"
+}],
+"title": "Carried to Ember Hollow"
+}, {
+"at": "kiln",
+"giver": "hal",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "I need 9 cloth before the week is out. I will not ask where you find it.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 38
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the cloth you asked for.",
+"item": "cloth",
+"n": 9,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 9 Cloth to Old Hal.",
+"who": "hal"
+}],
+"title": "Cloth for The Quiet Kiln"
+}, {
+"at": "kiln",
+"giver": "ysolde",
+"hands": [["goods", 1]],
+"have": 0,
+"id": "",
+"kind": "deliver",
+"pitch": "This must reach Brannoch at Saltreach. I cannot leave the camp, and there is no one else I trust on the road.",
+"reward": {
+"items": [["oil", 1]],
+"rep": 1,
+"salt": 116
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Ysolde sent this, from The Quiet Kiln.",
+"item": "goods",
+"say": "From Ysolde? I had thought them dead. Thank you for carrying it. Take this for the road.",
+"t": "deliver",
+"take": ["goods", 1],
+"text": "Carry the bundle of goods to Brannoch at Saltreach.",
+"who": "brannoch"
+}],
+"title": "Carried to Saltreach"
+}, {
+"at": "kiln",
+"giver": "ysolde",
+"have": 0,
+"id": "story_piet",
+"pitch": "My brother Piet went out <dir:R:piet_camp:kiln> of here, toward a dead beacon. He never came back. I cannot make his jar until I know.",
+"reward": {
+"items": [["salve", 2]],
+"rep": 3,
+"salt": 60
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "piet_camp",
+"t": "reach",
+"text": "Find Piet's last camp, <dir:R:piet_camp:kiln> of the Quiet Kiln."
+}, {
+"ruin": "piet_camp",
+"t": "nest",
+"text": "Something has nested in the camp. Burn it out."
+}, {
+"crate": "piet_camp_0",
+"item": "piet_ring",
+"t": "recover",
+"text": "Search the camp for anything of Piet's."
+}, {
+"ask": "I found this at his camp. He did not suffer long, I think.",
+"say": "His ring. He wore it on his thumb because his hands were too big for anything else.
+
+I will make his jar tonight. Red clay, his favourite. I will put the ring inside it, and write his name, and then he will be at the Kiln with all the others, and I can stop looking at the door.
+
+Thank you.",
+"t": "talk",
+"take": ["piet_ring", 1],
+"text": "Bring Piet's ring to Ysolde.",
+"who": "ysolde"
+}],
+"story": "piet",
+"title": "Piet's Jar"
+}, {
+"at": "kiln",
+"giver": "hal",
+"have": 0,
+"id": "story_seairon",
+"pitch": "My forge is starving. There is good iron in the wrecks off Cogwright, <dir:R:wreck_cog_1:kiln> across the sea. Ship iron rusts only on the skin.",
+"reward": {
+"items": [["scrap", 20], ["prybar", 1]],
+"rep": 2,
+"salt": 60
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "wreck_cog_1",
+"item": "sea_iron",
+"t": "recover",
+"text": "Search the wreck off Cogwright, <dir:R:wreck_cog_1:kiln> across the sea, for its iron."
+}, {
+"ask": "Ship iron, as you asked.",
+"say": "Look at that. Rust on the skin and sound underneath, like I said.
+
+This will make a good blade, or a better hinge. I will give you one of the first things I make with it.",
+"t": "talk",
+"take": ["sea_iron", 1],
+"text": "Bring the sea iron to Old Hal.",
+"who": "hal"
+}],
+"story": "seairon",
+"title": "Iron from the Sea"
+}],
+"lanternwell": [{
+"at": "lanternwell",
+"giver": "sister_agna",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "We are short of cloth, and the nights are long. Bring me 9, and I will make it worth your trouble.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 38
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the cloth you asked for.",
+"item": "cloth",
+"n": 9,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 9 Cloth to Sister Agna.",
+"who": "sister_agna"
+}],
+"title": "Cloth for The Lantern Well"
+}, {
+"at": "lanternwell",
+"giver": "benedek",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "The wall needs mending and the stores are bare. 5 ash-bloom would see us through.",
+"reward": {
+"items": [["scrap", 4]],
+"rep": 1,
+"salt": 34
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the ash-bloom you asked for.",
+"item": "herb",
+"n": 5,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 5 Ash-bloom to Benedek.",
+"who": "benedek"
+}],
+"title": "Ash-bloom for The Lantern Well"
+}, {
+"at": "lanternwell",
+"giver": "benedek",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left the deed to our well behind at Sunken Reach, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["cloth", 4], ["cloth", 4]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "r7_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Sunken Reach for the deed to our well."
+}, {
+"ask": "I found it. The Deed To Our Well.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Benedek at The Lantern Well.",
+"who": "benedek"
+}],
+"title": "Something Left at Sunken Reach"
+}],
+"lastlight": [{
+"at": "lastlight",
+"giver": "aud",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "The wall needs mending and the stores are bare. 9 cloth would see us through.",
+"reward": {
+"items": [["bandage", 2]],
+"rep": 1,
+"salt": 38
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the cloth you asked for.",
+"item": "cloth",
+"n": 9,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 9 Cloth to Aud.",
+"who": "aud"
+}],
+"title": "Cloth for Last Light"
+}, {
+"at": "lastlight",
+"giver": "fen",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left her mother's prayer beads behind at Far Hollow Crossing, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "r145_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Far Hollow Crossing for her mother's prayer beads."
+}, {
+"ask": "I found it. Her Mother's Prayer Beads.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Fen at Last Light.",
+"who": "fen"
+}],
+"title": "Something Left at Far Hollow Crossing"
+}, {
+"at": "lastlight",
+"giver": "aud",
+"have": 0,
+"id": "",
+"kind": "watch",
+"pitch": "Stand the wall with us tonight. We are too few. Undo 11 of the forms that come for Last Light, and see us to the dawn.",
+"reward": {
+"items": [["cloth", 4], ["shells", 20]],
+"rep": 1,
+"salt": 63
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"at": "lastlight",
+"n": 11,
+"t": "watch",
+"text": "Keep Last Light through the night: undo 11 forms within sight of it."
+}, {
+"ask": "We kept the wall.",
+"say": "We did. I have not slept so well in a month as I did after the dawn. Take this.",
+"t": "talk",
+"text": "Return to Aud at Last Light.",
+"who": "aud"
+}],
+"title": "The Wall of Last Light"
+}, {
+"at": "lastlight",
+"giver": "aud",
+"have": 0,
+"id": "story_lens",
+"pitch": "The Old Keep on Kalaja had a lamp room. Its lens could throw light ten miles over water. Mine is cracked, and the night is getting closer.",
+"reward": {
+"items": [["oil", 4]],
+"rep": 3,
+"salt": 100
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "isle_kala_0",
+"item": "lamp_lens",
+"t": "recover",
+"text": "Search the Old Keep on Kalaja, <dir:R:isle_kala:lastlight> across the sea, for its lamp lens."
+}, {
+"ask": "The lens. Not a scratch on it.",
+"say": "Look at it. Hold it to the sun and it throws a spot you could not look at.
+
+Tonight the lamp will be seen from the sea. If anyone is still out there, they will know where the shore is.",
+"t": "talk",
+"take": ["lamp_lens", 1],
+"text": "Bring the lens to Aud at Lastlight.",
+"who": "aud"
+}],
+"story": "lens",
+"title": "A Lamp Across the Water"
+}],
+"mourners": [{
+"at": "mourners",
+"giver": "ione",
+"have": 0,
+"id": "",
+"kind": "watch",
+"pitch": "Stand the wall with us tonight. We are too few. Undo 14 of the forms that come for Mourner's Rest, and see us to the dawn.",
+"reward": {
+"items": [["salve", 1]],
+"rep": 1,
+"salt": 72
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"at": "mourners",
+"n": 14,
+"t": "watch",
+"text": "Keep Mourner's Rest through the night: undo 14 forms within sight of it."
+}, {
+"ask": "We kept the wall.",
+"say": "We did. I have not slept so well in a month as I did after the dawn. Take this.",
+"t": "talk",
+"text": "Return to Ione at Mourner's Rest.",
+"who": "ione"
+}],
+"title": "The Wall of Mourner's Rest"
+}, {
+"at": "mourners",
+"giver": "ione",
+"have": 0,
+"id": "",
+"kind": "recover",
+"pitch": "We left a child's carved cat behind at Weeping Steps, the night we ran. It is foolish to want it. I want it.",
+"reward": {
+"items": [["meat", 3]],
+"rep": 1,
+"salt": 35
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "r20_0",
+"item": "keepsake",
+"t": "recover",
+"text": "Search Weeping Steps for a child's carved cat."
+}, {
+"ask": "I found it. A Child's Carved Cat.",
+"say": "You found it. I did not think anyone would go. Here, take this, and my thanks.",
+"t": "talk",
+"take": ["keepsake", 1],
+"text": "Return to Ione at Mourner's Rest.",
+"who": "ione"
+}],
+"title": "Something Left at Weeping Steps"
+}, {
+"at": "mourners",
+"giver": "ione",
+"have": 0,
+"id": "",
+"kind": "hunt",
+"pitch": "Forms have been gathering at Weeping Steps. They come closer every night. Undo 7 of them there, before they come all the way.",
+"reward": {
+"items": [["shells", 20]],
+"rep": 1,
+"salt": 46
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 7,
+"ruin": "r20",
+"t": "kill",
+"text": "Undo 7 forms at Weeping Steps."
+}, {
+"ask": "Weeping Steps is quiet, for now.",
+"say": "For now is all any of us get. Thank you.",
+"t": "talk",
+"text": "Return to Ione at Mourner's Rest.",
+"who": "ione"
+}],
+"title": "The Forms at Weeping Steps"
+}, {
+"at": "mourners",
+"giver": "ione",
+"have": 0,
+"id": "story_seal",
+"pitch": "There is a vault in the hills where the Order put its dead. The dead in it are not quiet. Something was sealed in from the inside.",
+"reward": {
+"items": [["beacon_oil", 1]],
+"rep": 3,
+"salt": 50
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "sealed_vault",
+"t": "reach",
+"text": "Find the Vault of the Inward Seal, <dir:R:sealed_vault:mourners> of Mourner's Rest."
+}, {
+"n": 8,
+"ruin": "sealed_vault",
+"t": "kill",
+"text": "Undo the forms that keep the vault."
+}, {
+"crate": "sealed_vault_1",
+"item": "order_seal",
+"t": "recover",
+"text": "Force the iron chest within the vault (it wants a pry bar)."
+}, {
+"ask": "This was pressed into the door from the inside.",
+"say": "The Silent Clerics who sealed themselves in. I had heard it, but not believed it.
+
+When the beacons began to die, some of the Order did not run. They walled themselves in with their dead and kept silence until the end, so that the dark would find nothing to speak to. The seal says: we did not answer.
+
+Keep the oil I give you. Light something with it. That is the only answer worth giving.",
+"t": "talk",
+"take": ["order_seal", 1],
+"text": "Bring the seal to Ione.",
+"who": "ione"
+}],
+"story": "seal",
+"title": "The Inward Seal"
+}],
+"saltreach": [{
+"at": "saltreach",
+"giver": "brannoch",
+"have": 0,
+"id": "",
+"kind": "gather",
+"pitch": "We are short of scrap iron, and the nights are long. Bring me 10, and I will make it worth your trouble.",
+"reward": {
+"items": [["coin", 2]],
+"rep": 1,
+"salt": 42
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Here is the scrap iron you asked for.",
+"item": "scrap",
+"n": 10,
+"say": "Good. That will keep us another while.",
+"t": "gather",
+"text": "Bring 10 Scrap Iron to Brannoch.",
+"who": "brannoch"
+}],
+"title": "Scrap Iron for Saltreach"
+}, {
+"at": "saltreach",
+"giver": "brannoch",
+"have": 0,
+"id": "",
+"kind": "hunt",
+"pitch": "Forms have been gathering at Sunken Flat. They come closer every night. Undo 12 of them there, before they come all the way.",
+"reward": {
+"items": [["bandage", 2], ["salve", 1]],
+"rep": 1,
+"salt": 61
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 12,
+"ruin": "r62",
+"t": "kill",
+"text": "Undo 12 forms at Sunken Flat."
+}, {
+"ask": "Sunken Flat is quiet, for now.",
+"say": "For now is all any of us get. Thank you.",
+"t": "talk",
+"text": "Return to Brannoch at Saltreach.",
+"who": "brannoch"
+}],
+"title": "The Forms at Sunken Flat"
+}, {
+"at": "saltreach",
+"giver": "tamsin",
+"have": 0,
+"id": "",
+"kind": "hunt",
+"pitch": "Forms have been gathering at Sunken Crossing. They come closer every night. Undo 10 of them there, before they come all the way.",
+"reward": {
+"items": [["cloth", 4]],
+"rep": 1,
+"salt": 55
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"n": 10,
+"ruin": "r88",
+"t": "kill",
+"text": "Undo 10 forms at Sunken Crossing."
+}, {
+"ask": "Sunken Crossing is quiet, for now.",
+"say": "For now is all any of us get. Thank you.",
+"t": "talk",
+"text": "Return to Tamsin at Saltreach.",
+"who": "tamsin"
+}],
+"title": "The Forms at Sunken Crossing"
+}, {
+"at": "saltreach",
+"giver": "tamsin",
+"have": 0,
+"id": "story_moss",
+"pitch": "A wound that will not close is closing too many of my patients. There is a moss on the Sunk Fen, <dir:R:wreck_fen_0:saltreach> across the sea. The old books swear by it.",
+"reward": {
+"items": [["salve", 3], ["bandage", 3]],
+"rep": 2,
+"salt": 50
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"crate": "wreck_fen_0",
+"item": "fen_moss",
+"t": "recover",
+"text": "Search the wreck on the Sunk Fen's shore, <dir:R:wreck_fen_0:saltreach> across the sea, where the moss grows thick."
+}, {
+"ask": "Fen moss, damp still.",
+"say": "That is it. Grey-green, and it smells of nothing at all.
+
+I can make a dressing of it that holds better than anything we have. Take some. And if you ever see more of it, bring it.",
+"t": "talk",
+"take": ["fen_moss", 1],
+"text": "Bring the moss to Tamsin at Saltreach.",
+"who": "tamsin"
+}],
+"story": "moss",
+"title": "The Fen Cure"
+}],
+"stillwater": [{
+"at": "stillwater",
+"giver": "kestrel",
+"hands": [["letter", 1]],
+"have": 0,
+"id": "",
+"kind": "deliver",
+"pitch": "This must reach Tobin at Cinderwick. I cannot leave the camp, and there is no one else I trust on the road.",
+"reward": {
+"items": [["shells", 20]],
+"rep": 1,
+"salt": 274
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ask": "Kestrel sent this, from Stillwater.",
+"item": "letter",
+"say": "From Kestrel? I had thought them dead. Thank you for carrying it. Take this for the road.",
+"t": "deliver",
+"take": ["letter", 1],
+"text": "Carry the sealed letter to Tobin at Cinderwick.",
+"who": "tobin"
+}],
+"title": "Carried to Cinderwick"
+}, {
+"at": "stillwater",
+"giver": "ileana",
+"have": 0,
+"id": "",
+"kind": "find",
+"pitch": "My daughter, Dagny, went to Wind Ring to scavenge and has not come back. Please. Find them.",
+"reward": {
+"items": [["salve", 1]],
+"rep": 1,
+"salt": 40
+},
+"stage": 0,
+"state": "offered",
+"steps": [{
+"name": "Dagny",
+"ruin": "fs_steppe_8",
+"t": "find",
+"text": "Find Dagny at Wind Ring."
+}, {
+"ask": "Dagny is alive. They are coming home.",
+"say": "Alive. Alive. I have nothing worth what you have done. Take what I have.",
+"t": "talk",
+"text": "Return to Mother Ileana at Stillwater.",
+"who": "ileana"
+}],
+"title": "Finding Dagny"
+}, {
+"at": "stillwater",
+"giver": "kestrel",
+"have": 0,
+"id": "",
+"kind": "scout",
+"pitch": "No one has come back from Pale Post in a month. Go and look upon it. Tell me if anyone is left.",
+"reward": {
+"items": [["salve", 1], ["salve", 1]],
+"rep": 1,
+"salt": 70
+},
+"rid": "fs_steppe_23",
+"stage": 0,
+"state": "offered",
+"steps": [{
+"ruin": "fs_steppe_23",
+"t": "reach",
+"text": "Go and look upon Pale Post."
+}, {
+"ask": "I have been to Pale Post.",
+"say": "And? No. Do not tell me. I can see it in your face. Here, for your trouble.",
+"t": "talk",
+"text": "Return to Kestrel at Stillwater.",
+"who": "kestrel"
+}],
+"title": "A Look at Pale Post"
+}]
+},
+"quests": {
+"main": {
+"giver": "maud",
+"have": 0,
+"id": "main",
+"main": true,
+"reward": {},
+"stage": 0,
+"state": "active",
+"steps": [{
+"at": "cinderwick",
+"t": "reach",
+"text": "There is smoke to the <dir:S:cinderwick:start>. Find shelter before nightfall."
+}, {
+"ask": "I was cast out. I have nowhere else to go.",
+"give": [["beacon_oil", 1]],
+"say": "Then you are one of us. Everyone here was thrown away by somebody.
+
+Listen. When I was a girl there were nine fires on the high places, tended by the Order, and the night did not come within sight of them. One by one they went dark. Now it comes everywhere.
+
+There is a dead beacon on the ridge to the west. I have kept one jar of the old oil for forty years, waiting for someone foolish enough to carry it there. Take it. Pour it in the bowl, and keep the flame alive until it holds. Do not leave it, whatever comes.",
+"t": "talk",
+"text": "Speak with the elder of Cinderwick.",
+"who": "maud"
+}, {
+"beacon": 0,
+"t": "kindle",
+"text": "Kindle the Beacon of Restraint, <dir:B:0:cinderwick> of Cinderwick, and keep the flame until it holds."
+}, {
+"ask": "The beacon burns.",
+"say": "I saw it from the wall. I wept, and I am not ashamed of it.
+
+There is no more of the old oil. But the Lantern Well still draws lamp oil from the deep, and Benedek the oilwright knows the measure his father used for the Order. Go to the Well, <dir:S:lanternwell:cinderwick> of here. Ask him to teach you.",
+"t": "talk",
+"text": "Return to Maud.",
+"who": "maud"
+}, {
+"ask": "Maud sent me. I need beacon oil.",
+"flag": "oilcraft",
+"give": [["beacon_oil", 1]],
+"say": "So the ridge fire was you. I wondered who had been fool enough.
+
+The measure is this: two of lamp oil, ten of salt to cleanse it, four of ash-bloom to make it burn white. Render it slowly, at a proper bench, with a fire close by. Here. Take what I have made, and learn to make the rest yourself. There are eight more bowls out there, and I am too old to carry anything up a hill.",
+"t": "talk",
+"text": "Find Benedek the oilwright at the Lantern Well.",
+"who": "benedek"
+}, {
+"n": 4,
+"t": "count",
+"text": "Kindle more of the dead beacons. Render beacon oil at a workbench from lamp oil, salt and ash-bloom."
+}, {
+"ask": "The beacons were made to burn forever. Why did they go out?",
+"say": "I asked the dead the same thing, the night your third fire was lit. They were very quiet for a long time.
+
+Then they told me. The beacons did not fail. They were put out, by hand, one by one, by living people who walked up to them with sand and wet sacking. The dead say the hands came from Gallowmere, on the dry lake to the <dir:S:gallowmere:mourners>.
+
+Go carefully. People who will put out a light are people who have made a bargain with the dark.",
+"t": "talk",
+"text": "Something about the beacons is wrong. The gravekeeper of Mourner's Rest listens to the dead. Ask her.",
+"who": "ione"
+}, {
+"ask": "You put out the beacons.",
+"say": "Yes. I did. My father did. His father before him.
+
+You think the night comes from nowhere. It comes up out of a mouth in the earth, <dir:B:8:gallowmere> of here, where the ninth beacon stood. When the ninth was lit, the mouth was quiet. Then it swallowed the beacon whole, tower and bowl and keepers, and it began to speak.
+
+It asked for the other eight. It said: put them out, and I will leave Gallowmere standing. So we did. And we are standing. Do you understand? Every fire you light, it will want back. Light all eight, and it will have to come up and take them itself. Perhaps then you can do what we could not.",
+"t": "talk",
+"text": "Go to Gallowmere, on the dry lake far to the <dir:S:gallowmere:cinderwick>, and speak with its warden.",
+"who": "corvin"
+}, {
+"n": 5,
+"t": "count",
+"text": "Kindle a fifth beacon. Five fires, and the dark will have to turn and look at you."
+}, {
+"ask": "Five are burning. The sea has opened.",
+"say": "And the mouth breathed. Did you feel it? Every bowl still dark has been fouled. Oil will slide off it now like water off tar.
+
+A fouled bowl wants something from beyond the shore before it will take. The first is Deep Oil. My grandfather spoke of it: lamp oil, rendered at a bench with the ichor of the thing in the Kraken-Bell. The Bell-Wound. Bring it down and it bleeds green.
+
+The sea took everything from us once. Now you have to go and take something back from it.",
+"t": "talk",
+"text": "Five fires burn, and the sea has opened. Return to the warden of Gallowmere.",
+"who": "corvin"
+}, {
+"key": "deep_oil",
+"n": 6,
+"t": "count",
+"text": "Kindle a sixth beacon. A fouled bowl wants Deep Oil first: lamp oil and the Bell-Wound's ichor, rendered at a bench."
+}, {
+"ask": "The sixth bowl took the Deep Oil.",
+"say": "The drowned are talking now. They have never talked before.
+
+They were the Fleet. They sailed to Quietglass with the Order's last ships, and kept a log to the end. Its last page names the bowls, one by one, as they were fouled. They say a bowl will remember its name if you read it the page.
+
+The log is still in Quietglass. Light the lane there first, or the deep will have you before the glass does.",
+"t": "talk",
+"text": "Six fires. The gravekeeper of Mourner's Rest has heard the dead again.",
+"who": "ione"
+}, {
+"key": "fleet_log",
+"n": 7,
+"t": "count",
+"text": "Kindle a seventh beacon. A fouled bowl wants the Fleet Log, from Quietglass, reached by a lit sea lane."
+}, {
+"ask": "Seven fires burn across the sea.",
+"say": "We saw the seventh from the Thing-field. The old men wept, and the young ones asked why.
+
+The eighth is the hard one. The law says: what the Mouth breathes on, a great heart must warm. The far lands have five great ones, the Ice Hall's mother among them. Take the heart of any one, and carry it home to your bowl.
+
+We will speak your name here while you are gone. We keep names.",
+"t": "talk",
+"text": "Seven fires. Sail to Hearthholm on the Frostmark and speak with its law-speaker.",
+"who": "sigrun"
+}, {
+"key": "heart",
+"n": 8,
+"t": "count",
+"text": "Kindle an eighth beacon. A fouled bowl wants the heart of a far great one."
+}, {
+"ask": "Eight are burning. What now?",
+"give": [["beacon_oil", 2]],
+"say": "Now it is angry. I have not heard it this loud since I was a boy.
+
+The ninth bowl stands at the lip of the mouth, <dir:B:8:gallowmere> of here, choked with earth and fouled besides. It wants a coal from every far shore: the Frostmark, the Sunward Reach, the Pale Steppe. Each has a shrine-bowl the Order built. Light them and carry one coal from each.
+
+Then pour the oil. The thing below will come up to put it out. If you keep that flame, it will have to go back down, and stay down.
+
+Take this. It is the last oil Gallowmere hid from the dark. I never had the courage to use it. Gallowmere will stand with you on the lip. That is the least we owe.",
+"t": "talk",
+"text": "Eight fires burn. Return to the warden of Gallowmere.",
+"who": "corvin"
+}, {
+"beacon": 8,
+"key": "coals",
+"t": "kindle",
+"text": "Bring a coal from the shrine-bowl of each Far Shore, then kindle the Beacon of Stillness at the lip of the mouth, and keep it while the thing below comes up to put it out."
+}, {
+"ask": "The ninth burns. The mouth is quiet.",
+"say": "I know. The whole camp came out to look. You can see it from here, a white thread in the <dir:B:8:cinderwick>, like the one I remember.
+
+The nights will still come. The waste is still the waste. Forms will still walk out of the dark where the fires do not reach. But they will not come for everything, and they will not come forever.
+
+The waste is not saved, survivor. It is kept. And now there is someone to keep it.",
+"t": "talk",
+"text": "It is done. Return to Cinderwick.",
+"who": "maud"
+}],
+"title": "The Dead Beacons"
+}
+}
+},
+"rep": {},
+"rules": {
+"air": 1,
+"ammo": 0,
+"death": 0,
+"difficulty": 1,
+"enemies": 2,
+"needs": 2,
+"pace": 1,
+"resources": 1,
+"skill": 1,
+"vow_glass": 0,
+"vow_hunted": 0,
+"vow_tithe": 0
+},
+"safety": {},
+"satchel_next": 1,
+"satchels": {},
+"seed": 38884825,
+"settlers": [],
+"tracked": "main",
+"uid": "179579701328827",
+"v": 2,
+"weather": ["clear", 592.983, 0.0]
+}

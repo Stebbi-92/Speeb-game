@@ -10205,6 +10205,69 @@ func debug_ghosts() -> void:
 	get_tree().quit()
 
 
+## What a kept world and pilgrim hold, in a form that can be set beside another version's.
+## (tools/save_fixtures.sh adds the same to an old version, to make the saves in tools/fixtures/saves.)
+func fixture_summary() -> Dictionary:
+	var pk := {}
+	for pid in pieces:
+		var k := str(pieces[pid].kind)
+		pk[k] = int(pk.get(k, 0)) + 1
+	var items := {}
+	for s in inv.to_data():
+		if s != null:
+			items[str(s[0])] = int(items.get(str(s[0]), 0)) + int(s[1])
+	var ls: Array = lit.duplicate()
+	ls.sort()
+	var own: Array = arms.owned.duplicate()
+	own.sort()
+	var bl: Array = arms.blades.duplicate()
+	bl.sort()
+	return {"uid": world_uid, "seed": world_seed, "day": day, "lit": ls, "pieces": pk, "items": items, "owned": own, "blades": bl,
+		"tier": arms.tier.duplicate(), "level": skills.level, "xp": skills.xp, "pos": player.global_position}
+
+
+## Testing aid: a world and pilgrim kept by an older Brelm (put in place by tools/oldsave_test.sh)
+## come back whole: the same day, beacons, buildings, pack, arms and standing, where they were
+## left; then they are kept again by this version and read back.
+func debug_oldsave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(3.0).timeout
+	var want = str_to_var(FileAccess.get_file_as_string(OS.get_environment("OLDSAVE_EXPECT")))
+	if not want is Dictionary:
+		print("OLDSAVE no fixture")
+		get_tree().quit()
+		return
+	var diffs: Array = []
+	var have := fixture_summary()
+	for k in want:
+		if k == "pos":
+			if have.pos.distance_to(want.pos) > 6.0:
+				diffs.append("pos %s -> %s" % [want.pos, have.pos])
+		elif k == "items" or k == "pieces":
+			for id in want[k]:
+				if int(have[k].get(id, 0)) != int(want[k][id]):
+					diffs.append("%s %s %d -> %d" % [k, id, int(want[k][id]), int(have[k].get(id, 0))])
+		elif k == "owned" or k == "blades":
+			for id in want[k]:
+				if not id in have[k]:
+					diffs.append("%s lost %s" % [k, id])
+		elif k == "tier":
+			for id in want.tier:
+				if int(have.tier.get(id, 0)) != int(want.tier[id]):
+					diffs.append("tier %s %d -> %d" % [id, int(want.tier[id]), int(have.tier.get(id, 0))])
+		elif str(have.get(k)) != str(want[k]):
+			diffs.append("%s %s -> %s" % [k, want[k], have.get(k)])
+	save_all()
+	var again = Game.read_var_safe(world_path(slot))
+	var char_again = Game.read_var_safe(_char_path())
+	var kept: bool = again is Dictionary and char_again is Dictionary and int(again.get("day", -1)) == day and again.get("pieces", {}).size() == pieces.size()
+	print("OLDSAVE from=%s same=%s kept=%s diffs=%d" % [OS.get_environment("OLDSAVE_FROM"), diffs.is_empty(), kept, diffs.size()])
+	for d in diffs:
+		print("  " + d)
+	get_tree().quit()
+
+
 ## Testing aid: an autosave is written in the background, and the save it leaves reads back whole.
 func debug_bgsave() -> void:
 	while not ready_world:
