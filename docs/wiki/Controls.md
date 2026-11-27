@@ -10,7 +10,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Step right | D or Right |
 | Jump | Space |
 | Sprint | Shift |
-| Sneak | Ctrl or C |
+| Crouch | Ctrl or C |
 | Interact | E |
 | Fire, use, or build | Left mouse |
 | Aim, or take down a built piece | Right mouse |
@@ -41,6 +41,7 @@ Every control can be changed in **Settings**. These are the defaults.
 | Journal (the waste) | J |
 | Skills (the waste) | K |
 | Build (the waste) | B |
+| Auto pickup of satchels on or off | U |
 | Menu | Escape or P |
 
 ## Controller
@@ -100,9 +101,11 @@ Controller buttons can be changed under **Settings, Controls, Controller buttons
 
 Press **Reload** with a full gun to look it over in your hands.
 
+**Crouch** brings you down low: you walk slowly and quietly, fit under low things, and your aim holds a little steadier while you keep still. Foes see you from less far, and a low wall, rock or crate can hide you. Under a low roof you stay down until there is room to stand. Sprint stands you up. You cannot crouch while riding, swimming (Crouch dives instead) or aboard a boat.
+
 ## Settings for everyone
 
-- **Hold or press to switch:** Sprint, Sneak and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.
+- **Hold or press to switch:** Sprint, Crouch and Aim (with Guard) can each be set to work while held, or to switch on with one press and off with the next. A switched-on sprint ends when you stop walking.
 - **Menu and text size:** 90%, 100%, 110% or 120%.
 - **Subtitles for spoken lines:** what Brelm says over the fallen is written out at the bottom of the screen.
 - **Colour-blind friendly map colours:** road safety on the map goes from orange (Dangerous) through yellow and blue to light blue (Peaceful), instead of red to green.

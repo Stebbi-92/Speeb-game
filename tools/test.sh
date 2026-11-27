@@ -7,8 +7,12 @@ pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
-	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
-	XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
+	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ] || [ "$name" = tiers ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	if [[ $call == sh:* ]]; then   # a check of its own, in a script (several programs at once)
+		GODOT=$G bash tools/${call#sh:} > "$D/$name.log" 2>&1
+	else
+		XDG_DATA_HOME=$data timeout 150 "$G" --headless --path . -- level=12 call=$call > "$D/$name.log" 2>&1
+	fi
 	local ok=1
 	grep -q "SCRIPT ERROR" "$D/$name.log" && ok=0
 	for p in "$@"; do grep -qE "$p" "$D/$name.log" || ok=0; done
@@ -41,6 +45,7 @@ check hitbox    debug_hitbox   "HITBOX all=true heads=true"
 check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"
 check build     debug_build    "BUILD up=true kept=true bed=true stove=true shelf=true snug=true"
+check tiers     builder.debug_tiers "TIERS start=true first=11 refused=true built=true paid=true stone_barred=true rungs=\\[true, true, true, true\\] stone=true iron_barred=true iron=true glass_barred=true glass=true made=7/7 ward=true strong=20 anvil=true great=true shrine=true hall=true saved=true"
 check campkit   debug_campkit  "CAMPKIT modelled=7/7 tent=true barrel=true anvil=true"
 check inn       debug_inn      "INN towns=true meal=true talk=true snug=true walls=true"
 check tabsfit    debug_tabsfit  "TABSFIT { \"craft\": 700, \"arms\": 700, \"wear\": 700, \"build\": 700 }"
@@ -58,6 +63,7 @@ check regrow    debug_regrow   "REGROW far=true near_kept=true seen=true"
 check power     debug_power    "POWER flat=true tiers=\\[1, 1.5, 2.2, 3, 3.6\\]"
 check wear      debug_wear     "WEAR before=false on=true off=true moved=true told=true"
 check sprint    debug_sprint   "SPRINT faster=true spends=true"
+check crouch    debug_crouch   "CROUCH eye=1\.60>1\.0[0-9] tall=1\.75>1\.20 kept=true stood=true far=true>false wall=true>false steadier=true friend=0\.55 feet=\[0\.1, 0\.1\]" "CROUCH walked=1\.[0-9]+ planted=[1-9][0-9]* slip=0\.00[0-9]"
 check sea       debug_sea      "SEA isles=9 dry=9 nodes=[1-9][0-9]+ ruins=9 open=true name=The Grey Sea" "SEA swimming=true afloat=true" "SEA tires=true" "SEA spawn_in_water=false"
 check farsea    debug_farsea   "FARSEA far=5 clear=true dry=5 lands=salt,dunes,frost,sun,steppe" "FARSEA full=true" "FARSEA towns=3"
 check turn      debug_turn     "TURN before=false after=true col=true host=tide" "TURN lands frost=\\[true, true, true\\] steppe=\\[true, true, true\\]"
@@ -113,12 +119,15 @@ check isleground debug_isleground "ISLEGROUND tried=[0-9]+ holes=0 off=0"
 check figjoin   debug_figjoin  "FIGJOIN few=true"
 check access    debug_access   "ACCESS toggle=true/true/true sub=true cb=true"
 check uiscale   debug_uiscale  "UISCALE bigger=true fit=true"
+check hudfit    debug_hudfit   "HUDFIT layouts=32 all=true" "HUDFIT search=true"
 check reports   debug_reports  "REPORTS found=true once=true clean=true crash=true none=true quiet=true private=true"
 check polish2   debug_polish2  "POLISH2 words=true pad=true reset=true turned=true rest=true fell=true gone=true"
 check gfx       debug_gfx      "GFX low=true back=true high=true scaled=true"
 check drawcount debug_drawcount "DRAW cinderwick instances=[1-5][0-9][0-9] "
 check folk      debug_folk     "FOLK hrafn=true kala=true named=4 drinks=true"
 check scanfoes  debug_scanfoes "SCANFOES ok=4/4 ash_weaver=0\.[3-9] harrow=1\.[6-9] gaunt=(1\.[89]|2\.[0-2])"
+check people    debug_people   "PEOPLE ok=8/8 walking=[1-4]"
+check falls     debug_falls    "FALLS bones=(9|1[0-9]) own=[3-9] left=0"
 check feel      debug_feel     "FEEL rocked=true back=true heard=flesh,bone,glass told=burrow,choir,phase,ravens,stealth,vent"
 check carry    debug_carry    "CARRY road=true town=true three=true keys=shotgun,sniper,pistol traded=true kept=true down=2"
 check fog       debug_fog      "FOG isle_dark=true little=true beacon=true carried=true"
@@ -143,6 +152,8 @@ check split      debug_split    "SPLIT half=true one=true all=true"
 check buildmenu  debug_buildmenu "BUILDMENU open=true tab=build group=true"
 check slotdrag   debug_slotdrag "SLOTDRAG clicked=true dragged=true"
 check flamer     debug_flamer   "FLAMER roaring=true quiet_after=true particles=true"
+check firetouch  debug_firetouch "FIRETOUCH beside_ok=true hurt=true burning=true still=true out=true pool=true"
+check firepool   debug_firepool "FIREPOOL burst=0\.[0-9]+ on_ground=true reach=4\.[0-9] burning=true harmed=true gave_way=true live=0 left=2 foe_cool=true"
 check coast      debug_coast    "COAST gen=3 bays=[1-9] wet=\[\] shore_varies=true"
 check warmup     debug_warmup   "WARMUP quiet=true hush_off=true flash_off=true"
 check isleshot   debug_isleshot "ISLESHOT own=2"
@@ -150,8 +161,9 @@ check raidcamp   debug_raidcamp "CAMP dug=true foes=([6-9]|1[0-9]) broken=true p
 check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=true"
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"
 check treebody   debug_treebody "TREEBODY bodies=[0-9]+ shapes=[0-9]+ solid=true"
+check fell       debug_fell     "FELL big land=[a-z]+ blows=1[0-2] aimed=true prompt='Cut the tree' chops=1[0-2] wood=[0-9]+ heartwood=[0-9]+ ok=true heard=chop,carve gone=true solid=false fell=1 stumps=1 batches=\+1 log_left=0" "FELL peer=true saved=true days=[3-6] early=true regrown=true dead_chops=[1-6] dead_wood=[0-9]+ dead_stumps=1"
 check doorwalk   debug_doorwalk "DOORWALK tried=8 inside=[7-8]"
-check townplans debug_townplans "TOWNPLANS towns=12 styles=7 shells=(2[7-9]|[34][0-9]|5[0-5]) barns=[5-7] kinds=17"
+check townplans debug_townplans "TOWNPLANS towns=12 styles=7 shells=(2[7-9]|[34][0-9]|5[0-5]) barns=[5-7] kinds=24"
 check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=6"
 check ownloot   debug_ownloot  "OWNLOOT alone=1 made=3 hidden=true seen=true kept=true"
 check damaged  debug_damaged  "DAMAGED tmp_first=true unread=true moved=true kept=true"
@@ -170,6 +182,16 @@ check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
 check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=true dots=true hip=false aimed=true tucked=true back=true"
 check hands debug_hands "HANDS guns=14 far=\[\] smg_rig=true locked=true home=true anim=true crane=true cig=true once=true burning=true seen=true"
+check handfit  debug_handfit  "HANDFIT rows=[1-9][0-9]* failing=[0-9]+ hard=0 "
+check gunlook debug_gunlook "HANDCHECK carbine worst stretch=0\.[0-9][0-9]% elbow=[0-9]+\.\.1[0-6][0-9] .*palm_miss=0\.0[0-4][0-9] wrong_bend=0" "HANDCHECK hand_cannon worst stretch=0\.[0-9][0-9]% elbow=[0-9]+\.\.1[0-6][0-9] .*palm_miss=0\.0[0-4][0-9] wrong_bend=0"
 check newbodies debug_newbodies "NEWBODIES hollow=moves,ok saltbone=moves,ok,own_arms saltrifle=moves,ok deacon=moves,ok ash_weaver=moves,ok tusker fur=true gait=[A-Za-z_0-9]+ gaits=4"
+check wings debug_wings "WINGS took=true flew=true landed=true high<6=true"
+check vigilwave debug_vigilwave "VIGILWAVE n=[1-9][0-9]* far=true one_side=true closing=true music=vigil"
+check autoloot debug_autoloot "AUTOLOOT took=true stayed=true back=true off=true"
+check gunskill debug_gunskill "GUNSKILL start=0 top=9 wider=true steadier=true blade_free=true top_mult=1.00"
+check stranger debug_stranger "STRANGER spoke=true warned=true drew=true gun=true fired=true"
+check server_world sh:server_test.sh "SERVERWORLD made=true idle_paused=true held=true joined=true ran=true saved=true repaused=true banned=true"
+check server_api sh:"server_test.sh api" "SERVERAPI override=true,true,true options=true saved=true made=true worlds=apitest,second refused=true loaded=true restarted=true detail=true"
+check serverui "none server port=24690 panelcheck" "PANEL tabs=Players,World,Settings,Updates,Log chips=9 settings=9 cfg=true order=true" "PANELPAUSE paused=true ticks=true log=true save=true confirm=true updater=true"
 echo "$pass passed, $fail failed"
 [ $fail = 0 ]

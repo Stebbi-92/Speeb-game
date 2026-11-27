@@ -7,7 +7,7 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
-| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`) |
+| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`); the shotguns' shots are layered onto these recordings (`tools/make_shotgun_audio.py`), and the SMG's, revolver's, rifles', belt gun's, minigun's and sniper's given the weight of their calibre (`tools/make_calibre_audio.py`) |
 | [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | via OpenGameArt | CC0 | Splashes (`tools/cut_sounds3.py`) |
 | [Hollywood-style pistol silencer sound effect](https://opengameart.org/content/hollywood-style-pistol-silencer-sound-effect) | via OpenGameArt | see page | The suppressed shot |
 | [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | via OpenGameArt | see page | The wind |
@@ -19,8 +19,8 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 | [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds) | via OpenGameArt | see page | Magazines out and in, the shotgun's rack |
 | [Shotgun Reload Sound effects](https://opengameart.org/content/shotgun-reload-sound-effects) | via OpenGameArt | see page | The shotgun's rack |
 | [Fantasy Ambient Sound Effects Pack](https://kmontesdev.itch.io/fantasy-ambient-sound-effects-pack-cc0) | kmontesdev | CC0 | Blade swings and hits, parries, impacts, bodies falling, great-one roars, creature voices (bites, roars, growls, shrieks, burrowing), whooshes, the shotgun's pump, footsteps, town, night and cave sounds, the sea, rain and storms (`tools/cut_sounds.py`, `tools/cut_sounds2.py`) |
-| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells |
-| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing |
+| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 | Foley, turning pages, cloth, footsteps, the shotgun's shells, the latch and click in the pump's rack |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 | Footsteps in grass and on the salt crust, thuds and blows, shells landing, the pump's rack and the shotguns' ring |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 | Menu clicks and knocks, the controller tick, the "no" sound |
 | [Music Jingles](https://kenney.nl/assets/music-jingles) | Kenney | CC0 | Levelling up, finding a town or an isle |
 | [Fantasy Game Music Tracks](https://kmontesdev.itch.io/7-fantasy-music-tracks) | kmontesdev (LoreBook) | CC0 | Music: dawn ("Aural"), towns ("Akash Chamber"), night ("Awakening") |
@@ -42,7 +42,7 @@ Some files in the Fantasy Ambient pack carry an "ES_" prefix (Epidemic Sound). T
 | [Fantasy Town Kit](https://kenney.nl/assets/fantasy-town-kit) | Kenney | CC0 |
 | [Building Kit](https://kenney.nl/assets/building-kit) | Kenney | CC0 |
 | [Furniture Kit](https://kenney.nl/assets/furniture-kit) | Kenney | CC0 |
-| [Survival Kit](https://kenney.nl/assets/survival-kit) (camp chest, workbench, anvil, bedroll, tent, barrel, fire pit) | Kenney | CC0 |
+| [Survival Kit](https://kenney.nl/assets/survival-kit) (camp chest, workbench, anvil, bedroll, tent, barrel, fire pit, strongbox, iron-bound barricade) | Kenney | CC0 |
 
 Kenney's packs are at [kenney.nl](https://kenney.nl). CC0 asks for nothing, but credit is given gladly.
 
@@ -98,7 +98,13 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["Wooden Raft - Low Poly"](https://skfb.ly/oE6YK) | Le Moustick | The raft (`assets/models/boats`) |
 | ["Bat animated character"](https://skfb.ly/6WS9E) | GoldGryphon | The wings of the drifting lesser forms (`assets/models/foes/bat`) |
 | ["Cursed Undead Soldier Rig"](https://sketchfab.com/3d-models/cursed-undead-soldier-rig-b2e39de76b834d978adee5716aec814d) | DM-913 | The Draugr (`assets/models/foes/draugr`) |
-| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | The Draugr's walk, run and guard (its animations only, baked onto the Draugr's bones: `assets/models/foes/draugr/draugr_moves.res`) |
+| ["Dune Dweller Rig"](https://skfb.ly/o7NDJ) | DM-913 | The Tunnel Unlit (`assets/models/foes/dweller`) |
+| ["Man In Coat - Human Rigged Model"](https://skfb.ly/oAJQt) | Saitam | The man in the coat (`assets/models/foes/stranger`) |
+| ["Ps2 style karnatid tamil indian male and female"](https://sketchfab.com/3d-models/200681389c544998bac65d453fd49d27) | Humans of the World | Townsfolk (`assets/models/people/tamil_*`; split into the man and the woman, the man's body set back on his bones) |
+| ["Ps2 style Senegalese Casamance male and female"](https://sketchfab.com/3d-models/cd34fcf7d3e94368ac1364c97841af2e) | Humans of the World | Townsfolk (`assets/models/people/senegalese_*`; the same) |
+| ["Free ps2 style Halstatt nordic male and female"](https://sketchfab.com/3d-models/a9bedca97e9f48dfb6d023885f7f5f1d) | Humans of the World | Townsfolk (`assets/models/people/nordic_*`; the same) |
+| ["Free ps2 style isthmid amerindian characters"](https://sketchfab.com/3d-models/cdb4d27bd4154712968eb3f0961bb375) | Humans of the World | Townsfolk (`assets/models/people/amerindian_*`; the same) |
+| ["Nerd Survivor"](https://sketchfab.com/3d-models/nerd-survivor-8820dc9256a84aed8598eef5b67afad9) | HighPolyDensity | Walks, runs and stances for the Draugr, the Harrow, the Gaunt, the Unseen, the Tunnel Unlit and the man in the coat, and the walks, runs, stances and gestures of the townsfolk (its animations only, baked onto their bones: `draugr_moves.res`, `harrow_moves.res`, `dweller_moves.res`, `stranger_moves.res`, `soldier_moves.res`, `gaunt_moves.res`, `unseen_moves.res`, `assets/models/people/*_moves.res`); the Unlit's and the Tunnel Unlit's rifle aim |
 | ["European Dragon"](https://sketchfab.com/3d-models/european-dragon-82f393a2e6c048ad80c171ce3b3a7b87) | Nonexistent 101 | Kulshedra, the she-dragon (`assets/models/foes/kulshedra`) |
 | ["Horse"](https://sketchfab.com/3d-models/horse-a6f860e43e364619bccb174a1ac7d0c9) | henrysteve973 | The Nykur, unsaddled and grey (`assets/models/foes/nykur`) |
 | ["Emerald Leviathan - Stylized Animated Model"](https://sketchfab.com/3d-models/emerald-leviathan-stylized-animated-model-1edc6281744846eca9924ce3dd2d19b5) | Meleagors | The Grey Wyrm, Weed Eel, Lamp-Eater and Bell-Wound, coloured to each (`assets/models/foes/leviathan`) |
@@ -125,6 +131,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 | ["G17 Gen 5 Handgun + Olight - NSW Police Force"](https://skfb.ly/pOAnq) | 8sianDude | The pistol |
 | ["M4 Super 90 (JW2) Brand-Friendly version"](https://skfb.ly/oLU7v) | 8sianDude | The autoshotgun |
 | ["MP5 A2"](https://skfb.ly/psnHQ) | Gintoki1234 | The SMG |
+| ["Low-Poly M14"](https://sketchfab.com/3d-models/97d26ba96e4a4a06a80a163314ffc745) | notcplkerry | The Sunglass Carbine |
+| ["Sawed-off (Low Poly)"](https://sketchfab.com/3d-models/05c564f20178457783189dfe8bed6801) | Berk Gedik | The Dome-steel Hand Cannon |
 | ["fps arms"](https://skfb.ly/6R6yX) | DJMaesen | Your own arms on the weapon in hand |
 | ["LMG animated"](https://skfb.ly/o8PRS) | DJMaesen | The belt gun in your hands, and how hands hold a gun |
 | ["357 Python Revolver (Rigged/Game Ready)"](https://skfb.ly/oFISA) | Erai | The revolver in your hands |
@@ -141,6 +149,8 @@ These are used under [Creative Commons Attribution 4.0](http://creativecommons.o
 
 - Still made in code (`tools/make_audio*.py`), for want of a fitting recording in the packs: steam hiss, the gun run's cannon, the strange sounds of relics, lanterns, the choir and the unseen, and a few small clicks.
 - The beacon bell (`assets/audio/bell.ogg`) is a recorded bell strike from Kenney's Impact Sounds (CC0), deepened and given a hall tail by `tools/make_bell.py`.
+- The shotguns' shots (`assets/audio/shotgun_*.ogg`, `autoshotgun_*.ogg`) are the Free Firearm Sound Library's recordings (CC0) with a sub thump, a crack, a ring from Kenney's Impact Sounds (CC0) and an outdoor echo laid under them in code; the pump's rack after each shot (`pump_rack_*.ogg`) is built from Kenney's RPG Audio and Impact Sounds (CC0). Both by `tools/make_shotgun_audio.py`.
+- The Gunship's sounds are made in code by `tools/make_gunship_audio.py`: its rotor loop (`rotor_gunship.wav`), its missile and its blast entirely, and its cannon (`gunship_cannon_*.ogg`) on the Free Firearm Sound Library's AK-47 recording (CC0), deepened.
 - The beacon's swell (`assets/music/swell.ogg`) is made in code (`tools/make_music.py`). The fight loop of the trials (`assets/audio/combat.ogg`) and the prologue's music (`assets/audio/prologue.mp3`) were also made for Brelm, not taken from a pack.
 
 ## Engine

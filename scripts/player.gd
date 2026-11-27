@@ -55,6 +55,18 @@ var _grapple_to := Vector3.ZERO
 var _grapple_t := 0.0
 var _trauma := 0.0
 
+## Crouching (the "soft" action): the eye and the body come down, steps go quiet, the aim steadies.
+const EYE := 1.6             ## the eye's height standing
+const TALL := 1.75           ## the body's height standing
+const CROUCH_DROP := 0.55    ## how much lower the eye and the top of the body are crouched
+const CROUCH_TIME := 0.18    ## seconds to go down or come up
+var crouched := false        ## down, or going down (a low roof can keep you down)
+var crouch_k := 0.0          ## 0 standing, 1 down; eased, it sets the eye and the body
+var crouch_drop := 0.0       ## how much lower the eye is just now, in metres (foes aim and look that much lower)
+var _body: CollisionShape3D
+var _cap: CapsuleShape3D
+var _drop_was := 0.0
+
 var _bob_t := 0.0
 var _step_t := 0.0
 var _step: AudioStreamPlayer
@@ -65,12 +77,14 @@ func _ready() -> void:
 	var shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.35
-	cap.height = 1.75
+	cap.height = TALL
 	shape.shape = cap
-	shape.position.y = 0.875
+	shape.position.y = TALL * 0.5
 	add_child(shape)
+	_body = shape
+	_cap = cap
 	head = Node3D.new()
-	head.position.y = 1.6
+	head.position.y = EYE
 	add_child(head)
 	cam = Camera3D.new()
 	cam.fov = Game.fov
@@ -201,7 +215,7 @@ func _footfall(hard: bool) -> void:
 		return
 	_step.stream = takes[randi() % takes.size()]
 	_step.pitch_scale = randf_range(0.93, 1.07)
-	_step.volume_db = (-12.0 if hard else -15.0) + randf_range(-1.5, 0.5)
+	_step.volume_db = (-12.0 if hard else -15.0) + randf_range(-1.5, 0.5) - 7.0 * crouch_k
 	if speed_cap > 0.0:
 		# Held by the tar: a slow, deep, sucking step
 		_step.pitch_scale = randf_range(0.5, 0.58)
@@ -262,7 +276,8 @@ func _physics_process(delta: float) -> void:
 		cur_speed = 0.0
 		swimming = false
 		_stamina_tick(delta, false)
-		head.position.y = lerpf(head.position.y, 1.6, minf(1.0, delta * 6.0))
+		_crouch(delta, false)
+		_eye(delta, 0.0)
 		_update_target(delta)
 		return
 	var input := Vector2.ZERO
@@ -272,13 +287,22 @@ func _physics_process(delta: float) -> void:
 		Game.untoggle("run")   # a switched-on sprint ends when the walking does
 	var sp := walk_speed
 	var running := can_run and Game.held("run") and not (Game.wasteland and winded) and not (weapon and weapon.scoped_now)
+	var in_sea := water_y > -1.0e8 and global_position.y < water_y - 1.05 and mount == null
+	# Sprinting stands you up, when there is room to; under a low roof you stay down and cannot run
+	var low := Game.held("soft") and not input_locked
+	if running and input.length() > 0.1 and low:
+		Game.untoggle("soft")
+		low = false
+	_crouch(delta, low and mount == null and not in_sea)
+	if crouched and running:
+		running = false
 	if mount:
 		# Riding: the cat's pace, and its own breath for a sprint; the rider's is spared
 		sp = mount.pace(running and input.length() > 0.1, delta)
 		running = false
 	elif running:
 		sp = run_speed
-	if Game.held("soft") and not mount:
+	if crouched and not mount:
 		sp = soft_speed
 	if Game.blessed("floofspeeb"):
 		sp *= 1.12
@@ -324,15 +348,15 @@ func _physics_process(delta: float) -> void:
 	if on_floor and cur_speed > 0.3:
 		_bob_t += delta * cur_speed * 2.2
 		_step_t += delta * cur_speed
-		if _step_t > (2.1 if running else 1.7):
+		if _step_t > (2.1 if running else (0.8 if crouched else 1.7)):
 			_step_t = 0.0
 			if not mount:
 				_footfall(running)
 	if on_floor and not _was_floor:
 		_footfall(true)
 	_was_floor = on_floor
-	var bob := bob_amount if Game.head_bob else 0.0
-	head.position.y = lerpf(head.position.y, 1.6 + (0.75 if mount else 0.0), minf(1.0, delta * 6.0))
+	var bob := (bob_amount if Game.head_bob else 0.0) * (1.0 - 0.4 * crouch_k)
+	_eye(delta, 0.75 if mount else 0.0)
 	cam.position.y = sin(_bob_t) * 0.04 * bob * (0.5 if mount else 1.0)
 	cam.position.x = cos(_bob_t * 0.5) * 0.025 * bob
 	_trauma = maxf(0.0, _trauma - delta * 1.8)
@@ -342,6 +366,51 @@ func _physics_process(delta: float) -> void:
 	cam.v_offset = sin(tt * 41.0 + 1.3) * 0.06 * tr
 	cam.rotation.z = sin(tt * 29.0 + 0.7) * 0.03 * tr
 	_update_target(delta)
+
+
+## Goes down or comes up. Coming up needs room above; under a low roof you stay down until there is.
+func _crouch(delta: float, want: bool) -> void:
+	if not want and crouched and _room_to_stand():
+		crouched = false
+	elif want:
+		crouched = true
+	crouch_k = move_toward(crouch_k, 1.0 if crouched else 0.0, delta / CROUCH_TIME)
+	var e := smoothstep(0.0, 1.0, crouch_k)
+	crouch_drop = CROUCH_DROP * e
+	# The body shortens from the top down: the feet stay where they are
+	var h := TALL - CROUCH_DROP * e
+	if absf(_cap.height - h) > 0.001:
+		_cap.height = h
+		_body.position.y = h * 0.5
+
+
+## Whether there is room above to stand up straight.
+func _room_to_stand() -> bool:
+	if not is_inside_tree():
+		return true
+	var c := CapsuleShape3D.new()
+	c.radius = _cap.radius - 0.03
+	c.height = TALL - 0.1   # from a little off the ground (so the ground itself is not counted) to the top
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = c
+	q.transform = Transform3D(Basis(), global_position + Vector3(0, TALL * 0.5 + 0.05, 0))
+	q.collision_mask = collision_mask
+	q.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
+## The eye, at its standing height (lift above it when riding), less the crouch. What else moves the
+## head (a fall, the rise after) is kept: only the crouch's own part is taken out and put back.
+func _eye(delta: float, lift: float) -> void:
+	var rest := head.position.y + _drop_was
+	rest = lerpf(rest, EYE + lift, minf(1.0, delta * 6.0))
+	head.position.y = rest - crouch_drop
+	_drop_was = crouch_drop
+
+
+## How much steadier the aim is: crouched and still, a quarter less sway and spread.
+func steady() -> float:
+	return 1.0 - 0.25 * crouch_k * clampf(1.0 - cur_speed / 0.6, 0.0, 1.0)
 
 
 func _blessings(delta: float, dir: Vector3) -> void:

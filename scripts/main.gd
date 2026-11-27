@@ -143,7 +143,11 @@ func _debug_call(method: String) -> void:
 	while not (is_instance_valid(level) and level.get("player")):
 		await get_tree().process_frame
 	await get_tree().create_timer(3.0).timeout
-	level.call(method)
+	if "." in method:
+		# A method of one of the level's parts: call=builder.debug_tiers
+		level.get(method.get_slice(".", 0)).call(method.get_slice(".", 1))
+	else:
+		level.call(method)
 
 
 ## Testing aid: saves screenshots at the given seconds, then quits.
@@ -356,7 +360,7 @@ func show_lobby() -> void:
 
 
 func _on_session_ended(reason: String) -> void:
-	if Net.dedicated or not is_inside_tree():
+	if Net.dedicated or admin or not is_inside_tree():   # a server that stops or restarts shows no title
 		return
 	if _state in ["game", "lobby", "credits"]:
 		await show_title()
@@ -364,84 +368,82 @@ func _on_session_ended(reason: String) -> void:
 		hud.notify(reason)
 
 
-## A dedicated server: no pilgrim of its own, no window. It waits for a fellowship, then hosts their trials.
+## A dedicated server: no pilgrim of its own. By default it keeps one open world of the waste running
+## (paused while no one is here); with persist=0 it waits for a fellowship, then hosts their trials.
+## Its settings come from user://server.cfg (or config=<path>), and the command line overrides them.
 func _start_dedicated(args: PackedStringArray) -> void:
 	Engine.max_fps = 60
 	AudioServer.set_bus_mute(0, true)
-	var p := Net.DEFAULT_PORT
-	var n := "A fellowship of Brelm"
-	var listed := false
-	for a in args:
-		if a.begins_with("port="):
-			p = int(a.substr(5))
-		elif a.begins_with("name="):
-			n = a.substr(5)
-		elif a == "public" or a == "public=1":
-			listed = true
-		elif a.begins_with("lobby="):
-			Game.lobby_url = a.substr(6)
-		elif a.begins_with("difficulty="):
-			Game.difficulty = clampi(int(a.substr(11)), 0, 2)
+	var conf: Dictionary = ServerAdmin.from_args(args)
+	Game.lobby_url = str(conf.lobby)
+	Game.difficulty = int(conf.difficulty)
 	print("Brelm dedicated server %s" % ProjectSettings.get_setting("application/config/version", ""))
-	if Net.host(p, n, listed, true) != OK:
-		printerr(Net.last_error)
-		get_tree().quit(1)
-		return
+	# A restart may find the last run still letting go of the port: try a few times
+	var tries := 0
+	while Net.host(int(conf.port), str(conf.name), bool(conf.listed), true, false, str(conf.password)) != OK:
+		tries += 1
+		if tries >= 8:
+			printerr(Net.last_error)
+			get_tree().quit(1)
+			return
+		await get_tree().create_timer(0.5).timeout
+	admin = ServerAdmin.new()
+	admin.name = "ServerAdmin"
+	admin.config_path = str(conf._path)
+	conf.erase("_path")
+	admin.conf = conf
+	add_child(admin)
+	admin.apply_start()   # before the world is raised, so it pauses (or not) as told
 	for ip in Net.local_addresses():
-		Net._log("Local address: %s:%d" % [ip, p])
-	if DisplayServer.get_name() != "headless":
-		_server_window()
+		Net._log("Local address: %s:%d" % [ip, int(conf.port)])
+	if DisplayServer.get_name() != "headless" or "panelcheck" in args:
+		_server_window(args)
 		for a in args:
 			if a.begins_with("shots="):
 				_debug_shots(a.substr(6).split(","))
-	server_idle()
+	else:
+		admin.start_console()
+	if conf.persist:
+		Net.world_start(str(conf.world), ServerAdmin.seed_of(str(conf.seed)))
+	else:
+		server_idle()
 
 
-## Run with a window (as the Windows launcher does), the server shows its log; closing the window stops it.
-func _server_window() -> void:
+const ServerAdmin := preload("res://scripts/server_admin.gd")
+var admin: Node   ## a dedicated server's upkeep (scripts/server_admin.gd)
+
+
+## Run with a window (as the Windows launcher does), the server shows its management window.
+## Closing the window saves the world and stops the server.
+func _server_window(args: PackedStringArray) -> void:
 	Engine.max_fps = 30
-	get_window().size = Vector2i(900, 520)
-	get_window().title = "Brelm fellowship server"
-	var bg := ColorRect.new()
-	bg.color = Color(0.03, 0.03, 0.035)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var win := get_window()
+	if DisplayServer.get_name() != "headless":
+		win.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED   # pixels as they are: the window is a tool, not a scene
+		win.size = Vector2i(1100, 700)
+		win.min_size = Vector2i(820, 520)
+		win.title = "Brelm server: %s" % Net.server_name
+		win.move_to_center()
+		get_tree().auto_accept_quit = false   # the panel saves the world first
+		get_viewport().disable_3d = true   # no one looks at the world here: draw only the window
 	var layer := CanvasLayer.new()
 	layer.layer = 100
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS   # the log goes on while the world is paused
 	add_child(layer)
-	var th := Theme.new()
-	th.default_font = hud.serif
-	bg.theme = th
-	layer.add_child(bg)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 30
-	v.offset_top = 24
-	v.offset_right = -30
-	v.offset_bottom = -24
-	bg.add_child(v)
-	var t: Label = hud._label("A fellowship of Brelm is hosted here", 30, hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
-	t.add_theme_font_override("font", hud.title_font)
-	v.add_child(t)
-	v.add_child(hud._label("Port %d (UDP). Close this window to end the fellowship." % Net.port, 18, hud.DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	var log: Label = hud._label("", 17, hud.PALE, HORIZONTAL_ALIGNMENT_LEFT)
-	log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	log.clip_text = true
-	v.add_child(log)
-	var lines: Array = []
-	var add := func(text: String):
-		lines.append("[%s] %s" % [Time.get_time_string_from_system(), text])
-		while lines.size() > 18:
-			lines.pop_front()
-		log.text = "\n".join(lines)
-	add.call("Hosting \"%s\"." % Net.server_name)
-	for ip in Net.local_addresses():
-		add.call("On this network, join at %s:%d" % [ip, Net.port])
-	Net.status_changed.connect(add)
+	var panel: Control = load("res://scripts/server_panel.gd").new()
+	panel.admin = admin
+	layer.add_child(panel)
+	for a in args:
+		if a.begins_with("panelshots="):
+			panel.debug_shots(a.substr(11))
+	if "panelcheck" in args:
+		panel.debug_check()
 
 
 func server_idle() -> void:
+	if Net.persist:
+		Net._begin_world()   # the server's world is never put away: an ending raises it again from its save
+		return
 	_state = "lobby"
 	await _swap(null)
 	Net._log("Waiting for players. The first to join chooses the trial.")

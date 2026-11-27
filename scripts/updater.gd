@@ -12,6 +12,7 @@ extends Node
 signal checked
 signal progress(done: int, total: int)
 signal finished(ok: bool, message: String)
+signal check_failed(message: String)   ## the look for a new version found no answer
 
 const REPO := "Stebbi-92/Speeb-game"
 const DIR := "user://update/"
@@ -94,7 +95,8 @@ func _ready() -> void:
 	_dl = HTTPRequest.new()
 	_dl.request_completed.connect(_on_download)
 	add_child(_dl)
-	if DisplayServer.get_name() != "headless" and not OS.has_feature("editor"):
+	# A dedicated server looks when its own settings say (scripts/server_admin.gd)
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("editor") and "server" not in OS.get_cmdline_user_args():
 		check.call_deferred()
 
 
@@ -126,6 +128,8 @@ func _on_latest(result: int, code: int, _h: PackedStringArray, body: PackedByteA
 	if data == null:
 		if not _tried_github:
 			_ask_github()
+		else:
+			check_failed.emit("No answer came from the release list. Try again later.")
 		return
 	if data is Array:    # straight from GitHub: shape it like the worker's answer
 		var rel := {}
@@ -139,6 +143,7 @@ func _on_latest(result: int, code: int, _h: PackedStringArray, body: PackedByteA
 		data = {"version": str(rel.get("tag_name", "")).trim_prefix("v"), "name": str(rel.get("name", "")),
 			"notes": str(rel.get("body", "")), "page": str(rel.get("html_url", "")), "assets": assets, "news": ""}
 	if not (data is Dictionary):
+		check_failed.emit("The release list gave an answer this version cannot read.")
 		return
 	var assets: Dictionary = data.get("assets", {}) if data.get("assets") is Dictionary else {}
 	var pack: Dictionary = assets.get(pack_name(), {}) if assets.get(pack_name()) is Dictionary else {}
@@ -263,11 +268,19 @@ func _swap_and_go() -> void:
 	_relaunch(true)
 
 
-func _relaunch(hard: bool) -> void:
+## Starts this program again and ends this one: on the fetched version if one waits, else as it runs now.
+## For the dedicated server's Restart. False if the new start could not be made.
+func relaunch() -> bool:
+	if staged != "" and FileAccess.file_exists(NEXT):
+		_swap_and_go()   # ends this process, unless the new version could not be put in place
+	return _relaunch(false, FileAccess.file_exists(PACK))
+
+
+func _relaunch(hard: bool, on_pack := true) -> bool:
 	var to := _read(VERSION_FILE) if FileAccess.file_exists(VERSION_FILE) else ""
 	if to != "" and to != _read_or(BOOTED):
 		_write(STARTED, to)   # cleared, or found unanswered, on the next start
-	var args := PackedStringArray(["--main-pack", ProjectSettings.globalize_path(PACK)])
+	var args := PackedStringArray(["--main-pack", ProjectSettings.globalize_path(PACK)] if on_pack else [])
 	if DisplayServer.get_name() == "headless":    # a dedicated server keeps running without a window
 		args.append("--headless")
 	# Godot hides its own options from get_cmdline_args(), so carry the renderer over by hand
@@ -279,12 +292,21 @@ func _relaunch(hard: bool) -> void:
 	if user.size() > 0:
 		args.append("--")
 		args.append_array(user)
+	# This is a planned stop, not a crash: take down the "still running" flag (scripts/report.gd) first,
+	# or the new start finds it and offers to send a crash report for the update
+	if FileAccess.file_exists("user://running"):
+		DirAccess.remove_absolute("user://running")
 	if OS.create_process(OS.get_executable_path(), args) > 0:
 		if hard:
 			OS.kill(OS.get_process_id())
 		get_tree().quit.call_deferred()
+		return true
 	else:
+		var f := FileAccess.open("user://running", FileAccess.WRITE)   # still running after all
+		if f:
+			f.store_string(str(ProjectSettings.get_setting("application/config/version", "")))
 		push_warning("Updater: could not restart onto the new version; running the installed one.")
+		return false
 
 
 func _read(path: String) -> String:

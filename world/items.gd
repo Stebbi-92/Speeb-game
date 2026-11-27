@@ -211,14 +211,14 @@ const PIECES := {
 	"floor": {"name": "Floor", "group": "Frame", "cost": {"wood": 4}, "hp": 400.0, "text": "Level ground to build on."},
 	"wall": {"name": "Timber Wall", "group": "Frame", "cost": {"wood": 6}, "hp": 350.0, "text": "Stands on a floor's edge."},
 	"window": {"name": "Window Wall", "group": "Frame", "cost": {"wood": 6}, "hp": 300.0, "text": "A wall you can see and shoot through."},
-	"stonewall": {"name": "Stone Wall", "group": "Frame", "cost": {"stone": 10}, "hp": 900.0, "text": "Slow to build. Slow to fall."},
+	"stonewall": {"name": "Stone Wall", "group": "Frame", "cost": {"stone": 14, "wood": 2}, "hp": 900.0, "text": "Slow to build. Slow to fall."},
 	"doorway": {"name": "Doorway", "group": "Frame", "cost": {"wood": 5}, "hp": 300.0, "text": "A wall with a gap. Hang a door in it."},
 	"door": {"name": "Door", "group": "Frame", "cost": {"wood": 4, "scrap": 1}, "hp": 300.0, "text": "Set into a doorway."},
 	"roof": {"name": "Roof", "group": "Frame", "cost": {"wood": 4}, "hp": 300.0, "text": "Sits atop the walls."},
 	"stairs": {"name": "Stairs", "group": "Frame", "cost": {"wood": 6}, "hp": 300.0, "text": "Up to a roof or a second floor."},
 	"campfire": {"name": "Campfire", "group": "Camp", "cost": {"wood": 3, "stone": 3}, "hp": 200.0, "text": "Makes a camp. While lit, no enemies spawn within 40 paces. Sleep here."},
 	"cookpot": {"name": "Cooking Station", "group": "Camp", "cost": {"wood": 4, "stone": 4, "scrap": 2}, "hp": 160.0, "text": "Cook raw food here."},
-	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "text": "While lit, no enemies spawn within 15 paces."},
+	"torch": {"name": "Torch", "group": "Camp", "cost": {"torchwood": 1}, "hp": 80.0, "ward": 15.0, "text": "While lit, no enemies spawn within 15 paces."},
 	"bedroll": {"name": "Bedroll", "group": "Camp", "cost": {"cloth": 3}, "hp": 120.0, "text": "Rest here. You wake here if you fall."},
 	"chest": {"name": "Storage Chest", "group": "Camp", "cost": {"wood": 8}, "hp": 250.0, "text": "Sixteen places to keep things."},
 	"planter": {"name": "Planter Box", "group": "Camp", "cost": {"wood": 4, "stone": 2, "bone": 2}, "hp": 150.0, "fires": 3, "text": "Plant seeds here. Come back in a day."},
@@ -237,12 +237,19 @@ const PIECES := {
 	"floorlamp": {"name": "Standing Lamp", "group": "Home", "cost": {"scrap": 2, "oil": 1, "cloth": 1}, "hp": 80.0, "text": "A warm light for indoors."},
 	"tent": {"name": "Canvas Tent", "group": "Camp", "cost": {"cloth": 6, "wood": 4}, "hp": 180.0, "text": "Rest here. You wake here if you fall. Easy to carry the makings of."},
 	"barrel": {"name": "Barrel", "group": "Camp", "cost": {"wood": 5, "scrap": 1}, "hp": 200.0, "text": "Sixteen places to keep things, like a chest."},
-	"anvil": {"name": "Anvil", "group": "Camp", "cost": {"scrap": 8, "stone": 4}, "hp": 500.0, "text": "Work here as at a workbench. Hard to break."},
-	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 8}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
+	"anvil": {"name": "Anvil", "group": "Camp", "cost": {"scrap": 10, "red_iron": 4, "stone": 4}, "hp": 500.0, "text": "Work here as at a workbench. Arms are Master-worked and Far-forged only at an anvil. Hard to break."},
+	"palisade": {"name": "Palisade", "group": "Defence", "cost": {"wood": 12}, "hp": 650.0, "text": "Sharpened logs on a floor's edge. Tougher than a wall."},
+	# Later pieces (see WBuildTiers for when each opens)
+	"brazier": {"name": "Iron Brazier", "group": "Camp", "cost": {"scrap": 4, "stone": 6, "oil": 1}, "hp": 260.0, "ward": 15.0, "text": "Coals in an iron basket. While it stands, no enemies spawn within 15 paces, and it never wants wood. A light for a snug place."},
+	"strongbox": {"name": "Strongbox", "group": "Camp", "cost": {"wood": 10, "scrap": 4, "stone": 2}, "hp": 420.0, "slots": 20, "text": "Twenty places to keep things, iron-bound. Counts as a chest for the base's stores and settlers' goods."},
+	"watchtower": {"name": "Watchtower", "group": "Defence", "cost": {"wood": 20, "stone": 6, "scrap": 2}, "hp": 700.0, "text": "A lookout on stilts. Foes within 60 paces of it show through walls to anyone near its foot."},
+	"banner": {"name": "Fellowship Banner", "group": "Home", "cost": {"cloth": 6, "wood": 4, "red_iron": 1}, "hp": 120.0, "text": "Wanderers see it from far off: at dawn a settler is likelier to come to a fire within 40 paces. Makes a place snug."},
+	"barricade": {"name": "Iron-bound Barricade", "group": "Defence", "cost": {"wood": 8, "red_iron": 3, "scrap": 2}, "hp": 1100.0, "text": "Stakes bound in red iron, on a floor's edge. Tougher than a palisade, and it cuts what presses on it."},
+	"lamppost": {"name": "Tar Lamp-post", "group": "Camp", "cost": {"tar": 2, "salt_crystal": 1, "scrap": 4, "stone": 2}, "hp": 300.0, "ward": 25.0, "text": "Tar burning behind salt glass. While it stands, no enemies spawn within 25 paces, and it never wants wood."},
 }
-const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "bench", "anvil", "planter", "portal", "lamp", "shrine", "trophy_hall",
-	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade",
-	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp"]
+const PIECE_ORDER := ["campfire", "cookpot", "torch", "bedroll", "tent", "chest", "barrel", "strongbox", "bench", "anvil", "planter", "portal", "lamp", "brazier", "lamppost", "shrine", "trophy_hall",
+	"floor", "wall", "window", "doorway", "door", "roof", "stairs", "stonewall", "spikes", "palisade", "barricade", "watchtower",
+	"bed", "table", "chair", "shelf", "stove", "rug", "floorlamp", "banner"]
 const GROUPS := ["Camp", "Frame", "Home", "Defence"]
 
 ## The kit model that shows a thing: in the world (a quest's find, laid on its crate) and as its picture

@@ -59,6 +59,7 @@ func _ready() -> void:
 		cs.rotation.x = PI / 2
 		cs.position.y = 0.55 * s
 		add_child(cs)
+	_foot()
 	_build()
 	_label = Label3D.new()
 	_label.text = spec.name
@@ -94,7 +95,9 @@ func _box(size: Vector3, pos: Vector3, m: Material, parent: Node3D = null) -> Me
 const MODELS := {
 	"hare": ["res://assets/models/beasts/rabbit_rigged.glb", 0.62, "long"],
 	"goat": ["res://assets/models/beasts/goat_gerardo.glb", 1.3, "tall"],
-	"tusker": ["res://assets/models/beasts/boar_male.glb", 1.7, "long", PI / 2,
+	# (the boar was made facing 42 degrees off its own axes, by its hooves and its head: turned a quarter, it went
+	# sideways, half crabwise)
+	"tusker": ["res://assets/models/beasts/boar_male.glb", 1.7, "long", 0.733,
 		{"idle": "Arm_Boar|Idle_1", "walk": "Arm_Boar|Walk_F_IP", "trot": "Arm_Boar|Trot_F_IP", "run": "Arm_Boar|Run_F_IP"}, "fur"],
 }
 ## [file, size, measured "long" or "tall", turn to face ahead, clips {idle, walk, trot, run}, a coat made for it]
@@ -107,6 +110,25 @@ const HITS := {
 	"goat": [["capsule", 0.31, 1.22, Vector3(0, 0.77, -0.17)], ["sphere", 0.22, Vector3(0, 0.98, 0.66)],
 		["box", Vector3(0.4, 0.32, 0.95), Vector3(0, 0.28, -0.17)]],
 }
+
+
+## Its shapes are kept clear of the ground (they would catch on it), so alone they would let it down only as far
+## as its belly, its legs sunk to the knee: a small round under its middle stands it on its feet instead.
+func _foot() -> void:
+	var low := INF
+	for c in get_children():
+		if c is CollisionShape3D and (c as CollisionShape3D).shape:
+			var ab: AABB = (c as CollisionShape3D).transform * (c as CollisionShape3D).shape.get_debug_mesh().get_aabb()
+			low = minf(low, ab.position.y)
+	if low == INF or low < 0.02:
+		return
+	var cs := CollisionShape3D.new()
+	var sp := SphereShape3D.new()
+	sp.radius = low * 0.5 + 0.005
+	cs.shape = sp
+	cs.position.y = sp.radius
+	cs.name = "Foot"
+	add_child(cs)
 
 
 func _fit_hits(k: float) -> void:
@@ -135,6 +157,9 @@ var _anim: AnimationPlayer
 var _clips := {}    ## the body's own gaits by name, when it has more than one
 var _gait := ""
 var _bob := 0.0
+var _skel: Skeleton3D
+var _stepper: Stepper   ## the legs of a body whose clip has no walk (the goat's turns its head), stepping to its pace
+const STEPS := ["goat"]
 
 
 ## A real body where there is one: sized, set on its feet, a little greyed by the waste, its gait by its pace.
@@ -190,6 +215,16 @@ func _build_real() -> bool:
 			_anim.play(first)
 			_gait = first
 			_anim.seek(randf(), true)
+	var sks := m.find_children("*", "Skeleton3D", true, false)
+	if not sks.is_empty():
+		_skel = sks[0]
+		if kind in STEPS:
+			_stepper = Stepper.new()
+			_skel.add_child(_stepper)
+			_stepper.face = self   # it faces +Z, as the beast does (its turn is none)
+			if not _stepper.find_legs():
+				_stepper.queue_free()
+				_stepper = null
 	return true
 
 
@@ -297,8 +332,32 @@ func _flash() -> void:
 func die() -> void:
 	_alive = false
 	collision_layer = 0
+	# A body made with its own fall (the tusker's, to one side or the other) plays it; the rest stop where they
+	# were, buckle and roll onto their side, a last kick, and lie still to be butchered
+	var side := 1.0 if randf() < 0.5 else -1.0
+	var own := ""
+	if _anim:
+		for c in (["Arm_Boar|Death_L", "Arm_Boar|Death_R"] if side > 0.0 else ["Arm_Boar|Death_R", "Arm_Boar|Death_L"]):
+			if _anim.has_animation(c):
+				own = c
+				break
+	if own != "":
+		_anim.get_animation(own).loop_mode = Animation.LOOP_NONE
+		_anim.speed_scale = 1.0
+		_anim.play(own, 0.12)
+		var tw0 := create_tween()
+		tw0.tween_interval(20.0)
+		tw0.tween_callback(queue_free)
+		return
+	if _anim:
+		_anim.pause()
+	if _stepper:
+		_stepper.active = false
 	var tw := create_tween()
-	tw.tween_property(self, "rotation:z", PI / 2, 0.4)
+	tw.tween_property(self, "position:y", position.y - 0.08, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", side * PI / 2, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:z", side * PI * 0.47, 0.12).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(self, "rotation:z", side * PI / 2, 0.2).set_trans(Tween.TRANS_SINE)
 	tw.tween_interval(20.0)
 	tw.tween_callback(queue_free)
 
@@ -328,10 +387,16 @@ func _physics_process(delta: float) -> void:
 		if g != _gait and _anim.has_animation(g):
 			_gait = g
 			_anim.play(g, 0.25)
-		_anim.speed_scale = 1.0 if moving < 0.3 else clampf(moving / (1.3 if g == _clips.walk else (3.8 if g == _clips.trot else 7.0)), 0.6, 1.6)
+		# (each played as fast as its own steps go over the ground, measured from the clip: see Stride)
+		_anim.speed_scale = 1.0 if moving < 0.3 else Stride.scale_for(_skel, _anim, g, moving, 0.6, 1.6)
+	elif _stepper:
+		# Its clip is a stand: its legs step by the Stepper, and the clip goes on at its own pace
+		_stepper.pace = moving
+		_anim.speed_scale = 1.0
 	elif _anim:
-		# Its own gait, quick as it runs; all but still when it stands
-		_anim.speed_scale = clampf(moving / maxf(float(spec.walk), 0.5), 0.05, 3.0)
+		# Its own gait (the hare's hop) as fast as its steps go over the ground; all but still when it stands
+		var own := Stride.of(_skel, _anim, _gait)
+		_anim.speed_scale = clampf(moving / maxf(own if own > 0.05 else float(spec.walk), 0.1), 0.05, 3.0)
 	elif MODELS.has(kind) and _body.get_child_count() == 1:
 		# A body without bones bobs with its stride
 		_bob += delta * clampf(moving, 0.0, 10.0) * 3.0

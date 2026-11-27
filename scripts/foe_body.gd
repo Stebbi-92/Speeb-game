@@ -22,6 +22,7 @@ const LOOKS := {
 	"wisp": ["character-ghost.glb", "ember.png", 2.6, "glow"],
 	"knight": ["character-keeper.glb", "knight.png", 3.3, "own"],   ## the knight keeps the flamberge it was made with
 	"saltrifle": ["character-skeleton.glb", "saltrifle.png", 3.2, "rifle"],
+	"stranger": ["character-a.glb", "unlit_slate.png", 0.68, "rifle"],
 }
 
 ## Real bodies in place of the Kenney figures (CC-BY 4.0, see CREDITS.md), by the figure they replace:
@@ -30,17 +31,44 @@ const LOOKS := {
 const MODELS := {
 	"character-zombie.glb": ["folk/zombie_mud.glb", 1.85, 3.3, {"idle": "idle01", "walk": "walk01", "sprint": "run", "attack-melee-right": "attack01",
 		"holding-both": "caution", "die": "death"}, "head_014_16", "hand_R_010_39", "chest_017_14", 0.0],
-	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk", "die": "WakeUp01"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
+	"character-keeper.glb": ["folk/knight.glb", 2.0, 3.1, {"idle": "ReadyUp", "walk": "Walk", "sprint": "Walk"}, "Head_M_04", "Wrist_R_015", "Chest_M_03", 0.0],
 	"character-vampire.glb": ["folk/lich_guigodead.glb", 2.0, 3.2, {"idle": "Lich_Esqueleto|Lich_Parado_Voando", "walk": "Lich_Esqueleto|Lich_Parado_Voando",
 		"sprint": "Lich_Esqueleto|Lich_Parado_Voando", "attack-melee-right": "Lich_Esqueleto|Lich_Ataque_Perto",
 		"holding-both-shoot": "Lich_Esqueleto|Lich_Ataque_Distancia"}, "Cabeca_05", "Mao.R_022", "Peito_03", 0.0,
-		AABB(Vector3(-57.3, 11.1, -57.7), Vector3(106.5, 251.1, 114.3))],
+		# its floor is where its robe's hem hangs as it hovers (its staff's foot reaches lower, into the ground)
+		AABB(Vector3(-57.3, 20.3, -57.7), Vector3(106.5, 251.1, 114.3))],
 	"character-ghost.glb": ["folk/ghost.glb", 1.9, 3.0, {}, "", "", "", 0.0],
 	"character-skeleton.glb": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "rig|Idel", "walk": "rig|Walck", "sprint": "rig|Run",
 		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead"}, "head_0111", "DEF-hand.R_0245", "chest_019", 0.0,
 		AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72))],
-	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle -loop", "walk": "rig|walk -loop", "sprint": "rig|run -loop",
-		"attack-melee-right": "rig|knife_action", "holding-both": "rig|idle -loop", "holding-both-shoot": "rig|idle -loop"}, "head_05", "hand_R_022", "neck_04", 0.0],
+	"character-a.glb": ["folk/soldier.glb", 1.8, 0.68, {"idle": "rig|idle ", "walk": "rig|walk ", "sprint": "rig|run ",
+		"attack-melee-right": "rig|knife_action", "holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "head_05", "hand_R_022", "neck_04", 0.0,
+		# its rifle raised to the shoulder: Nerd Survivor's aim, baked onto its bones (tools/bake_stranger_moves.gd)
+		null, "res://assets/models/foes/folk/soldier_moves.res", PI],
+}
+## Kin with a body of their own in place of their kind's: [file, height, base scale, clips, head bone, hand bone,
+## chest bone, turn, bounds or null, moves library (clips baked onto a model that came with none), and (for a rig
+## whose hand bone lies another way) the turn of what it holds; that is then held level, the way the body faces;
+## and what it holds sized by so much, where the old figure's arm made it too big].
+const VARIANT_MODELS := {
+	# "Dune Dweller Rig" by DM-913: the Tunnel Unlit, wrapped and hooded. Its walk, run and stance are
+	# Nerd Survivor's, baked onto its bones (tools/bake_dweller_moves.gd)
+	"tunnel_unlit": ["dweller/dune_dweller_rig.glb", 1.95, 0.68, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run",
+		"holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "Head_87", "Hand.R_142", "Torso_148", 0.0, null,
+		"res://assets/models/foes/dweller/dweller_moves.res", PI],
+	# "Man In Coat" by Saitam: the man in the coat. His walk, stance and aim are Nerd Survivor's, baked onto
+	# his bones (tools/bake_stranger_moves.gd); the clip he came with is not used
+	"stranger": ["stranger/man_in_coat.glb", 1.85, 0.68, {"idle": "moves/Idle", "walk": "moves/Walk", "sprint": "moves/Run",
+		"holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"}, "mixamorig_Head_06", "mixamorig_RightHand_035", "mixamorig_Spine2_04", 0.0, null,
+		"res://assets/models/foes/stranger/stranger_moves.res", PI],
+	# The Salt Rifleman: the skeleton warrior (as the saltbone), its rifle raised to the shoulder and held at the
+	# ready by Nerd Survivor's aim and rifle stance baked onto its bones (tools/make_saltrifle_moves.sh); it walks
+	# and runs by its own clips, the rifle carried level, a metre long and not near two. (The saltbone keeps its
+	# sword's clips.)
+	"saltrifle": ["folk/skelet_warrior.glb", 1.8, 3.2, {"idle": "moves/Idle", "walk": "rig|Walck", "sprint": "rig|Run",
+		"attack-melee-right": "rig|Attack_1", "die": "rig|Dead", "holding-both": "moves/Aim", "holding-both-shoot": "moves/Aim"},
+		"head_0111", "DEF-hand.R_0245", "chest_019", 0.0, AABB(Vector3(-0.26, 0.0, -0.3), Vector3(0.52, 1.65, 0.72)),
+		"res://assets/models/foes/folk/skelet_rifle_moves.res", PI, 0.6],
 }
 const DROP := ["holster", "hand_knife", "Flamberge"]   ## parts left off: a stray holster, and blades our own arms replace
 static var _bounds := {}
@@ -71,7 +99,9 @@ var _float := false       ## a ghost with no bones: it drifts and sways instead
 var _t := 0.0
 var _fit: Array = []      ## [node, wanted size in the body's units, place in those units]: set once the body stands in the world
 var anim: AnimationPlayer
+var skel: Skeleton3D      ## its bones (a real body's), for how far its steps carry it
 var hand: Node3D          ## the right arm, where a weapon is held
+var level_hold := false   ## what it holds points the way the body faces, gripped at the hand (a rig whose hand bone lies another way)
 var head_node: Node3D
 var muzzle: Node3D        ## the end of a gunman's rifle
 var _plate: Node3D        ## iron strapped to the chest, until it breaks
@@ -79,8 +109,12 @@ var _now := ""
 var _once := 0.0          ## a one-off animation (a swing, a shot) still playing
 
 
-static func make(kind: String) -> FoeBody:
+static func make(kind: String, variant := "") -> FoeBody:
 	var look: Array = LOOKS[kind]
+	# A kin's own body, or a kind's (the man in the coat has one of his own)
+	var own := variant if VARIANT_MODELS.has(variant) else (kind if VARIANT_MODELS.has(kind) else "")
+	if own != "" and ResourceLoader.exists(DIR + str(VARIANT_MODELS[own][0])):
+		return _make_real(kind, look, VARIANT_MODELS[own])
 	if MODELS.has(look[0]) and ResourceLoader.exists(DIR + str(MODELS[look[0]][0])):
 		return _make_real(kind, look)
 	var b := FoeBody.new()
@@ -139,11 +173,19 @@ static func _skin_tint(file: String) -> Color:
 	return c
 
 
-static func _make_real(kind: String, look: Array) -> FoeBody:
+static func _make_real(kind: String, look: Array, own: Array = []) -> FoeBody:
 	var b := FoeBody.new()
-	var spec: Array = MODELS[look[0]]
+	var spec: Array = MODELS[look[0]] if own.is_empty() else own
 	var path := DIR + str(spec[0])
 	var m: Node3D = (load(path) as PackedScene).instantiate()
+	if spec.size() > 9 and spec[9] != null and ResourceLoader.exists(str(spec[9])):
+		var aps0 := m.find_children("*", "AnimationPlayer", true, false)
+		var ap0: AnimationPlayer = aps0[0] if not aps0.is_empty() else null
+		if ap0 == null:
+			ap0 = AnimationPlayer.new()
+			ap0.name = "Moves"
+			m.add_child(ap0)
+		ap0.add_animation_library("moves", load(str(spec[9])))
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mm := mi as MeshInstance3D
 		for d in DROP + (["Weapons"] if look[3] != "" else []):   # a body's own sword and shield give way to what it is given
@@ -160,7 +202,7 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 			if (mi as MeshInstance3D).mesh and "Flamberge" in (mi as MeshInstance3D).mesh.resource_name:
 				held.append([mi, mi.get_parent()])
 				mi.get_parent().remove_child(mi)
-		_bounds[path] = spec[8] if spec.size() > 8 else LesserSpeeb._skinned_bounds(m)
+		_bounds[path] = spec[8] if spec.size() > 8 and spec[8] != null else LesserSpeeb._skinned_bounds(m)
 		for h in held:
 			(h[1] as Node).add_child(h[0])
 	var bb: AABB = _bounds[path]
@@ -215,6 +257,7 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 				b.anim.get_animation(cn).loop_mode = Animation.LOOP_LINEAR
 	var sks := m.find_children("*", "Skeleton3D", true, false)
 	var sk: Skeleton3D = sks[0] if not sks.is_empty() else null
+	b.skel = sk
 	# Where shots find the head: a small unseen box on the head bone (or where a head would be)
 	var hb := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -238,9 +281,11 @@ static func _make_real(kind: String, look: Array) -> FoeBody:
 	var hand_at := _bone_node(sk, str(spec[5]))
 	if hand_at:
 		var grip := Node3D.new()
-		grip.rotation.x = PI   # the hand's bone runs toward the fingers; the old arm hung the other way
+		grip.rotation.x = float(spec[10]) if spec.size() > 10 else PI   # the hand's bone runs toward the fingers; the old arm hung the other way
 		hand_at.add_child(grip)
-		b._fit.append([grip, float(look[2]) * girth * _kenney_unit(look[0], "arm-right"), Vector3(0, -0.8, 0)])
+		# (sized as the old figure's arm would hold it, or by the entry's own measure where that came out too big)
+		b._fit.append([grip, float(look[2]) * girth * _kenney_unit(look[0], "arm-right") * (float(spec[11]) if spec.size() > 11 else 1.0), Vector3(0, -0.8, 0)])
+		b.level_hold = spec.size() > 10
 		b.hand = grip
 	var chest_at := _bone_node(sk, str(spec[6]))
 	if chest_at:
@@ -466,6 +511,34 @@ func play(a: String, speed := 1.0) -> void:
 		anim.play(a, 0.15)
 
 
+## Walks, runs or stands by its pace over the ground (metres a second): a walk or run is played as fast as its
+## steps carry the body, so its feet do not skate.
+func pace_play(pace: float, backward := false) -> void:
+	_pace_play(pace)
+	if backward and _now != str(clips.get("idle", "idle")) and anim:
+		anim.speed_scale = -absf(anim.speed_scale)   # stepping back: the walk run backward
+
+
+func _pace_play(pace: float) -> void:
+	if pace <= 0.4 or anim == null:
+		play("idle")
+		return
+	if skel == null:
+		play("sprint" if pace > 4.5 else "walk", clampf(pace / 3.0, 0.7, 1.6))
+		return
+	var wn := str(clips.get("walk", "walk")) if not clips.is_empty() else "walk"
+	var rn := str(clips.get("sprint", "sprint")) if not clips.is_empty() else "sprint"
+	var ws := Stride.of(skel, anim, wn)
+	var rs := Stride.of(skel, anim, rn) if rn != wn else 0.0
+	# Its run once the pace is well past what its walk can carry; each played as fast as its steps go
+	if rs > 0.05 and (ws < 0.05 or pace > ws * 1.7):
+		play("sprint", clampf(pace / rs, 0.5, 2.0))
+	elif ws > 0.05:
+		play("walk", clampf(pace / ws, 0.4, 2.6))
+	else:
+		play("sprint" if pace > 4.5 else "walk", clampf(pace / 3.0, 0.7, 1.6))
+
+
 ## A one-off: a swing, a shot, a fall. It plays through before the walking takes up again.
 func act(a: String, speed := 1.0) -> void:
 	if not clips.is_empty():
@@ -487,6 +560,13 @@ func _process(delta: float) -> void:
 	_once = maxf(0.0, _once - delta)
 	if not _fit.is_empty():
 		_fit_now()
+	if level_hold and hand and hand.get_parent() is Node3D:
+		# Held level, pointing where the body faces, its grip at the hand
+		var k := hand.global_basis.get_scale().x
+		var f := global_basis.z.normalized()
+		var bx := global_basis.x.normalized()
+		var hb := Basis(bx, -f, bx.cross(-f)).scaled(Vector3.ONE * k)
+		hand.global_transform = Transform3D(hb, (hand.get_parent() as Node3D).global_position - hb * Vector3(0, -0.8, -0.12))
 	_stand_plate()
 	if _float:
 		# A ghost without bones drifts: a slow sway and rise

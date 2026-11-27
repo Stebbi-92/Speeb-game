@@ -215,7 +215,7 @@ func build() -> void:
 
 
 ## The graphics presets. Low: short, coarse shadows and no glow, for slower machines. Standard: the
-## world as made. High: ambient occlusion, indirect light, and a richer bloom.
+## world as made. High: ambient occlusion and a richer bloom.
 func apply_quality() -> void:
 	if env == null:
 		return
@@ -223,7 +223,9 @@ func apply_quality() -> void:
 	var low := Game.quality == 0
 	env.ssao_enabled = high
 	env.ssao_intensity = 1.6
-	env.ssil_enabled = high
+	# (no indirect light from the screen: on some cards it gives back numbers that are not numbers, and the
+	# glow then floods the sky with flat blue, yellow, red or cyan)
+	env.ssil_enabled = false
 	if not has_meta("glow0"):
 		set_meta("glow0", env.glow_intensity)
 	env.glow_enabled = not low
@@ -1560,7 +1562,7 @@ func _unblinking_eye() -> void:
 	for i in _ambient.size():
 		create_tween().tween_property(_ambient[i], "volume_db", saved_db[i] + 30.0, 2.0)
 	hud.set_fx("desat", 0.0)
-	hud.set_fx("vignette", 0.35)
+	hud.set_fx("vignette", 0.0)
 	if not _gathering:
 		combat_frozen = was_frozen
 	eye_watching = false
@@ -1864,7 +1866,7 @@ func rune(pos: Vector3, yaw: float, scale: float, m: Material) -> Node3D:
 
 func ambient(name: String, vol_db := -6.0) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	var s = load("res://assets/audio/%s.ogg" % name)
+	var s = load("res://assets/audio/%s.ogg" % name).duplicate()   # a looping copy: the loaded file is shared with one-shots
 	s.loop = true
 	p.stream = s
 	p.bus = "World"
@@ -1882,9 +1884,9 @@ static var _takes := {}   ## each sound's recorded takes: name -> [streams]
 ## heaviest; a far shot is a little under the near one, so it doesn't jump louder as it passes 35 m;
 ## creatures sit just under your own gun; the quiet ones that went unheard come up.
 const MIX := {
-	"sniper": 3.5, "revolver": 2.5, "pistol": 1.5, "smg": 1.0, "pistol45": -1.5, "pistol9": -3.0,
-	"sniper_far": -6.6, "revolver_far": -8.0, "pistol45_far": -6.4, "minigun_far": -6.3, "rifle_far": -4.4,
-	"pistol_far": -3.9, "smg_far": -2.7, "autoshotgun_far": -2.5, "shotgun_far": -2.3, "mg_far": -1.0, "pistol9_far": -1.0,
+	# each gun's own shot is set by its round (Arms.SHOT_DB); its far take sits by the near one
+	"sniper_far": 3.0, "revolver_far": 3.0, "pistol45_far": -2.0, "minigun_far": 3.0, "rifle_far": 3.0,
+	"pistol_far": -3.9, "smg_far": -6.5, "autoshotgun_far": -2.0, "shotgun_far": -1.0, "mg_far": 1.5, "pistol9_far": 0.0,
 	"growl_0": -3.0, "growl_1": -3.0, "growl_2": -3.0, "shriek_0": -3.0, "shriek_1": -3.0, "shriek_2": -3.0, "shriek_3": -3.0,
 	"roar": -3.0, "screech": -3.0, "great_roar": -2.0, "critter_1": -5.0, "critter_2": -5.0,
 	"fall": -6.0, "hurt": -2.0, "beam": -4.0,
@@ -1918,7 +1920,7 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		return
 	vol_db += float(MIX.get(name, 0.0))
 	# Heard from far off, a shot has its own recording: the crack gone, the roll of it left
-	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 35.0 \
+	if pos != null and get_viewport().get_camera_3d() and get_viewport().get_camera_3d().global_position.distance_to(pos) > 45.0 \
 			and not takes_of(name + "_far").is_empty():
 		name += "_far"
 		vol_db += float(MIX.get(name, 0.0))
@@ -1926,6 +1928,10 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 	if all.is_empty():
 		return
 	var s = all[randi() % all.size()]
+	if s is AudioStreamOggVorbis and s.loop:
+		# A one-shot never loops, even if something set the shared file looping (a drone that never ended)
+		s = s.duplicate()
+		s.loop = false
 	if all.size() > 1:
 		pitch *= randf_range(0.97, 1.03)
 		vol_db += randf_range(-1.0, 0.5)
@@ -1940,6 +1946,13 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.play()
 		p.finished.connect(p.queue_free)
 	else:
+		# How far it reaches: past its reach it is not heard at all, and it fades out over the last stretch
+		var reach := _reach(name)
+		var cam := get_viewport().get_camera_3d()
+		var off: float = cam.global_position.distance_to(pos) if cam else 0.0
+		if off >= reach.y:
+			return
+		vol_db -= 30.0 * smoothstep(reach.x, reach.y, off)
 		# No more than MAX_VOICES at once: a new sound takes the place of the faintest, or is not heard
 		var loud := _heard_db(vol_db, pos)
 		_voices = _voices.filter(func(v): return is_instance_valid(v) and v.playing)
@@ -1962,10 +1975,53 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		p.position = pos
 		p.pitch_scale = pitch
 		p.unit_size = 8
+		p.max_distance = reach.y
+		var far := _carry(name)
+		if far > 0.0:
+			# Shots, blasts and aircraft carry a long way: heard across the waste, muffled by the distance
+			p.unit_size = far
+			# a shot close by may be as hot as it was played, and no hotter: so a heavy round stays louder than a light one
+			p.max_db = vol_db + 2.0 if far < 60.0 else 8.0
+			p.attenuation_filter_cutoff_hz = 3500.0
 		add_child(p)
 		p.play()
 		p.finished.connect(p.queue_free)
 		_voices.append(p)
+
+
+## Where a sound played in the world starts to fade (x) and where it is gone (y), in metres from the
+## listener. Shots are heard clearly across a fight and gone a few hundred metres off; blasts and
+## aircraft go further; roars and bells a fair way; every small sound stays near where it was made.
+static func _reach(name: String) -> Vector2:
+	var c := _carry(name)
+	if c >= 60.0:
+		return Vector2(200.0, 400.0)
+	if c > 0.0:
+		# a shot carries by its round: a pistol's or SMG's crack the least, a rifle's further, the Mosin's furthest
+		for g in ["pistol", "smg"]:
+			if name.begins_with(g):
+				return Vector2(100.0, 200.0)
+		for g in ["rifle", "mg", "minigun"]:
+			if name.begins_with(g):
+				return Vector2(150.0, 300.0)
+		if name.begins_with("sniper"):
+			return Vector2(180.0, 350.0)
+		return Vector2(130.0, 250.0)   # shotguns, the revolver, the rocket
+	for n in ["great_roar", "horror", "roar", "bell", "unseen_scream", "crumble", "fall_heavy"]:
+		if name.begins_with(n):
+			return Vector2(60.0, 130.0)
+	return Vector2(30.0, 65.0)
+
+
+## How far a sound carries (its unit size, in metres), for the loud ones; 0 for the rest.
+static func _carry(name: String) -> float:
+	for a in ["flyby", "brrt", "rotor", "jet", "boom", "bomb", "gunship"]:
+		if name.begins_with(a):
+			return 60.0
+	for g in ["shotgun", "autoshotgun", "smg", "mg", "rifle", "sniper", "pistol", "revolver", "minigun", "rocket"]:
+		if name.begins_with(g):
+			return 30.0
+	return 0.0
 
 
 const MAX_VOICES := 32   ## sounds in the world playing at once
@@ -2230,7 +2286,7 @@ func _net_tick(delta: float) -> void:
 			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
 			player.weapon.gun() if player.weapon else "shotgun",
 			Game.mounts_of(player.weapon.gun()) if player.weapon else [],
-			_cat_pose(), _smoking_now()])
+			_cat_pose(), _smoking_now(), player.crouched])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:
@@ -2356,6 +2412,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					fs.name = "FlameRoar"
 					fs.stream = Arms.flame_loop()
 					fs.unit_size = 10
+					fs.max_distance = 70.0
 					fs.volume_db = Arms.FLAME_DB + 3.0
 					fs.bus = Game.bus_of("flame")
 					av.add_child(fs)
@@ -2366,7 +2423,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
 						fs.stop())
 			return
-		sfx("supp" if quiet else str(g.sound), -10 if quiet else Arms.shot_db(str(g.sound)) - 6.0, a)
+		sfx("supp" if quiet else str(g.sound), Arms.shot_db(parts[1], quiet) + Arms.REMOTE_DB, a, Arms.shot_pitch(parts[1]))
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
 		if g.mode == "rocket":
@@ -2395,6 +2452,11 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 		var r2 := space.intersect_ray(q)
 		if not r2.is_empty():
 			puff(r2.position, r2.normal)
+		return
+	if kind == "firepool":
+		# Where a fellow's fire bottle broke, by their count: their bottle here gives way to it
+		FirePool.claim(self, a)
+		Arms.Thrown.burn(self, a, b.x, 0.0, b.y, false)
 		return
 	if kind.begins_with("throw:"):
 		var t := Arms.Thrown.make(self, kind.substr(6), a, b, true)
@@ -2556,6 +2618,16 @@ var guard_up := {}   ## (host) peer -> when a friend last raised their guard, in
 func _w_guard_up(id: int) -> void:
 	if Net.authority():
 		guard_up[id] = Time.get_ticks_msec()
+
+
+## (all) A friend's guard turned a foe's blow on the host's side: the ring of it there, and the one who
+## parried feels it in their hands.
+func _w_parried(id: int, at: Vector3) -> void:
+	sfx("parry", 0, at)
+	if id == Net.me() and player:
+		player.shake(0.2)
+		if hud:
+			hud.hitmarker(false, true)
 
 
 ## (host) Whether a friend raised their guard just now, facing this foe: a perfect guard, across the wire.
@@ -3020,6 +3092,110 @@ func debug_heldshot() -> void:
 		c._label.visible = false
 
 
+## Testing aid (rendered, any land): first person standing and crouched behind a low wall, with a figure
+## beyond it, then friends standing, crouched and crouch-walking seen from the side and the front.
+## A floor of its own is laid high over the land, so nothing else is in the way. Saves <SHOT_OUT>_*.png.
+func debug_crouchshot() -> void:
+	var out := OS.get_environment("SHOT_OUT")
+	combat_frozen = true
+	Game.toggles["soft"] = false
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.2
+	sun.shadow_enabled = true
+	sun.rotation = Vector3(-0.8, 0.6, 0)
+	add_child(sun)
+	var at := player.global_position + Vector3(0, 200, 0)
+	var grey := StandardMaterial3D.new()
+	grey.albedo_color = Color(0.5, 0.46, 0.4)
+	var floor_b := _debug_slab(at + Vector3(0, -0.25, 0), Vector3(60, 0.5, 60), grey)
+	player.place(at + Vector3(0, 0.05, 0), 0.0)
+	await get_tree().create_timer(0.8).timeout
+	var stone := StandardMaterial3D.new()
+	stone.albedo_color = Color(0.36, 0.33, 0.3)
+	var wall := _debug_slab(at + Vector3(0, 0.5, -1.2), Vector3(3.0, 1.0, 0.35), stone)
+	var foe := Figure.new().setup(Figure.seeded(17))
+	add_child(foe)
+	foe.global_position = at + Vector3(0, 0, -8.0)
+	player.pitch = -0.04
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out + "_fp_standing.png")
+	print("CROUCHSHOT standing eye=%.2f" % (player.head.global_position.y - at.y))
+	Input.action_press("soft")
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out + "_fp_crouched.png")
+	print("CROUCHSHOT crouched eye=%.2f" % (player.head.global_position.y - at.y))
+	if player.weapon:
+		player.weapon.debug_aim = true
+		await get_tree().create_timer(0.6).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out + "_fp_crouched_aim.png")
+		player.weapon.debug_aim = false
+	Input.action_release("soft")
+	wall.free()
+	foe.queue_free()
+	await get_tree().create_timer(0.5).timeout
+	# Friends, from 4 m: standing, crouched, and crouched walking to and fro
+	hud.root.visible = false
+	if player.weapon:
+		player.weapon.enabled = false
+	var cs := []
+	for i in 3:
+		var c := Companion.new().setup(1)
+		add_child(c)
+		c._label.visible = false
+		cs.append(c)
+	var spots := [-1.3, 0.0, 1.3]
+	var views := [["side", 0.0, Vector3.ZERO, -PI / 2], ["front", 90.0, Vector3(4.0, 0, -4.0), -PI / 2]]
+	for v in views:
+		player.place(at + (v[2] as Vector3) + Vector3(0, 0.05, 0), deg_to_rad(float(v[1])))
+		player.pitch = -0.12
+		for f in 120:
+			for i in 3:
+				var z: float = -4.0 + (fmod(f * 1.3 / 60.0, 1.2) - 0.6 if i == 2 else 0.0)
+				(cs[i] as Companion).pose([at + Vector3(spots[i], 0, z), float(v[3]) if i != 2 else PI, 0.0, false, 1.0, "shotgun", true, false,
+					"sniper" if i == 1 else "shotgun", [], "", false, i > 0])
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out + "_friends_%s.png" % v[0])
+	floor_b.free()
+	print("CROUCHSHOT done")
+	get_tree().quit()
+
+
+## Testing aid: a plain block that things stand on and see against.
+func _debug_slab(at: Vector3, size: Vector3, mat: Material = null) -> StaticBody3D:
+	var b := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	b.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = mat
+	b.add_child(mi)
+	add_child(b)
+	b.global_position = at
+	return b
+
+
+## Test: one's own arms on a few guns and a blade, through the hold, the aim and the reload, measured every
+## frame by tools/hand_check.gd: no bone stretched, no hand short of its grip, elbows and wrists and forearms
+## within what an arm can do, no elbow jumping round. Prints HANDCHECK lines and a HANDFIT summary.
+func debug_handfit() -> void:
+	combat_frozen = true
+	clear_enemies()
+	Game.plevel = ArmsDB.MAX_LEVEL
+	var ck: Node = load("res://tools/hand_check.gd").new()
+	add_child(ck)
+	await ck.run(player.weapon, ["shotgun", "pistol", "minigun", "hatchet"], ["idle", "aim", "fire", "reload", "guard"])
+	get_tree().quit()
+
+
 ## Test: every gun laid out side on, bare above and fully fitted below.
 func debug_gunshot() -> void:
 	combat_frozen = true
@@ -3039,6 +3215,189 @@ func debug_gunshot() -> void:
 		m.position = Vector3(-0.75 + (i % 2) * 1.5, 0.55 - (i / 2) * 0.36, -1.7)
 		m.rotation.y = -PI / 2 + 0.3
 	maker.free()
+
+
+## Test: the top of the gun named by GUN, slice by slice along it (1 cm), as it is built with FIT= parts:
+## for each slice the highest point near the middle and the middle of the points near that top, to find
+## where its sights and rail truly run. Prints PROFILE lines and the eye the gun is aimed by.
+func debug_gunprofile() -> void:
+	var g := OS.get_environment("GUN")
+	var maker := Arms.new()
+	var n: Node3D = maker._build(g, Array(OS.get_environment("FIT").split(",", false)))
+	add_child(n)
+	var pts := PackedVector3Array()
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if not m.is_visible_in_tree() or m.mesh == null:
+			continue
+		var t: Transform3D = n.global_transform.affine_inverse() * m.global_transform
+		for si in m.mesh.get_surface_count():
+			for p in m.mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]:
+				pts.append(t * p)
+	print("PROFILE eye=%.4f eye_x=%.4f eye_rot=%s tip=%s n=%d" % [n.get_meta("eye", 0.0), n.get_meta("eye_x", 0.0), n.get_meta("eye_rot", Vector3.ZERO), n.get_meta("tip", Vector3.ZERO), pts.size()])
+	var bins := {}
+	for p in pts:
+		if absf(p.x) > 0.04:
+			continue
+		var k := int(floor(p.z * 100.0))
+		if not bins.has(k) or p.y > bins[k]:
+			bins[k] = p.y
+	var ks := bins.keys()
+	ks.sort()
+	for k in ks:
+		var top: float = bins[k]
+		var lo := 1.0
+		var hi := -1.0
+		for p in pts:
+			if int(floor(p.z * 100.0)) == k and p.y > top - 0.004 and absf(p.x) <= 0.04:
+				lo = minf(lo, p.x)
+				hi = maxf(hi, p.x)
+		print("PROFILE z=%.2f top=%.4f x=%.4f..%.4f mid=%.4f" % [k / 100.0, top, lo, hi, (lo + hi) * 0.5])
+	# The whole gun's spread across, for each height band, to see where its body's middle is
+	var xs := {}
+	for p in pts:
+		var hk := int(floor(p.y * 50.0))
+		if not xs.has(hk):
+			xs[hk] = [p.x, p.x]
+		xs[hk][0] = minf(xs[hk][0], p.x)
+		xs[hk][1] = maxf(xs[hk][1], p.x)
+	var hs := xs.keys()
+	hs.sort()
+	for hk in hs:
+		print("PROFILE y=%.2f x=%.4f..%.4f mid=%.4f" % [hk / 50.0, xs[hk][0], xs[hk][1], (xs[hk][0] + xs[hk][1]) * 0.5])
+	maker.free()
+	get_tree().quit()
+
+
+## Test: each gun with each of its parts fitted that can be seen (sights, muzzles, grips, magazines, barrels,
+## stocks), four to a picture, seen from a little above and to the side. GUNS= limits the guns; SHOT_OUT is the prefix.
+## Picture aid: another pilgrim (as co-op shows them) holding each gun, from the side and from ahead, drawn flat.
+## Env GUNS (comma list, all if empty), SHOT_OUT. Saves <SHOT_OUT>_<gun>_<side|front>.png.
+func debug_mateshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	hud.root.visible = false
+	var cam := Camera3D.new()
+	player.cam.add_child(cam)
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = 1.3
+	cam.near = 0.01
+	cam.far = 20.0
+	cam.make_current()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = cam.global_rotation + Vector3(-0.6, 0.5, 0)
+	var only := OS.get_environment("GUNS").split(",", false)
+	var c := Companion.new().setup(999)
+	cam.add_child(c)
+	await get_tree().process_frame
+	c._has_pose = true
+	c.visible = true
+	for g in ArmsDB.GUNS.keys():
+		if not only.is_empty() and not g in only:
+			continue
+		c._show_gun(g, [])
+		c._gun.visible = true
+		c._fig.hold = true
+		c._fig.arms_forward = true
+		for view in ["side", "front"]:
+			# The camera looks down -Z: the figure stands 5 m off, side on (or facing it), its chest framed
+			c.position = Vector3(0, -1.25, -5.0)
+			c._to = c.global_position
+			c.rotation.y = -PI / 2 if view == "side" else 0.0
+			c._yaw = c.rotation.y - PI
+			c._last = c.global_position
+			for f in 6:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png("%s_%s_%s.png" % [OS.get_environment("SHOT_OUT"), g, view])
+			print("MATESHOT %s %s" % [g, view])
+	get_tree().quit()
+
+
+func debug_fitshot() -> void:
+	combat_frozen = true
+	player.weapon.enabled = false
+	hud.root.visible = false
+	# Drawn flat (no depth), so what touches and what floats is read true
+	var cam := Camera3D.new()
+	player.cam.add_child(cam)
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.near = 0.01
+	cam.far = 10.0
+	cam.make_current()
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = cam.global_rotation + Vector3(-0.7, 0.6, 0)
+	var maker := Arms.new()
+	var only := OS.get_environment("GUNS").split(",", false)
+	var seen := ["sight", "muzzle", "grip", "mag", "barrel", "stock"]
+	for g in ArmsDB.GUNS.keys():
+		if not only.is_empty() and not g in only:
+			continue
+		var sets: Array = [[]]
+		for m in WArms.mounts_for(g):
+			if ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot in seen:
+				sets.append([m])
+		for i in sets.size():
+			var slot: String = "sight" if sets[i].is_empty() else ArmsDB.ATTACHMENTS[sets[i][0]].slot
+			var views := ["side"]
+			if slot == "sight":
+				views = ["side", "zoom", "back", "top"]
+			elif slot == "muzzle" or slot == "grip":
+				views = ["side", "zoom"]
+			var vonly := OS.get_environment("VIEWS").split(",", false)
+			for view in views:
+				if not vonly.is_empty() and not view in vonly:
+					continue
+				var gun := maker._build(g, sets[i])
+				var bb := AABB()
+				var first := true
+				var aim := Vector3(0, 0, 0)
+				for mi in gun.find_children("*", "MeshInstance3D", true, false):
+					var ab: AABB = WTrees._chain(mi, gun) * (mi as MeshInstance3D).get_aabb()
+					bb = ab if first else bb.merge(ab)
+					first = false
+					if mi.has_meta("reticle"):
+						aim = WTrees._chain(mi, gun).origin
+				var part := Vector3.ZERO
+				for c in gun.find_children("*", "Node3D", true, false):
+					if c.has_meta("bb"):
+						part = WTrees._chain(c, gun).origin
+				var L := clampf(bb.size.z, 0.15, 1.6)
+				var at := bb.get_center()
+				cam.size = maxf(L * 0.62, bb.size.y * 1.15)
+				if view == "zoom":
+					cam.size = 0.13
+					if slot == "sight":
+						at = aim if aim != Vector3.ZERO else Vector3(0, bb.end.y - 0.03, bb.get_center().z)
+					elif part != Vector3.ZERO:
+						at = part
+						cam.size = 0.16 if slot == "muzzle" else 0.2
+				cam.add_child(gun)
+				match view:
+					"side", "zoom":
+						gun.rotation = Vector3(0, -PI / 2, 0)
+					"back":
+						gun.rotation = Vector3.ZERO
+						cam.size = 0.16
+						at = Vector3(0, bb.end.y - 0.05, 0)
+					"top":
+						gun.rotation = Vector3(PI / 2, 0, 0)
+						if slot == "sight" and aim != Vector3.ZERO:
+							at = Vector3(0, 0, aim.z)
+							cam.size = 0.2
+				gun.position = gun.basis * -at + Vector3(0, 0, -3.0)
+				for f in 4:
+					await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s_%s_%s_%s.png" % [OS.get_environment("SHOT_OUT"), g, "bare" if sets[i].is_empty() else sets[i][0], view])
+				print("FITSHOT %s %s %s" % [g, sets[i], view])
+				gun.queue_free()
+	maker.free()
+	get_tree().quit()
 
 
 ## Test: the shotgun fed shell by shell, held at k= (0 to 1) so a picture catches the shell on its way in.
@@ -3065,6 +3424,157 @@ func debug_reloadshot() -> void:
 	player.weapon.reserve = 40
 	player.weapon._start_reload()
 	player.weapon._reload_t = player.weapon._reload_len * (1.0 - k)
+
+
+## Test: the guns named by GUN (a comma list; the carbine and the hand cannon if none; FIT= what is fitted) in one's own
+## hands, our arms drawn on them, through each of PHASES (hip, aim, fire, case, switch, rl<k> for a reload held at k): a
+## picture of each saved as <SHOT_OUT>_<phase>.png (none without SHOT_OUT, or with no screen), and the arms measured at
+## each: HANDCHECK lines give, per phase and arm, how far each bone is from its own length (stretch, %), the elbow's
+## bend (degrees, 180 straight) and whether it bends down and out as an elbow does, the wrist's bend off its rest
+## (flex and to the side, degrees; and in brackets off the forearm's own line), and how far the palm is from where it
+## was sent. A last line per gun gives the worst of each over all phases. CLOSE=1 narrows the view onto the hands.
+func debug_gunlook() -> void:
+	while get("ready_world") == false:
+		await get_tree().create_timer(0.5).timeout
+	combat_frozen = true
+	if hud:
+		hud.root.visible = false
+	var gs: Array = Array((OS.get_environment("GUN") if OS.get_environment("GUN") != "" else "carbine,hand_cannon").split(","))
+	var fit: Array = Array(OS.get_environment("FIT").split(",", false))
+	var phases: Array = Array((OS.get_environment("PHASES") if OS.get_environment("PHASES") != "" else "hip,aim,fire,rl0.15,rl0.3,rl0.5,rl0.7,rl0.88,switch").split(","))
+	var out := OS.get_environment("SHOT_OUT") if DisplayServer.get_name() != "headless" else ""
+	var w: Arms = player.weapon
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.0
+	add_child(sun)
+	sun.global_rotation = player.cam.global_rotation + Vector3(-0.6, 0.6, 0)
+	if OS.get_environment("CLOSE") == "1":
+		player.cam.fov = 45.0
+	for g in gs:
+		Game.plevel = ArmsDB.MAX_LEVEL
+		Game.loadout.primary = g if ArmsDB.GUNS[g].slot == "primary" else "shotgun"
+		Game.loadout.secondary = g if ArmsDB.GUNS[g].slot == "secondary" else "pistol"
+		Game.loadout.mounts = {g: fit}
+		var am = Game.arms_now().get("mounts")
+		if am is Dictionary:
+			am[g] = fit
+		w.equip_loadout()
+		if w.gun() != g:
+			w.swap()
+		if w.gun() != g:
+			# (in the waste the carried arms are the pilgrim's own: the gun is put in hand directly)
+			if not w._st.has(g):
+				w._st[g] = {"mag": 5, "reserve": 10}
+			w.guns = [g, w.guns[w.guns.size() - 1]]
+			w.cur = 0
+			w._models.erase(g)
+			w._show_model()
+		await get_tree().create_timer(0.6, false).timeout
+		var h: FPHands = w.hands
+		h.debug_pose = "look"   # our arms drawn for this, though they are off in play
+		var worst := {"stretch": 0.0, "elbow_min": 180.0, "elbow_max": 0.0, "flex": 0.0, "side": 0.0, "miss": 0.0, "wrong_bend": 0}
+		for ph in phases:
+			w.debug_aim = ph == "aim"
+			w._reloading = false
+			w._reload_rest(1.0)
+			w.reload_mult = 1.0
+			w._switch = 0.0
+			w._flash_mesh.visible = false
+			if ph.begins_with("rl"):
+				var k := float(ph.substr(2))
+				w.reload_mult = 10000.0
+				w.shells = 0
+				w.reserve = 40
+				w._start_reload()
+				# Run up to k, so what happens on the way (spent shells thrown) happens
+				for i in 12:
+					w._reload_t = w._reload_len * (1.0 - k * (i + 1) / 12.0)
+					await get_tree().process_frame
+			elif ph == "switch":
+				w._switch = 0.15
+			# Settle by time, not frames: a headless run's frames are far shorter
+			var settle := 0.0
+			while settle < (0.8 if ph == "aim" else 0.4):
+				if ph == "switch":
+					w._switch = 0.15
+				await get_tree().process_frame
+				settle += get_process_delta_time()
+			if ph == "switch":
+				w._switch = 0.15
+			if ph == "fire" or ph == "case":
+				w._quiet = 0.03
+				w._flash_mesh.visible = true
+				w._flash_mesh.scale = Vector3.ONE * float(w.FLASH_SIZE.get(g, 0.18))
+				var tip: Vector3 = w._model.get_meta("tip")
+				if w.BORES.has(g):
+					tip.x += float(w.BORES[g])
+				w._flash_mesh.position = w._model.transform * tip
+				if ph == "case" and Arms.case_delay(g) >= 0.0:
+					w._eject()
+					w._eject()
+				await get_tree().process_frame
+			if out != "":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s_%s.png" % [out, ph])
+			_hand_measure(w, h, ph, worst)
+		w.debug_aim = false
+		w._reloading = false
+		w._reload_rest(1.0)
+		w.reload_mult = 1.0
+		h.debug_pose = ""
+		print("HANDCHECK %s worst stretch=%.2f%% elbow=%.0f..%.0f wrist_flex=%.0f wrist_side=%.0f palm_miss=%.3f wrong_bend=%d" % [g, worst.stretch, worst.elbow_min, worst.elbow_max, worst.flex, worst.side, worst.miss, worst.wrong_bend])
+	get_tree().quit()
+
+
+## One measure of our arms as they are drawn now (see debug_gunlook).
+func _hand_measure(w: Arms, h: FPHands, ph: String, worst: Dictionary) -> void:
+	var sk: Skeleton3D = h._sk
+	if sk == null or not h.visible:
+		print("HANDCHECK %s %s no arms drawn" % [w.gun(), ph])
+		return
+	var p := w.hand_pose("look")
+	var cam: Transform3D = player.cam.global_transform
+	var gp := func(b: int) -> Vector3: return sk.global_transform * sk.get_bone_global_pose(b).origin
+	var gr := func(b: int) -> Vector3: return sk.global_transform * sk.get_bone_global_rest(b).origin
+	for sd in ["R", "L"]:
+		var d: Dictionary = h._side[sd]
+		var S: Vector3 = gp.call(d.arm)
+		var E: Vector3 = gp.call(d.elbow)
+		var W: Vector3 = gp.call(d.wrist)
+		var l1: float = (gr.call(d.arm) as Vector3).distance_to(gr.call(d.elbow))
+		var l2: float = (gr.call(d.elbow) as Vector3).distance_to(gr.call(d.wrist))
+		var stretch: float = maxf(absf(S.distance_to(E) / l1 - 1.0), absf(E.distance_to(W) / l2 - 1.0)) * 100.0
+		var elbow := rad_to_deg((S - E).angle_to(W - E))
+		# An elbow bends down and out, never up or in across the body
+		var mid := (S + W) * 0.5
+		var off_c: Vector3 = cam.basis.inverse() * (E - mid)
+		var out_ok := off_c.x * (1.0 if sd == "R" else -1.0) > -0.02
+		var down_ok := off_c.y < 0.02
+		# The wrist: the hand's line off the forearm's, against the same at rest
+		var names := {}
+		for i in sk.get_bone_count():
+			var nm := sk.get_bone_name(i)
+			if nm.begins_with(sd + "_"):
+				names[nm.get_slice("_", 1)] = i
+		var Hn := FPHands._frame((gp.call(names.middle1) as Vector3) - W, (gp.call(names.point1) as Vector3) - (gp.call(names.pink1) as Vector3), sd)
+		var Hr := FPHands._frame((gr.call(names.middle1) as Vector3) - (gr.call(d.wrist) as Vector3), (gr.call(names.point1) as Vector3) - (gr.call(names.pink1) as Vector3), sd)
+		var u_n: Vector3 = Hn.inverse() * (W - E).normalized()
+		var u_r: Vector3 = Hr.inverse() * ((gr.call(d.wrist) as Vector3) - (gr.call(d.elbow) as Vector3)).normalized()
+		var flex := rad_to_deg(atan2(u_n.z, u_n.x) - atan2(u_r.z, u_r.x))
+		var side := rad_to_deg(atan2(u_n.y, u_n.x) - atan2(u_r.y, u_r.x))
+		var palm: Vector3 = W + sk.global_transform.basis * (sk.get_bone_global_pose(d.wrist).basis.orthonormalized() * (d.palm as Vector3))
+		var miss: float = palm.distance_to(p[sd].at) if p.has(sd) else -1.0
+		# (and the same against the forearm's own line, as the bones have no bend at the wrist at rest)
+		var flex_abs := rad_to_deg(atan2(u_n.z, u_n.x))
+		var side_abs := rad_to_deg(atan2(u_n.y, u_n.x))
+		print("HANDCHECK %s %s %s stretch=%.2f%% elbow=%.0f out=%s down=%s wrist_flex=%.0f wrist_side=%.0f (line %.0f/%.0f) palm_miss=%.3f" % [w.gun(), ph, sd, stretch, elbow, out_ok, down_ok, flex, side, flex_abs, side_abs, miss])
+		worst.stretch = maxf(worst.stretch, stretch)
+		worst.elbow_min = minf(worst.elbow_min, elbow)
+		worst.elbow_max = maxf(worst.elbow_max, elbow)
+		worst.flex = maxf(worst.flex, absf(flex))
+		worst.side = maxf(worst.side, absf(side))
+		worst.miss = maxf(worst.miss, miss)
+		worst.wrong_bend += 0 if out_ok and down_ok else 1
 
 
 ## Test: looking down the sights of the gun named by gun=, with fit= listing what is on it.
@@ -3356,3 +3866,85 @@ func _boss_watch() -> void:
 				bd = d
 				best = e
 	hud.boss_bar(LesserSpeeb.BOSSES[best.boss].name if best else "", best.hp_frac if best else 0.0)
+
+
+## Testing aid: throws a fire bottle ahead and saves pictures of it burning: at the burst, then on through
+## its life to the char it leaves. firemode= takes night, slope and foe (a form stood in the fire).
+func debug_firenade() -> void:
+	while get("ready_world") == false:
+		await get_tree().create_timer(1.0).timeout
+	var mode := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("firemode="):
+			mode = a.substr(9)
+	if has_method("_debug_home"):
+		await call("_debug_home")
+	await get_tree().create_timer(1.0).timeout
+	if get("clock") != null:
+		set("clock", 22.5 if "night" in mode else 13.0)
+		call("_apply_time", true)
+	var space := get_world_3d().direct_space_state
+	var down := func(p: Vector3) -> Vector3:
+		var g := FirePool.ground(space, p + Vector3.UP * 60.0, p + Vector3.DOWN * 60.0)
+		return p if g.is_empty() else g[0]
+	var at := player.global_position
+	var yaw := player.rotation.y
+	if "slope" in mode:
+		# A hillside near: stand on it looking along it, so the fire lies across the slope
+		var best := -1.0
+		var c0 := player.global_position
+		for ring in range(1, 14):
+			for k in 16:
+				var a2 := k * TAU / 16.0
+				var p: Vector3 = c0 + Vector3(cos(a2), 0, sin(a2)) * ring * 10.0
+				var gx: float = (down.call(p + Vector3(1, 0, 0)).y - down.call(p - Vector3(1, 0, 0)).y) * 0.5
+				var gz: float = (down.call(p + Vector3(0, 0, 1)).y - down.call(p - Vector3(0, 0, 1)).y) * 0.5
+				var sl := Vector2(gx, gz).length()
+				if sl > 0.3 and sl < 0.7 and sl > best:
+					best = sl
+					var along := Vector3(-gz, 0, gx).normalized()
+					at = p - along * 9.0
+					yaw = atan2(-along.x, -along.z)
+		print("FIRENADE slope=%.2f" % best)
+	at = down.call(at) + Vector3.UP * 0.2
+	player.place(at, yaw)
+	await get_tree().create_timer(0.8).timeout
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var foe: Node3D = null
+	if "foe" in mode:
+		var fp: Vector3 = down.call(player.global_position + fwd * 8.5 + fwd.cross(Vector3.UP) * 0.8)
+		foe = spawn_at("hollow", fp)
+		foe.set_physics_process(false)
+		foe.hp = 100000.0
+		foe.max_hp = 100000.0
+	Game.main.hud.visible = false
+	var wp: Arms = player.weapon
+	wp.grenade = "incendiary"
+	wp.grenades = 3
+	player.pitch = -0.3
+	await get_tree().process_frame
+	await get_tree().process_frame
+	wp.throw_grenade()
+	var bottle: Node = null
+	for c in get_children():
+		if c is Arms.Thrown:
+			bottle = c
+	var t := 0.0
+	while is_instance_valid(bottle) and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		player.pitch = lerpf(player.pitch, -0.25, 0.1)
+	print("FIRENADE burst after %.2f s" % t)
+	player.pitch = -0.25
+	var tag := mode.replace(",", "_") if mode != "" else "day"
+	var shot := 0
+	var last := 0.0
+	for w in [0.15, 0.45, 1.0, 4.0, 6.6, 8.2, 12.0]:
+		await get_tree().create_timer(w - last, false).timeout
+		last = w
+		get_viewport().get_texture().get_image().save_png("user://fire_%s_%d.png" % [tag, shot])
+		print("FIRENADE shot %d at %.2f fps=%d burning=%s" % [shot, w, Engine.get_frames_per_second(), foe != null and foe.has_meta("ablaze")])
+		shot += 1
+	get_tree().quit()

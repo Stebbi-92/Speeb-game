@@ -16,7 +16,7 @@
 - **Beacons steady you.** Each lit beacon adds 10 most health, up to +60.
 - **Armour.** Helms and body plate soak part of each blow and wear down. Broken plate covers little; mend it at a workbench (Arms, Clothing) for scrap. The thin bar above your health shows what is left.
 - **Foes in plate.** The Unlit wear iron. Shots ring off it until it breaks. Aim for the head, or load Piercing Rounds. Hollow Rounds hit flesh harder but stop on plate.
-- **Stay quiet.** Foes keep to their camps until they see or hear you. A bare gunshot carries over a hundred metres; a suppressed one about twenty. Sneak (Ctrl) and they see you from less far, and at night less far again.
+- **Stay quiet.** Foes keep to their camps until they see or hear you. A bare gunshot carries over a hundred metres; a suppressed one about twenty. Crouch (Ctrl) and they see you from less far, and at night less far again. Crouched, a low wall, a rock or a crate can hide you from them.
 - **Turn the blow.** A perfect guard works on any creature's bite or blow from the front.
 - **Gunmen's rounds.** The Unlit gunmen and marksmen fire real rounds you can see in flight. Keep moving, or dodge (Q) as one comes: a dodge lets it pass at any range. Marksmen's rounds fly faster.
 - **Heavy foes' moves.** Breakers, knights, wardens, the Hollowed, the Pale Deacon, the Tar-Drowned and the Colossus have three moves besides the plain blow, each with its own warning. A **sweep** shows a ring on the ground: step out of it. A **lunge** shows a lane toward you: step off it. A **grab** comes when they raise both arms and roar: back away or dodge, or you are held for a moment.

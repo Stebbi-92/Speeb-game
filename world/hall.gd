@@ -130,6 +130,7 @@ func _cavern() -> void:
 		WDress.kp(holder, "pirate", "boat-row-small", Vector3(3.0, -0.55, bz), side[1] + PI * 0.5, 1.2, false)
 		var lena := Figure.new().setup(Figure.townsman("ash_lena".hash(), "gallowmere"))
 		lena.arms_forward = false
+		lena.real = true
 		holder.add_child(lena)
 		lena.position = Vector3(3.0, -0.25, bz)
 		lena.rotation.y = side[1]

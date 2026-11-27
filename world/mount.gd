@@ -265,16 +265,19 @@ func _process(delta: float) -> void:
 		_head.face_target = null
 		_head.rotation.y = lerp_angle(_head.rotation.y, 0.0, minf(1.0, delta * 3.0))   # eyes on the road
 	# The gait: idle, walk, trot or gallop by the pace, the steps quickened to the ground it covers
+	# (each gait's own pace measured from its clip, see Stride: a walk to half again its pace, then a trot to
+	# 1.6 times its own, then the gallop)
+	var walk := Stride.of(_skel, _anim, "Cat_Walk")
+	var trot := Stride.of(_skel, _anim, "Cat_Trot")
 	var g := "Cat_Idle"
-	if _speed > 6.5:
+	if _speed > (trot * 1.6 if trot > 0.0 else 6.5):
 		g = "Cat_Gallop_Run"
-	elif _speed > 3.0:
+	elif _speed > (walk * 1.5 if walk > 0.0 else 3.0):
 		g = "Cat_Trot"
 	elif _speed > 0.25:
 		g = "Cat_Walk"
 	_set_gait(g)
-	var ref: float = {"Cat_Walk": 1.6, "Cat_Trot": 4.5, "Cat_Gallop_Run": 9.0}.get(g, 0.0)
-	_anim.speed_scale = clampf(_speed / ref, 0.6, 1.6) if ref > 0.0 else 1.0
+	_anim.speed_scale = Stride.scale_for(_skel, _anim, g, _speed, 0.6, 1.6) if g != "Cat_Idle" else 1.0
 	_place_head()
 
 

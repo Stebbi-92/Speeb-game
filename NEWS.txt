@@ -1,3 +1,52 @@
+Brelm alpha 0.24.0: people of the waste
+
+- The townsfolk, the people you speak with, the lost and Lena have real bodies: men and women of the waste who stand, walk, run, talk with their hands, wave and work.
+- Foes die the way the last blow drove them: shot from the front they are thrown back, from behind they crumple at the knees, from the side they twist as they fall. The Hollowed, the Salt-Bones, the Ash Weaver and the Nykur keep their own deaths. The dead lie a moment and sink into the ash.
+- Winged forms and the Watching Discs fall out of the sky when they die, and the discs burst where they land. A Kulshedra slain in the air falls too. Ghosts and Ember Wisps burn out.
+- The Unlit gunmen, their marksmen and the Tunnel Unlit raise their rifles to aim.
+- Spirit-cats run, trot and bite on a real cat's body.
+- Beasts fall properly: the tusker has its own death, and the others buckle and roll onto their side.
+- In co-op, a friend who turns a blow with a perfect guard now hears it and feels it.
+- Dedicated servers keep one world of the waste running. Players walk straight into it. It pauses while no one is there and runs again when someone joins, and it is saved every five minutes, when the last player leaves and when the server closes. Run with world=NAME to choose the world, or persist=0 for the old trial server.
+- The dedicated server has a window to run it from: who is here (kick, ban, a word to all), its worlds (save, load, make, when it runs), its settings (kept in server.cfg), updates and the log. Without a window, the same commands are typed at its terminal.
+- Fixed: restarting the game to update no longer sends a crash report.
+- Crouch: the old soft-walk key now crouches. Your view drops, steps are quieter, aim steadies when still, and a low wall or crate hides you from foes. Friends see you crouch.
+- Every tree in the waste can be cut down. Bigger trees take more blows and give more wood. Felled trees leave a stump and grow back after a few days.
+- Building opens step by step: you start with a camp, and each beacon fire opens more pieces and stronger walls. New later pieces: Iron Brazier, Strongbox, Watchtower, Fellowship Banner, Iron-bound Barricade and Tar Lamp-post. Walls can be built up to stone, iron and at last blackglass, each with rarer stuff of the harder lands.
+- The build, make, arms and wear menus have a search box (click it, or press / or Ctrl+F). Build cards and a new "Build it up" box explain what building up gives and costs.
+- The HUD no longer piles text on text at any text size: the quest card wraps beside the compass, compass names keep apart, and food and rest sit above the health bar.
+- The Sunglass Carbine is a new semi-automatic battle rifle. A rail goes on when a sight is fitted, and every attachment sits where it should. The Dome-steel Hand Cannon is now a sawed-off double barrel that breaks open to reload.
+- The fire grenade bursts where it lands into a spreading pool of real flame that hugs the ground, lights the dark and leaves a scorch. Foes in it burn. Campfires, hearths, stoves, torches and burning ground hurt you if you walk through them.
+- Village buildings stand right: no more floating roof plates, sunk log cabins or houses overlapping each other.
+- Every gun is as loud as its round: pistols and SMGs quietest, rifles and the sniper loudest. The shotguns are much beefier, and the gunship has a new rotor, cannon and missiles, all much louder.
+- The prayer weapon must gather faith before its first use, from slaying forms, kindling beacons and felling great ones.
+- Killstreaks need far more kills: 15, 25 and 40.
+- U turns walking-over pickup of satchels on or off.
+- Ghosts shrug off most of a bullet; blades, fire and holy things still bite.
+- Beacons you cannot light yet no longer stand as red and purple columns everywhere; only the next one shows from afar.
+- First-person arms keep their bones and wrists true on every weapon, and the minigun reload and pistol thumb are fixed.
+- Fixed: the sky flashing odd colours on High, the constant dark vignette, whispers and a drone in the base, and the salt rifleman firing into the ground.
+
+Brelm alpha 0.23.0: a steadier hand
+
+- Gun skill: a new survivor's shots wander wider and the sights sway more. Every hit with any gun steadies your hand, rank by rank, until shots go where you aim. Your rank shows on the arms page.
+- Satchels are taken by walking over them. What you just put down stays until you walk off. You can turn this off in Settings, Game.
+- Beacon vigils: the forms come in waves from one side, out of the dark 60 to 85 m off, and run at you. A roar tells you where the next wave comes from. The vigil has its own louder, driving music.
+- Air support is much louder and heavier: jets and the gunship roar past as they fly, bombs and the cannon shake the ground and the view, and the gun run's cannon is made from real recordings.
+- Gunshots are louder and carry much further across the waste, muffled by the distance.
+- No more stall the first time you switch to a big gun: the guns you carry are made ready when you set out.
+- A Linux build, which also runs on Steam Deck.
+- The real gun brand names are gone from the notes and the wiki.
+
+Brelm alpha 0.22.0: the man in the coat
+
+- The man in the coat: on rare nights a stranger stands in the waste. He speaks in riddles. Keep your distance, or he draws a shotgun.
+- The Dune Dweller and the man in the coat move on their own walks and stances. The Kulshedra flies on its wings.
+- Red dots and scopes sit on the slide or rail on every gun, clamped on and lined up: the Autoshotgun's sights, and the red dots on the pistol and Auto Pistol now sit just ahead of the rear sight.
+- In co-op, other players hold each gun by its grip and fore grip, with the stock at the shoulder.
+- The Cinder Matron and other big walkers stand on the ground instead of floating.
+- The build menu no longer cuts off its text.
+
 Brelm alpha 0.21.0: new foes and real blood
 
 - New bodies for the great and strange ones: the Nykur is a real horse, the Kulshedra a dragon, the sea serpents, the Unseen a deer-headed walker, the Bloater a living blob, and the Draugr a cursed soldier who walks, runs and guards. Each has hit shapes that fit its body.
@@ -15,13 +64,13 @@ Brelm alpha 0.20.1: sights and fixes
 - Your own hands are hidden on the guns for now, until they hold every gun well.
 - The SMG's rear aperture and front post line up on the crosshair.
 - The revolver's barrel points where you aim (it tipped down), and its sights sit right.
-- The Auto Pistol fires about 1,200 rounds a minute, like a Glock 18C.
+- The Auto Pistol fires about 1,200 rounds a minute, like a machine pistol.
 - Attachments sit properly on the new guns: the revolver's sights, barrels and compensator, the Autoshotgun's stocks, and its sights on its top rail. Grips on the Belt Gun still count but are not drawn, since it has its own front grip.
 
 Brelm alpha 0.20.0: hands and new bodies
 
 - Hands on every gun: you now see your arms and hands hold each gun and follow its reloads, with magazines, shells, rockets and fuel bottles coming out. Side arms use a two-hand grip with both thumbs forward.
-- New guns: the pistol is now a G17 with a moving slide; a new Autoshotgun and a full-auto SMG. The revolver is a 357 Python whose cylinder turns each shot and swings out to reload. The belt gun has its own fire, reload and idle motions.
+- New guns: the pistol now has a moving slide; a new Autoshotgun and a full-auto SMG. The revolver's cylinder turns each shot and swings out to reload. The belt gun has its own fire, reload and idle motions.
 - New bodies: zombies, skeleton warriors, liches and the Ash Weaver are now properly animated, and the tusker is a furred wild boar that walks, trots and runs.
 - Cigarettes: light one from the pack and it burns while you work. Friends see it and its smoke.
 - The gun draws back and tips up when you stand right against a wall, instead of going through it.

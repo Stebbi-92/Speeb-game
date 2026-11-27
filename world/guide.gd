@@ -134,6 +134,15 @@ func _done() -> bool:
 	return true
 
 
+## Sits under the quest card, as wide as it, however many lines the quest takes.
+func follow_quest() -> void:
+	var q: Control = w.hud._quest
+	position.y = maxf(142.0, q.position.y + q.size.y + 14.0) if q.visible else 142.0
+	_box.custom_minimum_size.x = q.size.x + 6.0
+	_text.custom_minimum_size.x = q.size.x - 24.0
+	_box.size.x = 0.0
+
+
 func _process(delta: float) -> void:
 	if visible and step >= 0 and step < STEPS.size() and _pad_shown != Game.using_pad:
 		_text.text = _keys(STEPS[step][1])   # a controller picked up, or put down: the words follow it
@@ -144,6 +153,7 @@ func _process(delta: float) -> void:
 		return
 	if not visible:
 		_enter()
+	follow_quest()
 	# A dodge lasts less than a check's wait, so the key is watched every frame
 	if STEPS[step][0] == "dodge" and (w.player.dodge_t > 0.0 or Input.is_action_just_pressed("dash")):
 		_seen["dodge"] = true

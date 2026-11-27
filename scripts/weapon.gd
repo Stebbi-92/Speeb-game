@@ -56,6 +56,7 @@ var _reload_t := 0.0
 var _reload_len := 1.0   ## how long this reload (or this one shell) takes, for the hands' motion
 var _rl_out := false     ## the old magazine is out (its sound played)
 var _rl_in := false      ## the fresh one is in
+var _rl_spent := false   ## a break action's spent shells are thrown out
 var _shell_mesh: Node3D
 var _kick := 0.0
 var _spin := 0.0
@@ -150,6 +151,7 @@ func equip_loadout() -> void:
 	grenades = int(ArmsDB.GRENADES[grenade].carry)
 	charges = int(ArmsDB.GADGETS[gadget].charges)
 	_show_model()
+	_warm_guns()
 
 
 func gun() -> String:
@@ -168,7 +170,7 @@ func spec() -> Dictionary:
 			sp.kick = float(sp.kick) * b.kick
 			sp.reload_t = float(sp.reload_t) * b.reload
 			sp.aim = float(sp.aim) * b.aim
-			sp.spread = float(sp.spread) * b.spread
+			sp.spread = float(sp.spread) * b.spread * WSkills.shot_spread(sk.shot_level())
 		_spec_cache[g] = sp
 	return _spec_cache[g]
 
@@ -206,7 +208,15 @@ func _practise(id: String, hits: Dictionary) -> void:
 		n += 1
 		if is_instance_valid(t) and t.has_method("is_alive") and not t.is_alive():
 			n += 4
-	if sk.practise(id, n):
+	var shot_was: int = sk.shot_level()
+	var ranked: bool = sk.practise(id, n)
+	var shot_lv: int = sk.shot_level()
+	if shot_lv > shot_was:
+		_spec_cache.clear()
+		Game.main.hud.notify("Gun skill: %s. %s" % [WSkills.SHOT_RANKS[shot_lv], WSkills.shot_text(shot_lv)])
+		if not ranked:
+			player.get_parent().sfx("choir", -10, null, 1.3)
+	if ranked:
 		_spec_cache.clear()
 		var lv: int = sk.use_level(id)
 		var nm: String = ArmsDB.GUNS[id].name if ArmsDB.GUNS.has(id) else "the blade"
@@ -431,6 +441,7 @@ func _start_reload() -> void:
 	_reload_t = float(spec().reload_t) * reload_mult
 	_reload_len = _reload_t
 	_rl_out = false
+	_rl_spent = false
 	_rl_in = false
 
 
@@ -450,7 +461,7 @@ func _eject() -> void:
 static func case_delay(g: String) -> float:
 	var s: Dictionary = ArmsDB.GUNS.get(g, {})
 	g = ArmsDB.look(g)
-	if g == "revolver" or AmmoLook.spent_of(g) == "":
+	if g in ["revolver", "hand_cannon"] or AmmoLook.spent_of(g) == "":   # (the hand cannon's come out when it is broken open)
 		return -1.0
 	match str(s.get("mode", "")):
 		"pump":
@@ -482,8 +493,8 @@ static func throw_case(lvl: Node, g: String, at: Vector3, b: Basis, carried := V
 	rb.physics_material_override = pm
 	var cs := CollisionShape3D.new()
 	var sh := CylinderShape3D.new()
-	sh.radius = 0.012 if not g in ["shotgun", "autoshotgun"] else 0.022
-	sh.height = 0.04 if not g in ["shotgun", "autoshotgun"] else 0.07
+	sh.radius = 0.012 if not g in ["shotgun", "autoshotgun", "hand_cannon"] else 0.022
+	sh.height = 0.04 if not g in ["shotgun", "autoshotgun", "hand_cannon"] else 0.07
 	cs.shape = sh
 	rb.add_child(cs)
 	rb.add_child(look)
@@ -512,7 +523,7 @@ static func throw_case(lvl: Node, g: String, at: Vector3, b: Basis, carried := V
 	if randf() < 0.5:
 		tree.create_timer(0.45, false).timeout.connect(func():
 			if is_instance_valid(rb) and is_instance_valid(lvl) and lvl.has_method("sfx"):
-				lvl.sfx("shell" if g in ["shotgun", "autoshotgun"] else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
+				lvl.sfx("shell" if g in ["shotgun", "autoshotgun", "hand_cannon"] else "tick", -22, rb.global_position, randf_range(1.6, 2.1)))
 
 
 ## How far a shot may wander right now: wide from the hip and wider as shots pile up, tight down the sights.
@@ -531,6 +542,7 @@ func shot_spread() -> float:
 	if s.mode in ["auto", "spin"]:
 		spread *= 1.0 + _climb * 0.6
 	spread *= 1.0 + _bloom * (1.0 - 0.8 * _aim)
+	spread *= player.steady()   # crouched and still, the gun holds a little truer
 	return spread
 
 
@@ -618,20 +630,22 @@ func _process(delta: float) -> void:
 		var len := 0.5 if _heavy else 0.35
 		var k := 1.0 - _swing / len
 		_melee_holder.visible = true
+		# The arm carries the blow, the hand only turning with it as far as a wrist can: the blade sweeps on an
+		# arc, from high on the right down across (a light one) or from over the shoulder down (a heavy one)
+		var e := smoothstep(0.0, 1.0, k)
 		if _heavy:
-			# Over the shoulder and down
-			_melee_holder.position = Vector3(-0.05, 0.05, 0.1)
-			_melee_holder.rotation = Vector3(0.9 - k * 2.6, 0.15, 0.1 - k * 0.3)
+			_melee_holder.position = Vector3(0.02, 0.14, 0.14).lerp(Vector3(-0.06, -0.16, -0.1), e)
+			_melee_holder.rotation = Vector3(0.3 - e * 0.9, 0.35 - e * 0.15, -0.2 - e * 0.1)
 		else:
-			_melee_holder.position = Vector3(-0.05, 0.0, 0.1)
-			_melee_holder.rotation = Vector3(-1.4 + k * 2.4, 0.5 - k * 1.2, 0.3)
+			_melee_holder.position = Vector3(0.08, 0.08, 0.1).lerp(Vector3(-0.16, -0.1, -0.06), e)
+			_melee_holder.rotation = Vector3(-0.5 + e * 1.3, 0.4 - e * 0.9, 0.3)
 		_holder.position.y -= 0.25
 	elif blade_out:
 		_melee_holder.visible = true
 		var wind := clampf(_charge / HEAVY_HOLD, 0.0, 1.0) if _charge >= 0.0 else 0.0
 		var g := 1.0 if guarding else 0.0
-		var rest := Vector3(0.12, -0.16 + bob * 2.0 - _switch * 0.8, 0.02)
-		var guard_at := Vector3(-0.02, -0.02, -0.02)
+		var rest := Vector3(0.1, -0.12 + bob * 2.0 - _switch * 0.8, 0.12)   # near enough for the arm to hold it bent
+		var guard_at := Vector3(-0.02, -0.02, 0.06)
 		_melee_holder.position = rest.lerp(guard_at, g) + Vector3(0.04, 0.12, 0.14) * wind + Vector3(_sway.x, _sway.y, 0)
 		_melee_holder.rotation = Vector3(-0.55 + wind * 1.0, 0.45, -0.3).lerp(Vector3(0.1, 0.15, 1.35), g)
 	else:
@@ -683,7 +697,7 @@ func _reload_pose(k: float, delta: float) -> void:
 		_holder.rotation.z = lerpf(_holder.rotation.z, 0.9, delta * 10.0)
 		_holder.rotation.x += 0.25
 		_holder.position += Vector3(-0.03, -0.07, 0.04) + Vector3(0, sin(k * PI) * 0.01, 0)   # low enough that the hand feeding it does not cover the eye
-		if _shell_mesh == null:
+		if not is_instance_valid(_shell_mesh):
 			# The pack's own 12 gauge shell (see AmmoLook), crimp first into the tube; a plain one if it is missing
 			_shell_mesh = AmmoLook.round_of("shell")
 			if _shell_mesh != null:
@@ -716,10 +730,13 @@ func _reload_pose(k: float, delta: float) -> void:
 		# The gun's own motion does the work (see _anim_sync); only the sounds are ours
 		tilt = 0.0
 	# Brought up and rolled over, so the eye sees the magazine well
-	_holder.rotation.z = 0.75 * tilt
+	# (A break action is only tipped a little: the barrels drop open toward the left hand)
+	_holder.rotation.z = (0.25 if _model and _model.has_meta("brk") else 0.75) * tilt
 	_holder.rotation.x += 0.32 * tilt
 	_holder.position += Vector3(-0.09, 0.11, 0.06) * tilt
-	if s.mode == "rocket" and _pump:
+	if _model and _model.has_meta("brk"):
+		_break_pose(k)
+	elif s.mode == "rocket" and _pump:
 		# A new rocket slides in at the front
 		var in_k := smoothstep(0.5, 0.82, k)
 		_pump.visible = k > 0.5
@@ -754,6 +771,50 @@ func _reload_pose(k: float, delta: float) -> void:
 		_pump.position.z = sin(clampf((k - 0.84) / 0.16, 0.0, 1.0) * PI) * (0.06 if s.mode == "bolt" else 0.04)
 
 
+## A break action through its reload, k from 0 to 1: the barrels swing down on their hinge, the spent shells
+## slide out of the chambers and are flicked out backwards, two fresh ones go in, and the barrels snap shut.
+func _break_pose(k: float) -> void:
+	var brk: Node3D = _model.get_meta("brk")
+	var g := ArmsDB.look(gun())
+	var open := smoothstep(0.03, 0.15, k) * (1.0 - smoothstep(0.84, 0.9, k))
+	brk.rotation.x = -float(BREAK_OPEN.get(g, 0.6)) * open
+	var out := smoothstep(0.16, 0.26, k)                  # the spent ones drawn back out of the chambers
+	var home := 1.0 - smoothstep(0.5, 0.74, k)            # the fresh ones pushed in
+	for sh in _model.get_meta("brk_shells") as Array:
+		var m := sh as Node3D
+		var rest: Transform3D = m.get_meta("rest")
+		if k < 0.27:
+			m.visible = true
+			m.transform = Transform3D(rest.basis, rest.origin + Vector3(0, 0, SHELL_DRAW * out))
+		elif k < 0.44:
+			m.visible = false
+		else:
+			m.visible = true
+			m.transform = Transform3D(rest.basis, rest.origin + Vector3(0, 0, SHELL_FEED * home))
+	if not _rl_spent and k >= 0.26:
+		_rl_spent = true
+		# Both spent shells flicked out backwards and up, out of the open breech
+		if is_instance_valid(_model) and _model.is_inside_tree() and player:
+			for sh in _model.get_meta("brk_shells") as Array:
+				var gt := (sh as Node3D).global_transform
+				var b := _model.global_transform.basis
+				# throw_case throws to its basis's right: given the gun's back for its right, and its own up
+				var back_b := Basis(b.z, b.y, -b.x)
+				Arms.throw_case(player.get_parent(), gun(), gt.origin + b.z.normalized() * 0.02, back_b, player.velocity)
+	if not _rl_out and k >= 0.06:
+		_rl_out = true
+		var lvl = player.get_parent() if player else null
+		if lvl: lvl.sfx("pump", -10, null, 1.35)   # the top lever thrown and the barrels dropped
+	if not _rl_in and k >= 0.86:
+		_rl_in = true
+		_kick = maxf(_kick, 0.3)
+
+
+## How far a break action's spent shells come back out of the chambers, and from how far behind the fresh ones go in.
+const SHELL_DRAW := 0.05
+const SHELL_FEED := 0.075
+
+
 func _stop_inspect() -> void:
 	if _inspect > 0.0:
 		_inspect = 0.0
@@ -765,7 +826,7 @@ func _reload_rest(delta: float) -> void:
 	_handle_back = 0.0
 	_handle_up = 0.0
 	_holder.rotation.z = lerpf(_holder.rotation.z, 0.0, delta * 8.0)
-	if _shell_mesh:
+	if is_instance_valid(_shell_mesh):
 		_shell_mesh.visible = false
 	var mag: Node3D = _model.get_meta("mag") if _model and _model.has_meta("mag") else null
 	if mag and mag.position != Vector3.ZERO:
@@ -774,6 +835,11 @@ func _reload_rest(delta: float) -> void:
 	if _pump and spec().mode == "rocket" and (_pump.position.z != 0.0 or not _pump.visible):
 		_pump.position.z = 0.0
 		_pump.visible = true
+	if _model and _model.has_meta("brk") and (_model.get_meta("brk") as Node3D).rotation.x != 0.0:
+		(_model.get_meta("brk") as Node3D).rotation.x = 0.0
+		for sh in _model.get_meta("brk_shells") as Array:
+			(sh as Node3D).transform = (sh as Node3D).get_meta("rest")
+			(sh as Node3D).visible = true
 
 
 func _reload_step() -> void:
@@ -943,7 +1009,8 @@ func sway_amp(scoped: bool) -> float:
 		amp *= 1.6
 	var sk = _skills()
 	if sk:
-		amp *= 1.0 - 0.055 * sk.use_level(g)
+		amp *= (1.0 - 0.055 * sk.use_level(g)) * WSkills.shot_sway(sk.shot_level())
+	amp *= player.steady()
 	return amp
 
 
@@ -1006,13 +1073,46 @@ var _flame_snd: AudioStreamPlayer
 var _flame_hold := 0.0
 ## How loud one's own shot is played: the recordings are sharp cracks, quiet beside a growl, so they go in hot
 ## (the Guns line has a limiter). The flamer's roar never stops while held, so it sits well under them.
-const GUN_DB := 6.0
+const GUN_DB := 9.0
 const FLAME_DB := -15.0
+## Each gun as loud as its round: real loudness (peak dB SPL at the shooter) mapped into the game at
+## 0.4 dB a dB about the pump shotgun, so a 9 mm sits about 1.5 dB under it and the Mosin about 3 dB over
+## (as heard through the Guns limiter). The automatics sit 1 dB (the minigun 2) under their round, or a
+## held burst buries all else. Rifle-class shots also carry their weight in the files
+## (tools/make_calibre_audio.py). Played at dB, before the MIX; SHOTGUN_REPORT.md has the table.
+const SHOT_DB := {
+	"pistol": -0.5,        # .45 ACP, ~157 dB
+	"smg": 8.5,            # 9x19 from a short SMG, ~158
+	"pistol9": 0.5,        # 9x19 pistol, ~160
+	"shotgun": 5.5,        # 12 gauge, 18.5 in, ~161.5: the heaviest low end, in its file
+	"autoshotgun": 6.0,    # 12 gauge, 18.5 in, ~161.5
+	"revolver": 9.0,       # .357 Magnum, ~164
+	"hand_cannon": 9.5,    # sawed-off 12 gauge, ~165.5: louder and harsher (played a little higher)
+	"machine_gun": 8.0,    # 5.56x45, 14.5 in, ~165.5
+	"carbine": 12.0,       # 7.62x51, 22 in, ~167 (the rifle's take, deepened)
+	"lmg": 8.5,            # 7.62x51 belt gun, ~167
+	"minigun": 8.5,        # 7.62x51, ~167
+	"sniper": 8.5,         # 7.62x54R bolt rifle, ~168.5: the loudest
+	"rocket": -2.0,        # the launcher's whoosh was made full and loud already
+}
+## A suppressed shot, by the same rule: a 9 mm can about 130 dB, a rifle's about 137-140.
+const SUPP_DB := {"pistol": -13.5, "smg": -14.0, "pistol9": -13.0, "shotgun": -9.0, "autoshotgun": -9.0,
+	"machine_gun": -11.0, "carbine": -9.0, "lmg": -10.0, "sniper": -9.0}
+const HEAVY_SUPP_DB := -3.0   ## the heavy suppressor, quieter again
+const SHOT_PITCH := {"hand_cannon": 1.06, "carbine": 0.93}
+const REMOTE_DB := -2.0       ## another pilgrim's shot, beside one's own
+const FOE_DB := -7.0          ## a foe's shot, beside one's own with the same round
 
 
-## How loud a gun's own shot is played. The launcher's whoosh was made full and loud already.
-static func shot_db(sound: String) -> float:
-	return -2.0 if sound == "rocket" else GUN_DB
+## How loud a gun's shot is played (by the gun's name; a sound's name for anything else).
+static func shot_db(g: String, quiet := false) -> float:
+	if quiet:
+		return float(SUPP_DB.get(g, -12.0))
+	return float(SHOT_DB.get(g, GUN_DB))
+
+
+static func shot_pitch(g: String) -> float:
+	return float(SHOT_PITCH.get(g, 1.0))
 static var _flame_loop: AudioStreamWAV
 static var _smoke_m: StandardMaterial3D
 
@@ -1142,6 +1242,7 @@ func _try_fire() -> void:
 	_ui()
 	_cool = float(s.rate)
 	var steady := 0.65 if fitted("foregrip") else 1.0
+	steady *= 1.0 - 0.15 * player.crouch_k   # crouched, it kicks a little less
 	_kick = minf(1.0, _kick + float(s.kick) * (0.35 if s.mode in ["auto", "spin"] else 1.0))
 	player.shake(0.18 * float(s.kick) * (1.0 - 0.5 * _aim) * steady)
 	var climb := 0.045 * float(s.kick) * (1.0 - 0.5 * _aim) * steady
@@ -1159,12 +1260,14 @@ func _try_fire() -> void:
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame":
-		lvl.sfx("supp" if quiet else str(s.sound), -6 if quiet else shot_db(str(s.sound)), null, 0.7 if s.mode == "flame" else 1.0)
+		lvl.sfx("supp" if quiet else str(s.sound), shot_db(gun(), quiet) + (HEAVY_SUPP_DB if fitted("heavy_suppressor") else 0.0), null, shot_pitch(gun()))
+	if not quiet and str(s.sound) in ["shotgun", "autoshotgun"]:
+		player.shake(0.05)   # a 12-gauge's boom is felt as much as heard
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
 	if lvl.has_method("noise"):
 		lvl.noise(player.global_position, 20.0 if quiet else (140.0 if gun() in ["sniper", "revolver"] else 110.0))
 	if s.mode == "pump":
-		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump", -8))
+		get_tree().create_timer(0.3, false).timeout.connect(func(): lvl.sfx("pump_rack", -7))   # back at 0.35 s, home at 0.63
 	elif s.mode == "bolt":
 		get_tree().create_timer(0.45, false).timeout.connect(func(): lvl.sfx("pump", -8, null, 1.25))
 	if s.mode == "flame":
@@ -1176,6 +1279,11 @@ func _try_fire() -> void:
 		_flash_mesh.visible = true
 		_flash_mesh.rotation.z = randf() * TAU
 		_flash_mesh.scale = Vector3.ONE * float(FLASH_SIZE.get(ArmsDB.look(gun()), 0.18)) * randf_range(0.85, 1.15)
+		if BORES.has(ArmsDB.look(gun())) and _model:
+			# Two barrels: the flash from the one fired (the right first, then the left)
+			var at: Vector3 = _model.transform * ((_model.get_meta("tip") as Vector3) + Vector3(float(BORES[ArmsDB.look(gun())]) * (1.0 if shells % 2 == 1 else -1.0), 0, 0))
+			_flash_mesh.position = at
+			_flash.position = at
 		for q in _flash_sides:
 			(q as MeshInstance3D).material_override = _flash_mats[randi() % _flash_mats.size()]
 		get_tree().create_timer(0.04, false).timeout.connect(func():
@@ -1274,7 +1382,7 @@ const HEAD_MULT := 1.6
 const NEAR := 25.0           ## within this a shot lands at once; beyond it, it takes time to arrive
 ## How fast each gun's rounds fly, in metres a second: slow enough that a far runner must be led
 ## How long each gun's muzzle flame is, in metres.
-const FLASH_SIZE := {"pistol": 0.1, "pistol9": 0.1, "pistol45": 0.11, "revolver": 0.13, "shotgun": 0.24, "autoshotgun": 0.24, "smg": 0.12, "machine_gun": 0.18,
+const FLASH_SIZE := {"pistol": 0.1, "pistol9": 0.1, "pistol45": 0.11, "revolver": 0.13, "shotgun": 0.24, "autoshotgun": 0.24, "smg": 0.12, "machine_gun": 0.18, "carbine": 0.21,
 	"rifle": 0.18, "lmg": 0.22, "minigun": 0.2, "sniper": 0.24}
 static var _flash_mats: Array = []
 static var _flash_star: StandardMaterial3D
@@ -1335,8 +1443,8 @@ func _make_flash() -> Node3D:
 const MUZZLE := {"carbine": 640.0, "shotgun": 260.0, "autoshotgun": 260.0, "smg": 300.0, "pistol": 280.0, "pistol9": 270.0, "revolver": 320.0, "machine_gun": 380.0, "lmg": 400.0, "minigun": 360.0, "sniper": 520.0}
 ## Each gun's round, and how hard it falls (times the earth's pull): light and blunt rounds lose height sooner,
 ## long heavy ones hold their line. Past NEAR a round drops, more the slower and further it flies.
-const CALIBER := {"shotgun": ["12 gauge", 1.6], "autoshotgun": ["12 gauge", 1.6], "smg": ["9mm", 1.2], "pistol": ["9mm", 1.2], "pistol9": ["9mm", 1.2], "revolver": [".45 Colt", 1.15],
-	"machine_gun": ["5.56", 1.0], "lmg": ["7.62", 0.9], "minigun": ["7.62", 0.9], "sniper": [".308", 0.8]}
+const CALIBER := {"shotgun": ["12 gauge", 1.6], "autoshotgun": ["12 gauge", 1.6], "smg": ["9mm", 1.2], "pistol": ["9mm", 1.2], "pistol9": ["9mm", 1.2], "revolver": [".45 Long", 1.15],
+	"machine_gun": ["5.56", 1.0], "carbine": ["7.62", 1.0], "lmg": ["7.62", 0.9], "minigun": ["7.62", 0.9], "sniper": [".308", 0.8]}
 const GRAVITY := 9.8
 
 
@@ -1622,7 +1730,11 @@ func throw_grenade() -> void:
 	b.fuse = float(g.fuse)
 	b.on_burst = func(p: Vector3):
 		if grenade == "incendiary":
-			Thrown.burn(player.get_parent(), p, float(g.radius), float(g.dmg) * damage_mult, float(g.burn), true)
+			# Where it truly broke is told to the others, so their fire burns where the harm is
+			var lv = player.get_parent()
+			var hit := FirePool.settle(lv, p)
+			Thrown.burn(lv, hit, float(g.radius), float(g.dmg) * damage_mult, float(g.burn), true)
+			Net.fx("firepool", hit, Vector3(float(g.radius), float(g.burn), 0))
 		else:
 			Arms.blast(player.get_parent(), p, float(g.radius), float(g.dmg) * damage_mult, player)
 	Net.fx("throw:%s" % ("grenade" if grenade == "frag" else "fire"), at, vel)
@@ -1669,6 +1781,7 @@ func refinish() -> void:
 		_models[k].queue_free()
 	_models.clear()
 	_show_model()
+	_warm_guns()
 
 
 func _show_model() -> void:
@@ -1676,14 +1789,7 @@ func _show_model() -> void:
 		_models[k].visible = false
 	var g := gun()
 	if not _models.has(g):
-		_models[g] = _build(g)
-		_holder.add_child(_models[g])
-		# Only in one's own hands is the red dot drawn over all else (on the glass, past the sight's body);
-		# on another's gun, or one set down, it hides behind what stands before it
-		for q in _models[g].find_children("*", "MeshInstance3D", true, false):
-			if q.has_meta("reticle"):
-				var rt: Array = q.get_meta("reticle")
-				(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
+		_make_model(g)
 	_model = _models[g]
 	# Drawn over all else, the dot showed through the sight's body from the hip: it is seen only down the sight
 	_dots = _model.find_children("*", "MeshInstance3D", true, false).filter(func(q): return q.has_meta("reticle"))
@@ -1694,6 +1800,45 @@ func _show_model() -> void:
 	_flash.position = tip
 	_flash_mesh.position = tip
 	_ui()
+
+
+func _make_model(g: String) -> Node3D:
+	var m := _build(g)
+	_models[g] = m
+	_holder.add_child(m)
+	# Only in one's own hands is the red dot drawn over all else (on the glass, past the sight's body);
+	# on another's gun, or one set down, it hides behind what stands before it
+	for q in m.find_children("*", "MeshInstance3D", true, false):
+		if q.has_meta("reticle"):
+			var rt: Array = q.get_meta("reticle")
+			(q as MeshInstance3D).material_override = _reticle_mat(rt[0], rt[1], true)
+	return m
+
+
+## Makes every carried gun ahead of need and draws each once, too small to see, so its model, textures and
+## shaders are ready: the first switch to a big gun no longer stalls the game.
+var _warm_gen := 0
+func _warm_guns() -> void:
+	_warm_gen += 1
+	var gen := _warm_gen
+	if not is_inside_tree() or DisplayServer.get_name() == "headless":
+		return
+	for g in guns.duplicate():
+		await get_tree().process_frame
+		if gen != _warm_gen or not is_inside_tree():
+			return
+		if _models.has(g):
+			continue
+		var m := _make_model(g)
+		var was := m.scale
+		m.scale = was * 0.001
+		m.visible = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if not is_instance_valid(m):
+			return
+		m.scale = was
+		m.visible = m == _model
 
 
 ## How near something solid stands ahead of the gun: 0 clear, 1 right at the muzzle's root.
@@ -1837,7 +1982,7 @@ func _build(g: String, mnts = null) -> Node3D:
 			rear_z = 0.1
 			front = Vector3(0, 0.0345, -0.7)
 			fore = Vector3(0, -0.04, -0.3)
-		"machine_gun", "lmg", "smg":
+		"machine_gun", "lmg", "smg", "carbine":
 			_box(Vector3(0.048, 0.06, 0.36), Vector3(0, 0.012, 0.0), metal, n)
 			_box(Vector3(0.044, 0.04, 0.2), Vector3(0, -0.036, 0.04), dark, n)
 			_box(Vector3(0.02, 0.008, 0.34), Vector3(0, 0.046, -0.01), dark, n)
@@ -1874,6 +2019,10 @@ func _build(g: String, mnts = null) -> Node3D:
 				tip = Vector3(0, 0.012, -0.82)
 				front = Vector3(0, 0.042, -0.62)
 				fore = Vector3(0, -0.03, -0.36)
+			if g == "carbine":   # long, with a wooden stock; its own body put in over all this (see SCANNED_GUNS)
+				tip = Vector3(0, 0.0265, -0.86)
+				front = Vector3(0, 0.05, -0.76)
+				fore = Vector3(0, -0.03, -0.33)
 		"sniper":
 			_box(Vector3(0.044, 0.056, 0.3), Vector3(0, 0.006, 0.02), metal, n)
 			_tube(0.0135, 0.8, Vector3(0, 0.014, -0.53), dark, n, 0.0095)
@@ -1989,6 +2138,17 @@ func _build(g: String, mnts = null) -> Node3D:
 			top = 0.054
 			rear_z = 0.02
 			front = Vector3(0, 0.054, -0.16)
+		"hand_cannon":
+			# Two short barrels side by side over a fore-end, broken open to load (see SCANNED_GUNS)
+			for sx in [-1, 1]:
+				_tube(0.015, 0.27, Vector3(sx * BORES.hand_cannon, 0.035, -0.225), metal, n)
+			_box(Vector3(0.044, 0.07, 0.12), Vector3(0, 0.0, -0.03), metal, n)
+			_box(Vector3(0.034, 0.1, 0.05), Vector3(0, -0.06, 0.07), wood, n, Vector3(-0.5, 0, 0))
+			tip = Vector3(0, 0.035, -0.36)
+			top = 0.07
+			rear_z = 0.0
+			front = Vector3(0, 0.05, -0.34)
+			fore = Vector3(0, -0.01, -0.2)
 		"revolver":
 			_tube(0.0115, 0.2, Vector3(0, 0.032, -0.16), metal, n)
 			_box(Vector3(0.012, 0.014, 0.17), Vector3(0, 0.012, -0.145), metal, n)
@@ -2011,6 +2171,8 @@ func _build(g: String, mnts = null) -> Node3D:
 		top = scan_top   # its own sights are on it; a fitted sight sits on its top
 		# Its mouth and the underside of its fore-end, as the scanned body has them
 		tip = SCAN_TIP.get(g, tip)
+		if has_muzzle(fit):
+			tip.z += float(BRAKE_LEN.get(g, 0.0))
 		rear_z = SCAN_REAR_Z.get(g, rear_z)   # a fitted sight goes on its own rail
 		var under := _cut_line(n, g, 1, 0.0, fore.z)
 		if under.x < 8.0:
@@ -2112,6 +2274,15 @@ func _build(g: String, mnts = null) -> Node3D:
 			n.set_meta("eye_z", -float(SIGHT_LINE[g][2]) - at.z)
 	n.set_meta("eye", eye)
 	n.set_meta("fore", fore)
+	if n.has_meta("brk"):
+		# What is fitted ahead of the hinge (a sight on the rib, a muzzle part) swings down with the barrels
+		var bk: Node3D = n.get_meta("brk")
+		for c in n.get_children():
+			if c is Node3D and c != bk and not c.has_meta("src") and c != n.get_meta("pump") and (c as Node3D).position.z < float(BREAK_REAR.get(g, bk.position.z)):
+				var t: Transform3D = bk.transform.affine_inverse() * (c as Node3D).transform
+				n.remove_child(c)
+				bk.add_child(c)
+				(c as Node3D).transform = t
 	if Game.gilded:
 		gild(n)
 	elif far_tint.a > 0.0:
@@ -2149,11 +2320,27 @@ const ACC := {
 ## How deep the cut in each sight's foot is (the rail's height it takes in), measured from the pack.
 const SIGHT_CUT := {"red_dot": 0.008, "reflex": 0.0072, "holo": 0.008, "scope": 0.0068, "combat_scope": 0.0092}
 ## The guns with a rail along their top.
-const RAILED := ["machine_gun"]
+## (The carbine's is its scope mount, put on only with a sight: so it is railed whenever a sight is there to sit on it.)
+const RAILED := ["machine_gun", "carbine"]
+## How long a scanned gun's own brake or flash hider is: a fitted muzzle part goes on in its place.
+const BRAKE_LEN := {"lmg": 0.0935, "machine_gun": 0.049, "carbine": 0.093}
+
+
+static func has_muzzle(fit: Array) -> bool:
+	return fit.any(func(m): return ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "muzzle")
+
+
 ## Where a scanned gun's rail puts a fitted sight (as rear_z: a sight sits 0.08 before it, a scope 0.12)
-const SCAN_REAR_Z := {"autoshotgun": -0.03}
+const SCAN_REAR_Z := {"carbine": 0.01, "hand_cannon": -0.08, "autoshotgun": -0.03, "pistol9": 0.055, "pistol": 0.045, "lmg": 0.05, "smg": 0.075}
+## How far a fitted sight's foot sits down round the top of a gun with no rail (its clamp closing on the slide)
+const SIGHT_SINK := {"pistol9": 0.006, "pistol": 0.006}
+## A gun whose top the cut lines cannot read (a rigged body): [its metal's height, where the sight's foot sits]
+## under a fitted sight. The SMG's sight sits on a claw mount over the bumps on its receiver.
+const SIGHT_SEAT := {"smg": [0.095, 0.104]}
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
+## The pack's grips are cut thin (a hand's grip is near 3 cm across): widened to that.
+const ACC_FAT := {"Cube": 2.0, "Cube_001": 1.8, "Plane": 2.0}
 ## The height of the highest visible piece of a gun, in its own space.
 func _geo_top(n: Node3D) -> float:
 	var best := -1.0
@@ -2282,7 +2469,8 @@ func _acc_piece(piece: String) -> Node3D:
 	var plain: StandardMaterial3D = null
 	for mi in src.find_children("*", "MeshInstance3D", true, false):
 		var tr: Transform3D = _chain(mi, _acc_inst)
-		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc)
+		var fat: float = ACC_FAT.get(piece, 1.0)
+		tr = Transform3D(Basis.from_scale(Vector3(fat, 1, 1)) * tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc * Vector3(fat, 1, 1))
 		var copy := MeshInstance3D.new()
 		copy.mesh = (mi as MeshInstance3D).mesh
 		copy.transform = tr
@@ -2385,6 +2573,12 @@ const SIGHT_LINE := {
 	"sniper": [Vector3(-0.0113, 0.0415, -0.2117), Vector3(-0.0112, 0.0389, -0.9428), 0.45],
 	# The SMG's drum aperture and the post in its front hood
 	"smg": [Vector3(0.0, 0.1145, 0.085), Vector3(0.0, 0.113, -0.418), 0.06],
+	# The Autoshotgun's ghost ring on the back of its receiver, and the tip of its front post
+	"autoshotgun": [Vector3(0.0, 0.0805, -0.015), Vector3(0.0, 0.0816, -0.685), 0.08],
+	# The Sunglass Carbine's aperture on the back of its receiver, and the tip of the post on its flash hider
+	"carbine": [Vector3(0.0, 0.0653, 0.0306), Vector3(0.0, 0.0667, -0.761), 0.55],
+	# The hand cannon has no sights: the eye looks along the rib between its barrels, just over the top lever
+	"hand_cannon": [Vector3(0.0, 0.054, -0.075), Vector3(0.0, 0.0505, -0.355), 0.52],
 }
 
 
@@ -2400,7 +2594,38 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 	n.add_child(p)
 	# Its clamp's jaws close round the gun's rail: the cut in its foot takes the rail, so the foot
 	# sits down over it (no riser). A gun with no rail has the foot flat on its top.
-	var sink: float = SIGHT_CUT.get(m, 0.008) if g in RAILED else 0.0
+	var sink: float = SIGHT_CUT.get(m, 0.008) if g in RAILED else float(SIGHT_SINK.get(g, 0.0))
+	if not g in RAILED:
+		# With no rail, the gun's metal under the sight's whole foot is read: the foot rests on the
+		# highest of it (never down through a rear sight or a hump), and a mount block fills the rest
+		# down to the gun, so the sight is held on and not floating.
+		var hi := -9.0
+		var lo := 9.0
+		var k := 0.0
+		while k <= 1.0:
+			var zz := z + bb.size.z * (k - 0.5) * 0.9
+			for xx in [-0.004, 0.0, 0.004]:
+				var h := _cut_line(n, g, 1, xx, zz).y
+				if h > top - 0.04 and h < top + 0.02:
+					hi = maxf(hi, h)
+					lo = minf(lo, h)
+			k += 0.125
+		if SIGHT_SEAT.has(g):
+			lo = SIGHT_SEAT[g][0]
+			hi = SIGHT_SEAT[g][1]
+		if hi > -8.0:
+			top = hi
+			lo = maxf(lo, hi - 0.03)   # not down past an edge into what is below
+			var gap := hi - sink - lo
+			if gap > 0.003:
+				var block := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(minf(bb.size.x * 0.62, 0.024), gap + 0.004, bb.size.z * 0.8)
+				block.mesh = bm
+				block.material_override = _mat(Color(0.07, 0.07, 0.075), 0.45, 0.6)
+				block.position = Vector3(0, lo - 0.004 + bm.size.y * 0.5, z)
+				block.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				n.add_child(block)
 	p.position = Vector3(0, top - sink + bb.size.y * 0.5, z)
 	return p.position.y + float(p.get_meta("aim_y"))
 
@@ -2422,6 +2647,13 @@ func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
 	n.add_child(p)
 	if ArmsDB.ATTACHMENTS[m].slot == "muzzle":
 		p.position = Vector3(0, tip.y, tip.z - bb.size.z * 0.5 + 0.02)
+		if BORES.has(g):
+			# Two barrels: one on each
+			p.position.x = float(BORES[g])
+			var p2 := _acc_piece(_acc_name(g, m))
+			if p2:
+				n.add_child(p2)
+				p2.position = p.position * Vector3(-1, 1, 1)
 		return tip + Vector3(0, 0, -bb.size.z + 0.02)
 	p.position = Vector3(0, fore.y - bb.size.y * 0.5 + 0.004, fore.z)
 	return fore
@@ -2430,7 +2662,22 @@ func _put_acc(n: Node3D, g: String, m: String, tip: Vector3, fore: Vector3):
 ## The guns that have a photo-scanned body (Poly Haven, CC0), in assets/models/arms/<name>/:
 ## [model, turn (degrees), muzzle z, butt z, height of its middle, {part: what it is}]. A part is "pump"
 ## (the bolt or slide, which works), "mag" (taken out on a reload), "glass" (shown only when a scope is
-## fitted) or "off" (left off). The plain-shape gun is built first for where its sights and parts sit.
+## fitted), "rail" (a mount shown only when a sight is fitted, for it to clamp onto; see SCAN_RAIL), "irons" (an iron
+## sight's leaf, folded away under a fitted sight so it does not stand in the glass), "brk" and "shell" (a break action's
+## barrels and the rounds in them; see BREAK_HINGE) or "off" (left off). The plain-shape gun is built first for where its sights and parts sit.
+## How far a scanned gun is set over to the side after it is centred, for one whose middle is not its bore: the
+## Autoshotgun's bolt handle stands out to the right, so centring its extent put its sights and rail off the eye's line.
+const SCAN_X := {"autoshotgun": 0.0092, "carbine": 0.0093}
+## A break-action gun's hinge pin, in the built gun's metres, and how far its barrels swing down (radians) to load.
+const BREAK_HINGE := {"hand_cannon": Vector3(0, 0.007, -0.155)}
+const BREAK_OPEN := {"hand_cannon": 0.62}
+## Where the barrels' breech ends: what is fitted ahead of it rides on them.
+const BREAK_REAR := {"hand_cannon": -0.075}
+## Guns with two barrels side by side: how far each bore is out from the middle (a shot flashes from the one fired,
+## and a muzzle part is fitted to each).
+const BORES := {"hand_cannon": 0.0153}
+## A "rail" part that the model has set aside from the gun (in the model's own metres): moved onto the receiver.
+const SCAN_RAIL := {"carbine": Vector3(0.1, 0.0, 0.0)}
 const SCANNED_GUNS := {
 	"sniper": ["bolt_action_rifle_7_62", Vector3(0, 90, 0), -0.975, 0.503, -0.068, {
 		"bolt_action_rifle_7_62_bolt_a": "pump", "bolt_action_rifle_7_62_bolt_b": "pump",
@@ -2443,7 +2690,7 @@ const SCANNED_GUNS := {
 	"lmg": ["m60", Vector3(0, 90, 0), -0.82, 0.45, -0.03, {
 		"Object_4": "off", "Object_5": "off", "Object_7": "off", "Object_9": "off", "Object_11": "off", "Object_12": "off",
 		"Object_13": "off", "Object_15": "off", "Object_16": "off", "Object_17": "off", "Object_18": "off",
-		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump"}],
+		"Object_44": "off", "Object_46": "off", "Object_48": "off", "Object_22": "pump", "Object_28": "pump", "Object_32": "brake"}],
 	"flamer": ["flamer", Vector3(0, 180, 0), -0.5, 0.36, 0.03, {}],
 	"rocket": ["rpg", Vector3(0, -90, 0), -0.66, 0.52, 0.0, {}],
 	"minigun": ["minigun", Vector3(0, 180, 0), -0.68, 0.3, -0.02, {
@@ -2451,6 +2698,17 @@ const SCANNED_GUNS := {
 	"shotgun": ["mossberg500", Vector3(0, -90, 0), -0.75, 0.5, -0.02, {}],
 	"autoshotgun": ["m4super90", Vector3(0, 0, 0), -0.735, 0.415, -0.03, {"bolt_TTI_Benelli_M4_0": "pump", "12g_12gauge_0": "off"}],
 	"revolver": ["colt_saa", Vector3(0, 90, 0), -0.26, 0.09, -0.01, {}],
+	# The Sunglass Carbine: a long wooden-stocked rifle. Its operating rod and bolt work; its box magazine comes out;
+	# its scope mount goes on only under a fitted sight (its rear aperture then folded away); the loose round beside it is left off.
+	# The Dome-steel Hand Cannon: two short barrels side by side, broken open to load: the barrels, their rib,
+	# bead and fore-end latch swing down about the hinge ("brk"); the two shells ride in them and are drawn on a reload.
+	"hand_cannon": ["sawedoff", Vector3(0, 180, 0), -0.36, 0.14, 0.0, {
+		"Cylinder__0": "brk", "Sphere__0": "off", "Cube__0": "brk", "Cube_008__0": "brk", "Cylinder_001__0": "brk",
+		"Cube_028__0": "brk", "Cylinder_002__0": "shell", "Cylinder_003__0": "shell"}],
+	"carbine": ["m14", Vector3(0, 0, 0), -0.86, 0.45, -0.046, {
+		"Object_34": "pump", "Object_87": "pump", "Object_42": "mag", "Object_40": "mag",
+		"Object_93": "rail", "Object_94": "rail", "Object_95": "rail", "Object_30": "irons", "Object_26": "irons",
+		"Object_77": "off", "Object_78": "off", "Object_79": "off"}],
 }
 
 
@@ -2807,15 +3065,27 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		var role: String = roles.get(mi.name, "")
 		if role == "off":
 			continue
-		if role == "glass":
+		if role == "glass" or role == "rail":
 			continue
 		var a: AABB = pivot.transform * _chain(mi, inst) * (mi as MeshInstance3D).get_aabb()
 		bb = a if first else bb.merge(a)
 		first = false
 	var sc := (float(sg[3]) - float(sg[2])) / maxf(bb.size.z, 0.001)
-	var off := Vector3(-bb.get_center().x * sc, float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
+	var off := Vector3(-bb.get_center().x * sc + float(SCAN_X.get(g, 0.0)), float(sg[4]) - bb.get_center().y * sc, float(sg[2]) - bb.position.z * sc)
 	var glass: bool = built_glass(g, fit)
+	# A fitted muzzle part takes the place of the gun's own brake or flash hider, screwed on where it was
+	var muzzled := has_muzzle(fit)
+	# A gun with no rail of its own takes its mount only under a fitted sight
+	var sighted := fit.any(func(m): return ArmsDB.ATTACHMENTS.has(m) and ArmsDB.ATTACHMENTS[m].slot == "sight")
 	var copy_mat := {}
+	# A break action: the barrels' holder, at the hinge pin
+	var brk: Node3D = null
+	if BREAK_HINGE.has(g):
+		brk = Node3D.new()
+		brk.position = BREAK_HINGE[g]
+		n.add_child(brk)
+		n.set_meta("brk", brk)
+		n.set_meta("brk_shells", [])
 	# The glass is lifted to where the eye looks through it
 	var gbb := AABB()
 	var gfirst := true
@@ -2828,9 +3098,11 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		n.set_meta("glass_y", gbb.get_center().y * sc + off.y)
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		var role: String = roles.get(mi.name, "")
-		if role == "off" or (role == "glass" and not glass):
+		if role == "off" or (role == "glass" and not glass) or (role == "brake" and muzzled) or (role == "rail" and not sighted) or (role == "irons" and sighted):
 			continue
 		var tr: Transform3D = pivot.transform * _chain(mi, inst)
+		if role == "rail":
+			tr = Transform3D(Basis(), pivot.transform.basis * (SCAN_RAIL.get(g, Vector3.ZERO) as Vector3)) * tr
 		tr = Transform3D(tr.basis.scaled(Vector3.ONE * sc), tr.origin * sc + off)
 		if (mi as MeshInstance3D).material_override:
 			copy_mat[mi] = (mi as MeshInstance3D).material_override
@@ -2839,10 +3111,16 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 			holder = pump
 		elif role == "mag" and mag != null:
 			holder = mag
+		elif (role == "brk" or role == "shell") and brk != null:
+			holder = brk
+			tr = brk.transform.affine_inverse() * tr
 		var copy := MeshInstance3D.new()
 		copy.mesh = (mi as MeshInstance3D).mesh
 		copy.material_override = copy_mat.get(mi)
 		copy.transform = tr
+		if role == "shell" and brk != null:
+			copy.set_meta("rest", tr)
+			(n.get_meta("brk_shells") as Array).append(copy)
 		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		copy.set_meta("src", String(mi.name))
 		holder.add_child(copy)
@@ -2850,7 +3128,12 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 	if CARVE.has(g) and CARVE[g].any(func(c): return c[0] == "cyl"):
 		cyl = Node3D.new()
 		n.add_child(cyl)
-	_carve_parts(g, n, {"pump": pump, "mag": mag, "cyl": cyl})
+	var brake: Node3D = null
+	if muzzled:
+		brake = Node3D.new()
+		brake.visible = false
+		n.add_child(brake)
+	_carve_parts(g, n, {"pump": pump, "mag": mag, "cyl": cyl, "brake": brake, "brk": brk})
 	if cyl:
 		# The cylinder turns about its own middle
 		var cb := AABB()
@@ -2892,7 +3175,41 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		if held.has("Rwrist") and held.has("Lwrist"):
 			n.set_meta("held", held)
 	inst.free()
+	if "ext_mag" in fit and mag != null:
+		_ext_mag(g, n, mag)
 	return bb.end.y * sc + off.y
+
+
+## The scanned guns whose own magazine is drawn out for a longer one: [how much longer, its slope (down)].
+const EXT_MAG := {"pistol": [1.2, Vector3(0, -1, 0.3)], "pistol9": [1.22, Vector3(0, -1, 0.3)], "carbine": [1.3, Vector3(0, -1, -0.1)]}
+
+
+## A longer magazine on a scanned gun: its own magazine drawn out downward from where it seats, so it shows
+## longer below the gun, in its own paint, and still drops out whole on a reload.
+func _ext_mag(g: String, n: Node3D, mag: Node3D) -> void:
+	var mb := AABB()
+	var first := true
+	for c in mag.get_children():
+		if c is MeshInstance3D:
+			var a: AABB = (c as MeshInstance3D).transform * (c as MeshInstance3D).mesh.get_aabb()
+			mb = a if first else mb.merge(a)
+			first = false
+	if first:
+		return
+	if not EXT_MAG.has(g):
+		return
+	var k: float = EXT_MAG[g][0]
+	var u: Vector3 = (EXT_MAG[g][1] as Vector3).normalized()
+	var top := Vector3(0, mb.end.y, mb.get_center().z)
+	# Drawn out along the magazine's own slope (a pistol's leans back with its grip)
+	var b := Basis()
+	b.x = Vector3(1, 0, 0) + u * u.x * (k - 1.0)
+	b.y = Vector3(0, 1, 0) + u * u.y * (k - 1.0)
+	b.z = Vector3(0, 0, 1) + u * u.z * (k - 1.0)
+	var stretch := Transform3D(b, Vector3.ZERO)
+	for c in mag.get_children():
+		if c is Node3D:
+			(c as Node3D).transform = Transform3D(Basis(), top) * stretch * Transform3D(Basis(), -top) * (c as Node3D).transform
 
 
 ## Parts cut out of a scan that came as one piece, so they can move: [role, min corner, max corner, from
@@ -2903,13 +3220,18 @@ const CARVE := {
 		["pump", Vector3(-0.045, 0.0, -0.49), Vector3(-0.017, 0.068, -0.24), ""],
 		["pump", Vector3(-0.017, 0.052, -0.49), Vector3(0.017, 0.066, -0.24), ""],
 		["pump", Vector3(-0.017, -0.005, -0.49), Vector3(0.017, 0.018, -0.24), ""]],
-	"machine_gun": [["mag", Vector3(-0.05, -0.22, -0.125), Vector3(0.05, -0.042, 0.005), ""]],
+	"machine_gun": [["mag", Vector3(-0.05, -0.22, -0.125), Vector3(0.05, -0.042, 0.005), ""],
+		["brake", Vector3(-0.016, 0.038, -0.71), Vector3(0.016, 0.074, -0.646), ""]],
 	"pistol9": [["pump", Vector3(-0.05, 0.032, -0.21), Vector3(0.05, 0.08, 0.04), "Cube_005_9m2_0"],
 		["mag", Vector3(-0.05, -0.1, -0.05), Vector3(0.05, 0.031, 0.06), "Cube_005_9m2_0"]],
 	"rocket": [["pump", Vector3(-0.08, -0.03, -0.72), Vector3(0.08, 0.1, -0.175), ""]],
 	# The rifle's box magazine under the action, and the flamethrower's fuel bottle
 	"sniper": [["mag", Vector3(-0.04, -0.1, -0.065), Vector3(0.04, -0.046, 0.03), ""]],
 	"flamer": [["mag", Vector3(-0.16, 0.02, 0.17), Vector3(0.16, 0.45, 0.5), ""]],
+	# The carbine's flash hider ahead of its barrel (the front sight on it stays)
+	"carbine": [["brake", Vector3(-0.03, -0.03, -0.9), Vector3(0.03, 0.06, -0.767), "Object_67"]],
+	# The hand cannon's fore-end, under its barrels ahead of the hinge: it swings down with them
+	"hand_cannon": [["brk", Vector3(-0.05, -0.08, -0.4), Vector3(0.05, 0.08, -0.158), "Cube_001__0"]],
 }
 static var _carved := {}
 
@@ -2943,7 +3265,7 @@ func _carve_parts(g: String, n: Node3D, holders: Dictionary) -> void:
 			mi.mesh = pair[1]
 			var part := MeshInstance3D.new()
 			part.mesh = pair[0]
-			part.transform = mi.transform
+			part.transform = holder.transform.affine_inverse() * mi.transform
 			part.material_override = mi.material_override
 			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			holder.add_child(part)
@@ -3072,15 +3394,15 @@ static func _split_mesh(mesh: Mesh, tr: Transform3D, boxes: Array) -> Array:
 
 ## Where the stock ends and where the side of the action is, per gun, for the waste's own parts.
 ## The middle of each gun's butt plate, and how tall it is (measured off the scanned bodies).
-const BUTT := {"shotgun": Vector3(0, -0.054, 0.5), "autoshotgun": Vector3(0, -0.05, 0.415), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
-const BUTT_H := {"shotgun": 0.16, "autoshotgun": 0.15, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
+const BUTT := {"carbine": Vector3(0, -0.088, 0.448), "shotgun": Vector3(0, -0.054, 0.5), "autoshotgun": Vector3(0, -0.05, 0.415), "machine_gun": Vector3(0, -0.003, 0.432), "lmg": Vector3(0, -0.029, 0.45), "sniper": Vector3(0, -0.109, 0.503)}
+const BUTT_H := {"carbine": 0.148, "shotgun": 0.16, "autoshotgun": 0.15, "machine_gun": 0.16, "lmg": 0.17, "sniper": 0.13}
 ## The middle of each scanned gun's mouth, read off side views of it.
-const SCAN_TIP := {"shotgun": Vector3(0, 0.0725, -0.743), "autoshotgun": Vector3(0, 0.03, -0.735), "smg": Vector3(0, 0.042, -0.43), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
+const SCAN_TIP := {"carbine": Vector3(0, 0.0265, -0.86), "shotgun": Vector3(0, 0.0725, -0.743), "autoshotgun": Vector3(0, 0.03, -0.735), "smg": Vector3(0, 0.042, -0.43), "machine_gun": Vector3(0, 0.056, -0.695), "lmg": Vector3(0, 0.0, -0.82),
 	"sniper": Vector3(0, 0.0145, -0.975), "rocket": Vector3(0, 0.026, -0.66), "minigun": Vector3(0, -0.1, -0.68),
 	"flamer": Vector3(0.009, -0.0125, -0.483), "pistol": Vector3(0, 0.04, -0.18), "pistol9": Vector3(0, 0.047, -0.19),
 	"revolver": Vector3(0, 0.04, -0.163)}
 ## Where a receiver's side plates go (x is found from the gun's own side).
-const SIDE := {"shotgun": Vector3(0.027, 0.055, -0.02), "autoshotgun": Vector3(0.027, 0.05, -0.02), "smg": Vector3(0.022, 0.08, -0.05), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
+const SIDE := {"carbine": Vector3(0.025, 0.044, -0.088), "hand_cannon": Vector3(0.025, 0.02, -0.058), "shotgun": Vector3(0.027, 0.055, -0.02), "autoshotgun": Vector3(0.027, 0.05, -0.02), "smg": Vector3(0.022, 0.08, -0.05), "machine_gun": Vector3(0.026, 0.05, 0.03), "lmg": Vector3(0.03, 0.02, 0.0), "sniper": Vector3(0.024, 0.006, 0.02),
 	"rocket": Vector3(0.045, 0.026, -0.05), "minigun": Vector3(0.066, -0.09, 0.12), "pistol": Vector3(0.014, 0.036, -0.07), "pistol9": Vector3(0.016, 0.05, -0.08),
 	"revolver": Vector3(0.02, 0.045, -0.035)}
 
@@ -3101,9 +3423,10 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 				tip += Vector3(0, 0, -0.16)
 				at = tip + Vector3(0, 0, 0.05)
 			"sawn_barrel":
-				_tube(0.019, 0.035, tip + Vector3(0, 0, -0.01), dark, n)
+				for bx in ([-float(BORES[g]), float(BORES[g])] if BORES.has(g) else [0.0]):
+					_tube(0.019 if not BORES.has(g) else 0.0165, 0.035, tip + Vector3(bx, 0, -0.01), dark, n)
 				for i in 3:
-					_box(Vector3(0.042, 0.004, 0.006), tip + Vector3(0, 0.006, -0.002 - i * 0.01), metal, n)
+					_box(Vector3(0.042 if not BORES.has(g) else 0.066, 0.004, 0.006), tip + Vector3(0, 0.006 if not BORES.has(g) else 0.02, -0.002 - i * 0.01), metal, n)
 				tip += Vector3(0, 0, -0.03)
 				at = tip + Vector3(0, 0, 0.02)
 			"heavy_barrel":
@@ -3123,6 +3446,18 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 			"padded_stock", "light_stock", "heavy_stock":
 				var b: Vector3 = BUTT.get(g, Vector3(0, -0.04, 0.45))
 				var bh: float = BUTT_H.get(g, 0.12)
+				# The butt as the gun's own body has it: its last metal or wood going back, and how tall it is
+				# just before that, so a pad or heel covers the butt plate and no more
+				var zb := b.z + 0.06
+				while zb > b.z - 0.12:
+					var hit := _cut_line(n, g, 1, 0.0, zb)
+					if hit.x < 8.0:
+						var ub := _cut_line(n, g, 1, 0.0, zb - 0.01)
+						if ub.x < 8.0 and ub.y - ub.x > 0.03:
+							b = Vector3(0, (ub.x + ub.y) * 0.5, zb)
+							bh = ub.y - ub.x
+						break
+					zb -= 0.004
 				# The stock a hand's width before the butt: its top, its bottom and its sides
 				var sz := b.z - 0.05
 				var ud := _cut_line(n, g, 1, 0.0, sz)
@@ -3139,7 +3474,7 @@ func _frame_parts(g: String, fit: Array, n: Node3D, tip: Vector3) -> void:
 						for sx in [-1, 1]:
 							for ry in [0.25, 0.75]:
 								_box(Vector3(0.006, 0.006, 0.09), Vector3(sx * (half + 0.003), lerpf(ud.x, ud.y, ry), b.z - 0.04), metal, n)
-						_box(Vector3(half * 2.0 + 0.012, bh * 0.85, 0.008), b + Vector3(0, 0, 0.008), metal, n)
+						_box(Vector3(half * 2.0 + 0.012, bh * 0.85, 0.008), b + Vector3(0, 0, 0.003), metal, n)
 					"heavy_stock":
 						# Solid wood: cheeks on both sides of the stock and a thick wooden heel
 						var wood := _mat(Color(0.22, 0.12, 0.07), 0.0, 0.6)
@@ -3466,6 +3801,7 @@ class Thrown extends RigidBody3D:
 	var armed_after := -1.0
 	var on_burst: Callable
 	var _light: OmniLight3D
+	var _flown := 0.0
 
 	static func make(lvl: Node, k: String, at: Vector3, v: Vector3, only_shown := false) -> Thrown:
 		var t := Thrown.new()
@@ -3484,6 +3820,11 @@ class Thrown extends RigidBody3D:
 		if k == "mine":
 			t.freeze = false
 			t.lock_rotation = true
+		if k == "fire":
+			# A fire bottle breaks on what it strikes
+			t.contact_monitor = true
+			t.max_contacts_reported = 2
+			t.body_entered.connect(t._struck)
 		lvl.add_child(t)
 		t.global_position = at
 		return t
@@ -3554,8 +3895,13 @@ class Thrown extends RigidBody3D:
 				return
 		add_child(mi)
 
+	func _struck(b: Node) -> void:
+		if _flown > 0.06 and not b is CharacterBody3D:
+			fuse = minf(fuse, 0.0)
+
 	func _physics_process(delta: float) -> void:
 		fuse -= delta
+		_flown += delta
 		if _light:
 			_light.light_energy = 3.0 + randf() * 1.2
 			# A flare's light shows every form that moves near it
@@ -3577,61 +3923,31 @@ class Thrown extends RigidBody3D:
 			if not shown_only and on_burst.is_valid():
 				on_burst.call(at)
 			elif shown_only and kind == "fire":
-				Thrown.burn(get_parent(), at, 5.0, 0.0, 7.0, false)
+				FirePool.shown_burst(get_parent(), FirePool.settle(get_parent(), at))
 			queue_free()
 
-	## Ground that burns for a while: harms the forms that stand in it.
+	## Ground that burns for a while: harms the forms that stand in it, and sets them burning. What it
+	## looks like is FirePool's: on the ground out to the radius, so the harm is plain to see.
 	static func burn(lvl: Node, at: Vector3, radius: float, dps: float, secs: float, real: bool, quiet := false) -> void:
-		var root := Node3D.new()
-		lvl.add_child(root)
-		root.global_position = at
+		at = FirePool.settle(lvl, at)
 		if not quiet:
 			lvl.sfx("boom", -8, at, 1.4)
-		var fire := CPUParticles3D.new()
-		fire.amount = 90
-		fire.lifetime = 0.9
-		fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-		fire.emission_sphere_radius = radius * 0.8
-		fire.direction = Vector3.UP
-		fire.spread = 15.0
-		fire.initial_velocity_min = 1.0
-		fire.initial_velocity_max = 2.5
-		fire.gravity = Vector3(0, 1.0, 0)
-		fire.scale_amount_min = 0.6
-		fire.scale_amount_max = 1.4
-		var pm := SphereMesh.new()
-		pm.radius = 0.18
-		pm.height = 0.36
-		var fm := StandardMaterial3D.new()
-		fm.albedo_color = Color(1.0, 0.5, 0.15, 0.8)
-		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		pm.material = fm
-		fire.mesh = pm
-		root.add_child(fire)
-		var l := OmniLight3D.new()
-		l.light_color = Color(1.0, 0.5, 0.2)
-		l.light_energy = 3.0
-		l.omni_range = radius * 2.5
-		l.position.y = 0.8
-		root.add_child(l)
+		var fp := FirePool.make(lvl, at, radius, secs, not quiet, not quiet)
 		var t := 0.0
-		while t < secs and is_instance_valid(root):
-			await root.get_tree().create_timer(0.5, false).timeout
+		while t < secs and is_instance_valid(lvl) and lvl.is_inside_tree():
+			await lvl.get_tree().create_timer(0.5, false).timeout
 			t += 0.5
-			if not real or not is_instance_valid(lvl):
-				continue
+			if not is_instance_valid(lvl):
+				return
 			var hits := {}
 			for e in lvl.get("enemies") if lvl.get("enemies") != null else []:
 				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(at) < radius:
 					hits[e] = dps
-			if not hits.is_empty():
+			if fp:
+				for e in hits:
+					FirePool.ignite(e)
+			if real and not hits.is_empty():
 				Arms.deal(hits, Vector3.UP, "fire")
-		if is_instance_valid(root):
-			fire.emitting = false
-			var tw := root.create_tween()
-			tw.tween_property(l, "light_energy", 0.0, 1.0)
-			tw.tween_callback(root.queue_free)
 
 
 ## Where each hand goes this frame, in the world: {R: {at, f, a, pole, curl}, L: {...}}, or {} with no
@@ -3643,6 +3959,8 @@ const FORE_CURL := {"thumb": [5, 15, 10], "point": [45, 50, 30], "middle": [50, 
 const CUP_CURL := {"thumb": [0, 10, 10], "point": [55, 60, 40], "middle": [60, 65, 40], "ring": [62, 65, 40], "pink": [65, 65, 40]}
 const FIST_CURL := {"thumb": [15, 40, 30], "point": [75, 85, 60], "middle": [78, 85, 60], "ring": [80, 85, 60], "pink": [82, 85, 60]}
 const SUPPORT_CURL := {"thumb": [20, 0, 0], "point": [62, 75, 45], "middle": [66, 78, 48], "ring": [68, 80, 50], "pink": [70, 80, 50]}
+## Where the right palm's middle sits on a blade's haft (its own space, the haft up +y): beside it, on its right
+const MELEE_PALM := Vector3(0.015, 0.035, 0.004)
 const OPEN_CURL := {"thumb": [5, 10, 10], "point": [20, 25, 15], "middle": [22, 25, 15], "ring": [24, 25, 15], "pink": [26, 25, 15]}
 ## Each grip: where the middle of the right hand's hold is, and the grip's line from the little finger up to
 ## the first (a pistol grip rakes back at the foot; a straight stock's wrist slopes up to the action), in the
@@ -3653,6 +3971,8 @@ const GRIP := {"": {"R": Vector3(0.0, -0.03, 0.012), "axis": Vector3(0, 1, -0.3)
 	"shotgun": {"R": Vector3(0.0, 0.0, 0.08), "axis": Vector3(0, 0.45, -1)},
 	"autoshotgun": {"R": Vector3(0.0, -0.083, 0.062), "axis": Vector3(0, 1, -0.45)},
 	"machine_gun": {"R": Vector3(0.0, -0.08, 0.1), "axis": Vector3(0, 1, -0.48)},
+	# The carbine has no pistol grip: the right hand round the wrist of its stock, behind the trigger guard
+	"carbine": {"R": Vector3(0.0, -0.046, 0.132), "axis": Vector3(0, 1, -0.35)},
 	"lmg": {"R": Vector3(0.0, -0.11, 0.09), "axis": Vector3(0, 1, -0.4)},
 	"sniper": {"R": Vector3(0.0, -0.035, 0.13), "axis": Vector3(0, 0.6, -1)},
 	"rocket": {"R": Vector3(0.0, -0.06, -0.02), "axis": Vector3(0, 1, -0.15), "L": Vector3(0.0, -0.055, 0.08), "L_axis": Vector3(0, 1, -0.1)},
@@ -3661,10 +3981,16 @@ const GRIP := {"": {"R": Vector3(0.0, -0.03, 0.012), "axis": Vector3(0, 1, -0.3)
 	"flamer": {"R": Vector3(0.0, -0.056, -0.032), "axis": Vector3(0, 1, -0.33)},
 	"pistol": {"R": Vector3(0.0, -0.038, -0.004), "axis": Vector3(0, 1, -0.41)},
 	"pistol9": {"R": Vector3(0.0, -0.04, 0.002), "axis": Vector3(0, 1, -0.45)},
-	"revolver": {"R": Vector3(0.0, -0.042, 0.05), "axis": Vector3(0, 1, -0.79)}}
+	"revolver": {"R": Vector3(0.0, -0.042, 0.05), "axis": Vector3(0, 1, -0.79)},
+	# A sawn-off: the right on its short bird's-head grip, the left under the fore-end (both hands, as it kicks)
+	"hand_cannon": {"R": Vector3(0.0, -0.012, 0.045), "axis": Vector3(0, 1, -0.35), "L": Vector3(0.0, -0.012, -0.19)}}
 
 
 func hand_pose(force := "") -> Dictionary:
+	return _hand_pose(force)
+
+
+func _hand_pose(force := "") -> Dictionary:
 	if not is_visible_in_tree() or player == null and force == "":
 		return {}
 	var cam_b: Basis = get_parent().global_transform.basis.orthonormalized() if get_parent() is Node3D else Basis()
@@ -3676,16 +4002,20 @@ func hand_pose(force := "") -> Dictionary:
 			return {}
 		var mt := mm.global_transform
 		var mb := mt.basis.orthonormalized()
-		return {"R": {"at": mt * Vector3(0.0, 0.035, 0.012), "f": mb * Vector3(-0.15, 0.0, -1.0), "a": mb * Vector3(0, 1, 0),
-			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL}, "L": down_l}
+		return {"R": {"at": mt * MELEE_PALM, "f": mb * Vector3(-0.15, 0.0, -1.0), "a": mb * Vector3(0, 1, 0),
+			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL, "shape": "grip"}, "L": down_l}
 	if _model == null or not _holder.visible:
 		return {}
 	if _model.has_meta("anim"):
 		_anim_sync()
 		if (_model.get_meta("anim_bones") as Dictionary).has("Rwrist"):
 			return _anim_hands()
-	if _model.has_meta("held") and not _reloading:
-		return _held_hands()
+	# A scan's own arms hold it; through a reload the left hand leaves that hold for the magazine and back
+	var held := {}
+	if _model.has_meta("held"):
+		held = _held_hands()
+		if not _reloading:
+			return held
 	var g := ArmsDB.look(gun())
 	var s := spec()
 	var mt := _model.global_transform
@@ -3693,25 +4023,37 @@ func hand_pose(force := "") -> Dictionary:
 	var grip: Dictionary = GRIP.get(g, GRIP[""])
 	var at_r: Vector3 = grip.get("R", GRIP[""].R)
 	var axis: Vector3 = (grip.get("axis", GRIP[""].axis) as Vector3).normalized()
-	# The hand across the grip: its fingers point forward as far as the grip's line lets them
+	# The hand on the grip as a real one takes it (and as the reference arms, whose finger shapes these are):
+	# the knuckles all but upright whatever the grip's rake, the back of the hand in line with the forearm,
+	# the fingers forward and curled round
 	var fwd := Vector3(-0.12, 0.0, -1.0)
-	var f_r := (fwd - axis * fwd.dot(axis)).normalized()
-	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * axis,
+	var a_r := (Vector3(0.14, 1.0, 0.0) + (axis - Vector3(0, 1, 0)) * GRIP_RAKE).normalized()
+	var f_r := (fwd - a_r * fwd.dot(a_r)).normalized()
+	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * a_r,
 		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL, "shape": "grip", "gb": mb}
 	var L: Dictionary
 	if s.slot == "secondary":
 		R.shape = "pistol"
+	if s.slot == "secondary" and not grip.has("L"):
 		# Thumbs forward: the left palm on the grip's open side, its fingers wrapped over the right's at the
 		# front of the grip, and its thumb laid along the frame toward the mark
 		var f_l := Vector3(0.55, 0.2, -0.8)
 		L = {"at": mt * (at_r + Vector3(-0.034, 0.008, -0.012)), "f": mb * f_l, "a": mb * axis,
-			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": SUPPORT_CURL, "shape": "support", "reach": "fore", "gb": mb}
+			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": SUPPORT_CURL, "shape": "support", "reach": "fore", "gb": mb,
+			"thumb_dir": mb * Vector3(-0.15, 0.4, -1.0)}
 	else:
 		var fore: Vector3 = grip.get("L", (_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
 		var ft := mt
 		if s.mode == "pump" and _pump:
 			ft = _pump.global_transform   # the hand works the pump
-		L = {"at": ft * fore, "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1),
+		elif _model.has_meta("brk"):
+			# Under the fore-end of a break action: the hand goes down with the barrels as they are broken open
+			var bk: Node3D = _model.get_meta("brk")
+			ft = bk.global_transform
+			fore -= bk.position
+		# (the carbine and the hand cannon keep their own fitters' support hand)
+		var sup_f := Vector3(1.0, 0.3, -0.45) if g in ["carbine", "hand_cannon"] else SUPPORT_F
+		L = {"at": ft * fore, "f": mb * sup_f, "a": mb * Vector3(0, 0, -1),
 			"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FORE_CURL, "shape": "fore", "gb": mb}
 		if grip.has("L_axis"):
 			# A second upright grip: held in a fist, as the right holds its own
@@ -3719,10 +4061,14 @@ func hand_pose(force := "") -> Dictionary:
 			var f_l := (fwd * Vector3(-1, 1, 1) - ax2 * (fwd * Vector3(-1, 1, 1)).dot(ax2)).normalized()
 			L = {"at": mt * (fore + Vector3(-0.012, 0, 0)), "f": mb * f_l, "a": mb * ax2,
 				"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FIST_CURL, "shape": "fore", "gb": mb}
+	if not held.is_empty():
+		R = held.R
+		L = held.L
 	if _reloading:
 		var k := _hand_k
 		var w := 0.0
 		var to := {}
+		var pre := []
 		if _model.has_meta("rig"):
 			# The cocking handle (back and up, and the slap home from above), and the magazine between
 			var sk: Skeleton3D = _model.get_meta("rig")
@@ -3731,8 +4077,16 @@ func hand_pose(force := "") -> Dictionary:
 			var wm := smoothstep(0.13, 0.17, k) * (1.0 - smoothstep(0.75, 0.79, k))
 			if wh > 0.0 and bones.has("handle"):
 				w = wh
-				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
-					"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}
+				if wm > 0.0 and bones.has("mag"):
+					# (handle and magazine overlap: the hand goes from the one straight to the other)
+					pre = [wh, {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
+						"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}]
+					w = wm
+					to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
+						"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+				else:
+					to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
+						"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}
 			elif wm > 0.0 and bones.has("mag"):
 				w = wm
 				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
@@ -3743,27 +4097,98 @@ func hand_pose(force := "") -> Dictionary:
 			w = smoothstep(0.08, 0.18, k) * (1.0 - smoothstep(0.82, 0.92, k))
 			to = {"at": ask.global_transform * ask.get_bone_global_pose(_model.get_meta("anim_part")).origin + mb * Vector3(-0.01, -0.03, 0.0),
 				"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
-		elif s.reload == "shell" and _shell_mesh and _shell_mesh.is_inside_tree():
-			w = 1.0 if _shell_mesh.visible else 0.0
-			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.03, 0.025), "f": mb * Vector3(0.3, 1.0, -0.3),
+		elif _model.has_meta("brk"):
+			# The barrels held open, then the hand away to the fresh shells and pushing them home
+			var shs: Array = _model.get_meta("brk_shells")
+			if not shs.is_empty():
+				w = smoothstep(0.34, 0.46, k) * (1.0 - smoothstep(0.74, 0.84, k))
+				var mid: Vector3 = ((shs[0] as Node3D).global_position + (shs[shs.size() - 1] as Node3D).global_position) * 0.5
+				# Palm up under the open breech, as under the fore-end, the fingers round the fresh shells
+				to = {"at": mid + mb * Vector3(-0.012, -0.035, 0.02), "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1), "curl": FORE_CURL, "shape": "fore"}
+		elif s.reload == "shell" and is_instance_valid(_shell_mesh) and _shell_mesh.is_inside_tree():
+			# To the shell, which it carries up into the port, and back to the fore-end (no leap either way)
+			w = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.8, 0.95, k))
+			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.018, 0.02), "f": mb * Vector3(0.3, 1.0, -0.3),
 				"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
 		else:
 			var src: Node3D = _pump if s.mode == "rocket" else (_model.get_meta("mag") if _model.has_meta("mag") else null)
 			if src and src.find_children("*", "MeshInstance3D", true, false).size() > 0:
 				w = smoothstep(0.06, 0.14, k) * (1.0 - smoothstep(0.78, 0.88, k))
-				# A rocket is pushed home from below the tube, the hand only part way out, so the arm stays whole
-				var off := Vector3(-0.02, -0.08, 0.24) if s.mode == "rocket" else Vector3(0, -0.02, 0.0)
 				if s.mode == "rocket":
+					# A rocket is pushed home from below the tube, the hand only part way out, so the arm stays whole
 					w *= 0.6
-				to = {"at": src.global_transform * _part_mid(src) + mb * off, "f": mb * Vector3(0.4, 1.0, -0.4),
-					"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+					to = {"at": src.global_transform * _part_mid(src) + mb * Vector3(-0.02, -0.08, 0.24), "f": mb * Vector3(0.4, 1.0, -0.4),
+						"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+				else:
+					# The magazine taken by its lower half: the palm flat on its left face, the first finger
+					# uppermost and the fingers round its front edge, the thumb behind
+					var bx := _part_box(src)
+					var grab := Vector3(bx.position.x - MAG_PALM, bx.position.y + minf(0.04, bx.size.y * 0.35), bx.get_center().z)
+					to = {"at": src.global_transform * grab, "f": mb * Vector3(0.0, -0.3, -1.0),
+						"a": mb * Vector3(0, 1, 0), "curl": FORE_CURL, "shape": "fore"}
+				if MAG_PALM_UP.has(g):
+					to.a = mb * Vector3(0, 0, -1)
+					to.curl = CUP_CURL
+					to.shape = "mag"
+					# Palm up under the magazine's foot, the wrist as it is under the fore-end
+					to.at = src.global_transform * _part_mid(src) + mb * (MAG_PALM_UP[g] as Vector3)
+					to.f = mb * Vector3(1.0, 0.3, -0.45)
+		if not pre.is_empty():
+			L = _toward(L, pre[1], pre[0])
 		if w > 0.0:
-			for key in ["at", "f", "a"]:
-				L[key] = (L[key] as Vector3).lerp(to[key], w)
-			L.curl = to.curl if w > 0.5 else L.curl
-			L.shape = to.shape if w > 0.5 else L.shape
-			L.reach = "top" if to.shape == "top" and w > 0.5 else "fore"
+			L = _toward(L, to, w)
 	return {"R": R, "L": L}
+
+
+## A hand part way (w) to another hold: its place along the line, its turn the shortest way round (the
+## frames' axes lerped apart can pass near opposite, and then the hand spins half round in a frame)
+static func _toward(h: Dictionary, to: Dictionary, w: float) -> Dictionary:
+	var o := h.duplicate()
+	o.at = (h.at as Vector3).lerp(to.at, w)
+	var q0 := _hold_q(h.f, h.a)
+	var q1 := _hold_q(to.f, to.a)
+	var bq := Basis(q0.slerp(q1, w))
+	o.f = bq.x * (h.f as Vector3).length()
+	o.a = bq.y * (h.a as Vector3).length()
+	if w > 0.5:
+		o.curl = to.curl
+		o.shape = to.shape
+		o.erase("shape_pts")
+		o.erase("thumb_dir")
+	return o
+
+
+static func _hold_q(f: Vector3, a: Vector3) -> Quaternion:
+	var x := f.normalized()
+	var y := (a - x * a.dot(x)).normalized()
+	return Basis(x, y, x.cross(y)).get_rotation_quaternion()
+
+
+## Where the support hand's fingers point under a fore-end (the gun's space): across to the right and a little
+## forward, the hand rolled a little onto its thumb side, so the forearm below it need not turn palm-up so far
+const SUPPORT_F := Vector3(0.85, 0.5, -0.45)
+## How much of a grip's rake the knuckles follow
+const GRIP_RAKE := 0.35
+## How far out from a magazine's side the palm's middle is held (the palm's own flesh).
+const MAG_PALM := 0.012
+
+
+## The extent of a moving part (a magazine, a rocket), in its own space.
+func _part_box(n: Node3D) -> AABB:
+	if n.has_meta("box"):
+		return n.get_meta("box")
+	var bb := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = n.transform.affine_inverse() * _chain(mi, n) * (mi as MeshInstance3D).get_aabb()
+		bb = a if first else bb.merge(a)
+		first = false
+	n.set_meta("box", bb)
+	return bb
+
+
+## Guns whose magazine the left hand takes palm up from under its foot (where the palm goes from the magazine's middle).
+const MAG_PALM_UP := {"carbine": Vector3(-0.01, -0.085, 0.0)}
 
 
 ## The middle of a moving part (a magazine, a rocket), in its own space.

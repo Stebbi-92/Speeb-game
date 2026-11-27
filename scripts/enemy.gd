@@ -63,7 +63,7 @@ const VARIANTS := {
 		"text": "Wound about the drowned tower of the Kraken-Bell. It pulls boats down."},
 	# 0.10: the forms of the far lands, each with one way to learn ("trait", see FoeTraits)
 	"flicker": {"base": "wisp", "name": "Flicker", "hp": 55.0, "bite": 14.0, "trait": "phase", "tint": Color(0.75, 0.85, 1.0),
-		"weak": {"blade": 1.6, "shot": 1.4}, "tough": {"bullet": 0.5, "fire": 0.0}, "text": "Here, then gone, then behind you. Keep turning. A blade finds it best."},
+		"weak": {"blade": 1.6, "shot": 1.4}, "tough": {"bullet": 0.3, "fire": 0.0}, "text": "Here, then gone, then behind you. Keep turning. A blade finds it best."},
 	"archivist_hand": {"base": "hollow", "name": "Archivist's Hand", "hp": 65.0, "speed": 4.4, "bite": 10.0, "trait": "thief", "tint": Color(0.55, 0.5, 0.35),
 		"text": "It grabs at your rounds and runs. Slay it and you get them back."},
 	"tunnel_unlit": {"base": "unlit_gun", "name": "Tunnel Unlit", "hp": 75.0, "trait": "burrow", "tint": Color(0.4, 0.33, 0.25),
@@ -89,7 +89,7 @@ const VARIANTS := {
 	"mound_guard": {"base": "knight", "name": "Mound Guard", "hp": 280.0, "trait": "pair", "pack": 2, "tint": Color(0.35, 0.3, 0.25),
 		"weak": {"blunt": 1.5, "blast": 1.3}, "tough": {"blade": 0.6, "shot": 0.7}, "text": "They guard the old mounds in pairs, and strike harder side by side. Part them."},
 	"herd_ghost": {"base": "brute", "name": "Herd Ghost", "hp": 400.0, "speed": 7.0, "bite": 34.0, "trait": "stampede", "pack": 4, "tint": Color(0.85, 0.85, 0.9),
-		"tough": {"bullet": 0.7, "shot": 0.7, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
+		"tough": {"bullet": 0.45, "shot": 0.5, "blade": 0.7, "fire": 0.7, "blast": 0.7}, "text": "A stampede of the dead. Do not stand in its line. It fades after a while."},
 	"tar_giant": {"base": "drowned", "name": "Tar Giant", "hp": 170.0, "bite": 24.0, "size": 1.45, "tint": Color(0.12, 0.1, 0.08),
 		"text": "Something drowned long ago and grown in the tar. It clings."},
 	# 0.12: the old tales of the themed isles. Hrafnsey keeps the north's dead; Kalaja the south's night things.
@@ -99,7 +99,7 @@ const VARIANTS := {
 		"weak": {"bullet": 1.3}, "tough": {"shot": 0.8}, "text": "A grey horse by the water, its hooves turned backward. Its bite drags at your legs."},
 	"shtriga": {"base": "deacon", "name": "Shtriga", "hp": 120.0, "bite": 20.0, "speed": 5.4, "drain": 1.6, "tint": Color(0.42, 0.3, 0.45),
 		"weak": {"fire": 2.0, "blade": 1.3}, "tough": {"bullet": 0.8}, "text": "A night witch of the keep. She drinks from you, and each sip heals her. Fire undoes her."},
-	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "tint": Color(0.45, 0.18, 0.1),
+	"kulshedra": {"base": "elite", "name": "Kulshedra", "hp": 460.0, "bite": 34.0, "size": 2.4, "wings": true, "tint": Color(0.45, 0.18, 0.1),
 		"weak": {"blast": 1.5, "bullet": 1.2}, "tough": {"fire": 0.1, "shot": 0.7}, "text": "The she-dragon of the south. She breathes fire in a fan. Get behind stone."},
 	# 0.12: forms with scanned bodies of their own (see SCANS)
 	"ash_weaver": {"base": "spider", "name": "Ash Weaver", "hp": 150.0, "bite": 26.0, "size": 1.0, "speed": 6.0, "radius": 0.8,
@@ -133,12 +133,18 @@ func matter() -> String:
 ## where the head is (up and forward, as parts of the height)]. The form keeps its base's ways; only the body is new.
 const SCANS := {
 	"ash_weaver": ["res://assets/models/foes/weaver/animated_spider.glb", 1.1, "Armature|walk", 3.0, Vector2(0.85, 0.55),
-		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true}],
+		{"own_head": true, "idle": "Armature|idle", "bone_bounds": true, "die": "Armature|die",
+		"lift": 0.043}],   # its walk and stance hold its legs lower than its rest does: set up to its feet (measured)
 	# Its man's body walks on clips baked from Nerd Survivor (tools/bake_harrow_moves.gd); the legs on its back
 	# keep their own stirring
 	"harrow": ["res://assets/models/foes/monster_spider/monster_spider.glb", 2.2, "moves/Walk", 1.0, Vector2(0.9, 0.0),
-		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8]}],
-	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, 0, 2.0, Vector2(0.88, 0.05)],
+		{"moves": "res://assets/models/foes/monster_spider/harrow_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 2.8],
+		"feet": ["mixamorig_LeftFoot_106", "mixamorig_LeftToeBase_105", "mixamorig_RightFoot_111", "mixamorig_RightToeBase_110"]}],   # (its rig's many foot controls are no feet)
+	# Its own "Walk" staggers in place; it walks, runs and stands on clips baked from Nerd Survivor
+	# (tools/make_scan_moves.sh)
+	"gaunt": ["res://assets/models/foes/horror_monster/horror_monster.glb", 2.3, "moves/Walk", 1.1, Vector2(0.88, 0.05),
+		{"own_head": true, "moves": "res://assets/models/foes/horror_monster/gaunt_moves.res", "idle": "moves/Idle", "run": ["moves/Run", 3.0],
+		"lift": 0.048}],   # its stored bounds reach under its feet: set up to them (measured)
 	# The great ones' own bodies (CC-BY 4.0, see CREDITS.md), each with its own head (the Speeb heads once worn
 	# on their necks read as stuck on):
 	# [file, height at size 1, walking clip, walking pace, head (height, forward) as parts of its height,
@@ -149,21 +155,28 @@ const SCANS := {
 	"boss_dunes": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.85, 0.72, 0.52), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_basalt": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true}],
-	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.42, 0.4, 0.42), "bone_bounds": true,
+		"feet": ["Leglow.l_6", "Leglow.r_5"]}],
+	# (the Long Watcher's clip is a walk; its feet are named for Stride, as its bones' names do not say so. The Tar
+	# Mother's clip only breathes on her rock: her eight legs step by a LegStepper)
+	"boss_forest": ["res://assets/models/foes/criatura/criatura.glb", 2.0, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.36, "turn": PI,
+		"feet": ["joint5_05", "joint5_08", "joint31_032", "joint31_035"], "feet_ahead": Vector3(0, 0, -1)}],
 	"boss_marsh": ["res://assets/models/foes/widow/widow.glb", 1.4, "", 2.0, Vector2(0.55, 0.42),
-		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true}],
+		{"own_head": true, "head_k": 0.75, "tint": Color(0.16, 0.13, 0.12), "bone_bounds": true, "only_skinned": true, "legs": 8}],
+	# (lift, in metres for each of its size: its one clip holds the Watcher's feet well up off its rest's floor, measured)
 	# The far great ones wear the near ones' bodies, changed: glass, ice, red bone and old white bone
-	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "turn": PI, "tint": Color(0.75, 0.85, 0.95)}],
+	"boss_quiet": ["res://assets/models/foes/criatura/criatura.glb", 2.4, "", 1.5, Vector2(0.62, 1.05), {"own_head": true, "head_k": 0.5, "bone_bounds": true, "lift": -0.48, "turn": PI, "tint": Color(0.75, 0.85, 0.95),
+		"feet": ["joint5_05", "joint5_08", "joint31_032", "joint31_035"], "feet_ahead": Vector3(0, 0, -1)}],
 	"boss_frost": ["res://assets/models/foes/golem/golem.glb", 1.3, "Walk", 1.2, Vector2(0.9, 0.1),
-		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true}],
+		{"own_head": true, "bone": "Head_0", "idle": "Idle", "head_k": 0.6, "tint": Color(0.72, 0.84, 0.95), "bone_bounds": true,
+		"feet": ["Leglow.l_6", "Leglow.r_5"]}],
 	"boss_sun": ["res://assets/models/foes/sandworm/sandworm.glb", 6.0, "Sandworm|SandwormWiggle", 0.0, Vector2(0.95, 0.2),
 		{"own_head": true, "bone": "Bone.010_010", "idle": "Sandworm|SandwormIdle", "head_k": 0.7, "tint": Color(0.75, 0.38, 0.25), "bone_bounds": true, "by_long": true, "turn": PI / 2}],
 	"boss_steppe": ["res://assets/models/foes/magma_hound/magma_hound.glb", 1.15, "Walk", 1.6, Vector2(0.8, 0.45),
 		{"bone": "head_0137", "own_head": true, "idle": "Idle", "head_k": 0.55, "head_off": Vector3(0, 0.05, 0.08), "tint": Color(0.88, 0.86, 0.8), "bone_bounds": true}],
 	# The Nykur: "Horse" by henrysteve973, unsaddled, a grey coat; struck along its body, neck and head
 	"nykur": ["res://assets/models/foes/nykur/horse_henry.glb", 1.35, "Skeleton|Walk", 1.8, Vector2(0.9, 0.6),
-		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true,
+		{"own_head": true, "bone": "BN_Head", "idle": "Skeleton|1 Ilde", "run": ["Skeleton|Gallop", 7.0], "bone_bounds": true, "die": "Skeleton|Death",
 		"hide": ["Object_12", "Object_115"], "coat": ["Horse", Color(0.5, 0.52, 0.54)], "tint": Color(0.7, 0.72, 0.74),
 		"hits": [["capsule", 0.33, Vector3(0, 1.25, -0.72), Vector3(0, 1.25, 0.44)], ["capsule", 0.17, Vector3(0, 1.4, 0.62), Vector3(0, 1.75, 1.0)],
 			["sphere", 0.2, Vector3(0, 1.78, 1.22)], ["box", Vector3(0.42, 0.78, 0.3), Vector3(0, 0.51, 0.48)],
@@ -186,9 +199,12 @@ const SCANS := {
 		{"own_head": true, "bone_bounds": true, "by_long": true, "lift": -1.5, "hits_k": true,
 		"hits": [["capsule", 0.45, Vector3(0, 1.95, -1.4), Vector3(0, 1.95, 1.6)], ["sphere", 0.4, Vector3(0, 1.85, 1.75)],
 			["box", Vector3(0.4, 2.4, 0.9), Vector3(0, 3.3, 0.95)]], "tint": Color(0.5, 0.38, 0.55)}],
-	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms
-	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "Take 001", 0.0, Vector2(0.88, 0.46),
+	# The Unseen: "The Human Deer" by ceeleste, crouched and reaching; struck along its bent back, head, legs and arms.
+	# Its own clip (a sway) is its stillness when watched; its legs walk and run on clips baked from Nerd Survivor,
+	# the rest of it swaying on (tools/make_scan_moves.sh)
+	"unseen": ["res://assets/models/foes/unseen/unseen_humandeer.glb", 2.0, "moves/Walk", 1.0, Vector2(0.88, 0.46),
 		{"own_head": true, "bone": "C_Head_J", "bone_bounds": true, "turn": PI,
+		"moves": "res://assets/models/foes/unseen/unseen_moves.res", "idle": "Take 001", "run": ["moves/Run", 3.8],
 		"hits": [["capsule", 0.3, Vector3(0, 1.55, -0.15), Vector3(0, 2.0, 0.9)], ["sphere", 0.28, Vector3(0, 2.3, 1.2)],
 			["box", Vector3(0.6, 1.3, 0.5), Vector3(0, 0.8, -0.2)], ["box", Vector3(0.9, 1.5, 0.4), Vector3(0, 1.1, 1.1)]]}],
 	# The Ember Sack: "Living Flesh Blob" by Yury Misiyuk, fire showing through it
@@ -198,8 +214,8 @@ const SCANS := {
 	# Kulshedra, the she-dragon: "European Dragon" by Nonexistent 101, wings folded as she walks. Struck along her
 	# body, neck, head, folded wings, legs and tail (measured at size 1, scaled to hers in _add_hits)
 	"kulshedra": ["res://assets/models/foes/kulshedra/dragon_european.glb", 1.9, "Walk", 2.4, Vector2(0.65, 0.75),
-		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
-		"bone_bounds": true, "hits_k": true,
+		{"own_head": true, "bone": "DEF-head", "idle": "Idle Stand", "run": ["Run", 6.5], "air": "Fly", "head_k": 0.42, "tint": Color(0.85, 0.6, 0.5),
+		"bone_bounds": true, "hits_k": true, "lift": -0.015,   # her rest's lowest point is not her feet: set down to them
 		"hits": [["capsule", 0.33, Vector3(-0.33, 0.68, -0.3), Vector3(-0.33, 0.68, 1.0)], ["capsule", 0.14, Vector3(-0.38, 0.95, 1.0), Vector3(-0.43, 1.22, 1.3)],
 			["sphere", 0.15, Vector3(-0.45, 1.28, 1.4)], ["box", Vector3(1.2, 0.9, 1.1), Vector3(-0.35, 1.45, 0.25)],
 			["box", Vector3(0.7, 0.3, 1.2), Vector3(-0.33, 0.27, 0.45)], ["capsule", 0.12, Vector3(-0.2, 0.26, -0.45), Vector3(0.3, 0.22, -2.1)]]}],
@@ -258,7 +274,7 @@ const KINDS := {
 	"saltbone": {"name": "Salt-Bones", "hp": 40.0, "size": 0.9, "speed": 6.0, "bite": 13.0, "radius": 0.4, "body": "model", "role": "melee", "head_y": 0.62,
 		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "Bones the salt kept. Quick, and bullets slip through them. Use shot or the blade."},
 	"vigil": {"name": "Lost Vigil", "hp": 70.0, "size": 1.0, "speed": 3.4, "bite": 12.0, "radius": 0.5, "body": "model", "role": "float", "head_y": 0.5,
-		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.5, "shot": 0.6}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth."},
+		"weak": {"fire": 1.6, "blade": 1.6}, "tough": {"bullet": 0.3, "shot": 0.4}, "text": "A beacon-keeper who never left the dark. It drifts through, and steals warmth. Rounds pass through it: use fire or a blade."},
 	"warden": {"name": "Gravewarden", "hp": 260.0, "size": 1.4, "speed": 3.0, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1,
 		"weak": {"fire": 1.4}, "tough": {"bullet": 0.8}, "text": "It keeps the Hollowed. Where it walks, more of them rise."},
 	# 0.7: more of the waste's foes. Each has one thing to learn about it.
@@ -281,6 +297,11 @@ const KINDS := {
 		"weak": {"blast": 1.4, "fire": 1.3}, "tough": {"shot": 0.6}, "text": "A huge pale thing of the deep sea. It rises under any boat that carries a lit lamp at night. Sail dark, and it does not come."},
 	"knight": {"name": "Ashen Knight", "hp": 240.0, "size": 1.4, "speed": 3.2, "bite": 30.0, "radius": 0.7, "body": "model", "role": "melee", "head_y": 1.1, "plate": 160.0,
 		"weak": {"blast": 1.3}, "tough": {"shot": 0.7}, "text": "Old iron, filled with ash. Its plate turns most things; piercing rounds or a blast will open it."},
+	# The man in the coat: met alone, rarely, by those who roam the open waste at night. He speaks in riddles,
+	# and draws a shotgun on anyone who comes too close. Leave him be, and he goes his way.
+	"stranger": {"name": "The Man in the Coat", "hp": 240.0, "size": 1.0, "speed": 4.6, "bite": 7.0, "radius": 0.45, "body": "model", "role": "gun", "head_y": 0.68,
+		"sight": 24.0, "burst": 1, "aim": 0.55, "mag": 2, "pellets": 7, "keep": 7.0,
+		"weak": {"blade": 1.2}, "tough": {}, "text": "He walks the waste at night and speaks in riddles. Keep your distance, and he lets you go."},
 	"saltrifle": {"name": "Salt Rifleman", "hp": 45.0, "size": 0.9, "speed": 4.4, "bite": 11.0, "radius": 0.4, "body": "model", "role": "gun", "head_y": 0.62,
 		"weak": {"blade": 1.6, "blast": 1.5, "shot": 1.3}, "tough": {"bullet": 0.6}, "text": "A soldier the salt kept, still holding its rifle. Bullets slip through; use shot."},
 }
@@ -367,6 +388,9 @@ var level: Level
 var head: LesserHead
 var _legs: Array = []
 var _leap_cd := 2.0
+var _wing := 0.0         ## a winged one in flight: seconds of glide left
+var _wing_cd := 6.0      ## before it may take wing again
+var _air_t := 0.0        ## seconds off the ground (its flying clip shows after a moment)
 var spec: Dictionary
 var variant := ""      ## a kin of the base form, if it is one (see VARIANTS)
 var _sk := ""          ## its own scanned body, if it has one (see SCANS): a great one's, or its kin's
@@ -510,9 +534,11 @@ func _ready() -> void:
 	if kind == "lampeater" and _sk == "":
 		_build_serpent(Color(0.78, 0.76, 0.7), 1.9, 7)
 	if spec.get("body", "") == "model":
-		_fb = FoeBody.make(kind)
+		_fb = FoeBody.make(kind, variant)
 		_fb.position.y = -float(spec.radius)
 		add_child(_fb)
+		if kind == "stranger" and _fb.muzzle:
+			_fb.muzzle.get_parent().visible = false   # his shotgun stays under his coat until he draws
 		head.visible = false
 		if _scan:
 			# A scanned body of its own (the draugr): the kind's body still keeps its ways, unseen
@@ -560,10 +586,11 @@ func _ready() -> void:
 		level.sfx("roar", 2, global_position, 0.9)
 	elif kind == "saucer":
 		var hum := AudioStreamPlayer3D.new()
-		var st = load("res://assets/audio/saucer_hum.ogg")
+		var st = load("res://assets/audio/saucer_hum.ogg").duplicate()
 		st.loop = true
 		hum.stream = st
 		hum.unit_size = 14
+		hum.max_distance = 90.0
 		hum.volume_db = -2
 		hum.autoplay = true
 		add_child(hum)
@@ -673,7 +700,7 @@ func _physics_process(delta: float) -> void:
 	if walks():
 		_spider_move(delta, p, dist, frozen)
 		return
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * _rush(dist)
 	if not frozen:
 		match kind:
 			"spitter":
@@ -711,22 +738,33 @@ func _physics_process(delta: float) -> void:
 				var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if dist > 7.0 and (not Game.wasteland or WRules.flanks()) else dir
 				want = d2 * speed
 				want += dir.cross(Vector3.UP) * sin(_t * 2.0 + _strafe) * (2.5 if kind == "swarm" else 1.2)
+	# A form in a body of its own walks on the ground: it does not hover at your height as the old heads did
+	var walker: bool = _scan != null and not spec.get("wings", false) and str(spec.get("role", "")) != "float" \
+			and not kind in ["serpent", "lampeater", "saucer", "spitter"]
 	if kind == "unseen":
 		_shade_tick(delta, dist)
 		if _watched:
 			velocity = Vector3.ZERO
-	else:
+	elif not walker:
 		want.y += sin(_t * 2.6) * 0.4
 	if kind == "serpent" or kind == "lampeater":
 		_coil_tick()
 	_shot_slow = maxf(0.0, _shot_slow - delta)
+	var vy_was := velocity.y
 	velocity = (velocity - _knock_on).lerp(want, minf(1.0, delta * (8.0 if kind == "unseen" else 3.0))) + _knock
+	if walker:
+		if motion_mode != CharacterBody3D.MOTION_MODE_GROUNDED:
+			motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
+		velocity.y = (-1.0 if is_on_floor() and vy_was <= 0.0 else vy_was - 20.0 * delta) + _knock.y
 	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
 	var real_v := velocity
 	velocity *= level.enemy_time
 	move_and_slide()
 	velocity = real_v
+	if walker or (_scan and kind == "spitter"):
+		# (and the great worms, which swim through the air low over the sand: head first)
+		_scan_walk_tick(delta, dir)
 	if is_on_wall():
 		velocity.y += 6.0 * delta * 10.0
 		_claw_at_wall()
@@ -911,12 +949,16 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 	flat.y = 0
 	var fd := flat.length()
 	var dir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0) * (0.55 if _shot_slow > 0.0 else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.65 if smoke_t > 0.0 else 1.0) * (0.55 if _shot_slow > 0.0 else 1.0) * _rush(fd)
 	_shot_slow = maxf(0.0, _shot_slow - delta)
 	var on_floor := is_on_floor()
 	var cat := kind != "spider"
 	if _charge <= 0.0:
-		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
+		# A body of its own (see SCANS) faces the way it goes while it goes, so its walk carries it forward and not
+		# crabwise when it flanks or weaves; standing, it faces its prey
+		var fv := Vector2(velocity.x, velocity.z)
+		var face := atan2(velocity.x, velocity.z) if _scan and fv.length() > 1.0 and _buried < 0.5 else atan2(dir.x, dir.z)
+		rotation.y = lerp_angle(rotation.y, face, minf(1.0, delta * (10.0 if kind != "brute" else 4.0)))
 	if not frozen:
 		var d2 := dir.rotated(Vector3.UP, _flank * 0.7) if fd > 7.0 and kind in ["rusher", "spider", "idol"] and (not Game.wasteland or WRules.flanks()) else dir
 		var want := d2 * speed + dir.cross(Vector3.UP) * sin(_t * 3.0 + _strafe) * (2.5 if not cat else 1.0)
@@ -950,10 +992,30 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 				_leap_cd = randf_range(2.0, 3.5) * (1.6 if kind == "elite" else 1.0)
 				velocity = dir * 11.0 + Vector3(0, 6.5, 0)
 				_cry("spider_hiss" if kind == "spider" else "shriek_%d" % (randi() % 4), 0)
+		# The winged ones cross open ground in a long low glide, and come down near
+		if spec.get("wings", false):
+			_wing_cd -= delta
+			if _wing <= 0.0 and on_floor and fd > 20.0 and _wing_cd <= 0.0 and _wind <= 0.0:
+				_wing = clampf(fd / 13.0, 1.5, 4.0)
+				_wing_cd = randf_range(10.0, 16.0)
+				velocity.y = 6.5
+				_cry("roar", 0)
+			if _wing > 0.0:
+				_wing -= delta
+				velocity.x = dir.x * 13.0
+				velocity.z = dir.z * 13.0
+				if fd < 9.0:
+					# Down in front of you, not on top of you
+					_wing = 0.0
+					velocity.x *= 0.3
+					velocity.z *= 0.3
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
-	velocity.y -= 22.0 * delta
+	if _wing > 0.0:
+		velocity.y = maxf(velocity.y - 6.0 * delta, -1.5)
+	else:
+		velocity.y -= 22.0 * delta
 	velocity += _knock - _knock_on
 	_knock_on = _knock
 	_knock = _knock.lerp(Vector3.ZERO, minf(1.0, delta * 6.0))
@@ -966,6 +1028,7 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 		_charge = 0.0
 	if is_on_floor() and velocity.y < 0.0:
 		velocity.y = 0.0
+	_air_t = 0.0 if is_on_floor() else _air_t + delta
 	# Spiders climb what stands in their way; cats scramble over the low things
 	if is_on_wall() and not frozen:
 		velocity.y = 4.5 if not cat else 3.0
@@ -980,9 +1043,13 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			leg.pivot.rotation.y = sin(ph) * amp
 			leg.pivot.rotation.x = maxf(0.0, cos(ph)) * amp * -0.6
 	if _scan:
-		_scan.position.y = (-float(spec.radius) + _lift + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size)) / (float(spec.get("grow", 1.0)) if boss != "" else 1.0) - _buried * 1.6 * float(SCANS[_sk][1])
+		# In metres under its middle: a great one's grown body (see _grow_into_boss) is grown about its own
+		# origin, which stays at its feet; only what was set at build time was shrunk for the growing
+		_scan.position.y = -float(spec.radius) + _lift + _seat + float((SCANS[_sk][5] as Dictionary).get("lift", 0.0) if SCANS[_sk].size() > 5 else 0.0) * float(spec.size) - _buried * 1.6 * float(SCANS[_sk][1])
 		_scan.visible = _buried < 0.95
 		_scan_tick(pace)
+		if _seat_t < SEAT_TIME:
+			_seat_measure(delta)
 		if _dust:
 			_dust.emitting = _buried > 0.3 and pace > 1.0
 	if _box:
@@ -1015,13 +1082,13 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
 	if kind == "howler":
 		_howl_cd -= delta
-		if _howl_cd <= 0.0 and dist < 18.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+		if _howl_cd <= 0.0 and dist < 18.0 and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 			_howl_cd = randf_range(5.0, 7.0)
 			_howl(p)
-	if kind == "elite" and _attack_cd <= 0.0 and dist < 22.0 and dist > 4.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+	if kind == "elite" and _attack_cd <= 0.0 and dist < 22.0 and dist > 4.0 and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 		_attack_cd = randf_range(2.0, 3.0)
 		for k in [-0.2, 0.0, 0.2]:
-			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3, 0) - global_position).rotated(Vector3.UP, k))
+			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3 - _low(p), 0) - global_position).rotated(Vector3.UP, k))
 		return
 	var reach: float = 1.2 + spec.radius
 	if _charge > 0.0:
@@ -1058,6 +1125,171 @@ var _tail: Node3D
 var _body_node: Node3D
 var _lift := 0.0
 var _dust: CPUParticles3D
+## A scanned body is set down on its feet: over its first steps the lowest point of its skin is watched (skinned
+## here, from the points that stand lowest), and the body moved so that point meets the ground. Its rest pose's
+## bounds are not where a walk puts its feet, and a bone sits inside the foot, some way above the sole. Measured
+## once for each kind of body, then kept.
+var _seat := 0.0
+var _seat_t := 0.0
+var _seat_next := 0.0
+var _seat_lows: Array = []
+var _seat_pts: Array = []
+const SEAT_TIME := 2.0
+static var _seats := {}
+
+
+func _seat_key() -> String:
+	return "%s:%s:%s" % [_sk, str(spec.size), boss]
+
+
+func _seat_measure(delta: float) -> void:
+	var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
+	# Not for what flies, swims or lies under the sand, nor what has been set by hand
+	if not o.get("bone_bounds", false) or o.get("by_long", false) or o.has("lift") or spec.get("wings", false) \
+			or str(spec.get("role", "")) == "float":
+		_seat_t = SEAT_TIME
+		return
+	if _seats.has(_seat_key()):
+		_seat = float(_seats[_seat_key()])
+		_seat_t = SEAT_TIME
+		return
+	if _buried > 0.0 or Time.get_ticks_msec() < _scan_busy or is_on_wall() or absf(velocity.y) > 1.0:
+		return   # under the sand, in a swing, climbing or leaping: not how it stands
+	# Stood on the ground (not every way of walking keeps the floor flag, so look down for it)
+	var base := global_position.y - float(spec.radius)
+	var down := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(
+		global_position, Vector3(global_position.x, base - 0.3, global_position.z), 1))
+	if down.is_empty() or absf((down.position as Vector3).y - base) > 0.2:
+		return
+	_seat_t += delta
+	if _seat_pts.is_empty():
+		_seat_pts = _sole_points(_scan)
+		if _seat_pts.is_empty():
+			_seat_t = SEAT_TIME
+			return
+	_seat_next -= delta
+	if _seat_next <= 0.0:
+		_seat_next = 0.2
+		var lo := _sole_low(_seat_pts)
+		if lo < 1e8:
+			_seat_lows.append(lo - (base + _seat))
+	if _seat_t >= SEAT_TIME:
+		if _seat_lows.size() >= 4:
+			# Where its lowest point mostly is as it goes (a heel's dip or a lifted stride is not its stand)
+			_seat_lows.sort()
+			var tall := float(SCANS[_sk][1]) * float(spec.size)
+			_seat = clampf(-float(_seat_lows[_seat_lows.size() / 2]), -tall * 0.4, tall * 0.4)
+			_seats[_seat_key()] = _seat
+		else:
+			_seat_t = SEAT_TIME * 0.5   # too little seen yet: watch a while longer
+		_seat_lows.clear()
+
+
+## The points of a body's skin that could be its soles: those in the lowest quarter of it as it now stands (its
+## rest may hold its legs up), with their bones and weights. [[mesh, skeleton, points, bones, weights, per point], ...]
+static func _sole_points(top: Node3D) -> Array:
+	var out := []
+	var lo := INF
+	var hi := -INF
+	var parts := []
+	for mi in top.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		var sk := mm.get_node_or_null(mm.skeleton) as Skeleton3D if mm.mesh else null
+		if mm.mesh == null or mm.skin == null or sk == null:
+			continue
+		var shown := true
+		var up: Node = mm
+		while up and up != top:
+			if up.is_queued_for_deletion() or up is Node3D and not (up as Node3D).visible:
+				shown = false   # a part it does not wear (hidden, or on its way out)
+			up = up.get_parent()
+		if not shown:
+			continue
+		for si in mm.mesh.get_surface_count():
+			var arr: Array = mm.mesh.surface_get_arrays(si)
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			if v.is_empty() or arr[Mesh.ARRAY_BONES] == null or arr[Mesh.ARRAY_WEIGHTS] == null:
+				continue
+			var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+			var wts: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+			var per: int = bones.size() / v.size()
+			var ys := PackedFloat32Array()
+			ys.resize(v.size())
+			for i in v.size():
+				var q := Vector3.ZERO
+				var ws := 0.0
+				for j in per:
+					var wj := wts[i * per + j]
+					var bi := bones[i * per + j]
+					if wj <= 0.0 or bi >= mm.skin.get_bind_count():
+						continue
+					var bone := _skin_bone(mm.skin, sk, bi)
+					if bone < 0:
+						continue
+					q += (sk.global_transform * sk.get_bone_global_pose(bone) * mm.skin.get_bind_pose(bi) * v[i]) * wj
+					ws += wj
+				ys[i] = q.y / ws if ws > 0.0 else INF
+				if ws > 0.0:
+					lo = minf(lo, ys[i])
+					hi = maxf(hi, ys[i])
+			parts.append([mm, sk, v, bones, wts, per, ys])
+	if parts.is_empty() or lo == INF:
+		return out
+	var cut := lo + (hi - lo) * 0.25
+	for pt in parts:
+		var keep_v := PackedVector3Array()
+		var keep_b := PackedInt32Array()
+		var keep_w := PackedFloat32Array()
+		var per: int = pt[5]
+		var v: PackedVector3Array = pt[2]
+		var ys: PackedFloat32Array = pt[6]
+		for i in v.size():
+			if ys[i] <= cut:
+				keep_v.append(v[i])
+				for j in per:
+					keep_b.append((pt[3] as PackedInt32Array)[i * per + j])
+					keep_w.append((pt[4] as PackedFloat32Array)[i * per + j])
+		if not keep_v.is_empty():
+			out.append([pt[0], pt[1], keep_v, keep_b, keep_w, per])
+	return out
+
+
+static func _skin_bone(skin: Skin, sk: Skeleton3D, bi: int) -> int:
+	var bone := skin.get_bind_bone(bi)
+	return sk.find_bone(skin.get_bind_name(bi)) if bone < 0 else bone
+
+
+## The lowest of those points as the body now stands, in the world or in the space given (INF when it has none).
+static func _sole_low(pts: Array, to := Transform3D()) -> float:
+	var lo := INF
+	for pt in pts:
+		var mm: MeshInstance3D = pt[0]
+		var sk: Skeleton3D = pt[1]
+		if not is_instance_valid(mm) or not is_instance_valid(sk):
+			continue
+		var v: PackedVector3Array = pt[2]
+		var bones: PackedInt32Array = pt[3]
+		var wts: PackedFloat32Array = pt[4]
+		var per: int = pt[5]
+		var mats := {}
+		for i in v.size():
+			var q := Vector3.ZERO
+			var ws := 0.0
+			for j in per:
+				var wj := wts[i * per + j]
+				if wj <= 0.0:
+					continue
+				var bi := bones[i * per + j]
+				if not mats.has(bi):
+					var bone := _skin_bone(mm.skin, sk, bi) if bi < mm.skin.get_bind_count() else -1
+					mats[bi] = null if bone < 0 else to * sk.global_transform * sk.get_bone_global_pose(bone) * mm.skin.get_bind_pose(bi)
+				if mats[bi] == null:
+					continue
+				q += (mats[bi] as Transform3D) * v[i] * wj
+				ws += wj
+			if ws > 0.0:
+				lo = minf(lo, q.y / ws)
+	return lo
 
 
 ## Four legs and a long back under the head, a tail that will not keep still: a cat gone wrong.
@@ -1100,6 +1332,7 @@ var _scan_anim: AnimationPlayer
 
 var _scan_bone := -1
 var _scan_skel: Skeleton3D
+var _scan_legs: LegStepper   ## a scanned body's legs stepped for it (SCANS "legs"), its clip having no walk
 var _scan_walk := ""
 var _scan_idle := ""
 var _scan_gait := ""
@@ -1197,10 +1430,28 @@ func _build_scan(cs: CollisionShape3D) -> void:
 	elif opt.has("weak_k"):
 		# Its own head kept, the unseen Speeb's head sized to it: the mark a head shot must come near
 		head.scale = Vector3.ONE * float(opt.weak_k)
+	# Its skeleton, for its head bone and for the pace of its walk (Stride)
+	var sks := m.find_children("*", "Skeleton3D", true, false)
+	if not sks.is_empty():
+		_scan_skel = sks[0]
+		if opt.has("feet"):
+			# (its walk's way, given in the model's own frame, is told to Stride in the skeleton's)
+			var rel := m.global_transform.affine_inverse() * _scan_skel.global_transform if m.is_inside_tree() else Transform3D()
+			var ah: Vector3 = opt.get("feet_ahead", Vector3.ZERO)
+			Stride.set_feet(_scan_skel, opt.feet, rel.basis.inverse() * ah if ah != Vector3.ZERO else Vector3.ZERO)
+		if opt.has("legs"):
+			_scan_legs = LegStepper.new()
+			_scan_skel.add_child(_scan_legs)
+			_scan_legs.face = self
+			# its feet on the ground under each, where the land is known; else level with where it stands
+			_scan_legs.ground_at = func(x: float, z: float) -> float:
+				var tr = level.get("terrain")
+				return float(tr.height_at(x, z)) if tr != null and tr.has_method("height_at") else _scan.global_position.y
+			if not _scan_legs.find_legs(int(opt.legs)):
+				_scan_legs.queue_free()
+				_scan_legs = null
 	if opt.has("bone"):
-		var sks := m.find_children("*", "Skeleton3D", true, false)
-		if not sks.is_empty():
-			_scan_skel = sks[0]
+		if _scan_skel:
 			_scan_bone = _scan_skel.find_bone(str(opt.bone))
 			if _scan_bone >= 0 and opt.get("shrink", false):
 				_scan_skel.set_bone_pose_scale(_scan_bone, Vector3.ONE * 0.05)
@@ -1253,6 +1504,21 @@ func _add_hits(hits: Array, g: float, k := 1.0) -> void:
 				bx.size = (h[1] as Vector3) * k
 				cs.shape = bx
 				cs.position = (h[2] as Vector3) * k + lift
+		# A shape that reaches the ground would stand the whole body on it, lifting it clear of the floor:
+		# each is kept a hand above its feet (the body's own post stands it)
+		var low := cs.position.y
+		match str(h[0]):
+			"capsule":
+				var hh: float = (cs.shape as CapsuleShape3D).height * 0.5
+				var r: float = (cs.shape as CapsuleShape3D).radius
+				low -= absf(cs.transform.basis.y.normalized().y) * (hh - r) + r
+			"sphere":
+				low -= (cs.shape as SphereShape3D).radius
+			"box":
+				low -= (cs.shape as BoxShape3D).size.y * 0.5
+		var floor_y := -float(spec.radius) + 0.12
+		if low < floor_y:
+			cs.position.y += floor_y - low
 		add_child(cs)
 
 
@@ -1322,6 +1588,17 @@ func _scan_play(an: String) -> void:
 		_scan_anim.play(an, 0.3)
 
 
+## A scanned body that walks the way the floating forms are steered (the Unseen, the Harrow, the Long Watcher):
+## it turns its body the way it goes (or to its prey, standing) and steps at its pace. Its head is kept looking
+## at the prey, as the floating forms' heads do.
+func _scan_walk_tick(delta: float, dir: Vector3) -> void:
+	var v := Vector2(velocity.x, velocity.z)
+	var face := atan2(velocity.x, velocity.z) if v.length() > 0.5 else (atan2(dir.x, dir.z) if Vector2(dir.x, dir.z).length() > 0.05 and not _watched else rotation.y)
+	rotation.y = lerp_angle(rotation.y, face, minf(1.0, delta * 8.0))
+	head.rotation.y = wrapf(atan2(dir.x, dir.z) - rotation.y, -PI, PI)
+	_scan_tick(v.length())
+
+
 ## Its body walks with its pace (or stands, if it has a standing clip), and its Speeb's head rides its neck.
 func _scan_tick(pace: float) -> void:
 	if _scan_anim and Time.get_ticks_msec() < _scan_busy:
@@ -1329,16 +1606,36 @@ func _scan_tick(pace: float) -> void:
 	elif _scan_anim:
 		var walk: float = SCANS[_sk][3]
 		var o: Dictionary = SCANS[_sk][5] if SCANS[_sk].size() > 5 else {}
-		if _scan_idle != "" and pace < 0.3:
+		var flying: bool = o.has("air") and _air_t > 0.35
+		if o.has("air"):
+			# Leaning into the glide, then upright again on the ground
+			_scan.rotation.x = lerpf(_scan.rotation.x, 0.45 if flying and _wing > 0.0 else 0.0, minf(1.0, get_process_delta_time() * 4.0))
+		if flying:
+			# Off the ground a while: its wings
+			_scan_play(str(o.air))
+			_scan_anim.speed_scale = 1.0
+		elif _scan_idle != "" and pace < 0.3:
 			_scan_play(_scan_idle)
 			_scan_anim.speed_scale = 1.0
-		elif o.has("run") and pace > walk * 1.6:
-			# Its own run, at the pace it was made for
-			_scan_play(str(o.run[0]))
-			_scan_anim.speed_scale = clampf(pace / float(o.run[1]), 0.6, 1.8)
 		else:
-			_scan_play(_scan_walk)
-			_scan_anim.speed_scale = clampf(pace / walk, 0.35, 2.2) if walk > 0.0 else 1.0
+			# Its walk and run, each played as fast as its steps carry it over the ground (measured from the
+			# clips where its feet can be found; the paces written down where not)
+			var ws := Stride.of(_scan_skel, _scan_anim, _scan_walk)
+			var rs := Stride.of(_scan_skel, _scan_anim, str(o.run[0])) if o.has("run") else 0.0
+			if ws < 0.05:
+				ws = walk
+			if o.has("run") and rs < 0.05:
+				rs = float(o.run[1])
+			if o.has("run") and pace > ws * 1.6:
+				_scan_play(str(o.run[0]))
+				_scan_anim.speed_scale = clampf(pace / rs, 0.5, 2.6)
+			else:
+				_scan_play(_scan_walk)
+				_scan_anim.speed_scale = clampf(pace / ws, 0.35, 2.4) if ws > 0.0 else 1.0
+		if _scan_legs:
+			# its legs step at its pace over its clip, which plays as it is
+			_scan_legs.pace = pace
+			_scan_anim.speed_scale = 1.0
 	if _scan_skel and _scan_bone >= 0:
 		var opt: Dictionary = SCANS[_sk][5]
 		var at: Vector3 = (_scan_skel.global_transform * _scan_skel.get_bone_global_pose(_scan_bone)).origin
@@ -1441,6 +1738,8 @@ var _pan_skel: Skeleton3D
 var _pan_anim: AnimationPlayer
 var _pan_head := -1
 var _pan_gait := ""
+var _pan_step: Stepper
+var _back_step := false   ## backing away from its foe, still facing it: its walk plays backward
 
 
 static func _cut_panther(an: Animation, head_path: String) -> AnimationLibrary:
@@ -1543,6 +1842,13 @@ func _panther_body(s: float, coat: Color) -> Node3D:
 			tinted.rim = 0.25
 			tinted.rim_tint = 0.0
 			mm.material_override = tinted
+	# Its take has no walk in it: its legs step by a Stepper, timed to its pace, over its idle
+	_pan_step = Stepper.new()
+	_pan_skel.add_child(_pan_step)
+	_pan_step.face = self
+	if not _pan_step.find_legs():
+		_pan_step.queue_free()
+		_pan_step = null
 	_pan_gait = ""
 	_pan_play("idle")
 	_pan_anim.seek(randf() * 1.0, true)
@@ -1561,13 +1867,19 @@ func _pan_tick(pace: float) -> void:
 	if _pan_anim == null:
 		return
 	var s: float = spec.size
-	if pace > 0.3:
+	if _pan_step:
+		_pan_step.pace = pace
+		_pan_play("idle")
+		_pan_anim.speed_scale = 1.0
+	elif pace > 0.3:
 		_pan_play("stalk" if kind == "lurker" or _buried > 0.05 else "walk")
 		_pan_anim.speed_scale = clampf(pace / (PANTHER_WALK * s), 0.6, 3.2)
 	else:
 		_pan_play("idle")
 		_pan_anim.speed_scale = 1.0
 	var at: Vector3 = (_pan_skel.global_transform * _pan_skel.get_bone_global_pose(_pan_head)).origin
+	if _pan_step:
+		at.y -= _pan_step.sink   # (the bones are read here as the clip left them: the Stepper's sink is not in them)
 	head.position = _body_node.to_local(at) + Vector3(0, 0.06, 0.1) * s
 
 
@@ -2145,39 +2457,156 @@ func die(slain: bool) -> void:
 		elif not puppet:
 			level.team_kill(self)
 	died.emit()
-	if _fb and slain and _fb.clips.has("die") and not _scan:
-		_fb.act("die")
-		var tf := create_tween()
-		tf.tween_interval(1.6)
-		tf.tween_property(self, "scale", Vector3.ONE * 0.01, 0.6)
-		tf.tween_callback(queue_free)
+	var way := _fall_way()
+	# A body made with its own fall plays it (a head shot or a heavy blow throws it back by its bones instead),
+	# lies a while, and sinks into the ash
+	var own_die := ""
+	if _fb and _fb.clips.has("die") and not _scan:
+		own_die = "fb"
+	elif _scan_anim and SCANS.has(_sk) and SCANS[_sk].size() > 5 and (SCANS[_sk][5] as Dictionary).has("die"):
+		own_die = "scan"
+	if slain and own_die != "" and not (way == "back" and (harm_head or harm_heavy)):
+		if own_die == "fb":
+			_fb.act("die")
+		else:
+			var dc: String = SCANS[_sk][5].die
+			if _scan_anim.has_animation(dc):
+				_scan_anim.speed_scale = 1.0
+				_scan_anim.play(dc, 0.15)
+				var da := _scan_anim.get_animation(dc)
+				da.loop_mode = Animation.LOOP_NONE
+		_sink_away(2.6)
+		return
+	if slain and (kind in WINGED or kind == "saucer" or (spec.get("wings", false) and _air_t > 0.5)):
+		_fall_from_sky()
 		return
 	if slain and not kind in ["saucer", "wisp", "mite"] and not (_fb and _fb._float):
-		_topple()
+		var sk := _bones()
+		var sl: Slump = Slump.start(sk, way, net_id) if sk else null
+		_topple(way, sl != null)
+		return
+	if slain and (kind == "wisp" or (_fb and _fb._float)):
+		_burn_out()
 		return
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.4, 0.05, 1.4) if slain else Vector3.ONE * 0.01, 0.35)
 	tw.tween_callback(queue_free)
 
 
-## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash.
-func _topple() -> void:
-	if _fb and _fb.anim:
-		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
-		if _scan_anim:
-			_scan_anim.speed_scale = 0.0
-	var side := 1.0 if _flinch.x >= 0.0 else -1.0
-	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
-	var big := float(spec.get("size", 1.0)) >= 1.5
-	var fall := 0.75 if big else 0.5
+## A winged form or a disc, slain in the air, drops: wings still, turning as it falls, it strikes the ground
+## (the disc bursts there), lies a moment and sinks.
+func _fall_from_sky() -> void:
+	if _wings:
+		for ap in _wings.find_children("*", "AnimationPlayer", true, false):
+			(ap as AnimationPlayer).pause()
+	var from := global_position
+	var ground := from.y - 30.0
+	var space := get_world_3d().direct_space_state if is_inside_tree() else null
+	if space:
+		var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 80.0, 1)
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			ground = (hit.position as Vector3).y
+	var lie := float(spec.radius) * (0.4 if kind == "saucer" else 0.6)
+	var h := maxf(from.y - ground - lie, 0.0)
+	var t := clampf(sqrt(2.0 * h / 9.8), 0.25, 2.4)
+	var spin := randf_range(-1.0, 1.0)
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(self, "rotation:x", rotation.x + side * 1.45, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
-	tw.chain().tween_property(self, "rotation:x", rotation.x + side * 1.33, 0.12).set_trans(Tween.TRANS_SINE)
-	tw.chain().tween_interval(1.3)
+	tw.tween_property(self, "global_position:y", ground + lie, t).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:y", rotation.y + spin * 4.0, t)
+	tw.tween_property(self, "rotation:z", rotation.z + (1.2 if kind == "saucer" else 2.6) * signf(spin + 0.01), t)
+	tw.chain().tween_callback(func():
+		level.sfx("fall_heavy" if kind == "saucer" else "fall", -2 if kind == "saucer" else -8, global_position)
+		if kind == "saucer":
+			level.sfx("boom", -2, global_position)
+			level.burst(global_position, Color(1.0, 0.5, 0.2))
+			level.burst(global_position + Vector3.UP * 0.5, Color(0.3, 0.28, 0.26)))
+	tw.chain().tween_property(self, "rotation:x", rotation.x + 0.25, 0.15).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_interval(1.4)
+	tw.chain().tween_property(self, "position:y", ground - 1.0 * float(spec.get("size", 1.0)), 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)
+
+
+## A ghost or a wisp burns out: it rises, drawn thin, sheds embers and fades.
+func _burn_out() -> void:
+	var col: Color = Color(1.0, 0.55, 0.2) if kind == "wisp" or spec.has("burn") else Color(0.7, 0.85, 1.0)
+	level.burst(global_position + Vector3.UP * 0.6, col)
+	for l in find_children("*", "OmniLight3D", true, false):
+		create_tween().tween_property(l, "light_energy", 0.0, 0.9)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "position:y", position.y + 1.4, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "scale", Vector3(0.15, 1.7, 0.15), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "rotation:y", rotation.y + PI * 1.5, 1.0)
+	tw.chain().tween_callback(func(): level.burst(global_position + Vector3.UP * 1.2, col))
+	tw.chain().tween_property(self, "scale", Vector3(0.01, 0.01, 0.01), 0.15)
+	tw.chain().tween_callback(queue_free)
+
+
+## How the last blow drives it down: driven forward it crumples, driven back (from before it) it is thrown
+## back, and struck from the side it twists as it goes (see Slump).
+func _fall_way() -> String:
+	if absf(_flinch.y) > absf(_flinch.x) * 1.5:
+		return "twist"
+	return "crumple" if _flinch.x >= 0.0 else "back"
+
+
+## The skeleton of its body, if it has one a fall can be made by (not the lesser forms' panthers).
+func _bones() -> Skeleton3D:
+	var top: Node = _scan if _scan else (_fb if _fb and not _fb._float else null)
+	if top == null:
+		return null
+	var sks := top.find_children("*", "Skeleton3D", true, false)
+	return sks[0] if not sks.is_empty() else null
+
+
+## A slain form falls the way the last blow drove it, lies a moment, and sinks into the ash. A body with
+## bones folds by them first (bones: the knees give a moment before it tips).
+func _topple(way := "crumple", bones := false) -> void:
+	if _fb and _fb.anim:
+		_fb.anim.speed_scale = 0.0   # the walk stops where it was: the body goes slack
+	if _scan_anim:
+		_scan_anim.speed_scale = 0.0
+	if _pan_anim:
+		_pan_anim.speed_scale = 0.0
+	if _pan_step:
+		_pan_step.active = false
+	var side := 1.0 if way != "back" else -1.0
+	var roll := clampf(_flinch.y * 2.0, -0.5, 0.5)
+	var axis := "rotation:x"
+	var tip := 1.45
+	if way == "twist":
+		axis = "rotation:z"
+		side = 1.0 if _flinch.y >= 0.0 else -1.0
+		roll = 0.0
+	if bones:
+		# The legs fold under it: it goes down more than over
+		tip = 1.25 if way != "crumple" else 1.05
+	var start: float = rotation.x if axis == "rotation:x" else rotation.z
+	var big := float(spec.get("size", 1.0)) >= 1.5
+	var fall := (0.75 if big else 0.5) + (0.15 if bones else 0.0)
+	var tw := create_tween()
+	if bones:
+		tw.tween_interval(0.18)
+	tw.set_parallel(true)
+	tw.tween_property(self, axis, start + side * tip, fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if axis == "rotation:x":
+		tw.tween_property(self, "rotation:z", rotation.z + roll, fall)
+	tw.chain().tween_property(self, axis, start + side * (tip - 0.12), 0.12).set_trans(Tween.TRANS_SINE)
+	if bones:
+		tw.parallel().tween_property(self, "position:y", position.y - 0.25 * float(spec.get("size", 1.0)), 0.2)
+	tw.chain().tween_interval(1.6)
 	tw.chain().tween_property(self, "position:y", position.y - 1.2 * float(spec.get("size", 1.0)), 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(queue_free)
+
+
+## A body that fell by its own clip lies a while, then sinks into the ash.
+func _sink_away(lie: float) -> void:
+	var tf := create_tween()
+	tf.tween_interval(lie)
+	tf.tween_property(self, "position:y", position.y - 1.3 * float(spec.get("size", 1.0)), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tf.tween_callback(queue_free)
 
 
 ## The ember sack bursts: fire on everything near, the forms included.
@@ -2239,7 +2668,7 @@ func _bite_tick(delta: float, p: Node3D, dist: float, dir: Vector3, reach: float
 			_attack_cd = cd
 			_knock += dir * 4.0
 			if dist < reach + 0.7 and _perfect_guard(p):
-				_parried(dir)
+				_parried(dir, p)
 			elif dist < reach + 0.7:
 				level.sfx("bite", -2, global_position)
 				if randf() < 0.5:
@@ -2274,15 +2703,19 @@ func _perfect_guard(p: Node3D) -> bool:
 
 static var parries := 0   ## (for the tests)
 
-func _parried(dir: Vector3) -> void:
+func _parried(dir: Vector3, by: Node3D = null) -> void:
 	parries += 1
-	level.sfx("parry", 0, global_position)
 	_stagger = 1.3
 	_wind = 0.0
 	_show_wind(-1.0)
+	_knock = -dir * 3.0
+	if by is Companion and Net.online and level.has_method("_w_parried"):
+		# A friend's guard turned it: they hear the ring of it and feel it in their own hands
+		level.shared("_w_parried", [int(by.peer_id), global_position])
+		return
+	level.sfx("parry", 0, global_position)
 	level.player.shake(0.2)
 	level.hud.hitmarker(false, true)
-	_knock = -dir * 3.0
 
 
 ## The swelling and glow of a gathering bite (k from 0 to 1), or back to rest (k below 0).
@@ -2364,10 +2797,11 @@ func _puppet_tick(delta: float) -> void:
 	if _pan_anim:
 		_pan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _scan:
+		_air_t = _air_t + delta if absf(_net_v.y) > 1.0 else 0.0
 		_scan_tick(Vector2(_net_v.x, _net_v.z).length())
 	if _fb:
 		var pv := Vector2(_net_v.x, _net_v.z).length()
-		_fb.play("sprint" if pv > 4.5 else ("walk" if pv > 0.4 else "idle"))
+		_fb.pace_play(pv)
 		if _wind > 0.0 and _fb._once <= 0.0:
 			_fb.act("attack-melee-right")
 			if Time.get_ticks_msec() >= _scan_busy:
@@ -2567,7 +3001,7 @@ func _do_way(w: String, p: Node3D) -> void:
 			get_tree().create_timer(0.55, false).timeout.connect(func():
 				if not _alive or not is_instance_valid(p):
 					return
-				var target := p.global_position + Vector3(0, 1.2, 0)
+				var target := p.global_position + Vector3(0, 1.2 - _low(p), 0)
 				for k in ([-0.4, -0.2, 0.0, 0.2, 0.4] if _wroth else [-0.3, -0.15, 0.0, 0.15, 0.3]):
 					_spit(global_position + (target - global_position).rotated(Vector3.UP, k)))
 		"charge":
@@ -2768,6 +3202,10 @@ func _charge_tick(delta: float) -> void:
 	velocity = _charge_dir * 24.0 * level.enemy_time
 	velocity.y = -4.0 if walks() or not kind in ["saucer", "unseen"] else 0.0
 	move_and_slide()
+	if _scan and not _fb:
+		# A body of its own runs the charge down, facing it, its legs as quick as they go
+		rotation.y = lerp_angle(rotation.y, atan2(_charge_dir.x, _charge_dir.z), minf(1.0, delta * 10.0))
+		_scan_tick(24.0)
 	for t in level.targets():
 		if _charge_hit.has(t):
 			continue
@@ -2899,7 +3337,7 @@ class Bolt extends Area3D:
 ## How the Unlit and the dead move and fight. Melee foes close in and spread around their prey
 ## instead of queueing; a gunman keeps its distance, draws a bead and fires in bursts, reloads, and
 ## backs off when badly hurt; the Lost Vigil drifts through the air.
-## Whether it can see the pilgrim: near enough (less at night, or treading softly), in front of it
+## Whether it can see the pilgrim: near enough (less at night, or crouched), in front of it
 ## (or very close), and nothing in the way.
 func sees(p: Node3D) -> bool:
 	var to := p.global_position - global_position
@@ -2907,8 +3345,8 @@ func sees(p: Node3D) -> bool:
 	var reach := 48.0 if spec.get("role", "") == "gun" else 34.0
 	if level.get("night"):
 		reach *= 0.6
-	if p == level.player and Game.held("soft"):
-		reach *= 0.55
+	if (p == level.player and Game.held("soft")) or p.get("crouched") == true:
+		reach *= 0.55   # a friend crouching far off counts too
 	if p == level.player and level.has_method("power_k"):
 		reach *= 1.0 - 0.45 * level.power_k("hush")
 	if d > reach:
@@ -2917,10 +3355,22 @@ func sees(p: Node3D) -> bool:
 	var flat := Vector3(to.x, 0, to.z).normalized()
 	if d > 6.0 and fwd.dot(flat) < 0.2:
 		return false
-	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3, 0))
+	# It looks for the chest, lower when crouched: a low wall, a rock or a crate hides one crouched behind it
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3 - _low(p), 0))
 	q.exclude = [get_rid(), p.get_rid()] if p is CollisionObject3D else [get_rid()]
 	q.collision_mask = 1
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## How much lower one is for crouching (0 standing): where foes aim and look.
+static func _low(p: Node3D) -> float:
+	var d = p.get("crouch_drop")
+	return float(d) if d != null else 0.0
+
+
+## A beacon's attackers come from afar at a run, and slow to their fighting pace once they close in.
+func _rush(d: float) -> float:
+	return 1.5 if d > 16.0 and has_meta("rush") else 1.0
 
 
 ## A noise at a place, carrying radius far. Near, it knows where it came from; further, it goes to look.
@@ -2964,6 +3414,68 @@ func _alarm(at: Vector3, call := true) -> void:
 				e._alarm(at, false)
 
 
+## The man in the coat's riddles: one is said as you come near. Short, and plain to read.
+const RIDDLES := [
+	"The more you take, the more you leave behind. Mind your steps.",
+	"I have a mouth and never eat, a bed and never sleep. Listen for me.",
+	"The one who makes it sells it. The one who buys it never uses it. The one who uses it never knows.",
+	"Light me and I die. Leave me and I wait. What am I?",
+	"I am always ahead of you, and you will never reach me.",
+	"What grows heavier the emptier it gets? A pilgrim's pack, on the way home.",
+	"What walks on four at dawn, two at noon, and three at dusk?",
+	"What has a coat but is never warm, and a gun but no wish to use it?",
+]
+var _talk := 0        ## the man in the coat: 0 silent, 1 has spoken, 2 has warned, 3 has drawn, 4 is going
+var _talk_t := 0.0
+var _going_t := 0.0
+
+
+## The man in the coat stands and watches. Come near and he speaks; nearer and he warns you; too near, or
+## strike him, and he draws. Walk away and he says his last and is gone. At dawn he is gone too.
+func _stranger_think(delta: float, p: Node3D, fd: float):
+	_talk_t -= delta
+	if _talk == 3:
+		mind = "hunt"
+		return null
+	mind = "calm"
+	if _talk == 4:
+		_going_t -= delta
+		if _going_t <= 0.0:
+			die(false)
+		return Vector3.ZERO
+	var to := p.global_position - global_position
+	rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), minf(1.0, delta * 2.5))
+	if hp < max_hp or fd < 7.0:
+		_talk = 3
+		_stranger_says("Then you have your answer." if fd < 7.0 else "So be it.")
+		if _fb and _fb.muzzle:
+			_fb.muzzle.get_parent().visible = true
+		_attack_cd = 0.4
+		return null
+	if Game.wasteland and not bool(level.get("night")) and not has_meta("raid"):
+		_talk = 4
+		_going_t = 1.0
+		return Vector3.ZERO
+	if _talk == 0 and fd < 26.0:
+		_talk = 1
+		_talk_t = 8.0
+		_stranger_says(RIDDLES[randi() % RIDDLES.size()])
+	elif _talk == 1 and fd < 14.0 and _talk_t <= 0.0:
+		_talk = 2
+		_talk_t = 5.0
+		_stranger_says("Close enough, walker. No nearer.")
+	elif _talk >= 1 and fd > 42.0:
+		_talk = 4
+		_going_t = 2.5
+		_stranger_says("Wise. Another night, then.")
+	return Vector3.ZERO
+
+
+func _stranger_says(line: String) -> void:
+	if level.has_method("_w_stranger_says"):
+		level.shared("_w_stranger_says", [net_id, line])
+
+
 func _show_mark(t: String) -> void:
 	if _mark == null:
 		_mark = Label3D.new()
@@ -2986,6 +3498,8 @@ func _think(delta: float, p: Node3D, fd: float, speed: float):
 	_mark_t -= delta
 	if _mark and _mark_t <= 0.0:
 		_mark.visible = false
+	if kind == "stranger":
+		return _stranger_think(delta, p, fd)
 	if has_meta("raid") or not Game.wasteland or boss != "":
 		mind = "hunt"
 		return null
@@ -3055,7 +3569,7 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	flat.y = 0.0
 	var fd := flat.length()
 	var fdir := flat / maxf(fd, 0.01)
-	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * (0.6 if _guard else 1.0)
+	var speed: float = spec.speed * Game.difficulty_scale("speed") * (0.55 if _shot_slow > 0.0 else 1.0) * (0.6 if _guard else 1.0) * _rush(fd)
 	_shot_slow = maxf(0.0, _shot_slow - delta)
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	_bar_tick(delta)
@@ -3080,12 +3594,12 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 		if is_on_wall() and role != "float":
 			velocity.y = 3.5
 		var pc := Vector2(velocity.x, velocity.z).length()
-		_fb.play("sprint" if pc > 4.5 else ("walk" if pc > 0.4 else "idle"), clampf(pc / 3.0, 0.7, 1.6) if pc > 0.4 else 1.0)
+		_fb.pace_play(pc)
 		return
 	if not frozen:
 		match role:
 			"gun":
-				var keep := 30.0 if hurt_bad else 18.0
+				var keep := 30.0 if hurt_bad else float(spec.get("keep", 18.0))
 				var side := fdir.cross(Vector3.UP) * _strafe
 				if fd > keep + 6.0:
 					want = fdir * speed
@@ -3115,8 +3629,20 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 		elif is_on_floor():
 			velocity.x = lerpf(velocity.x, want.x, minf(1.0, delta * 8.0))
 			velocity.z = lerpf(velocity.z, want.z, minf(1.0, delta * 8.0))
-		rotation.y = lerp_angle(rotation.y, atan2(fdir.x, fdir.z), minf(1.0, delta * 8.0))
+		# It faces its foe while it closes or backs away (stepping backward then); going across, it turns the
+		# way it goes, so its legs never walk one way while the body slides another
+		var face_y := atan2(fdir.x, fdir.z)
+		var wv := Vector2(want.x, want.z)
+		_back_step = false
+		if wv.length() > 0.8:
+			var off := absf(angle_difference(face_y, atan2(want.x, want.z)))
+			if off > PI * 0.65:
+				_back_step = true
+			elif off > PI * 0.33:
+				face_y = atan2(want.x, want.z)
+		rotation.y = lerp_angle(rotation.y, face_y, minf(1.0, delta * 8.0))
 	else:
+		_back_step = false
 		velocity.x = move_toward(velocity.x, 0.0, delta * 20.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 20.0)
 	if role != "float":
@@ -3133,7 +3659,10 @@ func _foe_move(delta: float, p: Node3D, dist: float, dir: Vector3, frozen: bool)
 	if is_on_wall() and not frozen and role != "float":
 		velocity.y = 3.5
 	var pace := Vector2(velocity.x, velocity.z).length()
-	_fb.play("sprint" if pace > 4.5 else ("walk" if pace > 0.4 else ("holding-both" if role == "gun" and fd < 40.0 else "idle")), clampf(pace / 3.0, 0.7, 1.6) if pace > 0.4 else 1.0)
+	if pace <= 0.4 and role == "gun" and fd < 40.0:
+		_fb.play("holding-both")
+	else:
+		_fb.pace_play(pace, _back_step)
 	if frozen or level.completed or level.failing:
 		return
 	_attack_cd -= delta
@@ -3226,7 +3755,7 @@ func _begin_move(m: String, k: float, dir: Vector3, reach := 0.0) -> void:
 func _land_strike(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
 	if dist < reach + 0.7:
 		if _perfect_guard(p):
-			_parried(dir)
+			_parried(dir, p)
 		else:
 			level.sfx("chop" if kind.begins_with("unlit") or kind in ["warden", "knight"] else "bite", -3, global_position)
 			level.hurt_target(p, spec.bite * FoeTraits.bite_mult(self), global_position)
@@ -3261,7 +3790,7 @@ func _land_lunge(p: Node3D, dir: Vector3, reach: float) -> void:
 		var d := global_position.distance_to(p.global_position)
 		if d < reach + 1.0:
 			if _perfect_guard(p):
-				_parried(dir)
+				_parried(dir, p)
 			else:
 				level.sfx("chop", -2, global_position)
 				level.hurt_target(p, spec.bite * 1.3, global_position))
@@ -3273,7 +3802,7 @@ func _land_grab(p: Node3D, dist: float, dir: Vector3, reach: float) -> void:
 		level.sfx("swing", -6, global_position, 0.7)
 		return
 	if _perfect_guard(p):
-		_parried(dir)
+		_parried(dir, p)
 		return
 	if p == level.player and level.player.dodge_t > 0.0:
 		return
@@ -3318,14 +3847,14 @@ func _gun_tick(delta: float, p: Node3D, dist: float) -> void:
 			elif _burst == 0:
 				_attack_cd = randf_range(1.4, 2.4)
 		return
-	if _attack_cd <= 0.0 and dist < float(spec.get("sight", 45.0)) and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+	if _attack_cd <= 0.0 and dist < float(spec.get("sight", 45.0)) and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 		_aim = float(spec.get("aim", 0.75))
 		level.shared("_w_glint", [net_id])
 
 
 func _shoot_at(p: Node3D, dist: float) -> void:
 	var from: Vector3 = _fb.muzzle.global_position if _fb and _fb.muzzle else global_position + Vector3(0, 0.6, 0)
-	var at := p.global_position + Vector3(0, 1.2, 0)
+	var at := p.global_position + Vector3(0, 1.2 - _low(p), 0)
 	var moving := 0.0
 	if p is CharacterBody3D:
 		moving = Vector2(p.velocity.x, p.velocity.z).length()
@@ -3334,8 +3863,29 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var aimed := float(spec.get("aimed", 1.0))
 	var spread := (0.25 + dist * 0.006) * aimed
 	at += Vector3(randf_range(-spread, spread), randf_range(-spread * 0.6, spread * 0.6), randf_range(-spread, spread))
-	_fb.act("holding-both-shoot")
-	level.sfx("mg", -4, from, 0.85)
+	if Vector2(velocity.x, velocity.z).length() < 0.4:
+		_fb.act("holding-both-shoot")   # (on the move it fires from the hip, its legs still walking)
+	var pellets := int(spec.get("pellets", 1))
+	if pellets > 1:
+		# A shotgun: a spray of shot, hard close up and thin far off
+		level.sfx("shotgun", Arms.shot_db("shotgun") + Arms.FOE_DB, from, 0.95)   # foes' guns are as loud as their round
+		var aim_at := p.global_position + Vector3(0, 1.1 - _low(p), 0)
+		for i in pellets:
+			var sp := aim_at + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * (0.15 + dist * 0.06)
+			var pb := Bolt.new()
+			pb.level = level
+			pb.look = "round"
+			pb.damage = float(spec.bite)
+			pb.life = 0.9
+			pb.velocity = (sp - from).normalized() * 55.0
+			level.add_child(pb)
+			pb.global_position = from
+			if Net.online:
+				Net.bolt(from, pb.velocity, pb.damage, "round")
+		return
+	# A marksman's heavy single round, or a gunman's rifle
+	var marks := aimed < 0.8
+	level.sfx("sniper" if marks else "mg", Arms.shot_db("sniper" if marks else "lmg") + Arms.FOE_DB, from, 1.0 if marks else 0.85)
 	var speed := 40.0 / clampf(aimed, 0.5, 1.2)
 	var b := Bolt.new()
 	b.level = level

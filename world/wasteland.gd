@@ -61,6 +61,7 @@ var lit: Array = []
 var flags := {}
 var rep := {}
 var nodes: Array = []
+var woodcut := WFell.new(self)   ## every standing tree, to be cut down (see world/fell.gd)
 var ruins: Array = []
 var crates := {}
 var containers := {}
@@ -353,7 +354,7 @@ func intro() -> void:
 
 func _exit_tree() -> void:
 	super._exit_tree()
-	if ready_world:
+	if ready_world and not Net.server_stopping:   # a stopping server has just saved
 		save_all()
 	WPlaylog.end()
 	Game.wasteland = false
@@ -437,7 +438,49 @@ var _bed_t := 0.0
 
 var _ground_laid := false
 
+## Satchels are taken by walking over them: what fits goes into the pack (each tried at most once a second).
+const AUTO_TAKE_R := 1.9
+var _auto_take_t := 0.0
+var _auto_tried := {}
+var _auto_wait := {}   ## satchels one has just put down: not taken back until one has walked off
+var _drop_ms := -100000   ## when this pilgrim last put something down
+var auto_take_on := true  ## off in the headless checks, which lay satchels at the feet on purpose
+
+
+func _auto_take(delta: float) -> void:
+	if _auto_take_t == 0.0 and DisplayServer.get_name() == "headless" and not "auto_take" in OS.get_cmdline_user_args():
+		auto_take_on = false
+	_auto_take_t -= delta
+	if _auto_take_t > 0.0 or player == null or Net.dedicated or not ready_world or not Game.auto_loot or not auto_take_on:
+		return
+	_auto_take_t = 0.2
+	if player.get("dead") == true:
+		return
+	var now := Time.get_ticks_msec()
+	var at: Vector3 = player.global_position
+	for sid in satchels:
+		var s: Dictionary = satchels[sid]
+		var n: Node3D = s.node
+		if not is_instance_valid(n) or not n.visible:
+			continue
+		var d: Vector3 = n.global_position - at
+		if _auto_wait.has(sid):
+			if Vector2(d.x, d.z).length() > 3.5:
+				_auto_wait.erase(sid)
+			continue
+		if Vector2(d.x, d.z).length() > AUTO_TAKE_R or absf(d.y) > 2.5:
+			continue
+		if now - int(_auto_tried.get(sid, -100000)) < 1000:
+			continue
+		var data: Array = containers.get(sid, [])
+		if data.all(func(x): return x == null):
+			continue
+		_auto_tried[sid] = now
+		take_all(sid, true)
+
+
 func _process(delta: float) -> void:
+	_auto_take(delta)
 	if _stars and player:
 		_stars.global_position = player.global_position
 	if terrain and player and not Net.dedicated and not _steps:
@@ -446,7 +489,8 @@ func _process(delta: float) -> void:
 		terrain.stream_to(cam.global_position if cam else player.global_position, not _ground_laid)
 		_ground_laid = true
 	if Net.dedicated and ready_world:
-		# No one plays here, but the towns' watch still walks and shoots
+		# No one plays here, but the towns' watch still walks and shoots (while the server's world is
+		# paused, with no one in it, this stops with everything else)
 		_gate_t -= delta
 		if _gate_t <= 0.0:
 			_gate_t = 1.0
@@ -494,6 +538,8 @@ func _place_sounds() -> void:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(r.pos.x, r.pos.z)) - 10.0) / 30.0, 0.0, 1.0))
 	for l in lairs:
 		cave = maxf(cave, clampf(1.0 - (Vector2(p.x, p.z).distance_to(Vector2(l.pos.x, l.pos.z)) - 15.0) / 35.0, 0.0, 1.0))
+	if base_at(p) >= 0:
+		cave *= 0.3   # a lit camp built by old stones is a home: their hollow wind no longer drones under it
 	# Each land has its own sound under the wind: the forest's leaves, the marsh's water, birds on the
 	# green isles, insects in the wet places after dark
 	var land := str(terrain.biome_name(p.x, p.z))
@@ -1002,6 +1048,14 @@ func _town_plan(k: String) -> Array:
 		return 0.5 * Vector2(w, d).length()
 	var face_c := func(off: Vector2) -> float:
 		return atan2(-off.x, -off.y)
+	# And whether what stands there, as it is drawn (a house with its eaves and the porch before its door),
+	# keeps clear of what is already put up: the rounder test above lets eaves and porches run into a neighbour
+	var clear := func(cand: Dictionary) -> bool:
+		var mine := _plan_rect(cand)
+		for o in out:
+			if not Geometry2D.intersect_polygons(mine, _plan_rect(o)).is_empty():
+				return false
+		return true
 	# The inn first, toward the middle
 	var inn_fr: float = foot.call(3 * G, 2 * G)
 	# The inn first, toward the middle, on the side the town leans to (or across from it)
@@ -1012,7 +1066,7 @@ func _town_plan(k: String) -> Array:
 		var off := Vector2(cos(a), sin(a)) * inn_d
 		if fits.call(off, inn_fr - 1.0):
 			out.append({"kind": "inn", "off": off, "yaw": face_c.call(off), "w": 3, "d": 2, "fr": inn_fr - 1.0})
-			break
+			break   # (the first thing put up: nothing to keep clear of)
 	# Then the houses, of a few sizes
 	var want := 8 + rr.randi() % 4
 	if style in ["crescent", "quarters"]:
@@ -1078,7 +1132,10 @@ func _town_plan(k: String) -> Array:
 			continue
 		if not fits.call(off, fr):
 			continue
-		out.append({"kind": "house", "off": off, "yaw": yaw, "w": w, "d": d, "fr": fr})
+		var hb := {"kind": "house", "off": off, "yaw": yaw, "w": w, "d": d, "fr": fr}
+		if not clear.call(hb):
+			continue
+		out.append(hb)
 	# A town too tight for its way still has its homes: the rest put up wherever they fit
 	var homes := out.filter(func(o): return o.kind == "house").size()
 	tries = 0
@@ -1090,8 +1147,10 @@ func _town_plan(k: String) -> Array:
 		var a := rr.randf() * TAU
 		var off := Vector2(cos(a), sin(a)) * r * rr.randf_range(0.3, 0.75)
 		if fits.call(off, fr):
-			out.append({"kind": "house", "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.5, 0.5), "w": w, "d": d, "fr": fr})
-			homes += 1
+			var hb := {"kind": "house", "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.5, 0.5), "w": w, "d": d, "fr": fr}
+			if clear.call(hb):
+				out.append(hb)
+				homes += 1
 	# And what a town has besides: a smithy, a well, market stalls, a watchtower by the wall
 	var extras := [["smithy", 3.2], ["well", 1.6], ["stall", 1.8], ["stall", 1.8], ["tower", 1.8]]
 	if s.get("far", false) or s.has("shore"):
@@ -1101,8 +1160,9 @@ func _town_plan(k: String) -> Array:
 		var ya := town_lean(k) + PI + (1.15 if style == "quarters" else 0.0)
 		for t in 8:
 			var off := Vector2(cos(ya), sin(ya)) * r * (0.5 - t * 0.03)
-			if fits.call(off, 4.0):
-				out.append({"kind": "yard", "off": off, "yaw": face_c.call(off), "w": 1, "d": 1, "fr": 4.0})
+			var yb := {"kind": "yard", "off": off, "yaw": face_c.call(off), "w": 1, "d": 1, "fr": 4.0}
+			if fits.call(off, 4.0) and clear.call(yb):
+				out.append(yb)
 				break
 			ya += 0.25 * (1.0 if t % 2 == 0 else -1.0) * (t + 1)
 	for ex in extras:
@@ -1123,9 +1183,33 @@ func _town_plan(k: String) -> Array:
 			else:
 				ok = fits.call(off, float(ex[1]))
 			if ok:
-				out.append({"kind": ex[0], "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.3, 0.3), "w": 1, "d": 1, "fr": float(ex[1])})
-				break
+				var eb := {"kind": ex[0], "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.3, 0.3), "w": 1, "d": 1, "fr": float(ex[1])}
+				if clear.call(eb):
+					out.append(eb)
+					break
 	return out
+
+
+## The ground a planned building covers as it is drawn: a house or inn with its eaves (half a pace out)
+## and the porch before its door (two paces), a little room kept about it; the rest a square of their reach.
+static func _plan_rect(b: Dictionary) -> PackedVector2Array:
+	var G := WBuilder.GRID
+	var hw: float
+	var front: float
+	var back: float
+	if b.kind in ["house", "inn"]:
+		hw = float(b.w) * G * 0.5 + 0.6
+		front = float(b.d) * G * 0.5 + 2.1
+		back = float(b.d) * G * 0.5 + 0.6
+	else:
+		hw = {"smithy": 2.7, "well": 1.2, "stall": 1.6, "tower": 1.6, "yard": 4.0}.get(b.kind, float(b.fr) * 0.8)
+		front = hw
+		back = hw
+	var pts := PackedVector2Array()
+	for q in [Vector2(-hw, -back), Vector2(hw, -back), Vector2(hw, front), Vector2(-hw, front)]:
+		var v := Vector3(q.x, 0, q.y).rotated(Vector3.UP, float(b.yaw))
+		pts.append((b.off as Vector2) + Vector2(v.x, v.z))
+	return pts
 
 
 ## Footpaths worn from the gates through the middle, and from each door to the fire.
@@ -1148,7 +1232,10 @@ func _town_paths(k: String) -> void:
 			continue
 		# From the door (on the house's front) out and on toward the fire
 		var front := Vector2(sin(float(b.yaw)), cos(float(b.yaw)))
-		var door: Vector2 = c + b.off + front * (float(b.d) * WBuilder.GRID * 0.5 + 1.0)
+		var side := Vector2(cos(float(b.yaw)), -sin(float(b.yaw)))
+		# The door is in the middle cell of the front: off the middle of a house two cells wide
+		var door_x := -float(b.w) * WBuilder.GRID * 0.5 + (int(b.w) / 2 + 0.5) * WBuilder.GRID
+		var door: Vector2 = c + b.off + front * (float(b.d) * WBuilder.GRID * 0.5 + 1.0) + side * door_x
 		var mid: Vector2 = door + front * 2.5
 		terrain.add_road(PackedVector2Array([door, mid, c + (mid - c).normalized() * 3.0]), 2.0)
 
@@ -1173,6 +1260,12 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		for cz in [-0.5, 0.5]:
 			var q := at + Vector3(cx * W, 0, cz * D).rotated(Vector3.UP, b.yaw)
 			hi = maxf(hi, terrain.height_at(q.x, q.z))
+	# ...and its footing reaches down to the lowest ground under its edges, so no side hangs in the air
+	var lo := hi
+	for cx in [-0.5, 0.0, 0.5]:
+		for cz in [-0.5, 0.0, 0.5]:
+			var q := at + Vector3(cx * (W + 0.4), 0, cz * (D + 0.4)).rotated(Vector3.UP, b.yaw)
+			lo = minf(lo, terrain.height_at(q.x, q.z))
 	n.position = Vector3(at.x, hi + 0.05, at.z)
 	n.rotation.y = b.yaw
 	var rr := RandomNumberGenerator.new()
@@ -1185,11 +1278,13 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	var roof_kind := rr.randi() % 4   # 0 thatch, 1 plank, 2 flat with a parapet, 3 iron lean-to
 	if inn:
 		roof_kind = 1
-	# The floor: one slab, its top at the house's ground
+	# The floor: one slab, its top at the house's ground, a plinth a hand wider than the walls' footings
+	# (so no face of the two lies in one plane) and deep enough to meet the land under every edge
 	var fb := StaticBody3D.new()
 	fb.collision_layer = 1
 	n.add_child(fb)
-	builder._part(n, fb, Vector3(W, 1.0, D), Vector3(0, -0.5, 0), _m.stone if tier else _m.darkwood, false)
+	var deep := maxf(1.0, n.position.y - lo + 0.3)
+	builder._part(n, fb, Vector3(W + 0.4, deep, D + 0.4), Vector3(0, -0.02 - deep * 0.5, 0), _m.stone if tier else _m.darkwood, false)
 	builder._kit(n, "planks", Vector3(W, 1.0, D), Vector3(0, -0.02, 0), 0.0)
 	# The walls, cell by cell; the door in the middle of the front, toward the fire
 	var door_i := int(b.w) / 2
@@ -1201,50 +1296,73 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	town_doors.append([outside, n.position + Vector3(door_x, 0.2, D * 0.5 - G * 0.6).rotated(Vector3.UP, b.yaw)])
 	if lip > 0.12:
 		var run := sqrt(ramp_len * ramp_len + lip * lip)
-		var ramp := builder._part(n, fb, Vector3(G * 0.8, 0.2, run), Vector3(door_x, -lip * 0.5 - 0.1, D * 0.5 + ramp_len * 0.5), _m.darkwood, false)
 		var tilt := atan2(lip, ramp_len)
+		# Where the land also falls across the ramp, it is deeper below, so neither edge hangs over the ground
+		var extra := 0.0
+		for rz in [D * 0.5, D * 0.5 + ramp_len]:
+			var mid := _ground_under(n, Vector3(door_x, 0, rz))
+			for rx in [-G * 0.4, G * 0.4]:
+				extra = maxf(extra, mid - _ground_under(n, Vector3(door_x + rx, 0, rz)))
+		var thick := 0.2 + extra
+		var down := Vector3(0, cos(tilt), sin(tilt)) * (thick - 0.2) * 0.5
+		var ramp := builder._part(n, fb, Vector3(G * 0.8, thick, run), Vector3(door_x, -lip * 0.5 - 0.1, D * 0.5 + ramp_len * 0.5) - down, _m.darkwood, false)
 		if ramp is Node3D:
 			(ramp as Node3D).rotation.x = tilt
 		var rcs := fb.get_child(fb.get_child_count() - 1)
 		if rcs is CollisionShape3D:
 			(rcs as CollisionShape3D).rotation.x = tilt
+	# Each piece turned with its outer face (shutters, sill) out: the back walls a half turn, each side
+	# a quarter turn its own way. The side walls' end cells reach out over the corner, closing it.
 	for i in int(b.w):
 		var x := -W * 0.5 + (i + 0.5) * G
 		_town_wall(n, "doorway" if i == door_i else ("window" if rr.randf() < 0.6 else "wall"), Vector3(x, 0, D * 0.5), 0.0, tier)
-		_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, 0, -D * 0.5), 0.0, tier)
+		_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, 0, -D * 0.5), PI, tier)
 	for j in int(b.d):
 		var z := -D * 0.5 + (j + 0.5) * G
 		for side in [-1.0, 1.0]:
-			_town_wall(n, "window" if rr.randf() < 0.35 else "wall", Vector3(side * W * 0.5, 0, z), PI * 0.5, tier)
+			_town_wall(n, "window" if rr.randf() < 0.35 else "wall", Vector3(side * W * 0.5, 0, z), PI * 0.5 * side, tier, true, _corner_end(j, int(b.d), side))
 	# A ceiling; a second storey for some (seen from without, a loft within)
 	builder._part(n, fb, Vector3(W + 0.3, 0.12, D + 0.3), Vector3(0, 3.06, 0), _m.darkwood, false)
 	var top := 3.12
 	if tall:
+		# The upper storey stands on the floor between: its walls have no footing to hang down through it
 		for i in int(b.w):
 			var x := -W * 0.5 + (i + 0.5) * G
-			_town_wall(n, "window" if rr.randf() < 0.5 else "wall", Vector3(x, top, D * 0.5), 0.0, tier)
-			_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, top, -D * 0.5), 0.0, tier)
+			_town_wall(n, "window" if rr.randf() < 0.5 else "wall", Vector3(x, top, D * 0.5), 0.0, tier, false)
+			_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, top, -D * 0.5), PI, tier, false)
 		for j in int(b.d):
 			var z := -D * 0.5 + (j + 0.5) * G
 			for side in [-1.0, 1.0]:
-				_town_wall(n, "wall", Vector3(side * W * 0.5, top, z), PI * 0.5, tier)
+				_town_wall(n, "wall", Vector3(side * W * 0.5, top, z), PI * 0.5 * side, tier, false, _corner_end(j, int(b.d), side))
 		builder._part(n, fb, Vector3(W + 0.3, 0.12, D + 0.3), Vector3(0, top + 3.06, 0), _m.darkwood, false)
 		top += 3.12
-	_town_roof(n, fb, roof_kind, W, D, top, rr)
+	var roof_h := _town_roof(n, fb, roof_kind, W, D, top, rr)
 	# A porch over the door, a chimney with its smoke, a lantern, and what is left out in the yard
 	var front := D * 0.5
 	if rr.randf() < (1.0 if inn else 0.45):
 		var pw: float = minf(W - 0.4, 4.2)
+		# Its roof falls away from the wall, and its posts stand on the ground and carry it
+		const TILT := 0.18
+		var post_top := 2.62 - 0.7 * tan(TILT) - 0.05 / cos(TILT)
 		for side in [-1.0, 1.0]:
-			builder._part(n, fb, Vector3(0.16, 2.5, 0.16), Vector3(side * pw * 0.5, 1.25, front + 1.6), _m.darkwood, false)
+			var pp := Vector3(side * pw * 0.5, 0, front + 1.6)
+			var foot := minf(0.0, _ground_under(n, pp)) - 0.1
+			builder._part(n, fb, Vector3(0.16, post_top - foot, 0.16), Vector3(pp.x, (post_top + foot) * 0.5, pp.z), _m.darkwood, false)
 		var aw := builder._part(n, null, Vector3(pw + 0.5, 0.1, 1.9), Vector3(0, 2.62, front + 0.9), _m.thatch if roof_kind == 0 else _m.darkwood, false)
-		aw.rotation.x = -0.18
+		aw.rotation.x = TILT
 	if rr.randf() < 0.4 or inn:
 		var cx := rr.randf_range(-W * 0.3, W * 0.3)
-		builder._part(n, fb, Vector3(0.7, 2.2, 0.7), Vector3(cx, top + 0.9, -D * 0.25), _m.stone, false)
+		var cz := -D * 0.25
+		# Standing on the ceiling and up through the roof, its top well clear of the roof where it rises
+		var over := 0.0
+		for q in [Vector2(-0.35, -0.35), Vector2(0.35, -0.35), Vector2(-0.35, 0.35), Vector2(0.35, 0.35)]:
+			over = maxf(over, float(roof_h.call(cx + q.x, cz + q.y)))
+		# (and over the ridge, as a chimney should be, that its smoke clears the roof)
+		var ch := maxf(maxf(over + 0.7, float(roof_h.call(cx, 0.0)) + 0.3), 1.6)
+		builder._part(n, fb, Vector3(0.7, ch + 0.06, 0.7), Vector3(cx, top + (ch - 0.06) * 0.5, cz), _m.stone, false)   # its foot in the ceiling
 		if _town_smokes < 3:
 			_town_smokes += 1
-			_smoke(n.to_global(Vector3(cx, top + 2.2, -D * 0.25)) if n.is_inside_tree() else n.position + Vector3(0, top + 2.2, 0))
+			_smoke(n.position + Vector3(cx, top + ch + 0.2, cz).rotated(Vector3.UP, n.rotation.y))
 	var lan := builder._part(n, null, Vector3(0.18, 0.26, 0.18), Vector3(G * 0.5 + 0.2 - W * 0.5 + int(b.w) / 2 * G + 0.75, 2.2, front + 0.18), _m.ember, false)
 	lan.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for i in rr.randi() % 4:
@@ -1253,6 +1371,9 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		at2.x = clampf(at2.x, -W * 0.5 - 0.9, W * 0.5 + 0.9)
 		if absf(at2.x) < W * 0.5 + 0.4:
 			at2.x = signf(at2.x if at2.x != 0.0 else 1.0) * (W * 0.5 + 0.7)
+		# on the land beside the house, not at its floor's height (where it falls away, at its lowest under the thing)
+		at2.y = minf(minf(_ground_under(n, at2 + Vector3(0.4, 0, 0)), _ground_under(n, at2 - Vector3(0.4, 0, 0))),
+			minf(_ground_under(n, at2 + Vector3(0, 0, 0.4)), _ground_under(n, at2 - Vector3(0, 0, 0.4))))
 		WDress.yard(n, k, at2, rr)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(1.0, 0.72, 0.42) if rr.randf() < 0.7 else Color(1.0, 0.82, 0.6)
@@ -1286,7 +1407,8 @@ var _town_smokes := 0
 
 
 ## A house's roof: thatch or planks pitched over it, a flat top behind a low parapet, or a rusted lean-to.
-func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top: float, rr: RandomNumberGenerator) -> void:
+## Returns how high the roof's top stands over (x, z), above `top`, for what must clear it (a chimney).
+func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top: float, rr: RandomNumberGenerator) -> Callable:
 	match kind:
 		0, 1:
 			var roof := MeshInstance3D.new()
@@ -1303,14 +1425,49 @@ func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top:
 			if along_x:
 				roof.rotation.y = PI * 0.5
 			n.add_child(roof)
+			var half := ((D if along_x else W) + 1.0) * 0.5
+			return func(x: float, z: float) -> float: return pitch * clampf(1.0 - absf(z if along_x else x) / half, 0.0, 1.0)
 		2:
 			builder._part(n, fb, Vector3(W + 0.3, 0.2, D + 0.3), Vector3(0, top + 0.1, 0), _m.stone, false)
 			for side in [-1.0, 1.0]:
 				builder._part(n, fb, Vector3(W + 0.3, 0.6, 0.25), Vector3(0, top + 0.5, side * (D * 0.5 + 0.03)), _m.stone, false)
-				builder._part(n, fb, Vector3(0.25, 0.6, D + 0.3), Vector3(side * (W * 0.5 + 0.03), top + 0.5, 0), _m.stone, false)
-		3:
-			var sheet := builder._part(n, null, Vector3(W + 0.8, 0.12, D + 1.0), Vector3(0, top + 0.55, 0), _m.rust, false)
-			sheet.rotation.x = 0.28 * (1.0 if rr.randf() < 0.5 else -1.0)
+				# The side parapets run between the front and back ones, not through them
+				builder._part(n, fb, Vector3(0.25, 0.6, D - 0.19), Vector3(side * (W * 0.5 + 0.03), top + 0.5, 0), _m.stone, false)
+			return func(_x: float, _z: float) -> float: return 0.8
+		_:
+			# A lean-to: the roof rises from one long wall to the other over plank gables that close its
+			# sides, the rusted sheet laid on the slope with its eaves out over the walls
+			var hs := 1.0 if rr.randf() < 0.5 else -1.0   # which side stands high
+			var span := D + 0.3
+			var rise := span * tan(0.2)
+			var wedge := MeshInstance3D.new()
+			var pm := PrismMesh.new()
+			pm.size = Vector3(span, rise, W + 0.3)
+			pm.left_to_right = 0.0 if hs > 0.0 else 1.0   # its top edge over the high wall (the prism's x is the house's -z)
+			wedge.mesh = pm
+			wedge.material_override = _m.darkwood
+			wedge.position = Vector3(0, top + rise * 0.5, 0)
+			wedge.rotation.y = PI * 0.5
+			n.add_child(wedge)
+			var lo_e := Vector3(0, top, -hs * span * 0.5)
+			var hi_e := Vector3(0, top + rise, hs * span * 0.5)
+			var u := (hi_e - lo_e).normalized()
+			var up := Vector3(0, absf(u.z), -u.y * signf(u.z))
+			var sheet := builder._part(n, null, Vector3(W + 0.8, 0.1, (hi_e - lo_e).length() + 0.9), Vector3.ZERO, _m.rust, false)
+			sheet.transform = Transform3D(Basis(Vector3.RIGHT, up, u), (lo_e + hi_e) * 0.5 - u * 0.15 + up * 0.05)
+			return func(_x: float, z: float) -> float: return rise * clampf(0.5 + hs * z / span, 0.0, 1.0) + 0.1
+
+
+## How high the land stands under a point of a house (its own space), against the house's floor.
+func _ground_under(n: Node3D, local: Vector3) -> float:
+	var g := n.position + Vector3(local.x, 0, local.z).rotated(Vector3.UP, n.rotation.y)
+	return terrain.height_at(g.x, g.z) - n.position.y
+
+
+## Which way a side wall's cell reaches over the corner: its end cells do, toward their end of the house.
+func _corner_end(j: int, cells: int, side: float) -> float:
+	var e := -1.0 if j == 0 else (1.0 if j == cells - 1 else 0.0)
+	return -e * side
 
 
 ## What a town has besides houses: a smithy with its glowing forge, a well, market stalls under
@@ -1329,11 +1486,12 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 	match str(b.kind):
 		"smithy":
 			# An open shed: four posts and a roof, the forge at the back, the anvil before it
+			# The posts reach from the ground up to the sloping roof's underside
 			for p in [Vector2(-2.2, -1.8), Vector2(2.2, -1.8), Vector2(-2.2, 1.8), Vector2(2.2, 1.8)]:
-				builder._part(n, fb, Vector3(0.2, 3.0, 0.2), Vector3(p.x, 1.5, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.2, 0.2), p, 3.1 - p.y * tan(0.15) - 0.07 / cos(0.15), _m.darkwood)
 			var rf := builder._part(n, null, Vector3(5.2, 0.14, 4.4), Vector3(0, 3.1, 0), _m.rust, false)
 			rf.rotation.x = 0.15
-			builder._part(n, fb, Vector3(1.6, 1.0, 1.2), Vector3(0, 0.5, -1.4), _m.stone, false)
+			_stand(n, fb, Vector2(1.6, 1.2), Vector2(0, -1.4), 1.0, _m.stone)
 			var coals := builder._part(n, null, Vector3(1.1, 0.12, 0.8), Vector3(0, 1.04, -1.4), _m.ember, false)
 			coals.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			builder._part(n, fb, Vector3(0.5, 2.6, 0.5), Vector3(0, 2.3, -1.6), _m.darkstone, false)
@@ -1343,12 +1501,12 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			fl.omni_range = 7.0
 			fl.position = Vector3(0, 1.4, -1.0)
 			n.add_child(fl)
-			builder._part(n, fb, Vector3(0.35, 0.6, 0.35), Vector3(0.4, 0.3, 0.4), _m.darkwood, false)
+			_stand(n, fb, Vector2(0.35, 0.35), Vector2(0.4, 0.4), 0.6, _m.darkwood)
 			builder._part(n, fb, Vector3(0.7, 0.22, 0.3), Vector3(0.4, 0.71, 0.4), _m.iron, false)
-			WDress.kp(n, "scan", "barrel_03", Vector3(-1.7, 0, 1.2), rr.randf(), 1.0, true)
-			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0, 1.0), 0.2, 2.4)
-			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0.6, 1.0), -0.1, 2.4)
-			WDress.kp(n, "pirate", "cannon-ball", Vector3(-1.2, 0, -0.4), 0.0, 0.5)
+			WDress.kp(n, "scan", "barrel_03", _on_ground(n, Vector3(-1.7, 0, 1.2)), rr.randf(), 1.0, true)
+			WDress.kp(n, "castle", "tree-log", _on_ground(n, Vector3(1.8, 0, 1.0)), 0.2, 2.4)
+			WDress.kp(n, "castle", "tree-log", _on_ground(n, Vector3(1.8, 0.6, 1.0)), -0.1, 2.4)
+			WDress.kp(n, "pirate", "cannon-ball", _on_ground(n, Vector3(-1.2, 0, -0.4)), 0.0, 0.5)
 		"well":
 			var ring := MeshInstance3D.new()
 			var cm := CylinderMesh.new()
@@ -1361,28 +1519,30 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			n.add_child(ring)
 			builder._part(n, fb, Vector3(2.0, 0.9, 2.0), Vector3(0, 0.45, 0), null, false)
 			builder._part(n, null, Vector3(1.6, 0.05, 1.6), Vector3(0, 0.8, 0), _m.cold, false)
+			# Its posts carry the little roof (its underside at 2.46), the windlass beam between them
 			for side in [-1.0, 1.0]:
-				builder._part(n, fb, Vector3(0.15, 2.2, 0.15), Vector3(side * 0.9, 1.1, 0), _m.darkwood, false)
-			builder._part(n, null, Vector3(2.1, 0.14, 0.14), Vector3(0, 2.15, 0), _m.darkwood, false)
-			var rf := builder._part(n, null, Vector3(2.4, 0.08, 1.6), Vector3(0, 2.5, 0), _m.thatch, false)
-			rf.rotation.z = 0.0
+				_stand(n, fb, Vector2(0.15, 0.15), Vector2(side * 0.9, 0), 2.46, _m.darkwood)
+			builder._part(n, null, Vector3(1.65, 0.14, 0.14), Vector3(0, 2.15, 0), _m.darkwood, false)
+			builder._part(n, null, Vector3(2.4, 0.08, 1.6), Vector3(0, 2.5, 0), _m.thatch, false)
 		"stall":
 			var cloths := [Color(0.5, 0.18, 0.12), Color(0.55, 0.45, 0.2), Color(0.25, 0.32, 0.36), Color(0.4, 0.38, 0.3)]
 			var cm := mat(cloths[rr.randi() % cloths.size()], 1.0, 0.3, 1.0)
+			# Posts up to the tilted cloth's underside
 			for p in [Vector2(-1.3, -0.8), Vector2(1.3, -0.8), Vector2(-1.3, 0.8), Vector2(1.3, 0.8)]:
-				builder._part(n, fb, Vector3(0.12, 2.3, 0.12), Vector3(p.x, 1.15, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.12, 0.12), p, 2.35 + p.y * tan(0.12) - 0.03 / cos(0.12), _m.darkwood)
 			var awn := builder._part(n, null, Vector3(3.0, 0.06, 2.1), Vector3(0, 2.35, 0), cm, false)
 			awn.rotation.x = -0.12
-			builder._part(n, fb, Vector3(2.6, 0.9, 0.9), Vector3(0, 0.45, 0.3), _m.wood, false)
+			_stand(n, fb, Vector2(2.4, 0.9), Vector2(0, 0.3), 0.9, _m.wood)
 			WDress.wares(n, k, Vector3(0, 0.9, 0.3), rr)
-			WDress.kp(n, "town", "stall-stool", Vector3(0.6, 0, -0.5), rr.randf(), 2.4)
+			WDress.kp(n, "town", "stall-stool", _on_ground(n, Vector3(0.6, 0, -0.5)), rr.randf(), 2.4)
 		"tower":
 			for p in [Vector2(-1.1, -1.1), Vector2(1.1, -1.1), Vector2(-1.1, 1.1), Vector2(1.1, 1.1)]:
-				builder._part(n, fb, Vector3(0.24, 6.4, 0.24), Vector3(p.x, 3.2, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.24, 0.24), p, 6.4, _m.darkwood)
 			builder._part(n, fb, Vector3(2.8, 0.18, 2.8), Vector3(0, 5.2, 0), _m.wood, false)
 			for side in [-1.0, 1.0]:
 				builder._part(n, fb, Vector3(2.8, 0.8, 0.1), Vector3(0, 5.7, side * 1.35), _m.wood, false)
-				builder._part(n, fb, Vector3(0.1, 0.8, 2.8), Vector3(side * 1.35, 5.7, 0), _m.wood, false)
+				# the side boards between the front and back ones, not through their ends
+				builder._part(n, fb, Vector3(0.1, 0.8, 2.6), Vector3(side * 1.35, 5.7, 0), _m.wood, false)
 			var tr := MeshInstance3D.new()
 			var pm := PrismMesh.new()
 			pm.size = Vector3(3.2, 1.2, 3.2)
@@ -1400,32 +1560,60 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 		"yard":
 			# The open side of the town: a rail fence about worked ground, its gap toward the fire, and stores
 			var half := 3.6
+			# One post at each spot: the corners are shared by two sides of the fence
+			var posts := {}
 			for i in 9:
 				var t := -half + i * half * 2.0 / 8.0
 				for post in [Vector2(t, -half), Vector2(-half, t), Vector2(half, t)]:
-					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(post.x, 0.5, post.y), _m.darkwood, false)
+					posts[post] = true
 				if absf(t) > 1.2:
-					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(t, 0.5, half), _m.darkwood, false)
+					posts[Vector2(t, half)] = true
+			for post in posts:
+				_stand(n, fb, Vector2(0.14, 0.14), post, 1.05, _m.darkwood)
 			for h in [0.45, 0.9]:
 				builder._part(n, fb, Vector3(half * 2.0, 0.08, 0.06), Vector3(0, h, -half), _m.wood, false)
 				for side in [-1.0, 1.0]:
-					builder._part(n, fb, Vector3(0.06, 0.08, half * 2.0), Vector3(side * half, h, 0), _m.wood, false)
+					# the side rails stop at the back and front rails, not through them
+					builder._part(n, fb, Vector3(0.06, 0.08, half * 2.0 - 0.06), Vector3(side * half, h, 0), _m.wood, false)
 					builder._part(n, fb, Vector3(half - 1.2, 0.08, 0.06), Vector3(side * (half + 1.2) * 0.5, h, half), _m.wood, false)
 			for row in 5:
 				var furrow := box(Vector3.ZERO, Vector3(half * 1.6, 0.12, 0.45), _m.darkwood, false)
-				_add(n, furrow, Vector3(0, 0.02, -2.4 + row * 1.0))
-			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.0, 0, -1.5), rr.randf() * TAU, 1.2)
-			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.3, 0, -0.8), rr.randf() * TAU, 1.2)
-			WDress.kp(n, "scan", "wooden_bucket_01", Vector3(-half - 0.8, 0, 1.0), 0.0, 1.0)
-			WDress.kp(n, "scan", "barrel_03", Vector3(-half - 1.0, 0, -1.6), rr.randf() * TAU, 1.0, true)
-			WDress.kp(n, "scan", "old_military_crate", Vector3(-half - 1.1, 0, -0.4), rr.randf() * TAU, 1.2, true)
+				_add(n, furrow, Vector3(0, _ground_under(n, Vector3(0, 0, -2.4 + row * 1.0)) + 0.02, -2.4 + row * 1.0))
+			WDress.kp(n, "scan", "cement_bag", _on_ground(n, Vector3(half + 1.0, 0, -1.5)), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "cement_bag", _on_ground(n, Vector3(half + 1.3, 0, -0.8)), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "wooden_bucket_01", _on_ground(n, Vector3(-half - 0.8, 0, 1.0)), 0.0, 1.0)
+			WDress.kp(n, "scan", "barrel_03", _on_ground(n, Vector3(-half - 1.0, 0, -1.6)), rr.randf() * TAU, 1.0, true)
+			WDress.kp(n, "scan", "old_military_crate", _on_ground(n, Vector3(-half - 1.1, 0, -0.4)), rr.randf() * TAU, 1.2, true)
 	_fade_far(n, 260.0)
 
 
-func _town_wall(n: Node3D, kind: String, pos: Vector3, yaw: float, tier: int) -> void:
-	var wl := builder._make(kind, false, tier)
+## A point of an extra (its own space) lifted or lowered onto the land there, keeping its height above it.
+func _on_ground(n: Node3D, local: Vector3) -> Vector3:
+	return Vector3(local.x, local.y + _ground_under(n, local), local.z)
+
+
+## A box standing on the land under an extra (a post, a forge, a counter): from just below the ground,
+## wherever it lies at that spot, up to top (in the extra's own space).
+func _stand(n: Node3D, fb: StaticBody3D, size: Vector2, at: Vector2, top: float, m: Material) -> void:
+	var foot := 0.0
+	for c in [Vector2(-0.5, -0.5), Vector2(0.5, -0.5), Vector2(-0.5, 0.5), Vector2(0.5, 0.5)]:
+		foot = minf(foot, _ground_under(n, Vector3(at.x + c.x * size.x, 0, at.y + c.y * size.y)))
+	foot -= 0.1
+	builder._part(n, fb, Vector3(size.x, top - foot, size.y), Vector3(at.x, (top + foot) * 0.5, at.y), m, false)
+
+
+## A kit wall of a town house. reach: a side wall's end cell is drawn a little longer toward that end
+## (along its own x, +1 or -1), over the outer corner the walls' thickness would otherwise leave open.
+func _town_wall(n: Node3D, kind: String, pos: Vector3, yaw: float, tier: int, footing := true, reach := 0.0) -> void:
+	var wl := builder._make(kind, false, tier, footing)
 	wl.position = pos
 	wl.rotation.y = yaw
+	if reach != 0.0:
+		const OVER := 0.16   # the walls' half thickness, and a centimetre proud so no two faces share a plane
+		for c in wl.get_children():
+			if c is Node3D and (c as Node3D).scene_file_path != "":
+				var kit := c as Node3D
+				kit.transform = Transform3D(Basis.from_scale(Vector3((WBuilder.GRID + OVER) / WBuilder.GRID, 1, 1)), Vector3(reach * OVER * 0.5, 0, 0)) * kit.transform
 	n.add_child(wl)
 
 
@@ -1442,7 +1630,7 @@ func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
 	var name: String = INN_NAMES[absi(hash(k)) % INN_NAMES.size()]
 	var sign_l := label3d(name, Vector3.ZERO, 0.7, Color(0.95, 0.82, 0.55))
 	sign_l.reparent(n, false)
-	sign_l.position = Vector3(0, 3.9, D * 0.5 + 0.7)
+	sign_l.position = Vector3(0, 3.5, D * 0.5 + 0.17)   # on the wall, between the porch roof and the upper windows
 	sign_l.rotation = Vector3.ZERO
 	sign_l.visibility_range_end = 60.0
 	var ir := RandomNumberGenerator.new()
@@ -1527,6 +1715,7 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 			c.queue_free()
 	var dressed := Figure.new().setup(Figure.townsman(pid.hash(), str(pd.at)))
 	dressed.arms_forward = false
+	dressed.real = true
 	f.add_child(dressed)
 	var body: StaticBody3D = f.get_meta("body")
 	body.collision_layer = 1 | 16
@@ -1844,6 +2033,8 @@ func _w_vigil_end(i: int, ok: bool, who = null) -> void:
 		var most0 := most_lit()
 		if not i in lit:
 			lit.append(i)
+			if is_instance_valid(player) and player.relics:
+				player.relics.add_faith(FAITH_BEACON)
 		flags["clean_%d" % i] = true   # its key went in: it stays clean, even if the fire goes out
 		flags["most_lit"] = maxi(int(flags.get("most_lit", 0)), lit.size())
 		if most_lit() > most0:
@@ -2688,14 +2879,24 @@ static func landmark_column(c: Color, height: float, radius: float, light := fal
 
 ## The goals on the horizon follow the world: a dead beacon's smoke until it burns, a lair's while
 ## its great one waits there.
+## Only the dark beacon to make for next stands out over the whole waste; the others show their smoke
+## once one is close (so the sky is not a forest of columns), and a lair's only near it.
+const DARK_NEAR := 350.0   ## a dark beacon other than the next one shows within this
+const LAIR_NEAR := 450.0   ## and a waiting great one's smoke within this
+
 func _landmarks_tick() -> void:
+	var here: Vector3 = player.global_position if is_instance_valid(player) else Vector3.INF
+	var next := next_dark_beacon(here) if here != Vector3.INF else -1
 	for i in beacon_nodes.size():
 		var b: Dictionary = beacon_nodes[i]
 		if b.has("dark"):
-			(b.dark as Node3D).visible = not (i in lit) and not vigils.has(i) and (i != 8 or lit.size() >= 8)
+			var dark: bool = not (i in lit) and not vigils.has(i) and (i != 8 or lit.size() >= 8)
+			var near: bool = here != Vector3.INF and Vector2(here.x, here.z).distance_to(WPlaces.bpos(i)) < DARK_NEAR
+			(b.dark as Node3D).visible = dark and (i == next or near)
 	for l in lairs:
 		if l.has("smoke") and is_instance_valid(l.smoke):
-			(l.smoke as Node3D).visible = lair_ready(l)
+			var lp: Vector3 = l.pos
+			(l.smoke as Node3D).visible = lair_ready(l) and here != Vector3.INF and Vector2(here.x, here.z).distance_to(Vector2(lp.x, lp.z)) < LAIR_NEAR
 	_embers_tick()
 
 
@@ -2856,7 +3057,8 @@ const TORCH_SAFE := 15.0
 func base_at(p: Vector3, extra := 0.0, fires_only := false) -> int:
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		var r := BASE_SAFE if pc.kind == "campfire" else (TORCH_SAFE if pc.kind == "torch" and not fires_only else -1.0)
+		# A torch, brazier or lamp-post wards its own few paces (its "ward"); only a campfire makes a camp
+		var r := BASE_SAFE if pc.kind == "campfire" else (float(Items.PIECES.get(pc.kind, {}).get("ward", -1.0)) if not fires_only else -1.0)
 		if r > 0.0 and not burning(pid):
 			continue
 		if r > 0.0 and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < r + extra:
@@ -3470,7 +3672,7 @@ func comfort(at: Vector3) -> int:
 	var walls := 0
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		if pc.kind in ["wall", "window", "doorway", "stonewall", "palisade"] and pc.pos.distance_to(at) < 8.0:
+		if pc.kind in ["wall", "window", "doorway", "stonewall", "palisade", "barricade"] and pc.pos.distance_to(at) < 8.0:
 			walls += 1
 	if walls >= 3:
 		c += 1
@@ -4351,6 +4553,34 @@ func _w_raid(at: Vector3) -> void:
 	hud.alert_banner("Your camp is under attack", "%d m away. Hold the fire until dawn." % d if d > 30 else "Hold the fire until dawn.")
 
 
+var _vigil_side := 0.0   ## the bearing the next vigil wave comes from
+
+
+## One of a vigil wave: 60 to 85 m off on the wave's side, never close to a keeper, and made to run in.
+func _vigil_foe(kind: String, bowl: Vector3) -> void:
+	for attempt in 8:
+		var a := _vigil_side + randf_range(-0.45, 0.45)
+		var c := bowl + Vector3(cos(a), 0, sin(a)) * randf_range(60.0, 85.0)
+		var close := false
+		for t in targets():
+			if t.global_position.distance_to(c) < 45.0:
+				close = true
+		if close:
+			continue
+		var e = _spawn_near(kind, c, 0.0, 6.0)
+		if e:
+			e.set_meta("raid", true)
+			e.set_meta("rush", true)
+		return
+
+
+## A vigil wave is on its way: a horn from its side, so the keepers turn to meet it.
+func _w_vigil_wave(from: Vector3) -> void:
+	sfx("great_roar", 2, from, 0.8)
+	if player and player.global_position.distance_to(from) < 160.0:
+		player.shake(0.12)
+
+
 func _vigil_tick(delta: float) -> void:
 	for i in vigils.keys():
 		var b: Dictionary = beacon_nodes[i]
@@ -4367,10 +4597,16 @@ func _vigil_tick(delta: float) -> void:
 		if _vigil_t <= 0.0 and alive_count() < WCrowd.scale(self, 9):
 			_vigil_t = 7.0 if i < 8 else 5.0
 			var roster := ["rusher", "rusher", "spitter", "swarm", "swarm", "spider"]
-			for k in WCrowd.scale(self, 3 + int(nights * 0.3)):
-				_spawn_near(roster[randi() % roster.size()], b.pos, 26.0, 40.0)
+			# Each wave comes out of the dark from one side, well off, and runs at the keepers: seen coming,
+			# and met head on, not risen all around them. The side turns from wave to wave.
+			_vigil_side = wrapf(_vigil_side + randf_range(1.2, 2.6) * (1 if randf() < 0.5 else -1), 0.0, TAU)
+			var n := WCrowd.scale(self, 3 + int(nights * 0.3))
+			for k in n:
+				_vigil_foe(roster[randi() % roster.size()], b.pos)
 			if i == 8 and randf() < 0.35:
-				_spawn_near("elite", b.pos, 30.0, 40.0)
+				_vigil_foe("elite", b.pos)
+			if n > 0:
+				shared("_w_vigil_wave", [b.pos + Vector3(cos(_vigil_side), 0, sin(_vigil_side)) * 70.0])
 		if vigils[i] <= 0.0:
 			if near and not _front_held(i):
 				vigils[i] = 0.0   # the bowl holds, and waits for the camp
@@ -4784,7 +5020,7 @@ func _rq_take(by: int, id: String, i: int, n := 0) -> void:
 
 
 ## Takes as much of a container as the pack has room for, in one ask. Returns how many stacks were asked for.
-func take_all(id: String) -> int:
+func take_all(id: String, auto := false) -> int:
 	var data: Array = containers.get(id, [])
 	var room := Inventory.new(inv.slots.size())
 	room.from_data(inv.to_data())
@@ -4799,6 +5035,8 @@ func take_all(id: String) -> int:
 			idxs.append(i)
 		else:
 			left_behind = true
+	if auto and idxs.is_empty():
+		return 0   # walked over with a full pack: say nothing, the satchel stays
 	if not idxs.is_empty():
 		shared("_rq_take_many", [Net.me(), id, idxs])
 		sfx("step", -4, null, 0.7)
@@ -4897,6 +5135,7 @@ func _w_give(items: Array) -> void:
 		if left > 0:
 			spill.append([id, left])
 	if not spill.is_empty():
+		_drop_ms = Time.get_ticks_msec()
 		hud.notify("Your pack is full. The rest is left on the ground.")
 		shared("_rq_satchel", [Net.me(), player.global_position, spill, false])
 	quests.refresh_hud()
@@ -4979,6 +5218,8 @@ func _w_satchel(sid: String, p: Vector3, grave: bool, owner := "", made := -1, k
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = ground_below(p)
+	if player and Time.get_ticks_msec() - _drop_ms < 4000 and player.global_position.distance_to(n.global_position) < 4.0:
+		_auto_wait[sid] = true   # just put down here: leave it be until we walk off
 	if owner != "" and owner != Net.my_name() and not Net.dedicated:
 		# Another pilgrim's share: kept, but not seen or touched here
 		n.visible = false
@@ -5565,16 +5806,20 @@ func _gather_fx(nd: Dictionary, last: bool) -> void:
 	tw.tween_property(n, "rotation", r0 + Vector3(0.06, 0, -0.05), 0.05)
 	tw.tween_property(n, "rotation", r0 + Vector3(-0.04, 0, 0.04), 0.06)
 	tw.tween_property(n, "rotation", r0, 0.08)
+	var to_me := player.global_position - n.global_position
+	to_me.y = 0.0
+	to_me = to_me.normalized() if to_me.length() > 0.1 else Vector3.FORWARD
 	var kind := str(nd.kind)
+	_gather_chips(kind, n.global_position + Vector3(0, 0.9 if kind == "tree" else 0.4, 0) + to_me * 0.4, to_me, last)
+
+
+## Bits of what was struck fly from it toward the one who struck, and lie a moment on the ground.
+func _gather_chips(kind: String, from: Vector3, to_me: Vector3, last: bool) -> void:
 	if not _chip_mats.has(kind):
 		var m := StandardMaterial3D.new()
 		m.albedo_color = CHIP_COLOURS.get(kind, Color(0.5, 0.5, 0.5))
 		m.roughness = 1.0
 		_chip_mats[kind] = m
-	var to_me := player.global_position - n.global_position
-	to_me.y = 0.0
-	to_me = to_me.normalized() if to_me.length() > 0.1 else Vector3.FORWARD
-	var from := n.global_position + Vector3(0, 0.9 if kind == "tree" else 0.4, 0) + to_me * 0.4
 	for i in (14 if last else 6):
 		var c := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -5636,20 +5881,36 @@ func _rq_gather(by: int, id: int) -> void:
 			if rr.randf() < 0.2:
 				out.append(["cloth", 1])
 	var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
-	var ls: Array = LAND_STUFF.get(land_at(np), [])
-	if not ls.is_empty() and ls[0] == nd.kind and rr.randf() < float(ls[2]):
-		out.append([ls[1], rr.randi_range(1, 2)])
-	# Out past the sea, the land's own stuff comes up with whatever else is taken
-	var ff := far_find(np)
-	if ff != "" and nd.kind != "herb" and rr.randf() < 0.3:
-		out.append([ff, rr.randi_range(1, 2)])
+	out.append_array(_land_finds(str(nd.kind), np, rr))
 	shared("_w_node", [id, nd.charges - 1, day + 2])
 	Net.call_peer(by, "_w_gathered", [id, out])
 
 
+## What the land gives besides with a blow at a node of this kind here: heartwood in the forest,
+## red iron in the dunes, and out past the sea the far land's own stuff (the trees of the woods too).
+func _land_finds(kind: String, np: Vector3, rr: RandomNumberGenerator) -> Array:
+	var out: Array = []
+	var ls: Array = LAND_STUFF.get(land_at(np), [])
+	if not ls.is_empty() and ls[0] == kind and rr.randf() < float(ls[2]):
+		out.append([ls[1], rr.randi_range(1, 2)])
+	# Out past the sea, the land's own stuff comes up with whatever else is taken
+	var ff := far_find(np)
+	if ff != "" and kind != "herb" and rr.randf() < 0.3:
+		out.append([ff, rr.randi_range(1, 2)])
+	return out
+
+
 ## A pilgrim's own hands, with the right tool, take twice as much.
 func _w_gathered(id: int, out: Array) -> void:
-	var nk: Dictionary = NODE_KINDS[nodes[id].kind]
+	_take_gathered(str(nodes[id].kind), out)
+	_gather_float(nodes[id], out)
+	award("gather")
+	quests.on_event("gathered", {})
+
+
+## What a blow took, into the pack: doubled with the kind's tool in hand, then by skill, rules and wear.
+func _take_gathered(kind: String, out: Array) -> void:
+	var nk: Dictionary = NODE_KINDS[kind]
 	if nk.tool != "" and inv.count(nk.tool) > 0:
 		for it in out:
 			if it[0] in ["wood", "stone", "salt"]:
@@ -5660,15 +5921,12 @@ func _w_gathered(id: int, out: Array) -> void:
 			if it[0] != "coin":
 				it[1] = maxi(1, int(ceil(int(it[1]) * gm)))
 	_w_give(out)
-	_gather_float(nodes[id], out)
-	award("gather")
-	quests.on_event("gathered", {})
 
 
 ## What was taken rises off the node for a moment: "+4 Wood".
 var gather_floats := 0   ## (for the tests)
 func _gather_float(nd: Dictionary, out: Array) -> void:
-	if Net.dedicated or out.is_empty() or not nd.node is Node3D or not is_instance_valid(nd.node):
+	if Net.dedicated or out.is_empty() or (not nd.has("at") and (not nd.node is Node3D or not is_instance_valid(nd.node))):
 		return
 	var parts: Array = []
 	for it in out:
@@ -5685,7 +5943,7 @@ func _gather_float(nd: Dictionary, out: Array) -> void:
 	l.outline_modulate = Color(0, 0, 0, 0.8)
 	add_child(l)
 	gather_floats += 1
-	var at: Vector3 = (nd.node as Node3D).global_position + Vector3(0, 1.8 if nd.kind == "tree" else 1.0, 0)
+	var at: Vector3 = nd.at if nd.has("at") else (nd.node as Node3D).global_position + Vector3(0, 1.8 if nd.kind == "tree" else 1.0, 0)
 	l.global_position = at
 	var tw := l.create_tween()
 	tw.tween_property(l, "global_position", at + Vector3(0, 0.7, 0), 1.3).set_ease(Tween.EASE_OUT)
@@ -5744,6 +6002,21 @@ func _w_node(id: int, charges: int, back: int) -> void:
 		nd.node.scale = Vector3.ONE * (0.6 + 0.4 * charges / float(NODE_KINDS[nd.kind].charges))
 	elif charges > 0:
 		nd.node.scale = Vector3.ONE
+
+
+## A blow at a standing tree of the woods (see WFell): the host takes it, everyone sees it.
+func _rq_chop_tree(by: int, key: String, i: int) -> void:
+	if Net.authority():
+		woodcut.host_chop(by, key, i)
+
+
+func _w_tree_cut(key: String, i: int, left: int, back: int) -> void:
+	woodcut.set_blows(key, i, left, back)
+
+
+## What one's own blow at a tree took (only ever from the host, to the one who struck).
+func _tree_take(key: String, i: int, out: Array) -> void:
+	woodcut.take(key, i, out)
 
 
 ## Small stones and dry scrub, for the look of the land only.
@@ -6309,6 +6582,7 @@ func _dawn_world() -> void:
 	for nd in nodes:
 		if nd.charges <= 0 and day >= int(nd.back):
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
+	woodcut.dawn()
 	quests.refresh_offers()
 	settlers.host_dawn()
 	_age_satchels()
@@ -6597,9 +6871,44 @@ func _night_wave(k := 1.0) -> Array:
 		var dark := 0.1 if bio in ["forest", "marsh", "basalt"] else 0.04
 		if nights >= 1 and tier >= 2 and randf() < dark + nights * 0.01 and _unseen_count() < tg.size():
 			_spawn_near("unseen", t.global_position, 34.0, 46.0)
+		# Rarely, out in the open waste, a man in a long coat stands watching. Once a night at most; he is
+		# no part of the night's round, and goes his way if let be
+		if nights >= 1 and _stranger_night != nights and randf() < STRANGER_CHANCE and _kind_count("stranger") == 0:
+			if _spawn_one("stranger", t.global_position, 28.0, 36.0) != null:
+				_stranger_night = nights
 		if randf() < 0.25:
 			sfx("horror_deep", -10, t.global_position + Vector3(randf_range(-40, 40), 0, randf_range(-40, 40)), randf_range(0.8, 1.0))
 	return made
+
+
+## How often a round of the night brings the man in the coat (at most once a night).
+const STRANGER_CHANCE := 0.07
+var _stranger_night := -1
+
+
+func _kind_count(k: String) -> int:
+	var n := 0
+	for e in foes.values():
+		if is_instance_valid(e) and e.kind == k and e.is_alive():
+			n += 1
+	return n
+
+
+## The man in the coat speaks: those near enough hear him, his words written out and murmured.
+func _w_stranger_says(id: int, line: String) -> void:
+	var e = foes.get(id)
+	if not is_instance_valid(e) or player == null or e.global_position.distance_to(player.global_position) > 48.0:
+		return
+	hud.say("The man in the coat: \"%s\"" % line, clampf(2.5 + line.length() * 0.06, 3.5, 8.0))
+	var v := AudioStreamPlayer3D.new()
+	v.stream = WBabble.make("The man in the coat", line, clampf(line.length() * 0.05, 1.0, 3.0))
+	v.unit_size = 8.0
+	v.max_distance = 50.0
+	v.volume_db = -4.0
+	e.add_child(v)
+	v.position.y = 1.5
+	v.play()
+	v.finished.connect(v.queue_free)
 
 
 func _unseen_count() -> int:
@@ -6798,6 +7107,22 @@ func on_blocked(_e: LesserSpeeb, col: Object, dmg: float) -> bool:
 	return false
 
 
+## Faith in the waste is slow to gather: the prayer is earned before it is first spoken, and again after.
+## About ninety common forms fill it, or fewer with the great deeds: a beacon kindled, a great one undone.
+const FAITH_KILL := 0.011        ## a common form
+const FAITH_SWARM := 0.003       ## one of a swarm
+const FAITH_CHAMPION := 0.04     ## an elite or a champion
+const FAITH_BEACON := 0.4        ## a beacon kindled (for everyone who keeps it)
+const FAITH_GREAT := 0.5         ## a great one undone
+
+func faith_for(e: LesserSpeeb) -> float:
+	if e.kind in ["swarm", "mite"]:
+		return FAITH_SWARM
+	if e.kind == "elite" or e.champion != "":
+		return FAITH_CHAMPION
+	return FAITH_KILL
+
+
 func on_enemy_slain(e: LesserSpeeb) -> void:
 	life_kill()
 	kills += 1
@@ -6807,7 +7132,7 @@ func on_enemy_slain(e: LesserSpeeb) -> void:
 	_streak_t = 3.5
 	hud.set_streak(streak)
 	if player.relics:
-		player.relics.add_faith(0.04 if e.kind in ["swarm", "mite"] else 0.1)
+		player.relics.add_faith(faith_for(e))
 	shared("_w_slain", [e.global_position, e.kind, Net.me()])
 	_bestiary(e)
 	if e.boss != "":
@@ -7837,7 +8162,7 @@ func world_data() -> Dictionary:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day)), bool(satchels[sid].get("keep", false))]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
-		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
+		"mined": mined, "fell": woodcut.to_data(), "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
 		"weather": [weather.kind, weather.left, sea.wind_ang if sea else 0.0],
@@ -7867,6 +8192,7 @@ func apply_world(d: Dictionary) -> void:
 	for id in d.get("mined", {}):
 		var m: Array = d.mined[id]
 		_w_node(int(id), int(m[0]), int(m[1]))
+	woodcut.from_data(d.get("fell", {}))
 	for pid in d.get("pieces", {}):
 		var p: Array = d.pieces[pid]
 		builder._w_piece(int(pid), p[0], p[1], p[2], p[3])
@@ -7927,7 +8253,7 @@ func char_data() -> Dictionary:
 		"pos": safe_keep_pos(), "yaw": player.yaw, "revealed": Marshalls.raw_to_base64(revealed),
 		"visited": visited, "known": known_ruins, "skills": skills.to_data(), "biomes": seen_biomes, "bedroll": bedroll, "warms": arms, "food": food, "rest": rest, "kindled": my_kindled() if ready_world else (kindled if kindled != null else []), "traces": traces_seen, "slain": slain_kinds, "completed": rewards_had,
 		"guide": guide.step if guide else -1, "cat": cat.to_data() if cat else _cat_saved,
-		"meals": meals, "rested": rested, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
+		"meals": meals, "rested": rested, "faith": player.relics.faith if player.relics else 0.0, "power": power, "power_left": power_left, "brews": alchemy.to_data(), "spirits": spirits.to_data(), "trade": trades.to_data(),
 	}
 
 
@@ -7954,6 +8280,8 @@ func apply_char(d: Dictionary) -> void:
 	slain_kinds = d.get("slain", {}) if d.get("slain") is Dictionary else {}
 	rewards_had = d.get("completed", {}) if d.get("completed") is Dictionary else {}
 	rest = clampf(float(d.get("rest", 100.0)), 0.0, 100.0)
+	if player and player.relics:
+		player.relics.faith = clampf(float(d.get("faith", 0.0)), 0.0, 1.0)   # a new pilgrim starts with none
 	meals = {}
 	if d.get("meals") is Dictionary:
 		for k in d.meals:
@@ -8148,14 +8476,18 @@ func _write_jobs(jobs: Array, threaded: bool) -> void:
 func _saved(ok: bool) -> void:
 	if not is_instance_valid(self):
 		return
+	if Net.dedicated and _owns_world:
+		Net.world_saved(ok)
 	if is_instance_valid(ui) and ui.is_inside_tree() and not Net.dedicated:
 		ui.saved_mark(ok)
 	if not ok:
 		push_warning("Wasteland: a save could not be written")
 
 
+## How often the world is kept: the player's choice, or on a dedicated server its autosave= minutes.
 func _save_every() -> float:
-	return 60.0 * Game.autosave_min if Game.autosave_min > 0 else 1e9
+	var m: int = Net.autosave_min if Net.dedicated else Game.autosave_min
+	return 60.0 * m if m > 0 else 1e9
 
 
 ## Asks for a save a few seconds from now: something worth keeping just happened. Several such
@@ -8168,7 +8500,7 @@ func autosave_soon(delay := 3.0) -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_CRASH:
-			if ready_world:
+			if ready_world and not Net.server_stopping:
 				save_all()
 		NOTIFICATION_APPLICATION_FOCUS_OUT:
 			# Alt-tabbing away: keep things, but not more than once every 20 seconds
@@ -8427,6 +8759,7 @@ func make_lost(qid: String, p: Vector3, nm: String) -> Node3D:
 	var dressed := Figure.new().setup(Figure.seeded(qid.hash()))
 	dressed.arms_forward = true
 	dressed.seated = true
+	dressed.real = true
 	dressed.position.y = -0.32
 	f.add_child(dressed)
 	WDress.kp(f, "pirate", "crate", Vector3(0, 0, -0.1), PI * 0.5, 0.75, false, Vector3.ZERO, 120.0)
@@ -9013,6 +9346,106 @@ func debug_flamer() -> void:
 	get_tree().quit()
 
 
+## Testing aid: one who stands in a campfire is scorched and set burning; one who stands beside it to
+## warm is not; and the ground a fire bottle leaves burns one too.
+func debug_firetouch() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var at: Vector3 = player.global_position + fwd * 6.0
+	at.y = terrain.height_at(at.x, at.z)
+	var fire := WFire.make(1.1, true, true)
+	add_child(fire)
+	fire.global_position = at + Vector3(0, 0.25, 0)
+	# Beside it, warming: no harm
+	_burn = 0.0
+	player.health = player.max_health
+	player.place(at + fwd.cross(Vector3.UP) * 1.5, 0.0)
+	await get_tree().create_timer(1.5).timeout
+	var beside_ok := player.health >= player.max_health - 0.01 and _burn <= 0.0
+	# In it: scorched, and burning after
+	var s0 := FirePool.scorched
+	player.place(at, 0.0)
+	await get_tree().create_timer(0.4).timeout
+	var h_in := player.health
+	var burning := _burn > 0.0
+	player.place(at + fwd.cross(Vector3.UP) * 3.0, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var still := _burn > 0.0
+	await get_tree().create_timer(2.0).timeout
+	var out := _burn <= 0.0
+	# A fire bottle's ground burns one as it does a foe
+	_burn = 0.0
+	player.health = player.max_health
+	var s1 := FirePool.scorched
+	Arms.Thrown.burn(self, at + fwd * 10.0, 5.0, 0.0, 3.0, false, true)
+	player.place(at + fwd * 10.0 + fwd.cross(Vector3.UP) * 3.0, 0.0)
+	await get_tree().create_timer(1.0).timeout
+	var pool := FirePool.scorched > s1 and player.health < player.max_health
+	fire.queue_free()
+	print("FIRETOUCH beside_ok=%s hurt=%s burning=%s still=%s out=%s pool=%s" % [beside_ok, h_in < player.max_health and FirePool.scorched > s0, burning, still, out, pool])
+	get_tree().quit()
+
+
+## Testing aid: a fire bottle breaks where it lands, and its fire lies on the ground out to the edge of
+## the harm; a form in it burns and is harmed; a fellow's word of where it broke wins over their bottle
+## here; and all of it is gone again in the end, but for the char.
+func debug_firepool() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var fp: Vector3 = player.global_position + fwd * 8.0
+	fp.y = terrain.height_at(fp.x, fp.z)
+	var foe := spawn_at("hollow", fp)
+	foe.set_physics_process(false)
+	foe.hp = 100000.0
+	var wp: Arms = player.weapon
+	wp.grenade = "incendiary"
+	wp.grenades = 3
+	player.pitch = -0.36
+	await get_tree().process_frame
+	var made0 := FirePool.made
+	wp.throw_grenade()
+	var t := 0.0
+	while FirePool.made == made0 and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	var pool: FirePool = null
+	for c in get_children():
+		if c is FirePool:
+			pool = c
+	var on_ground := pool != null and pool.feet.size() >= 20
+	var reach := 0.0
+	if pool:
+		for f in pool.feet:
+			var w: Vector3 = pool.global_position + f
+			reach = maxf(reach, Vector2(w.x - pool.global_position.x, w.z - pool.global_position.z).length())
+			if absf(w.y - terrain.height_at(w.x, w.z)) > 0.35:
+				on_ground = false
+	await get_tree().create_timer(2.0, false).timeout
+	var burning := foe.has_meta("ablaze")
+	var harmed := foe.hp < 100000.0
+	# A fellow's bottle, still flying here when their word comes, gives way to it
+	var shown := Arms.Thrown.make(self, "fire", fp + Vector3(3, 5, 0), Vector3.ZERO, true)
+	var made1 := FirePool.made
+	net_fx(0, "firepool", fp + Vector3(3, 0.25, 0), Vector3(5.0, 7.0, 0))
+	await get_tree().create_timer(2.6, false).timeout
+	var gave_way := not is_instance_valid(shown) and FirePool.made == made1 + 1
+	await get_tree().create_timer(13.0, false).timeout
+	var left := 0
+	for c in get_children():
+		if c is FirePool:
+			left += c.get_child_count()
+	print("FIREPOOL burst=%.2f on_ground=%s reach=%.1f burning=%s harmed=%s gave_way=%s live=%d left=%d foe_cool=%s" % [t, on_ground, reach, burning, harmed, gave_way, FirePool.live, left, not foe.has_meta("ablaze")])
+	get_tree().quit()
+
+
 ## Testing aid: with the mouse, a click on a chest slot moves it to the pack, and a drag from the
 ## pack onto the chest moves it back.
 func debug_slotdrag() -> void:
@@ -9333,6 +9766,17 @@ func debug_snapclient() -> void:
 	get_tree().quit()
 
 
+## Testing aid: a player walks into a dedicated server's running world, stays a while, and leaves.
+func debug_serverclient() -> void:
+	var t := 0
+	while not ready_world and t < 150:
+		await get_tree().create_timer(1.0).timeout
+		t += 1
+	print("SERVERCLIENT ready=%s day=%d waiting=%s" % [ready_world, day, snap_wait])
+	await get_tree().create_timer(8.0).timeout
+	get_tree().quit()
+
+
 ## Testing aid: a doorway wall is solid where it is drawn, but its door can be walked through.
 func debug_gatewalk() -> void:
 	while not ready_world:
@@ -9627,6 +10071,9 @@ func debug_scanfoes() -> void:
 			continue
 		e.set_physics_process(false)
 		await get_tree().create_timer(0.6).timeout
+		if not is_instance_valid(e):
+			out.append(k + "=gone")   # (a sea serpent set down on land sinks back at the sea's next look)
+			continue
 		var body_ok: bool = e._scan != null and e._scan.get_child_count() > 0
 		var moving: bool = e._scan_anim != null and e._scan_anim.is_playing()
 		var tall := 0.0
@@ -9855,6 +10302,95 @@ func debug_pace() -> void:
 		out.append("%d/%.2f" % [named, float(WRules.pace()[0])])
 	var ns: Array = out.map(func(x): return int(str(x).get_slice("/", 0)))
 	print("PACE " + " ".join(out) + " rising=%s" % [ns[0] < ns[1] and ns[1] < ns[2] and ns[0] >= 8 and ns[2] <= 50])
+	get_tree().quit()
+
+
+## Testing aid: a vigil's wave comes from one side, well off the keepers, and runs in; its music is the vigil's.
+func debug_vigilwave() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for e in enemies:
+		if is_instance_valid(e):
+			e.die(false)
+	var bowl: Vector3 = beacon_nodes[0].pos
+	player.place(bowl + Vector3(0, 2.5, 8), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	vigils[0] = 120.0
+	_vigil_t = 0.0
+	await get_tree().create_timer(0.6).timeout
+	var foes: Array = enemies.filter(func(e): return is_instance_valid(e) and e.is_alive() and e.has_meta("rush"))
+	var near := INF
+	var dirs := Vector2.ZERO
+	var d0 := 0.0
+	for e in foes:
+		near = minf(near, e.global_position.distance_to(player.global_position))
+		var v: Vector3 = (e.global_position - bowl)
+		dirs += Vector2(v.x, v.z).normalized()
+		d0 += e.global_position.distance_to(player.global_position)
+	var one_side: bool = foes.size() > 0 and dirs.length() / foes.size() > 0.75
+	await get_tree().create_timer(4.0).timeout
+	var d1 := 0.0
+	var n1 := 0
+	for e in foes:
+		if is_instance_valid(e) and e.is_alive():
+			d1 += e.global_position.distance_to(player.global_position)
+			n1 += 1
+	var closing: bool = n1 > 0 and d1 / n1 < d0 / maxi(foes.size(), 1) - 10.0
+	var tune: String = music.want() if music else "none"
+	print("VIGILWAVE n=%d far=%s one_side=%s closing=%s music=%s near=%.0f" % [foes.size(), near > 45.0, one_side, closing, tune, near])
+	get_tree().quit()
+
+
+## Testing aid: satchels are taken by walking over them, but what one has just put down stays until one walks off.
+func debug_autoloot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	auto_take_on = true
+	for i in inv.slots.size():
+		inv.slots[i] = null   # earlier checks in the same world may have filled the pack
+	var at := player.global_position
+	var bone0 := inv.count("bone")
+	shared("_rq_satchel", [Net.me(), at + Vector3(1.0, 0, 0), [["bone", 5]], false])
+	await get_tree().create_timer(2.0).timeout
+	var took: bool = inv.count("bone") == bone0 + 5
+	_drop_ms = Time.get_ticks_msec()
+	shared("_rq_satchel", [Net.me(), at + Vector3(0, 0, 1.0), [["bone", 3]], false])
+	await get_tree().create_timer(2.0).timeout
+	var stayed: bool = inv.count("bone") == bone0 + 5
+	var fwd := player.global_position + Vector3(8, 0, 0)
+	player.place(Vector3(fwd.x, terrain.height_at(fwd.x, fwd.z) + 1.0, fwd.z), 0.0)
+	await get_tree().create_timer(1.0).timeout
+	player.place(at, 0.0)
+	await get_tree().create_timer(2.0).timeout
+	var back: bool = inv.count("bone") == bone0 + 8
+	Game.auto_loot = false
+	shared("_rq_satchel", [Net.me(), at + Vector3(-1.0, 0, 0), [["bone", 2]], false])
+	await get_tree().create_timer(2.0).timeout
+	var off_ok: bool = inv.count("bone") == bone0 + 8
+	Game.auto_loot = true
+	print("AUTOLOOT took=%s stayed=%s back=%s off=%s" % [took, stayed, back, off_ok])
+	get_tree().quit()
+
+
+## Testing aid: a new survivor's shots wander wider, and hitting with any gun steadies them all.
+func debug_gunskill() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	skills.use = {}
+	var w: Arms = player.weapon
+	w._spec_cache.clear()
+	var s0: float = w.shot_spread()
+	var a0: float = w.sway_amp(true)
+	var lv0: int = skills.shot_level()
+	skills.practise("pistol", 300)
+	skills.practise("shotgun", 1800)
+	w._spec_cache.clear()
+	var lv1: int = skills.shot_level()
+	var s1: float = w.shot_spread()
+	var a1: float = w.sway_amp(true)
+	var bonus: float = WSkills.shot_spread(lv1)
+	print("GUNSKILL start=%d top=%d wider=%s steadier=%s blade_free=%s top_mult=%.2f text=%s" % [lv0, lv1, s0 > s1 * 1.3, a0 > a1 * 1.25,
+			not ArmsDB.GUNS.has("blade"), bonus, WSkills.shot_text(lv0)])
 	get_tree().quit()
 
 
@@ -10274,6 +10810,8 @@ func _w_lair_wake(b: String) -> void:
 
 func _w_boss_down(b: String, at: Vector3) -> void:
 	var land: String = LesserSpeeb.BOSSES[b].land
+	if is_instance_valid(player) and player.relics:
+		player.relics.add_faith(FAITH_GREAT)
 	flags["lair_" + land] = day
 	for l in lairs:
 		if l.id == land and l.has("glow") and is_instance_valid(l.glow):
@@ -11416,6 +11954,170 @@ func debug_animshot() -> void:
 			await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_%d.png" % k)
 		await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
+
+
+## Picture aid: the build strip, at the largest words setting, to see that all its lines show.
+func debug_buildshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(1.0).timeout
+	builder.toggle()
+	for k in 6:
+		await get_tree().process_frame
+	print("BUILDSHOT title=%s hint=%s lines=%d" % [ui._build_title.get_global_rect(), ui._build_hint.get_global_rect(), ui._build_hint.get_line_count()])
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_build.png")
+	get_tree().quit()
+
+
+## Testing aid: scanned bodies set down on their feet. Env FOES (comma list). Prints SEAT kind seat= low= after
+## their first steps (low: the lowest point of the skin above the ground under them, which should be near 0).
+func debug_seat() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var kinds := OS.get_environment("FOES").split(",", false)
+	var made := []
+	for i in kinds.size():
+		var q := player.global_position + Vector3(cos(i * 1.3), 0, sin(i * 1.3)) * 22.0
+		var e
+		if kinds[i].begins_with("boss_"):
+			e = LesserSpeeb.new().setup(Game.lesser.keys()[3], kinds[i], self)
+			add_child(e)
+			e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + 0.5, q.z)
+		else:
+			e = spawn_at(kinds[i], Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+		if e:
+			e.set_meta("raid", true)
+			e._buried = 0.0
+			made.append(e)
+	# The lowest point of each skin over the ground under it, now and then as they come on
+	var lows := {}
+	for k in 20:
+		await get_tree().create_timer(0.2).timeout
+		for e in made:
+			if is_instance_valid(e) and e._scan and e.is_on_floor():
+				var pts0 := LesserSpeeb._sole_points(e._scan)
+				var gy: float = terrain.height_at(e.global_position.x, e.global_position.z)
+				if not pts0.is_empty():
+					lows.get_or_add(e, []).append(snappedf(LesserSpeeb._sole_low(pts0) - gy, 0.01))
+	for e in made:
+		if is_instance_valid(e) and lows.has(e):
+			var l: Array = lows[e]
+			l.sort()
+			print("SEATLOWS %s med=%.2f %s" % [e.kind if e.boss == "" else e.boss, l[l.size() / 2], l])
+	for e in made:
+		if not is_instance_valid(e):
+			continue
+		var ground: float = terrain.height_at(e.global_position.x, e.global_position.z)
+		var pts: Array = e._seat_pts if not e._seat_pts.is_empty() else (LesserSpeeb._sole_points(e._scan) if e._scan else [])
+		var low: float = LesserSpeeb._sole_low(pts) - ground if not pts.is_empty() else 99.0
+		for cs in e.get_children():
+			if cs is CollisionShape3D and cs.shape:
+				var ab: AABB = cs.global_transform * cs.shape.get_debug_mesh().get_aabb()
+				print("SEATSHAPE ", cs.name, " ", cs.shape.get_class(), " low=", snappedf(ab.position.y - ground, 0.01), " dis=", cs.disabled)
+		var dq := PhysicsRayQueryParameters3D.create(e.global_position, e.global_position - Vector3(0, 8, 0), 1)
+		dq.exclude = [e.get_rid()]
+		var dh := get_world_3d().direct_space_state.intersect_ray(dq)
+		if not dh.is_empty():
+			print("SEATRAY hit=", snappedf(dh.position.y - ground, 0.01), " by=", dh.collider, " ", (dh.collider as Node).get_path() if dh.collider is Node else "", " mode=", e.motion_mode, " r=", e.spec.radius)
+		print("SEAT %s seat=%.2f low=%.2f t=%.2f floor=%s buried=%.2f bones=%d sk=%s up=%.2f air=%.2f vy=%.2f" % [e.kind if e.boss == "" else e.boss, e._seat, low, e._seat_t, e.is_on_floor(), e._buried, e._seat_pts.size(), e._sk, e.global_position.y - ground, e._air_t, e.velocity.y])
+	get_tree().quit()
+
+
+## Testing aid: the man in the coat at night. He speaks as you come near, warns you nearer, and draws and
+## fires when you come too close. Prints STRANGER spoke= warned= drew= gun= fired=.
+func debug_stranger() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 23.0
+	night = true
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var q := player.global_position + f * 22.0
+	var e = spawn_at("stranger", Vector3(q.x, terrain.height_at(q.x, q.z) + 1.5, q.z))
+	var spoke := false
+	var warned := false
+	var drew := false
+	var gun := false
+	var fired := false
+	var hp0 := player.health
+	for i in 60:
+		await get_tree().create_timer(0.25).timeout
+		if not is_instance_valid(e):
+			break
+		spoke = spoke or e._talk >= 1
+		warned = warned or e._talk >= 2
+		# Up to twelve metres once he has spoken, then to five once he has warned
+		var want := 12.0 if e._talk == 1 else (5.0 if e._talk == 2 else -1.0)
+		if want > 0.0:
+			var at: Vector3 = e.global_position + (player.global_position - e.global_position).normalized() * want
+			player.global_position = Vector3(at.x, terrain.height_at(at.x, at.z) + 1.0, at.z)
+		if e._talk == 3:
+			if not drew:
+				hp0 = player.health
+			drew = true
+			gun = e._fb != null and e._fb.muzzle != null and e._fb.muzzle.get_parent().visible
+		player.health = maxf(player.health, 1000.0) if not drew else player.health
+		fired = fired or (drew and player.health < hp0)
+		if i % 4 == 0:
+			print("STRANGER t=%.2f talk=%d d=%.1f said=%s" % [i * 0.25, e._talk, e.global_position.distance_to(player.global_position), hud.narration.text.left(60)])
+		if fired:
+			break
+	print("STRANGER spoke=%s warned=%s drew=%s gun=%s fired=%s" % [spoke, warned, drew, gun, fired])
+	get_tree().quit()
+
+
+## Testing aid: a Kulshedra far off takes wing, glides in low on her flying clip, and comes down near.
+func debug_wings() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var q := player.global_position + f * 34.0
+	var e = spawn_at("kulshedra", Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+	e.set_meta("raid", true)
+	e._buried = 0.0
+	e._wing_cd = 0.5
+	var took := false
+	var flew := false
+	var landed := false
+	var high := 0.0
+	var shot := false
+	for i in 80:
+		await get_tree().create_timer(0.25).timeout
+		if not is_instance_valid(e):
+			break
+		var gp: Vector3 = e.global_position
+		var h: float = gp.y - terrain.height_at(gp.x, gp.z)
+		var clip: String = e._scan_anim.current_animation if e._scan_anim else "-"
+		var d := Vector2(gp.x - player.global_position.x, gp.z - player.global_position.z).length()
+		took = took or e._wing > 0.0
+		high = maxf(high, h)
+		if clip == "Fly":
+			flew = true
+			if not shot and OS.get_environment("SHOT_OUT") != "":
+				shot = true
+				_debug_aim(gp + Vector3(0, 1.0, 0))
+				for k in 3:
+					await get_tree().process_frame
+				get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT") + "_fly.png")
+		if flew and e._wing <= 0.0 and e._air_t == 0.0:
+			landed = true
+		if i % 4 == 0 or clip == "Fly":
+			print("WING t=%.2f d=%.1f h=%.2f wing=%.2f air=%.2f clip=%s" % [i * 0.25, d, h, e._wing, e._air_t, clip])
+		if landed and d < 12.0:
+			break
+	print("WINGS took=%s flew=%s landed=%s high<6=%s" % [took, flew, landed, high < 6.0])
 	get_tree().quit()
 
 
@@ -12700,6 +13402,92 @@ func debug_sprint() -> void:
 	Input.action_release("move_forward")
 	print("SPRINT faster=%s spends=%s" % [run > walk * 1.5, st < 100.0])
 	get_tree().quit()
+
+## Testing aid: crouching lowers the eye and shortens the body, a low roof keeps you down, foes see you from
+## less far and not over a low wall, the aim steadies, and a friend's crouch shows with their feet on the ground.
+func debug_crouch() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	ui.close_all()
+	night = false
+	clock = 12.0
+	Game.toggles["soft"] = false
+	# A floor of its own high over the land, so nothing else is in the way
+	var at := player.global_position + Vector3(0, 300, 0)
+	var floor_b := _debug_slab(at + Vector3(0, -0.25, 0), Vector3(80, 0.5, 80))
+	player.place(at + Vector3(0, 0.05, 0), 0.0)
+	await get_tree().create_timer(0.6).timeout
+	var eye0: float = player.head.position.y
+	var tall0: float = player._cap.height
+	Input.action_press("soft")
+	await get_tree().create_timer(0.5).timeout
+	var eye1: float = player.head.position.y
+	var tall1: float = player._cap.height
+	# A low roof just over a crouched head: let go, and you stay down; take it away, and you stand
+	var roof := _debug_slab(player.global_position + Vector3(0, 1.45, 0), Vector3(3, 0.2, 3))
+	Input.action_release("soft")
+	await get_tree().create_timer(0.5).timeout
+	var kept: bool = player.crouched and player.head.position.y < eye0 - 0.4
+	roof.free()
+	await get_tree().create_timer(0.5).timeout
+	var stood: bool = not player.crouched and absf(player.head.position.y - eye0) < 0.05
+	# A form 25 m off, looking at you: it sees you standing, not crouched
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.3, -25))
+	e.set_physics_process(false)
+	e.set_process(false)
+	await get_tree().create_timer(0.2).timeout
+	e.global_position = player.global_position + Vector3(0, 0, -25)
+	e.rotation.y = 0.0   # facing +Z, toward you
+	var far_up: bool = e.sees(player)
+	Input.action_press("soft")
+	await get_tree().create_timer(0.5).timeout
+	var far_down: bool = e.sees(player)
+	# Nearer, behind a wall a metre high: over it standing, hidden by it crouched
+	e.global_position = player.global_position + Vector3(0, 0, -10)
+	var wall := _debug_slab(player.global_position + Vector3(0, 0.5, -1.2), Vector3(3, 1.0, 0.3))
+	await get_tree().create_timer(0.1).timeout
+	var wall_down: bool = e.sees(player)
+	var sw_down: float = player.weapon.sway_amp(true) if player.weapon else 0.0
+	Input.action_release("soft")
+	await get_tree().create_timer(0.5).timeout
+	var wall_up: bool = e.sees(player)
+	var sw_up: float = player.weapon.sway_amp(true) if player.weapon else 0.0
+	wall.free()
+	e.die(false)
+	# A friend crouching, as their pose says: lowered, with both feet on the ground
+	var c := Companion.new().setup(1)
+	add_child(c)
+	var cat := player.global_position + Vector3(2, 0, -3)
+	c.pose([cat, PI, 0.0, false, 1.0, "shotgun", true, false, "shotgun", [], "", false, true])
+	await get_tree().create_timer(0.6).timeout
+	var low: float = c.crouch_drop
+	var feet := []
+	for a in c._fig._ankles:
+		feet.append(snappedf((a as Node3D).global_position.y - cat.y, 0.01))
+	# Walking crouched, the foot on the ground stays put while the body goes on
+	var slips := 0.0
+	var planted := 0
+	var trod0: float = c._fig.trod
+	var was: Array = []
+	for i in 40:
+		cat += Vector3(0, 0, 1.3 / 30.0)
+		c.pose([cat, PI, 0.0, false, 1.0, "shotgun", true, false, "shotgun", [], "", false, true])
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var now: Array = c._fig._ankles.map(func(a): return (a as Node3D).global_position)
+		for k in was.size():
+			if i >= 3 and now[k].y - cat.y < 0.1005 and was[k].y - cat.y < 0.1005:   # the first steps out of a stand settle the feet
+				slips = maxf(slips, Vector2(now[k].x - was[k].x, now[k].z - was[k].z).length())
+				planted += 1
+		was = now
+	floor_b.free()
+	print("CROUCH eye=%.2f>%.2f tall=%.2f>%.2f kept=%s stood=%s far=%s>%s wall=%s>%s steadier=%s friend=%.2f feet=%s" % [eye0, eye1, tall0, tall1,
+		kept, stood, far_up, far_down, wall_up, wall_down, sw_down < sw_up * 0.8, low, feet])
+	print("CROUCH walked=%.2f planted=%d slip=%.3f" % [c._fig.trod - trod0, planted, slips])
+	c.queue_free()
+	get_tree().quit()
+
 
 ## Testing aid: two long guns, a side arm and a blade are carried; what is carried changes only at camp,
 ## in a town or at a workbench; the bar's keys take up each gun; the second long gun is saved.
@@ -14389,7 +15177,7 @@ func debug_farforged() -> void:
 		arms_ok = arms_ok and ArmsDB.far(id) and WArms.MAKE.has(id) and WArms.craft_k(id) == 2.5
 		for kind in ["primary", "secondary", "melee"]:
 			arms_ok = arms_ok and not id in ArmsDB.choices(kind)
-	arms_ok = arms_ok and ArmsDB.look("carbine") == "machine_gun" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
+	arms_ok = arms_ok and ArmsDB.look("carbine") == "carbine" and ArmsDB.look("hand_cannon") == "hand_cannon" and ArmsDB.look("shotgun") == "shotgun" and Items.AMMO.carbine == "rifle" and Items.AMMO.hand_cannon == "shells"
 	var w: Arms = player.weapon
 	var models := 0
 	for g in ["carbine", "hand_cannon"]:
@@ -16789,7 +17577,7 @@ func _militia_shoot(delta: float) -> void:
 				e.hurt(MILITIA_SHOT, (e.global_position - mp).normalized())
 				LesserSpeeb.harm_kind = was[0]
 				LesserSpeeb.harm_head = was[1]
-				sfx("pistol", -8, mp)
+				sfx("pistol9", Arms.shot_db("pistol9") + Arms.FOE_DB, mp)   # the watch's 9 mm
 				break
 
 
@@ -17299,6 +18087,15 @@ func debug_raidcamp() -> void:
 	get_tree().quit()
 
 
+## Testing aid: a great pine of the woods cut down, its wood, its stump, the fellowship's and the saved world (see WFell).
+func debug_fell() -> void:
+	await woodcut.debug_test()
+
+
+func debug_fellshot() -> void:
+	await woodcut.debug_shot(OS.get_environment("SHOTS") if OS.get_environment("SHOTS") != "" else "user://")
+
+
 ## Testing aid: a tree that can be cut beside the dead trees that cannot; saves what is seen.
 func debug_treeshot() -> void:
 	while not ready_world:
@@ -17375,6 +18172,119 @@ func debug_nights() -> void:
 	get_tree().quit()
 
 
+## Testing aid: foes of every body slain by blows from the front, the back and the side: each goes down by its
+## bones (a Slump), by its own fall, or (lesser forms, ghosts) as before, and is gone a few seconds later.
+func debug_falls() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	combat_frozen = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var kinds := ["unlit_gun", "unlit_blade", "unlit_brute", "knight", "warden", "hollow", "saltbone", "deacon", "stranger",
+		"tunnel_unlit", "draugr", "harrow", "ash_weaver", "nykur", "rusher", "vigil", "spitter", "saucer", "wisp"]
+	var out := []
+	var bones := 0
+	var own := 0
+	var foes := []
+	for i in kinds.size():
+		var at: Vector3 = player.global_position + f * 9.0 + side * (i - kinds.size() * 0.5) * 2.2
+		at.y = terrain.height_at(at.x, at.z) + 1.0
+		var e: LesserSpeeb = spawn_at(kinds[i], at)
+		if e == null:
+			out.append(kinds[i] + "=none")
+			continue
+		foes.append(e)
+	await get_tree().create_timer(1.2).timeout
+	var dirs := [f, -f, side]
+	for i in foes.size():
+		var e: LesserSpeeb = foes[i]
+		if not is_instance_valid(e):
+			continue
+		var d: Vector3 = dirs[i % 3]
+		e.flinch(200.0, d)
+		e.hurt(e.hp + 9999.0, d)
+	await get_tree().create_timer(0.5).timeout
+	for e in foes:
+		if not is_instance_valid(e):
+			out.append("gone")
+			continue
+		var how := "plain"
+		if not e.find_children("*", "Slump", true, false).is_empty():
+			how = "bones"
+			bones += 1
+		elif (e._fb and e._fb._now != "" and e._fb.anim and e._fb.anim.current_animation == e._fb.clips.get("die", "-")) or (e._scan_anim and e._scan_anim.current_animation.to_lower().contains("die") or e._scan_anim and e._scan_anim.current_animation.contains("Death")):
+			how = "own"
+			own += 1
+		out.append("%s=%s" % [e.variant if e.variant != "" else e.kind, how])
+	await get_tree().create_timer(6.0).timeout
+	var left := foes.filter(func(x): return is_instance_valid(x)).size()
+	print("FALLS bones=%d own=%d left=%d %s" % [bones, own, left, " ".join(out)])
+	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
+		get_tree().quit()
+
+
+## Testing aid: the people of the waste in their own bodies (one of each), four standing and talking and four
+## walking about. With shots= on the command line they stay to be seen.
+func debug_people() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var keys := []
+	for p in Person.PAIRS:
+		keys.append(p[0] + "_m")
+		keys.append(p[0] + "_f")
+	var figs := []
+	for i in keys.size():
+		var at: Vector3 = player.global_position + f * 6.0 + side * (i - 3.5) * 1.3
+		at.y = terrain.height_at(at.x, at.z)
+		if i % 2 == 0:
+			var t := WTownsfolk.new().setup(self, at, 4.0, 300 + i * 17)
+			t.person_key = keys[i]
+			add_child(t)
+			t.global_position = at
+			figs.append(t.fig)
+		else:
+			var g := Figure.new().setup(Figure.townsman(i * 31, "hesk"))
+			g.real = true
+			g.person_key = keys[i]
+			add_child(g)
+			g.global_position = at
+			g.look_at(player.global_position, Vector3.UP, true)
+			g.talk_t = 30.0
+			figs.append(g)
+	# Over six seconds: each body moves, and each of the wanderers is seen walking at some time
+	var walked := {}
+	var moved := {}
+	for i in 24:
+		await get_tree().create_timer(0.25).timeout
+		for g in figs:
+			var fg := g as Figure
+			if fg.person and fg.person._clip in ["Walk", "Run"]:
+				walked[fg] = true
+			if fg.person and fg.person._ap.is_playing():
+				moved[fg] = true
+	var ok := moved.size()
+	var walking := walked.size()
+	var tall := []
+	for g in figs:
+		var fg := g as Figure
+		if fg.person:
+			var hi := fg.person._sk.global_transform * fg.person._sk.get_bone_global_pose(fg.person._bone("HeadTop_End")).origin
+			tall.append("%.2f" % (hi.y - fg.global_position.y))
+	print("PEOPLE ok=%d/%d walking=%d tall=%s" % [ok, figs.size(), walking, ",".join(tall)])
+	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
+		get_tree().quit()
+	else:
+		clock = 16.5   # in the afternoon light, to be seen
+
+
 ## Testing aid: a figure is drawn in a handful of meshes, not thirty.
 func debug_figjoin() -> void:
 	var most := 0
@@ -17410,6 +18320,11 @@ func debug_gfx() -> void:
 	Game.apply_display()
 	print("GFX low=%s back=%s high=%s scaled=%s" % [low, back, high, scaled])
 	get_tree().quit()
+
+
+## Testing aid: at every common screen size and text size, no words on the HUD are drawn over others.
+func debug_hudfit() -> void:
+	await load("res://world/hud_check.gd").new().run(self)
 
 
 ## Testing aid: at the largest menu size, the pack and every tab still fit on the screen.
@@ -17530,3 +18445,479 @@ func debug_polish2() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var gone: bool = not is_instance_valid(e)
 	print("POLISH2 words=%s pad=%s reset=%s turned=%s rest=%s fell=%s gone=%s" % [words, pad, reset, turned, rest, fell, gone])
+
+
+## Testing aid: a great one (BOSS, default boss_ash) at noon before the eye, the sky behind it, a few frames in
+## a row (FOG=0 turns the fog off). Saves <SHOT_OUT>_fog<n>.png and prints FOGSHOT odd= (sky pixels gone strange).
+func debug_fogshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	clock = 12.0
+	combat_frozen = true
+	player.max_health = 100000.0
+	player.health = 100000.0
+	var env: Environment = get_viewport().get_camera_3d().get_world_3d().environment if get_viewport().get_camera_3d().get_world_3d().environment else null
+	if env == null:
+		for we in find_children("*", "WorldEnvironment", true, false):
+			env = (we as WorldEnvironment).environment
+	if env and OS.get_environment("FOG") == "0":
+		env.volumetric_fog_enabled = false
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var b := OS.get_environment("BOSS") if OS.get_environment("BOSS") != "" else "boss_ash"
+	var q := player.global_position + fwd * 16.0
+	var e
+	if b.begins_with("boss_"):
+		e = LesserSpeeb.new().setup(Game.lesser.keys()[3], b, self)
+		add_child(e)
+		e.global_position = Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z)
+	elif b != "none":
+		e = spawn_at(b, Vector3(q.x, terrain.height_at(q.x, q.z) + 2.0, q.z))
+	player.weapon.visible = false
+	await get_tree().create_timer(3.0).timeout
+	_debug_aim(q + Vector3(0, 6.0, 0))
+	for i in 4:
+		await get_tree().create_timer(0.25).timeout
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		img.save_png(OS.get_environment("SHOT_OUT") + "_fog%d.png" % i)
+		var odd := 0
+		for y in range(0, img.get_height() / 3, 4):
+			for x in range(0, img.get_width(), 4):
+				var c := img.get_pixel(x, y)
+				if c.v < 0.05 or (c.s > 0.6 and c.v > 0.3):
+					odd += 1
+		print("FOGSHOT %d odd=%d fog=%s" % [i, odd, env.volumetric_fog_enabled if env else "?"])
+	get_tree().quit()
+
+
+## Testing aid: every body that walks the waste, measured as it moves: how high its lowest bone stays over the
+## ground (a body that floats stands off it, one that sinks goes under), and how fast that foot slides while it
+## bears the weight, against how fast the body goes (a walk played too slow or too fast skates).
+func debug_feet() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	if dev:
+		dev.god = true
+	var f := -player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side := f.cross(Vector3.UP)
+	var only := ""
+	for a in OS.get_cmdline_user_args():
+		if str(a).begins_with("feet="):
+			only = str(a).substr(5)
+	var lines := []
+	# The foes, a handful at a time, coming at the one who stands here
+	var kinds: Array = LesserSpeeb.KINDS.keys() + LesserSpeeb.VARIANTS.keys()
+	# feet=...,bosses: the great ones too (or name them one by one: feet=boss_marsh,boss_forest)
+	var great: bool = "bosses" in only.split(",")
+	kinds += LesserSpeeb.BOSSES.keys()
+	if only != "":
+		kinds = kinds.filter(func(k): return k in only.split(",") or (great and LesserSpeeb.BOSSES.has(k)))
+	else:
+		kinds = kinds.filter(func(k): return not LesserSpeeb.BOSSES.has(k))
+	var i := 0
+	while i < kinds.size():
+		var batch := []
+		# the great ones two at a time, well apart
+		var big: bool = LesserSpeeb.BOSSES.has(kinds[i])
+		for j in (2 if big else 6):
+			if i >= kinds.size() or LesserSpeeb.BOSSES.has(kinds[i]) != big:
+				break
+			var k: String = kinds[i]
+			i += 1
+			var at: Vector3 = player.global_position - f * (24.0 if big else 14.0) + side * ((j - 0.5) * 16.0 if big else (j - 2.5) * 4.0)
+			at.y = terrain.height_at(at.x, at.z) + 0.5
+			var e: LesserSpeeb = spawn_at(k, at)
+			if e == null:
+				lines.append("%s none" % k)
+				continue
+			batch.append([k, e])
+		await get_tree().create_timer(0.8).timeout
+		_feet_lead = f * 3.2
+		lines.append_array(await _feet_measure(batch, 5.0))
+		_feet_lead = Vector3.ZERO
+		await _debug_home()
+		for b in batch:
+			if is_instance_valid(b[1]):
+				b[1].queue_free()
+		await get_tree().create_timer(0.3).timeout
+	if "synth" in only:
+		# A body walked by hand along the way it faces, at a pace its walk is played for: the measure's own check
+		var batch := []
+		var walkers := []
+		for sp in [0.9, 1.3]:
+			var holder := Node3D.new()
+			add_child(holder)
+			var at: Vector3 = player.global_position + f * 6.0 + side * (batch.size() * 3.0 - 1.5)
+			holder.global_position = at
+			holder.look_at(at - side, Vector3.UP)   # faces +Z along -side... set below
+			holder.rotation = Vector3(0, atan2(side.x, side.z), 0)
+			var ps := Person.new().setup("nordic_m", 7, 1)
+			holder.add_child(ps)
+			batch.append(["synth%.1f" % sp, holder])
+			walkers.append([holder, ps, sp])
+		var mover := func(dt: float) -> void:
+			for wk in walkers:
+				var h: Node3D = wk[0]
+				var ps2: Person = wk[1]
+				ps2.pace = wk[2]
+				var p2: Vector3 = h.global_position + h.global_basis.z * float(wk[2]) * dt
+				p2.y = terrain.height_at(p2.x, p2.z)
+				h.global_position = p2
+		_feet_tick = mover
+		await get_tree().create_timer(1.0).timeout
+		lines.append_array(await _feet_measure(batch, 5.0))
+		_feet_tick = Callable()
+	if only == "" or "folk" in only:
+		var batch := []
+		for p in Person.PAIRS:
+			for sx in ["m", "f"]:
+				var at: Vector3 = player.global_position + f * 8.0 + side * (batch.size() - 3.5) * 2.5
+				at.y = terrain.height_at(at.x, at.z)
+				var t := WTownsfolk.new().setup(self, at, 5.0, 900 + batch.size() * 13)
+				t.person_key = p[0] + "_" + sx
+				add_child(t)
+				t.global_position = at
+				batch.append(["folk:" + t.person_key, t])
+		await get_tree().create_timer(1.0).timeout
+		for b in batch:
+			var t: WTownsfolk = b[1]
+			print("FOLKDBG ", is_instance_valid(t), " ", t.fig.person if is_instance_valid(t) and t.fig else null, " ", t.fig.person._built if is_instance_valid(t) and t.fig and t.fig.person else false, " ", _feet_skel(t) if is_instance_valid(t) else null)
+		lines.append_array(await _feet_measure(batch, 8.0))
+		for b in batch:
+			b[1].queue_free()
+	if only == "" or "beast" in only:
+		var batch := []
+		var n := 0
+		for k in WBeast.KINDS.keys():
+			var at: Vector3 = player.global_position + f * 14.0 + side * (n - 2) * 5.0
+			at.y = terrain.height_at(at.x, at.z)
+			var b := _w_beast(991000 + n, k, at)
+			n += 1
+			batch.append(["beast:" + k, b])
+		await get_tree().create_timer(1.0).timeout
+		lines.append_array(await _feet_measure(batch, 8.0))
+	var bad := 0
+	for l in lines:
+		if "BAD" in l:
+			bad += 1
+		print("FEET ", l)
+	print("FEET done bad=%d of %d" % [bad, lines.size()])
+	get_tree().quit()
+
+
+## Watches these bodies for a while; one line each. The body's pace is taken over a quarter second (it moves in
+## physics steps, its bones every frame); the foot that bears it moves in the body's own frame by its walk, so a
+## walk in step carries that foot back exactly as fast as the body goes forward.
+var _feet_tick := Callable()       ## (testing aid) moves bodies by hand each frame while they are watched
+var _feet_lead := Vector3.ZERO   ## (testing aid) the one they follow walks on, so they walk after him
+
+
+func _feet_measure(batch: Array, secs: float) -> Array:
+	var data := {}
+	for b in batch:
+		data[b[0]] = {"h": [], "hi": [], "slide": [], "hist": [], "lb": -1, "lq": Vector3.ZERO, "v": [], "span": 0.0}
+	var t := 0.0
+	while t < secs:
+		await get_tree().process_frame
+		var dt := get_process_delta_time()
+		if dt <= 0.0:
+			continue
+		t += dt
+		if _feet_tick.is_valid():
+			_feet_tick.call(dt)
+		if _feet_lead != Vector3.ZERO:
+			var pp := player.global_position + _feet_lead * dt
+			pp.y = terrain.height_at(pp.x, pp.z) + 0.05
+			player.global_position = pp
+		for b in batch:
+			var e: Node3D = b[1]
+			var d: Dictionary = data[b[0]]
+			if not is_instance_valid(e) or e.is_queued_for_deletion():
+				continue
+			var sk := _feet_skel(e)
+			if sk == null:
+				continue
+			d["seen"] = true
+			if not d.has("feet"):
+				d["feet"] = _feet_bones(sk)
+			var lo := 1e9
+			var lb := -1
+			var lp := Vector3.ZERO
+			# a Stepper's legs are in the bones only while the skin is drawn: it keeps that pose for us
+			if not d.has("stp"):
+				var sts := sk.get_children().filter(func(c): return c is Stepper or c is LegStepper)
+				d["stp"] = sts[0] if not sts.is_empty() else null
+				if is_instance_valid(d.stp):
+					d.stp.keep = true
+			var posed: Dictionary = d.stp.posed if is_instance_valid(d.stp) else {}
+			if is_instance_valid(d.stp) and (posed.is_empty() or d.stp.posed_n == d.get("pn", -1)):
+				continue   # (not drawn yet, or not drawn again since: its bones go with its clip's ticks)
+			if is_instance_valid(d.stp):
+				d["pn"] = d.stp.posed_n
+			var dts: float = t - float(d.get("lt", t - dt))
+			d["lt"] = t
+			# Each foot on its own: while it stays down (within a few cm of its lowest), how far it drifts over
+			# the ground in that time, against how far the body went
+			if not d.has("runs"):
+				d["runs"] = {}
+				d["drift"] = 0.0
+				d["went"] = 0.0
+			for bi in d.feet:
+				var wp: Vector3 = sk.global_transform * ((posed[bi] as Transform3D).origin if posed.has(bi) else sk.get_bone_global_pose(bi).origin)
+				var fh := wp.y - terrain.height_at(wp.x, wp.z)
+				var r: Dictionary = d.runs.get(bi, {"min": 1e9})
+				r.min = minf(float(r.min), fh)
+				if fh < float(r.min) + 0.03:
+					if not r.has("from"):
+						r["from"] = wp
+						r["body"] = e.global_position
+						r["t"] = t
+				elif r.has("from"):
+					var span := t - float(r.t)
+					var bw := Vector2(e.global_position.x - (r.body as Vector3).x, e.global_position.z - (r.body as Vector3).z).length()
+					if span > 0.12 and bw > 0.1:
+						d.drift += Vector2(wp.x - (r.from as Vector3).x, wp.z - (r.from as Vector3).z).length()
+						d.went += bw
+					r.erase("from")
+				d.runs[bi] = r
+				if wp.y < lo:
+					lo = wp.y
+					lb = bi
+					lp = wp
+			if lb < 0:
+				continue
+			var here := e.global_position
+			d.hist.append([t, here])
+			while d.hist.size() > 2 and t - float(d.hist[0][0]) > 0.25:
+				d.hist.pop_front()
+			var vb := Vector3.ZERO
+			if t - float(d.hist[0][0]) > 0.15:
+				vb = (here - (d.hist[0][1] as Vector3)) / (t - float(d.hist[0][0]))
+			vb.y = 0.0
+			var h := lp.y - terrain.height_at(lp.x, lp.z)
+			var q := e.global_transform.affine_inverse() * lp
+			if lb == d.lb:
+				d.span = maxf(d.span, (q - d.lq).length() / dts)
+			var mv := vb.length()
+			if e is WTownsfolk and (e as WTownsfolk).fig and (e as WTownsfolk).fig.person:
+				d["pace"] = d.get("pace", []) + [(e as WTownsfolk).fig.person.pace] if mv > 0.6 else d.get("pace", [])
+			if is_instance_valid(d.stp):
+				d["step"] = true
+			if e is LesserSpeeb and (e as LesserSpeeb)._fb and (e as LesserSpeeb)._fb.anim and mv > 0.6:
+				var fb2: FoeBody = (e as LesserSpeeb)._fb
+				var key2 := "%s@%.1f/%.2f" % [fb2.anim.current_animation.get_slice("/", 1) if "/" in fb2.anim.current_animation else fb2.anim.current_animation, fb2.anim.speed_scale, Stride.of(fb2.skel, fb2.anim, fb2.anim.current_animation)]
+				var hist: Dictionary = d.get("clips", {})
+				hist[key2] = int(hist.get(key2, 0)) + 1
+				d["clips"] = hist
+			if mv > 0.6:
+				var apx: AnimationPlayer = null
+				for c in e.find_children("*", "AnimationPlayer", true, false):
+					apx = c
+					break
+				if apx and apx.current_animation != "":
+					var ah := Stride.ahead(sk, apx, apx.current_animation)
+					if ah != Vector3.ZERO:
+						var fwd2 := ah * signf(apx.speed_scale)
+						d["ang"] = d.get("ang", []) + [rad_to_deg(Vector2(fwd2.x, fwd2.z).angle_to(Vector2(vb.x, vb.z)))]
+			if false and mv > 0.6 and e is WBeast:
+				# which way its body points against the way it goes (head bone from its spine's base)
+				var hb := -1
+				var tb := -1
+				for bi2 in sk.get_bone_count():
+					var bn2 := sk.get_bone_name(bi2).to_lower()
+					if hb < 0 and bn2.begins_with("head"):
+						hb = bi2
+					if tb < 0 and ("spine_base" in bn2 or "pelvis" in bn2):
+						tb = bi2
+				if hb >= 0 and tb >= 0:
+					var ax: Vector3 = sk.global_transform * sk.get_bone_global_pose(hb).origin - sk.global_transform * sk.get_bone_global_pose(tb).origin
+					d["ang"] = d.get("ang", []) + [rad_to_deg(Vector2(ax.x, ax.z).angle_to(Vector2(vb.x, vb.z)))]
+			if _feet_sole and t >= float(d.get("st", 0.0)):
+				# The skin itself, now and then: where its lowest point is over the ground below it
+				d["st"] = t + 0.1
+				var sl0 := _sole_low(e)
+				var own := here.y - (float((e as LesserSpeeb).spec.radius) if e is LesserSpeeb else 0.0)
+				var aloft := e is CharacterBody3D and not (e as CharacterBody3D).is_on_floor()
+				if sl0.x < 1e8 and (mv > 0.6 or mv < 0.05):
+					var tag := ("m" if mv > 0.6 else "i")
+					if aloft:
+						d["air" + tag] = int(d.get("air" + tag, 0)) + 1
+					else:
+						d.get_or_add("s" + tag, []).append(sl0.y - terrain.height_at(sl0.x, sl0.z))
+					d.get_or_add("r" + tag, []).append(sl0.y - own)
+					var cn := "-"
+					for ap in e.find_children("*", "AnimationPlayer", true, false):
+						if (ap as AnimationPlayer).is_playing():
+							cn = str((ap as AnimationPlayer).current_animation).get_slice("|", 1) if "|" in str((ap as AnimationPlayer).current_animation) else str((ap as AnimationPlayer).current_animation)
+							break
+					(d.get_or_add("rc", {}) as Dictionary).get_or_add(cn + ("(buried)" if e is LesserSpeeb and (e as LesserSpeeb)._buried > 0.05 else ("" if not aloft else "(air)")), []).append(sl0.y - own)
+					d.get_or_add("g" + tag, []).append(own - terrain.height_at(here.x, here.z))
+			if mv > 0.6:
+				d.v.append(mv)
+				d.h.append(h)
+				if lb == d.lb:
+					var fw: Vector3 = e.global_transform.basis * ((q - (d.lq as Vector3)) / dts)
+					fw.y = 0.0
+					d.slide.append((vb + fw).length() / mv)
+			elif mv < 0.05:
+				d.hi.append(h)
+			d.lb = lb
+			d.lq = q
+	var out := []
+	for b in batch:
+		var d: Dictionary = data[b[0]]
+		if not d.has("seen"):
+			out.append("%s nobones" % b[0])
+			continue
+		var h := _med(d.h)
+		var hi := _med(d.hi)
+		var sl: float = float(d.drift) / float(d.went) if float(d.get("went", 0.0)) > 0.5 else NAN
+		var v := _med(d.v)
+		var flag := ""
+		if d.h.size() >= 20 and (h > 0.16 or h < -0.12 or sl > 0.35):
+			flag = " BAD"
+		if d.hi.size() >= 20 and (hi > 0.16 or hi < -0.12):
+			flag = " BAD"
+		var sk2 := _feet_skel(b[1]) if is_instance_valid(b[1]) else null
+		var fb := ",".join(PackedStringArray((d.get("feet", []) as Array).slice(0, 2).map(func(x): return sk2.get_bone_name(x) if sk2 else "?")))
+		if d.has("pace"):
+			b[0] += " pace=%.2f" % _med(d.pace)
+			var ps: Person = (b[1] as WTownsfolk).fig.person
+			b[0] += " stride=%.2f sc=%.2f" % [Stride.of(ps._sk, ps._ap, "moves/Walk"), ps._ap.speed_scale]
+		if d.has("clips"):
+			var hk: Dictionary = d.clips
+			var ks := hk.keys()
+			ks.sort_custom(func(a, b2): return hk[a] > hk[b2])
+			b[0] += " " + ",".join(PackedStringArray(ks.slice(0, 3).map(func(k): return "%s x%d" % [k, hk[k]])))
+		if d.has("step"):
+			b[0] += " stepper"
+		if d.has("ang"):
+			b[0] += " heading_off=%.0f signed=%.0f" % [_med((d.ang as Array).map(func(x): return absf(x))), _med(d.ang)]
+		if _feet_sole:
+			# Judged by the skin when it is watched: its lowest point against the body's own floor, on the ground
+			var on_ground := []
+			for cn in d.get("rc", {}):
+				if not "(" in cn:
+					on_ground.append_array(d.rc[cn])
+			flag = " BAD" if on_ground.size() >= 10 and absf(_med(on_ground)) > 0.04 else (flag.replace("BAD", "bones-only") if flag != "" else "")
+			b[0] += " SOLE=%.3f/%.3f REL=%.3f/%.3f GAP=%.3f/%.3f (n=%d/%d air=%d/%d)" % [_med(d.get("sm", [])), _med(d.get("si", [])),
+				_med(d.get("rm", [])), _med(d.get("ri", [])), _med(d.get("gm", [])), _med(d.get("gi", [])),
+				d.get("sm", []).size(), d.get("si", []).size(), int(d.get("airm", 0)), int(d.get("airi", 0))]
+			var rc: Dictionary = d.get("rc", {})
+			for cn in rc:
+				b[0] += " {%s:%.3f n%d}" % [cn, _med(rc[cn]), rc[cn].size()]
+		out.append("%s v=%.2f h=%.2f idle_h=%.2f slide=%.2f footv=%.1f n=%d/%d [%s]%s" % [b[0], v, h, hi, sl, d.span, d.h.size(), d.hi.size(), fb, flag])
+	return out
+
+
+## (testing aid, feet_sole=1) also the lowest point of the skin, skinned on the CPU: what the eye sees on the ground
+var _feet_sole := "feet_sole=1" in OS.get_cmdline_user_args()
+var _sole_arrs := {}
+
+
+## The lowest point of a body's visible skinned meshes, in the world (x, y, z); x is 1e9 when it has none.
+func _sole_low(e: Node) -> Vector3:
+	var best := Vector3(1e9, 1e9, 0)
+	for mi in e.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		if mm.mesh == null or mm.skin == null or not mm.is_visible_in_tree():
+			continue
+		var sk := mm.get_node_or_null(mm.skeleton) as Skeleton3D
+		if sk == null:
+			continue
+		var skin := mm.skin
+		var mats := {}
+		for si in mm.mesh.get_surface_count():
+			var key := mm.mesh.get_rid().get_id() * 64 + si
+			if not _sole_arrs.has(key):
+				_sole_arrs[key] = mm.mesh.surface_get_arrays(si)
+			var arr: Array = _sole_arrs[key]
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var bones = arr[Mesh.ARRAY_BONES]
+			var wts = arr[Mesh.ARRAY_WEIGHTS]
+			if v.is_empty() or bones == null or wts == null:
+				continue
+			var per: int = bones.size() / v.size()
+			for i in range(0, v.size(), 2):
+				var p: Vector3 = v[i]
+				var sum := Vector3.ZERO
+				var wsum := 0.0
+				for j in per:
+					var wj: float = wts[i * per + j]
+					if wj <= 0.0:
+						continue
+					var bi: int = bones[i * per + j]
+					if not mats.has(bi):
+						var bone := -1
+						if bi < skin.get_bind_count():
+							bone = skin.get_bind_bone(bi)
+							if bone < 0:
+								bone = sk.find_bone(skin.get_bind_name(bi))
+						mats[bi] = null if bone < 0 else sk.global_transform * sk.get_bone_global_pose(bone) * skin.get_bind_pose(bi)
+					if mats[bi] == null:
+						continue
+					sum += (mats[bi] as Transform3D) * p * wj
+					wsum += wj
+				if wsum > 0.0:
+					var q := sum / wsum
+					if q.y < best.y:
+						best = q
+	return Vector3(best.x, best.y, best.z) if best.x < 1e8 else best
+
+
+## The bones a body stands on: its feet, toes, paws and hooves by name, or else the ends of its limbs (the bones
+## with no children, past the first three from the root).
+static func _feet_bones(sk: Skeleton3D) -> Array:
+	var out := []
+	for bi in sk.get_bone_count():
+		var nm := sk.get_bone_name(bi).to_lower()
+		if "tail" in nm or "wing" in nm or "weapon" in nm or "hair" in nm or "pole" in nm or "target" in nm:
+			continue
+		for w in ["foot", "toe", "ankle", "heel", "paw", "hoof", "feet", "pie", "talon", "claw"]:
+			if w in nm:
+				out.append(bi)
+				break
+	var defs := out.filter(func(b): return sk.get_bone_name(b).begins_with("DEF"))
+	if not defs.is_empty():
+		out = defs
+	# (the skinned feet, where a rig keeps its FK and IK controls as bones too)
+	var binds := out.filter(func(b): return "_bind_" in sk.get_bone_name(b).to_lower())
+	if not binds.is_empty():
+		out = binds
+	# feet named for Stride (SCANS "feet"), and the legs a LegStepper steps: their tips
+	if not Stride.named_feet(sk).is_empty():
+		out = Stride.named_feet(sk)
+	for c in sk.get_children():
+		if c is LegStepper and not (c as LegStepper)._legs.is_empty():
+			out = (c as LegStepper)._legs.map(func(l): return l[0][l[0].size() - 1])
+	if out.is_empty():
+		for bi in sk.get_bone_count():
+			var depth := 0
+			var p := bi
+			while p >= 0:
+				p = sk.get_bone_parent(p)
+				depth += 1
+			if sk.get_bone_children(bi).is_empty() and depth > 3:
+				out.append(bi)
+	return out
+
+
+func _feet_skel(e: Node) -> Skeleton3D:
+	var best: Skeleton3D = null
+	for s in e.find_children("*", "Skeleton3D", true, false):
+		if best == null or (s as Skeleton3D).get_bone_count() > best.get_bone_count():
+			best = s
+	return best
+
+
+static func _med(a: Array) -> float:
+	if a.is_empty():
+		return NAN
+	var s := a.duplicate()
+	s.sort()
+	return float(s[s.size() / 2])

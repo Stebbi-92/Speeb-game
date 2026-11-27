@@ -27,6 +27,9 @@ var _fig: Figure
 var _look := {}
 var _walk := 0.0
 var _last := Vector3.ZERO
+var crouched := false     ## crouching, as their own pose says (foes see them from less far)
+var crouch_drop := 0.0    ## how much lower their eye is just now (foes look and aim that much lower)
+var _crouch := 0.0
 
 
 func setup(id: int) -> Companion:
@@ -40,6 +43,7 @@ func _ready() -> void:
 	add_child(_body)
 	# Dressed as they chose to be
 	_fig = Figure.new().setup(Net.look_of(peer_id))
+	_fig.bends = true   # they crouch
 	_look = _fig.look.duplicate()
 	_body.add_child(_fig)
 	Net.roster_changed.connect(_relook)
@@ -48,6 +52,7 @@ func _ready() -> void:
 	_gun.position = Vector3(0, Figure.SHOULDER_Y, 0)
 	_body.add_child(_gun)
 	_fig.hold = true
+	_fig.ground = self
 	_show_gun("shotgun")
 	_flash = OmniLight3D.new()
 	_flash.light_color = Color(1.0, 0.75, 0.4)
@@ -109,7 +114,8 @@ func _ready() -> void:
 	visible = false
 
 
-## data: [position, yaw, pitch, downed, health, relic in hand, armed, lantern lit]
+## data: [position, yaw, pitch, downed, health, relic in hand, armed, lantern lit, gun, its fittings,
+## their cat, smoking, crouched]
 func pose(data: Array) -> void:
 	if data.size() < 8:
 		return
@@ -118,6 +124,7 @@ func pose(data: Array) -> void:
 	_pitch = data[2]
 	downed = data[3]
 	hp = data[4]
+	crouched = data.size() > 12 and bool(data[12]) and not downed
 	var armed: bool = data[6] and data[5] == "shotgun"
 	_gun.visible = armed
 	_fig.hold = armed
@@ -202,12 +209,39 @@ func _show_gun(g: String, mn: Array = []) -> void:
 	_gun_model = maker._build(g, mn.duplicate())
 	maker.free()
 	_gun_model.rotation.y = PI
-	_gun_model.position = Figure.GRIP - Vector3(0, Figure.SHOULDER_Y, 0) + Vector3(0, 0.06, 0.02)
+	# Held as the holder holds it: the right hand on its own grip, the left on its fore-end (a side arm's
+	# both on the grip), a long gun's butt in the shoulder and a side arm out at arm's length
+	var lg := ArmsDB.look(g)
+	var gd: Dictionary = Arms.GRIP.get(lg, Arms.GRIP[""])
+	var r: Vector3 = gd.get("R", Arms.GRIP[""].R)
+	var side_arm: bool = ArmsDB.GUNS[g].slot == "secondary"
+	var l: Vector3 = r + Vector3(-0.034, 0.008, -0.012) if side_arm and not gd.has("L") else gd.get("L", (_gun_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
+	var grip_body := Figure.GRIP
+	if not side_arm:
+		var bb := AABB()
+		var first := true
+		for mi in _gun_model.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = WTrees._chain(mi, _gun_model) * (mi as MeshInstance3D).get_aabb()
+			bb = a if first else bb.merge(a)
+			first = false
+		# Its back end just before the right shoulder, the gun at the cheek
+		var origin := Vector3(0.1, Figure.SHOULDER_Y - 0.03, 0.04 + bb.end.z)
+		if lg == "minigun":
+			origin = Vector3(0.18, 1.05, 0.12 + bb.end.z)   # at the hip, on its handles
+		grip_body = origin + _flip(r)
+	_gun_model.position = grip_body - _flip(r) - Vector3(0, Figure.SHOULDER_Y, 0)
+	_fig.grip_at = grip_body
+	_fig.fore_at = grip_body + _flip(l - r)
 	_gun.add_child(_gun_model)
 	_tip = _gun_model.position + (_gun_model.get_meta("tip") as Vector3) * Vector3(-1, 1, -1)
 	for c in _gun_model.find_children("*", "MeshInstance3D", true, false):
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	_place_flash()
+
+
+## A point of the gun's own (muzzle to -Z) as the held gun has it, turned to face the way they face.
+static func _flip(v: Vector3) -> Vector3:
+	return Vector3(-v.x, v.y, -v.z)
 
 
 func _place_flash() -> void:
@@ -231,17 +265,36 @@ func _process(delta: float) -> void:
 	global_position = global_position.lerp(_to, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, _yaw + PI, minf(1.0, delta * 14.0))
 	_gun.rotation.x = lerpf(_gun.rotation.x, -_pitch, minf(1.0, delta * 10.0))
-	_fig.aim = _gun.rotation.x
-	var speed := (global_position - _last).length() / maxf(delta, 0.001)
+	var moved := global_position - _last
+	var speed := moved.length() / maxf(delta, 0.001)
 	_last = global_position
 	_walk += delta * minf(speed, 6.0) * 2.2
+	# Crouched: the body comes down and leans over the hips, the gun with it; the legs bend under it
+	var riding := _cat != null and _cat.ridden
+	_crouch = move_toward(_crouch, 1.0 if crouched and not downed and not riding else 0.0, delta / Player.CROUCH_TIME)
+	var ck := smoothstep(0.0, 1.0, _crouch)
+	crouch_drop = Player.CROUCH_DROP * ck
+	var lean := Figure.CROUCH_LEAN * ck
+	if ck > 0.0 or _fig.crouch > 0.0:
+		var hips := Vector3(0, Figure.HIP_Y, 0)
+		var lb := Basis(Vector3.RIGHT, lean)
+		_fig.transform = Transform3D(lb, hips - lb * hips)
+		_gun.position = _fig.transform * Vector3(0, Figure.SHOULDER_Y, 0)
+		_label.position.y = 2.25 - 0.5 * ck
+	_fig.crouch = ck
+	_fig.aim = _gun.rotation.x - lean
+	if speed > 0.2:
+		var lv := basis.inverse() * moved
+		if Vector2(lv.x, lv.z).length() > 0.0001:
+			_fig.going = Vector2(lv.x, lv.z).normalized()
+	_fig.trod += minf(speed, 6.0) * delta
 	var lie := 1.0 if downed else 0.0
 	_body.rotation.x = lerpf(_body.rotation.x, -PI / 2 * lie, minf(1.0, delta * 5.0))
 	_body.position.y = lerpf(_body.position.y, 0.25 * lie, minf(1.0, delta * 5.0))
 	if not downed:
 		# Riding, they sit up in the saddle, not down inside the cat
 		var lift := 0.75 if _cat and _cat.ridden else 0.0
-		_body.position.y = lift + absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0) * (0.0 if lift > 0.0 else 1.0)
+		_body.position.y = lift + absf(sin(_walk)) * 0.04 * clampf(speed / 3.0, 0.0, 1.0) * (0.0 if lift > 0.0 else 1.0 - ck) - Figure.CROUCH_DROP * ck
 		_body.rotation.z = sin(_walk * 0.5) * 0.03 * clampf(speed / 3.0, 0.0, 1.0)
 	_fig.walk = _walk
 	_fig.stride = 0.0 if downed else clampf(speed / 3.0, 0.0, 1.0)

@@ -246,6 +246,59 @@ func use_bonus(id: String) -> Dictionary:
 	return {"dmg": 1.0 + 0.02 * lv, "kick": 1.0 - 0.03 * lv, "reload": 1.0 - 0.025 * lv, "aim": 1.0 + 0.03 * lv, "spread": 1.0 - 0.02 * lv}
 
 
+# ------------------------------------------------------------------ gun skill
+
+## The hand with every gun, grown from all the shooting a survivor does: a new one's shots wander wide and the
+## sights sway; travel and fights steady them. Every gun's practice counts toward it.
+const SHOT_RANKS := ["Unsteady", "Raw", "Learning", "Fair", "Steady", "Sure", "Keen", "Sharp", "Deadeye", "Unerring"]
+const SHOT_MAX := 9
+const SHOT_WIDE := 1.45  ## how much wider shots wander at the start than at the top rank
+const SHOT_SWAY := 1.4  ## how much more the sights sway at the start
+
+
+static func shot_need(lv: int) -> int:
+	return int(round(25.0 * pow(lv, 1.85)))   # the first ranks come within the first hour or two
+
+
+func shot_points() -> int:
+	var n := 0
+	for k in use:
+		if ArmsDB.GUNS.has(k):
+			n += int(use[k])
+	return n
+
+
+func shot_level() -> int:
+	var p := shot_points()
+	var lv := 0
+	while lv < SHOT_MAX and p >= shot_need(lv + 1):
+		lv += 1
+	return lv
+
+
+func shot_progress() -> float:
+	var lv := shot_level()
+	if lv >= SHOT_MAX:
+		return 1.0
+	var a := shot_need(lv)
+	return clampf(float(shot_points() - a) / float(shot_need(lv + 1) - a), 0.0, 1.0)
+
+
+## How much wider than a master's the shots wander at this rank (1 at the top).
+static func shot_spread(lv: int) -> float:
+	return lerpf(SHOT_WIDE, 1.0, float(lv) / SHOT_MAX)
+
+
+static func shot_sway(lv: int) -> float:
+	return lerpf(SHOT_SWAY, 1.0, float(lv) / SHOT_MAX)
+
+
+static func shot_text(lv: int) -> String:
+	if lv >= SHOT_MAX:
+		return "Your shots go where you aim."
+	return "Shots wander %d%% more than they will. Shoot to steady your hand." % int(round((shot_spread(lv) - 1.0) * 100.0))
+
+
 static func use_text(lv: int) -> String:
 	if lv <= 0:
 		return "No bonus yet. Use it to get better with it."

@@ -198,6 +198,7 @@ func _ready() -> void:
 	_quest_step = _label("", 17, PALE, HORIZONTAL_ALIGNMENT_LEFT)
 	_quest_more = _label("", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT)
 	for l in [_quest_title, _quest_step, _quest_more]:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # long steps wrap, never reaching the compass
 		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 		l.add_theme_constant_override("shadow_offset_x", 1)
 		l.add_theme_constant_override("shadow_offset_y", 1)
@@ -357,7 +358,7 @@ func _ready() -> void:
 	root.add_child(hotbar)
 	relic_hint = _label("", 18, PALE, HORIZONTAL_ALIGNMENT_RIGHT)
 	relic_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	relic_hint.position = Vector2(-736, -216)
+	relic_hint.position = Vector2(-736, -146)   # over the ammunition and its save note, clear of the litany
 	relic_hint.size = Vector2(700, 30)
 	relic_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	relic_hint.add_theme_constant_override("shadow_offset_x", 1)
@@ -391,6 +392,8 @@ func _ready() -> void:
 	_build_codex()
 	_build_options()
 	_build_results()
+	root.resized.connect(_layout_top, CONNECT_DEFERRED)
+	_layout_top()
 
 
 func _label(text: String, size: int, color: Color, align: HorizontalAlignment) -> Label:
@@ -401,6 +404,62 @@ func _label(text: String, size: int, color: Color, align: HorizontalAlignment) -
 	l.horizontal_alignment = align
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+const COMPASS_HALF := 320.0   ## half the width of the compass at the top middle (in the waste's screens)
+const EDGE := 30.0            ## from the screen's edge to the words at its corners
+const CLEAR := 24.0           ## kept free between the compass and the words beside it
+
+
+const TOAST_LINES := 3   ## the room kept for the notices in the top right; a longer one pushes the list down
+
+
+## Sizes the top of the screen to its width: the quest card on the left and the notices on the right
+## each take the room beside the compass and wrap within it; a great one's bar sits between them.
+func _layout_top() -> void:
+	var half := root.size.x * 0.5
+	var side := clampf(half - COMPASS_HALF - EDGE - CLEAR, 260.0, 420.0)
+	_quest.custom_minimum_size.x = side
+	_quest.size.x = side
+	# Offsets from each one's anchor, so they hold whatever the order things are sized in
+	toast.offset_left = -EDGE - side
+	toast.offset_right = -EDGE
+	var bw := clampf((half - EDGE - side - CLEAR) * 2.0, 320.0, 720.0)
+	_boss_box.offset_left = -bw * 0.5
+	_boss_box.offset_right = bw * 0.5
+	_boss_bar.custom_minimum_size.x = bw
+	_boss_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if _feed != null:
+		_feed.offset_left = -bw * 0.5
+		_feed.offset_right = bw * 0.5
+	_place_right()
+
+
+## Down the top right: the day and the weather (drawn by the waste), the notices, the fellowship, then
+## the litany of kills, each below the last. The notices keep their room, so the list does not jump.
+func _place_right() -> void:
+	toast.offset_top = 120.0
+	var lines := maxi(TOAST_LINES, toast.get_line_count() if toast.text != "" else 0)
+	toast.offset_bottom = 120.0 + lines * (toast.get_line_height() + 1.0)
+	var y := toast.offset_bottom + 10.0
+	if _fellowship != null:
+		_fellowship.offset_top = y
+		_fellowship.offset_bottom = y
+		var fh := _fellowship.get_combined_minimum_size().y
+		if fh > 1.0 and _fellowship.get_children().any(func(c): return c.visible):
+			y += fh + 10.0
+	# The litany: right of the middle, under the fellowship; when the list is long, beside it instead,
+	# so it stays clear of the hint over the belt
+	var top := root.size.y * 0.5 - 150.0
+	var lowest := root.size.y - 146.0 - streak_label.size.y - 4.0
+	var beside := y > top and y > lowest
+	streak_label.offset_left = (-366.0 - 16.0 - 420.0) if beside else -460.0
+	streak_label.offset_right = streak_label.offset_left + 420.0
+	streak_label.offset_top = (top if beside else maxf(top, y)) - root.size.y * 0.5
+	streak_label.offset_bottom = streak_label.offset_top + 90.0
+	# The line of who came and went goes under the great one's bar while one is near
+	if _feed != null:
+		_feed.position.y = (_boss_box.position.y + _boss_box.get_combined_minimum_size().y + 10.0) if _boss_box.visible else 84.0
 
 
 func _flat(c: Color) -> StyleBoxFlat:
@@ -557,6 +616,7 @@ func notify(text: String) -> void:
 	if text.begins_with("+") and _toast_queue.is_empty() and toast.text.begins_with("+") and now - _toast_at < 1500 \
 			and toast.text.length() + text.length() < 90 and _toast_busy:
 		toast.text = _merge_got(toast.text, text)
+		_place_right.call_deferred()
 		_toast_at = now
 		_logged("shown", toast.text)
 		_toast_hold()
@@ -597,6 +657,7 @@ func _toast_next() -> void:
 		return
 	_toast_busy = true
 	toast.text = _toast_queue.pop_front()
+	_place_right.call_deferred()
 	_toast_at = Time.get_ticks_msec()
 	_logged("shown", toast.text)
 	create_tween().tween_property(toast, "modulate:a", 1.0, 0.25)
@@ -851,6 +912,7 @@ func set_fellowship(rows: Array) -> void:
 		_fellowship.add_theme_constant_override("separation", 4)
 		_fellowship.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_fellowship)
+		root.move_child(_fellowship, menu_box.get_index())
 		var head := _label("", 15, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 		head.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 		head.add_theme_constant_override("shadow_offset_x", 1)
@@ -901,6 +963,7 @@ func set_fellowship(rows: Array) -> void:
 		l.add_theme_color_override("font_color", (r[3] as Color).lightened(0.25) if not r[2] else Color(0.95, 0.4, 0.3))
 		b.value = r[1]
 		b.add_theme_stylebox_override("fill", _flat(r[3]))
+	_place_right()
 
 
 var _feed: VBoxContainer
@@ -916,7 +979,11 @@ func feed(text: String, c := Color(0.86, 0.80, 0.66)) -> void:
 		_feed.add_theme_constant_override("separation", 2)
 		_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_feed)
+		root.move_child(_feed, menu_box.get_index())   # under the screens, not over an open pack
+		_layout_top()
+	_place_right()
 	var l := _label(text, 18, c, HORIZONTAL_ALIGNMENT_CENTER)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	l.add_theme_constant_override("outline_size", 5)
 	_feed.add_child(l)
@@ -997,7 +1064,7 @@ func set_fx(param: String, value: float) -> void:
 func reset_fx() -> void:
 	for p in ["vignette", "glitch", "desat", "dark", "flash", "blur", "hurt"]:
 		set_fx(p, 0.0)
-	set_fx("vignette", 0.35)
+	set_fx("vignette", 0.0)
 
 
 func show_reveal(code: String) -> void:
@@ -1815,6 +1882,11 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("fellowship") and Net.online and Game.main.in_game():
 		fellowship_open = not fellowship_open
 		get_viewport().set_input_as_handled()
+	elif e.is_action_pressed("auto_loot") and Game.main.in_game():
+		Game.auto_loot = not Game.auto_loot
+		Game.save()
+		notify("Auto pickup %s." % ("on: walk over satchels to take them" if Game.auto_loot else "off: press %s to take satchels" % Game.key_text("interact")))
+		get_viewport().set_input_as_handled()
 	elif e.is_action_pressed("codex"):
 		if Game.main.in_game() or codex_panel.visible:
 			toggle_codex()
@@ -1901,7 +1973,7 @@ func _streak_keys(e: InputEvent) -> bool:
 
 func set_hotbar(slot: int, faith: float, milk: int) -> void:
 	hotbar.visible = slot >= 0
-	var cells := 10 if Game.wasteland else 6
+	var cells := 11 if Game.wasteland else 6   # the waste's belt: nine slots, the thrown and the kit
 	# Low in the middle of the screen. Offsets, not position: position would put it off the screen.
 	hotbar.anchor_left = 0.5
 	hotbar.anchor_right = 0.5
@@ -1931,6 +2003,7 @@ class Hotbar extends Control:
 	var font: Font
 
 	var arms   ## the weapon in the pilgrim's hands; the waste draws its bar from it
+	var name_rect := Rect2()   ## where the name under the bar was drawn last (for the HUD check)
 
 	## The waste's bar: two long guns, the side arm, the blade, prayer, lantern and milk, then what is
 	## thrown and the kit.
@@ -1974,6 +2047,8 @@ class Hotbar extends Control:
 			if c[4] != "" and c[4] != "-":
 				draw_string(font, r.end - Vector2(15, 5), c[4], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.93, 0.92, 0.88, 0.4 if empty else 1.0))
 		draw_string(font, Vector2(0, W + 16), name, HORIZONTAL_ALIGNMENT_CENTER, W * 11 + 8, 16, gold)
+		var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		name_rect = Rect2((W * 11 + 8 - nw) * 0.5, W + 16 - font.get_ascent(16), nw, font.get_height(16))
 
 	func _draw() -> void:
 		if Game.wasteland and is_instance_valid(arms):
@@ -2244,7 +2319,7 @@ func _page_access() -> void:
 	_choice("Menu and text size", ["90%", "100%", "110%", "120%"], Game.ui_scale, func(i): Game.ui_scale = i; _apply_display())
 	_toggle("Colour-blind friendly map colours", Game.colorblind, func(on): Game.colorblind = on; Game.save())
 	_section("Holding keys")
-	for tg in [["run", "Sprint"], ["soft", "Sneak"], ["aim", "Aim and guard"]]:
+	for tg in [["run", "Sprint"], ["soft", "Crouch"], ["aim", "Aim and guard"]]:
 		var act: String = tg[0]
 		_choice(tg[1], ["Hold", "Press to switch"], 1 if Game.toggles[act] else 0, func(i): Game.toggles[act] = i == 1; Game.untoggle(act); Game.save())
 	_section("Motion")
@@ -2255,6 +2330,7 @@ func _page_access() -> void:
 func _page_game() -> void:
 	_section("The Ashen Waste")
 	_toggle("Show the first-steps guide", Game.guide, func(on): Game.guide = on; Game.save())
+	_toggle("Take satchels by walking over them", Game.auto_loot, func(on): Game.auto_loot = on; Game.save())
 	var every := [0, 1, 2, 5, 10]
 	_choice("Autosave", ["Only at key moments", "Every minute", "Every 2 minutes", "Every 5 minutes", "Every 10 minutes"],
 		maxi(every.find(Game.autosave_min), 0), func(i): Game.autosave_min = every[i]; Game.save())
@@ -2610,8 +2686,12 @@ func _build_boss_bar() -> void:
 
 func boss_bar(title: String, frac: float) -> void:
 	if title == "":
-		_boss_box.visible = false
+		if _boss_box.visible:
+			_boss_box.visible = false
+			_place_right()
 		return
-	_boss_box.visible = true
+	if not _boss_box.visible:
+		_boss_box.visible = true
+		_place_right()
 	_boss_name.text = title
 	_boss_bar.value = clampf(frac, 0.0, 1.0)

@@ -7,10 +7,10 @@ extends Node
 
 const FADE := 3.0          ## seconds to cross from one piece to the next
 const REST := [60.0, 150.0]   ## quiet between gentle pieces
-const LOOPS := ["fight", "great", "seventh"]
+const LOOPS := ["fight", "great", "seventh", "vigil"]
 ## slot: [file, loudness in dB]
 const PIECES := {
-	"swell": ["swell", -4.0], "great": ["great", -5.0], "seventh": ["seventh", -5.0], "fight": ["fight", -6.0],
+	"swell": ["swell", -4.0], "great": ["great", -5.0], "vigil": ["seventh", -3.0], "seventh": ["seventh", -5.0], "fight": ["fight", -6.0],
 	"sea": ["sea", -8.0], "town": ["town", -8.0], "night": ["night", -8.0], "dawn": ["dawn", -6.0],
 }
 
@@ -83,6 +83,10 @@ func want() -> String:
 			fight += 1
 	if great:
 		return "great"
+	# Keeping a beacon's vigil: the driving piece, loud, for as long as the flame must be held
+	for i in w.vigils:
+		if int(i) < w.beacon_nodes.size() and (w.beacon_nodes[i].pos as Vector3).distance_to(p) < 120.0:
+			return "vigil"
 	if w.night and Wasteland.great_night(w.nights):
 		return "seventh"
 	if fight >= 3:

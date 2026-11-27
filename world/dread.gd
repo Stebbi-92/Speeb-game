@@ -25,7 +25,8 @@ func _init(world) -> void:
 func sheltered(p: Vector3) -> bool:
 	if w.hall and w.hall.inside(p):
 		return true
-	return w.near_fire(p, 10.0) or w.settlement_at(p, 6.0) != ""
+	# a lit campfire's ground (a base) or a torch's keeps it off too, as it keeps the forms off
+	return w.near_fire(p, 10.0) or w.settlement_at(p, 6.0) != "" or w.base_at(p) >= 0
 
 
 func rate(p: Vector3) -> float:
@@ -74,11 +75,11 @@ func _show() -> void:
 	if k <= 0.0:
 		if _fx:
 			_fx = false
-			w.hud.set_fx("vignette", 0.35)
+			w.hud.set_fx("vignette", 0.0)
 			w.hud.set_fx("desat", 0.0)
 		return
 	_fx = true
-	w.hud.set_fx("vignette", 0.35 + 0.5 * k)
+	w.hud.set_fx("vignette", 0.85 * k)
 	w.hud.set_fx("desat", 0.45 * k)
 
 
