@@ -71,6 +71,9 @@ func _process(delta: float) -> void:
 			var fb = e.get("_fb") if is_instance_valid(e) else null
 			if fb != null and fb.get("_plate") is Node3D:
 				fb._plate.visible = false   # the drawn box plates over the Unlit's chests: not wanted on film
+		for c in w.get_children():   # attack warnings (level._w_warn): flat red panels and rings on the ground
+			if c is MeshInstance3D and c.visible and (c.mesh is PlaneMesh or (c.mesh is CylinderMesh and (c.mesh as CylinderMesh).height == 0.6 and (c.mesh as CylinderMesh).radial_segments == 40)):
+				c.visible = false
 		for sid in w.satchels:   # drops from kills in the shot: their light columns hide the forms
 			var sn = w.satchels[sid].get("node")
 			if sn is Node3D and is_instance_valid(sn):
@@ -297,6 +300,15 @@ func _set_hour(h: float) -> void:
 	# Others went to red, black and cyan over the far haze where a great one stood: its light in the fog, it seems
 	if not _shot.get("vfog", true):
 		w.env.volumetric_fog_enabled = false
+	# And with the glow off they still came, over the sky and the far land only: the haze takes its colour
+	# from the sky's light there, and a bad value in that spreads in rings. "aerial": 0 gives the haze its own colour
+	if _shot.has("aerial"):
+		w.env.fog_aerial_perspective = float(_shot.aerial)
+	var fogv := [w.env.fog_density, w.env.fog_light_energy, w.env.fog_sun_scatter, w.env.fog_light_color.r, w.env.fog_light_color.g, w.env.fog_light_color.b]
+	for v in fogv:
+		if is_nan(v) or is_inf(v):
+			print("TRAILER bad fog value %s at frame %d" % [str(fogv), _now()])
+			break
 
 
 func _shoot(s: Dictionary) -> void:

@@ -61,7 +61,7 @@ EDIT_ACTION = [
     ("a4_hand_cannon", 0.5, 2.0, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                    # 33
     ("a5_fire_grenade", 0.4, 3.0, G_WARM, [], 1.0, 0.0, 0.0),                                                     # 35
     ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                         # 38
-    ("s13_sniper", 1.2, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                         # 40.5
+    ("s13_sniper", 0.8, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                         # 40.5
     ("s20_lmg", 0.8, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                            # 43
     ("s22_matron_charge", 1.0, 3.0, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                  # 45.5
     ("s23_drake_live", 1.0, 2.5, G_WARM, [], 1.0, 0.0, 0.0),                                                      # 48.5
