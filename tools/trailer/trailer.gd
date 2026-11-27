@@ -23,6 +23,7 @@ var _hidden: Array = []
 var _track := Vector3.INF
 var _aim_err := 1.0   ## how far the eye is off the form it follows, in radians
 var _has_target := false
+var _t_shot := 0.0             ## time into the shot rolling now
 var _forms: Array = []        ## the forms of the shot rolling now
 var _events := {}            ## one-off events of the shot already done
 
@@ -409,6 +410,8 @@ func _shoot(s: Dictionary) -> void:
 			if "Shape" in pn or pn.begins_with("Circle"):
 				(mi as MeshInstance3D).visible = false
 		if f.has("hp"):
+			if e.get("plate") != null:
+				e.plate = 0.0   # a scene's hits are meant to tell: no iron to soak them
 			e.hp = float(f.hp)
 			e.max_hp = float(f.hp)
 		if f.has("aim_y"):
@@ -452,6 +455,7 @@ func _shoot(s: Dictionary) -> void:
 	var step := 1.0 / fps
 	while t < dur:
 		var k := t / dur
+		_t_shot = t
 		_slowmo(s, t)
 		_set_hour(clock0 + rate * t)
 		_place_cam(path, look, k, fp, s)
@@ -498,7 +502,7 @@ func _place_cam(path: Array, look: Array, k: float, fp: bool, s: Dictionary) -> 
 		# included), every frame, and the eye sits at his own height above them
 		if _eye_h < 0.0:
 			_eye_h = pl.head.position.y
-		var eye_h := _eye_h
+		var eye_h := _eye_h - (0.55 if s.get("crouch", false) else 0.0)   # crouched behind cover
 		var feet := Vector3(p.x, _ground(p.x, p.z), p.z)
 		pl.global_position = feet
 		p = feet + Vector3(0, eye_h, 0)
@@ -564,7 +568,14 @@ func _tracked(eye: Vector3, rest: Vector3) -> Vector3:
 	var best: Node3D = null
 	var bd := 1e9
 	var fwd := (rest - eye).normalized()
-	for e in w.enemies:
+	var pool: Array = w.enemies
+	var tw := _t_shot
+	for win in _shot.get("targets", []):
+		if tw >= float(win[0]) and tw < float(win[1]) and int(win[2]) < _forms.size():
+			var f = _forms[int(win[2])]
+			if is_instance_valid(f) and float(f.hp) > 0.0:
+				pool = [f]   # the one the scene says goes down now
+	for e in pool:
 		if not is_instance_valid(e) or e.get("hp") != null and float(e.hp) <= 0.0:
 			continue
 		var to: Vector3 = e.global_position - eye
@@ -643,6 +654,8 @@ func _melee(wpn, s: Dictionary, t: float) -> void:
 		if t >= float(gs[i]) and not _events.has(key):
 			_events[key] = true
 			wpn.grenades = maxi(wpn.grenades, 1)
+			if s.has("grenade_kind"):
+				wpn.grenade = str(s.grenade_kind)
 			wpn.throw_grenade()
 
 
@@ -665,6 +678,18 @@ func _guns(wpn, s: Dictionary, t: float) -> void:
 			# Following a form, fire only once the sights are on it, so every shot lands
 			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.015)):
 				continue
+			wpn._try_fire()
+	var ts: Array = s.get("shots", [])
+	for i in ts.size():
+		var key := "shot%d" % i
+		var at := float(ts[i])
+		if t >= at and not _events.has(key):
+			if s.get("track", false) and _has_target and _aim_err > float(s.get("aim_tol", 0.015)) and t < at + 0.25:
+				continue   # a breath more for the sights to settle, so the shot lands
+			_events[key] = true
+			if wpn.shells <= 1:
+				wpn.refill()
+			wpn._cool = 0.0
 			wpn._try_fire()
 
 

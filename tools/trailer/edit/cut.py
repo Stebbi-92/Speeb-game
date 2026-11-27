@@ -55,16 +55,16 @@ EDIT_ACTION = [
     ("s18_golem", 0.5, 2.5, G_DUSK, [], 0.6, 0.0, 0.0),                                                          # 19.5
     ("s11_night_horde", 1.5, 3.0, G_NIGHT, [], 0.7, 0.0, 0.3),                                                   # 22
     (None, 0, 1.0, None, [], 0, 0, 0),                                                                           # 8 breath before the drop 25
-    ("s08_fp_shotgun", 1.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 9 drop 26
-    ("s10_fp_rifle", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                      # 28.5
-    ("s19_minigun", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                       # 31
-    ("s24_gaunt_rise", 0.25, 1.1, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                   # 33.5 (it falls at 1.25)
-    ("s20_lmg", 0.8, 3.9, G_FIGHT, [], 1.0, 0.0, 0.0),                                                           # 36
-    ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 38.5
-    ("s12_fp_flamer", 1.0, 2.0, G_NIGHT, [], 1.0, 0.0, 0.0),                                                     # 41
-    ("s13_sniper", 1.0, 3.0, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 43
-    ("s22_matron_charge", 1.0, 3.0, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                 # 46
-    ("s23_drake_live", 1.0, 2.0, G_WARM, [], 1.0, 0.0, 0.0),                                                     # 49
+    ("a1_shotgun_line", 0.5, 2.0, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                  # 9 drop 26: kills on the beats
+    ("a2_carbine_switch", 0.5, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                  # 28
+    ("s19_minigun", 1.0, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                        # 30.5
+    ("a4_hand_cannon", 0.5, 2.0, G_FIGHT, [], 1.0, 0.0, 0.0, {"flash": True}),                                    # 33
+    ("a5_fire_grenade", 0.4, 3.0, G_WARM, [], 1.0, 0.0, 0.0),                                                     # 35
+    ("s21_glaive", 0.4, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                         # 38
+    ("s13_sniper", 1.2, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                         # 40.5
+    ("s20_lmg", 0.8, 2.5, G_FIGHT, [], 1.0, 0.0, 0.0),                                                            # 43
+    ("s22_matron_charge", 1.0, 3.0, G_WARM, [], 1.0, 0.0, 0.0, {"flash": True}),                                  # 45.5
+    ("s23_drake_live", 1.0, 2.5, G_WARM, [], 1.0, 0.0, 0.0),                                                      # 48.5
     (None, 0, 3.0, None, [("Nine beacons stand dead.", 0.6, 2.8, 44, 0.47)], 0, 0, 0),                             # 19 stop 51
     ("s14_beacon_kindle", 1.4, 6.0, G_NIGHT, [("Light them.", 2.6, 5.8, 46, 0.80)], 0.9, 0.5, 0.0),                # 20 beacon 54
     ("s15_cinderwick_night", 1.0, 3.0, G_NIGHT, [("Walk it together. Up to eight.", 0.3, 2.9, 42, 0.80)], 0.5, 0.0, 0.6),  # 60
