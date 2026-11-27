@@ -1017,11 +1017,44 @@ var _flame_hold := 0.0
 ## (the Guns line has a limiter). The flamer's roar never stops while held, so it sits well under them.
 const GUN_DB := 9.0
 const FLAME_DB := -15.0
+## Each gun as loud as its round: real loudness (peak dB SPL at the shooter) mapped into the game at
+## 0.4 dB a dB about the pump shotgun, so a 9 mm sits about 1.5 dB under it and the Mosin about 3 dB over
+## (as heard through the Guns limiter). The automatics sit 1 dB (the minigun 2) under their round, or a
+## held burst buries all else. Rifle-class shots also carry their weight in the files
+## (tools/make_calibre_audio.py). Played at dB, before the MIX; SHOTGUN_REPORT.md has the table.
+const SHOT_DB := {
+	"pistol": -0.5,        # .45 ACP, ~157 dB
+	"smg": 8.5,            # 9x19 from a short SMG, ~158
+	"pistol9": 0.5,        # 9x19 pistol, ~160
+	"shotgun": 5.5,        # 12 gauge, 18.5 in, ~161.5: the heaviest low end, in its file
+	"autoshotgun": 6.0,    # 12 gauge, 18.5 in, ~161.5
+	"revolver": 9.0,       # .357 Magnum, ~164
+	"hand_cannon": 9.5,    # sawed-off 12 gauge, ~165.5: louder and harsher (played a little higher)
+	"machine_gun": 8.0,    # 5.56x45, 14.5 in, ~165.5
+	"carbine": 12.0,       # 7.62x51, 22 in, ~167 (the rifle's take, deepened)
+	"lmg": 8.5,            # 7.62x51 belt gun, ~167
+	"minigun": 8.5,        # 7.62x51, ~167
+	"sniper": 8.5,         # 7.62x54R bolt rifle, ~168.5: the loudest
+	"rocket": -2.0,        # the launcher's whoosh was made full and loud already
+}
+## A suppressed shot, by the same rule: a 9 mm can about 130 dB, a rifle's about 137-140.
+const SUPP_DB := {"pistol": -13.5, "smg": -14.0, "pistol9": -13.0, "shotgun": -9.0, "autoshotgun": -9.0,
+	"machine_gun": -11.0, "carbine": -9.0, "lmg": -10.0, "sniper": -9.0}
+const HEAVY_SUPP_DB := -3.0   ## the heavy suppressor, quieter again
+const SHOT_PITCH := {"hand_cannon": 1.06, "carbine": 0.93}
+const REMOTE_DB := -2.0       ## another pilgrim's shot, beside one's own
+const FOE_DB := -7.0          ## a foe's shot, beside one's own with the same round
 
 
-## How loud a gun's own shot is played. The launcher's whoosh was made full and loud already.
-static func shot_db(sound: String) -> float:
-	return -2.0 if sound == "rocket" else GUN_DB
+## How loud a gun's shot is played (by the gun's name; a sound's name for anything else).
+static func shot_db(g: String, quiet := false) -> float:
+	if quiet:
+		return float(SUPP_DB.get(g, -12.0))
+	return float(SHOT_DB.get(g, GUN_DB))
+
+
+static func shot_pitch(g: String) -> float:
+	return float(SHOT_PITCH.get(g, 1.0))
 static var _flame_loop: AudioStreamWAV
 static var _smoke_m: StandardMaterial3D
 
@@ -1168,7 +1201,7 @@ func _try_fire() -> void:
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame":
-		lvl.sfx("supp" if quiet else str(s.sound), -6 if quiet else shot_db(str(s.sound)), null, 0.7 if s.mode == "flame" else 1.0)
+		lvl.sfx("supp" if quiet else str(s.sound), shot_db(gun(), quiet) + (HEAVY_SUPP_DB if fitted("heavy_suppressor") else 0.0), null, shot_pitch(gun()))
 	if not quiet and str(s.sound) in ["shotgun", "autoshotgun"]:
 		player.shake(0.05)   # a 12-gauge's boom is felt as much as heard
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste

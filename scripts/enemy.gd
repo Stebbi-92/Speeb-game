@@ -3861,7 +3861,7 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	var pellets := int(spec.get("pellets", 1))
 	if pellets > 1:
 		# A shotgun: a spray of shot, hard close up and thin far off
-		level.sfx("shotgun", -2, from, 0.95)
+		level.sfx("shotgun", Arms.shot_db("shotgun") + Arms.FOE_DB, from, 0.95)   # foes' guns are as loud as their round
 		var aim_at := p.global_position + Vector3(0, 1.1, 0)
 		for i in pellets:
 			var sp := aim_at + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * (0.15 + dist * 0.06)
@@ -3876,7 +3876,9 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 			if Net.online:
 				Net.bolt(from, pb.velocity, pb.damage, "round")
 		return
-	level.sfx("mg", -4, from, 0.85)
+	# A marksman's heavy single round, or a gunman's rifle
+	var marks := aimed < 0.8
+	level.sfx("sniper" if marks else "mg", Arms.shot_db("sniper" if marks else "lmg") + Arms.FOE_DB, from, 1.0 if marks else 0.85)
 	var speed := 40.0 / clampf(aimed, 0.5, 1.2)
 	var b := Bolt.new()
 	b.level = level

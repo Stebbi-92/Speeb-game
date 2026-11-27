@@ -7,7 +7,7 @@ Everything else the game uses is free to use (CC0, or CC-BY with credit below), 
 
 | Pack | By | Licence | Used for |
 |---|---|---|---|
-| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`); the shotguns' shots are layered onto these recordings (`tools/make_shotgun_audio.py`) |
+| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | its recording team, via OpenGameArt | CC0 | Gunshots, close and far, the SMG (Swedish K), Auto Pistol (Bersa) and Autoshotgun (Charles Daly) included (`tools/cut_gunshots.py`); the shotguns' shots are layered onto these recordings (`tools/make_shotgun_audio.py`), and the SMG's, revolver's, rifles', belt gun's, minigun's and sniper's given the weight of their calibre (`tools/make_calibre_audio.py`) |
 | [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | via OpenGameArt | CC0 | Splashes (`tools/cut_sounds3.py`) |
 | [Hollywood-style pistol silencer sound effect](https://opengameart.org/content/hollywood-style-pistol-silencer-sound-effect) | via OpenGameArt | see page | The suppressed shot |
 | [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | via OpenGameArt | see page | The wind |

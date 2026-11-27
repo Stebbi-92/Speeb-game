@@ -1884,9 +1884,9 @@ static var _takes := {}   ## each sound's recorded takes: name -> [streams]
 ## heaviest; a far shot is a little under the near one, so it doesn't jump louder as it passes 35 m;
 ## creatures sit just under your own gun; the quiet ones that went unheard come up.
 const MIX := {
-	"sniper": 3.5, "revolver": 2.5, "pistol": 1.5, "smg": 1.0, "pistol45": -1.5, "pistol9": -3.0,
-	"sniper_far": -6.6, "revolver_far": -8.0, "pistol45_far": -6.4, "minigun_far": -6.3, "rifle_far": -4.4,
-	"pistol_far": -3.9, "smg_far": -2.7, "autoshotgun_far": -2.5, "shotgun_far": -2.3, "mg_far": -1.0, "pistol9_far": -1.0,
+	# each gun's own shot is set by its round (Arms.SHOT_DB); its far take sits by the near one
+	"sniper_far": 3.0, "revolver_far": 3.0, "pistol45_far": -2.0, "minigun_far": 3.0, "rifle_far": 3.0,
+	"pistol_far": -3.9, "smg_far": -6.5, "autoshotgun_far": -2.0, "shotgun_far": -1.0, "mg_far": 1.5, "pistol9_far": 0.0,
 	"growl_0": -3.0, "growl_1": -3.0, "growl_2": -3.0, "shriek_0": -3.0, "shriek_1": -3.0, "shriek_2": -3.0, "shriek_3": -3.0,
 	"roar": -3.0, "screech": -3.0, "great_roar": -2.0, "critter_1": -5.0, "critter_2": -5.0,
 	"fall": -6.0, "hurt": -2.0, "beam": -4.0,
@@ -1980,7 +1980,8 @@ func sfx(name: String, vol_db := 0.0, pos = null, pitch := 1.0) -> void:
 		if far > 0.0:
 			# Shots, blasts and aircraft carry a long way: heard across the waste, muffled by the distance
 			p.unit_size = far
-			p.max_db = 8.0   # a shot close by may be as hot as it was played
+			# a shot close by may be as hot as it was played, and no hotter: so a heavy round stays louder than a light one
+			p.max_db = vol_db + 2.0 if far < 60.0 else 8.0
 			p.attenuation_filter_cutoff_hz = 3500.0
 		add_child(p)
 		p.play()
@@ -1996,7 +1997,16 @@ static func _reach(name: String) -> Vector2:
 	if c >= 60.0:
 		return Vector2(200.0, 400.0)
 	if c > 0.0:
-		return Vector2(130.0, 250.0)
+		# a shot carries by its round: a pistol's or SMG's crack the least, a rifle's further, the Mosin's furthest
+		for g in ["pistol", "smg"]:
+			if name.begins_with(g):
+				return Vector2(100.0, 200.0)
+		for g in ["rifle", "mg", "minigun"]:
+			if name.begins_with(g):
+				return Vector2(150.0, 300.0)
+		if name.begins_with("sniper"):
+			return Vector2(180.0, 350.0)
+		return Vector2(130.0, 250.0)   # shotguns, the revolver, the rocket
 	for n in ["great_roar", "horror", "roar", "bell", "unseen_scream", "crumble", "fall_heavy"]:
 		if name.begins_with(n):
 			return Vector2(60.0, 130.0)
@@ -2413,7 +2423,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
 						fs.stop())
 			return
-		sfx("supp" if quiet else str(g.sound), -10 if quiet else Arms.shot_db(str(g.sound)) - 2.0, a)
+		sfx("supp" if quiet else str(g.sound), Arms.shot_db(parts[1], quiet) + Arms.REMOTE_DB, a, Arms.shot_pitch(parts[1]))
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
 		if g.mode == "rocket":

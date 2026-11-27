@@ -17213,7 +17213,7 @@ func _militia_shoot(delta: float) -> void:
 				e.hurt(MILITIA_SHOT, (e.global_position - mp).normalized())
 				LesserSpeeb.harm_kind = was[0]
 				LesserSpeeb.harm_head = was[1]
-				sfx("pistol", -8, mp)
+				sfx("pistol9", Arms.shot_db("pistol9") + Arms.FOE_DB, mp)   # the watch's 9 mm
 				break
 
 
