@@ -2453,6 +2453,11 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 		if not r2.is_empty():
 			puff(r2.position, r2.normal)
 		return
+	if kind == "firepool":
+		# Where a fellow's fire bottle broke, by their count: their bottle here gives way to it
+		FirePool.claim(self, a)
+		Arms.Thrown.burn(self, a, b.x, 0.0, b.y, false)
+		return
 	if kind.begins_with("throw:"):
 		var t := Arms.Thrown.make(self, kind.substr(6), a, b, true)
 		t.fuse = {"grenade": 2.2, "fire": 1.4, "flare": 45.0, "mine": 600.0}.get(kind.substr(6), 3.0)
@@ -3178,6 +3183,19 @@ func _debug_slab(at: Vector3, size: Vector3, mat: Material = null) -> StaticBody
 	return b
 
 
+## Test: one's own arms on a few guns and a blade, through the hold, the aim and the reload, measured every
+## frame by tools/hand_check.gd: no bone stretched, no hand short of its grip, elbows and wrists and forearms
+## within what an arm can do, no elbow jumping round. Prints HANDCHECK lines and a HANDFIT summary.
+func debug_handfit() -> void:
+	combat_frozen = true
+	clear_enemies()
+	Game.plevel = ArmsDB.MAX_LEVEL
+	var ck: Node = load("res://tools/hand_check.gd").new()
+	add_child(ck)
+	await ck.run(player.weapon, ["shotgun", "pistol", "minigun", "hatchet"], ["idle", "aim", "fire", "reload", "guard"])
+	get_tree().quit()
+
+
 ## Test: every gun laid out side on, bare above and fully fitted below.
 func debug_gunshot() -> void:
 	combat_frozen = true
@@ -3848,3 +3866,85 @@ func _boss_watch() -> void:
 				bd = d
 				best = e
 	hud.boss_bar(LesserSpeeb.BOSSES[best.boss].name if best else "", best.hp_frac if best else 0.0)
+
+
+## Testing aid: throws a fire bottle ahead and saves pictures of it burning: at the burst, then on through
+## its life to the char it leaves. firemode= takes night, slope and foe (a form stood in the fire).
+func debug_firenade() -> void:
+	while get("ready_world") == false:
+		await get_tree().create_timer(1.0).timeout
+	var mode := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("firemode="):
+			mode = a.substr(9)
+	if has_method("_debug_home"):
+		await call("_debug_home")
+	await get_tree().create_timer(1.0).timeout
+	if get("clock") != null:
+		set("clock", 22.5 if "night" in mode else 13.0)
+		call("_apply_time", true)
+	var space := get_world_3d().direct_space_state
+	var down := func(p: Vector3) -> Vector3:
+		var g := FirePool.ground(space, p + Vector3.UP * 60.0, p + Vector3.DOWN * 60.0)
+		return p if g.is_empty() else g[0]
+	var at := player.global_position
+	var yaw := player.rotation.y
+	if "slope" in mode:
+		# A hillside near: stand on it looking along it, so the fire lies across the slope
+		var best := -1.0
+		var c0 := player.global_position
+		for ring in range(1, 14):
+			for k in 16:
+				var a2 := k * TAU / 16.0
+				var p: Vector3 = c0 + Vector3(cos(a2), 0, sin(a2)) * ring * 10.0
+				var gx: float = (down.call(p + Vector3(1, 0, 0)).y - down.call(p - Vector3(1, 0, 0)).y) * 0.5
+				var gz: float = (down.call(p + Vector3(0, 0, 1)).y - down.call(p - Vector3(0, 0, 1)).y) * 0.5
+				var sl := Vector2(gx, gz).length()
+				if sl > 0.3 and sl < 0.7 and sl > best:
+					best = sl
+					var along := Vector3(-gz, 0, gx).normalized()
+					at = p - along * 9.0
+					yaw = atan2(-along.x, -along.z)
+		print("FIRENADE slope=%.2f" % best)
+	at = down.call(at) + Vector3.UP * 0.2
+	player.place(at, yaw)
+	await get_tree().create_timer(0.8).timeout
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var foe: Node3D = null
+	if "foe" in mode:
+		var fp: Vector3 = down.call(player.global_position + fwd * 8.5 + fwd.cross(Vector3.UP) * 0.8)
+		foe = spawn_at("hollow", fp)
+		foe.set_physics_process(false)
+		foe.hp = 100000.0
+		foe.max_hp = 100000.0
+	Game.main.hud.visible = false
+	var wp: Arms = player.weapon
+	wp.grenade = "incendiary"
+	wp.grenades = 3
+	player.pitch = -0.3
+	await get_tree().process_frame
+	await get_tree().process_frame
+	wp.throw_grenade()
+	var bottle: Node = null
+	for c in get_children():
+		if c is Arms.Thrown:
+			bottle = c
+	var t := 0.0
+	while is_instance_valid(bottle) and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		player.pitch = lerpf(player.pitch, -0.25, 0.1)
+	print("FIRENADE burst after %.2f s" % t)
+	player.pitch = -0.25
+	var tag := mode.replace(",", "_") if mode != "" else "day"
+	var shot := 0
+	var last := 0.0
+	for w in [0.15, 0.45, 1.0, 4.0, 6.6, 8.2, 12.0]:
+		await get_tree().create_timer(w - last, false).timeout
+		last = w
+		get_viewport().get_texture().get_image().save_png("user://fire_%s_%d.png" % [tag, shot])
+		print("FIRENADE shot %d at %.2f fps=%d burning=%s" % [shot, w, Engine.get_frames_per_second(), foe != null and foe.has_meta("ablaze")])
+		shot += 1
+	get_tree().quit()

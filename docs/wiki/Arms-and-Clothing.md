@@ -79,7 +79,7 @@ Press the blade key to take it in hand. Tap fire to swing, hold and let go for a
 | Thing | Key | Cost | Notes |
 |---|---|---|---|
 | **Frag Grenade** | G | (you start with it) | Bursts after a moment. |
-| **Fire Grenade** | G | 2 Lamp Oil, 2 Cloth, 3 Scrap Iron | Leaves the ground burning a while. |
+| **Fire Grenade** | G | 2 Lamp Oil, 2 Cloth, 3 Scrap Iron | Breaks where it lands and leaves the ground burning a while. Foes in the fire burn. |
 | **Field Dressing** | T | (you start with it) | Restores forty health over a few seconds. |
 | **Flare** | T | 1 Lamp Oil, 2 Cloth, 2 Scrap Iron | A red light that burns long and shows what moves near it. |
 | **Salt Mine** | T | 8 Scrap Iron, 12 Salt | Bursts when a form steps near. |

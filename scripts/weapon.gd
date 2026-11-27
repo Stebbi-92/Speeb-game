@@ -630,20 +630,22 @@ func _process(delta: float) -> void:
 		var len := 0.5 if _heavy else 0.35
 		var k := 1.0 - _swing / len
 		_melee_holder.visible = true
+		# The arm carries the blow, the hand only turning with it as far as a wrist can: the blade sweeps on an
+		# arc, from high on the right down across (a light one) or from over the shoulder down (a heavy one)
+		var e := smoothstep(0.0, 1.0, k)
 		if _heavy:
-			# Over the shoulder and down
-			_melee_holder.position = Vector3(-0.05, 0.05, 0.1)
-			_melee_holder.rotation = Vector3(0.9 - k * 2.6, 0.15, 0.1 - k * 0.3)
+			_melee_holder.position = Vector3(0.02, 0.14, 0.14).lerp(Vector3(-0.06, -0.16, -0.1), e)
+			_melee_holder.rotation = Vector3(0.3 - e * 0.9, 0.35 - e * 0.15, -0.2 - e * 0.1)
 		else:
-			_melee_holder.position = Vector3(-0.05, 0.0, 0.1)
-			_melee_holder.rotation = Vector3(-1.4 + k * 2.4, 0.5 - k * 1.2, 0.3)
+			_melee_holder.position = Vector3(0.08, 0.08, 0.1).lerp(Vector3(-0.16, -0.1, -0.06), e)
+			_melee_holder.rotation = Vector3(-0.5 + e * 1.3, 0.4 - e * 0.9, 0.3)
 		_holder.position.y -= 0.25
 	elif blade_out:
 		_melee_holder.visible = true
 		var wind := clampf(_charge / HEAVY_HOLD, 0.0, 1.0) if _charge >= 0.0 else 0.0
 		var g := 1.0 if guarding else 0.0
-		var rest := Vector3(0.12, -0.16 + bob * 2.0 - _switch * 0.8, 0.02)
-		var guard_at := Vector3(-0.02, -0.02, -0.02)
+		var rest := Vector3(0.1, -0.12 + bob * 2.0 - _switch * 0.8, 0.12)   # near enough for the arm to hold it bent
+		var guard_at := Vector3(-0.02, -0.02, 0.06)
 		_melee_holder.position = rest.lerp(guard_at, g) + Vector3(0.04, 0.12, 0.14) * wind + Vector3(_sway.x, _sway.y, 0)
 		_melee_holder.rotation = Vector3(-0.55 + wind * 1.0, 0.45, -0.3).lerp(Vector3(0.1, 0.15, 1.35), g)
 	else:
@@ -695,7 +697,7 @@ func _reload_pose(k: float, delta: float) -> void:
 		_holder.rotation.z = lerpf(_holder.rotation.z, 0.9, delta * 10.0)
 		_holder.rotation.x += 0.25
 		_holder.position += Vector3(-0.03, -0.07, 0.04) + Vector3(0, sin(k * PI) * 0.01, 0)   # low enough that the hand feeding it does not cover the eye
-		if _shell_mesh == null:
+		if not is_instance_valid(_shell_mesh):
 			# The pack's own 12 gauge shell (see AmmoLook), crimp first into the tube; a plain one if it is missing
 			_shell_mesh = AmmoLook.round_of("shell")
 			if _shell_mesh != null:
@@ -824,7 +826,7 @@ func _reload_rest(delta: float) -> void:
 	_handle_back = 0.0
 	_handle_up = 0.0
 	_holder.rotation.z = lerpf(_holder.rotation.z, 0.0, delta * 8.0)
-	if _shell_mesh:
+	if is_instance_valid(_shell_mesh):
 		_shell_mesh.visible = false
 	var mag: Node3D = _model.get_meta("mag") if _model and _model.has_meta("mag") else null
 	if mag and mag.position != Vector3.ZERO:
@@ -1728,7 +1730,11 @@ func throw_grenade() -> void:
 	b.fuse = float(g.fuse)
 	b.on_burst = func(p: Vector3):
 		if grenade == "incendiary":
-			Thrown.burn(player.get_parent(), p, float(g.radius), float(g.dmg) * damage_mult, float(g.burn), true)
+			# Where it truly broke is told to the others, so their fire burns where the harm is
+			var lv = player.get_parent()
+			var hit := FirePool.settle(lv, p)
+			Thrown.burn(lv, hit, float(g.radius), float(g.dmg) * damage_mult, float(g.burn), true)
+			Net.fx("firepool", hit, Vector3(float(g.radius), float(g.burn), 0))
 		else:
 			Arms.blast(player.get_parent(), p, float(g.radius), float(g.dmg) * damage_mult, player)
 	Net.fx("throw:%s" % ("grenade" if grenade == "frag" else "fire"), at, vel)
@@ -3795,6 +3801,7 @@ class Thrown extends RigidBody3D:
 	var armed_after := -1.0
 	var on_burst: Callable
 	var _light: OmniLight3D
+	var _flown := 0.0
 
 	static func make(lvl: Node, k: String, at: Vector3, v: Vector3, only_shown := false) -> Thrown:
 		var t := Thrown.new()
@@ -3813,6 +3820,11 @@ class Thrown extends RigidBody3D:
 		if k == "mine":
 			t.freeze = false
 			t.lock_rotation = true
+		if k == "fire":
+			# A fire bottle breaks on what it strikes
+			t.contact_monitor = true
+			t.max_contacts_reported = 2
+			t.body_entered.connect(t._struck)
 		lvl.add_child(t)
 		t.global_position = at
 		return t
@@ -3883,8 +3895,13 @@ class Thrown extends RigidBody3D:
 				return
 		add_child(mi)
 
+	func _struck(b: Node) -> void:
+		if _flown > 0.06 and not b is CharacterBody3D:
+			fuse = minf(fuse, 0.0)
+
 	func _physics_process(delta: float) -> void:
 		fuse -= delta
+		_flown += delta
 		if _light:
 			_light.light_energy = 3.0 + randf() * 1.2
 			# A flare's light shows every form that moves near it
@@ -3906,61 +3923,31 @@ class Thrown extends RigidBody3D:
 			if not shown_only and on_burst.is_valid():
 				on_burst.call(at)
 			elif shown_only and kind == "fire":
-				Thrown.burn(get_parent(), at, 5.0, 0.0, 7.0, false)
+				FirePool.shown_burst(get_parent(), FirePool.settle(get_parent(), at))
 			queue_free()
 
-	## Ground that burns for a while: harms the forms that stand in it.
+	## Ground that burns for a while: harms the forms that stand in it, and sets them burning. What it
+	## looks like is FirePool's: on the ground out to the radius, so the harm is plain to see.
 	static func burn(lvl: Node, at: Vector3, radius: float, dps: float, secs: float, real: bool, quiet := false) -> void:
-		var root := Node3D.new()
-		lvl.add_child(root)
-		root.global_position = at
+		at = FirePool.settle(lvl, at)
 		if not quiet:
 			lvl.sfx("boom", -8, at, 1.4)
-		var fire := CPUParticles3D.new()
-		fire.amount = 90
-		fire.lifetime = 0.9
-		fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-		fire.emission_sphere_radius = radius * 0.8
-		fire.direction = Vector3.UP
-		fire.spread = 15.0
-		fire.initial_velocity_min = 1.0
-		fire.initial_velocity_max = 2.5
-		fire.gravity = Vector3(0, 1.0, 0)
-		fire.scale_amount_min = 0.6
-		fire.scale_amount_max = 1.4
-		var pm := SphereMesh.new()
-		pm.radius = 0.18
-		pm.height = 0.36
-		var fm := StandardMaterial3D.new()
-		fm.albedo_color = Color(1.0, 0.5, 0.15, 0.8)
-		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		pm.material = fm
-		fire.mesh = pm
-		root.add_child(fire)
-		var l := OmniLight3D.new()
-		l.light_color = Color(1.0, 0.5, 0.2)
-		l.light_energy = 3.0
-		l.omni_range = radius * 2.5
-		l.position.y = 0.8
-		root.add_child(l)
+		var fp := FirePool.make(lvl, at, radius, secs, not quiet, not quiet)
 		var t := 0.0
-		while t < secs and is_instance_valid(root):
-			await root.get_tree().create_timer(0.5, false).timeout
+		while t < secs and is_instance_valid(lvl) and lvl.is_inside_tree():
+			await lvl.get_tree().create_timer(0.5, false).timeout
 			t += 0.5
-			if not real or not is_instance_valid(lvl):
-				continue
+			if not is_instance_valid(lvl):
+				return
 			var hits := {}
 			for e in lvl.get("enemies") if lvl.get("enemies") != null else []:
 				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(at) < radius:
 					hits[e] = dps
-			if not hits.is_empty():
+			if fp:
+				for e in hits:
+					FirePool.ignite(e)
+			if real and not hits.is_empty():
 				Arms.deal(hits, Vector3.UP, "fire")
-		if is_instance_valid(root):
-			fire.emitting = false
-			var tw := root.create_tween()
-			tw.tween_property(l, "light_energy", 0.0, 1.0)
-			tw.tween_callback(root.queue_free)
 
 
 ## Where each hand goes this frame, in the world: {R: {at, f, a, pole, curl}, L: {...}}, or {} with no
@@ -3972,6 +3959,8 @@ const FORE_CURL := {"thumb": [5, 15, 10], "point": [45, 50, 30], "middle": [50, 
 const CUP_CURL := {"thumb": [0, 10, 10], "point": [55, 60, 40], "middle": [60, 65, 40], "ring": [62, 65, 40], "pink": [65, 65, 40]}
 const FIST_CURL := {"thumb": [15, 40, 30], "point": [75, 85, 60], "middle": [78, 85, 60], "ring": [80, 85, 60], "pink": [82, 85, 60]}
 const SUPPORT_CURL := {"thumb": [20, 0, 0], "point": [62, 75, 45], "middle": [66, 78, 48], "ring": [68, 80, 50], "pink": [70, 80, 50]}
+## Where the right palm's middle sits on a blade's haft (its own space, the haft up +y): beside it, on its right
+const MELEE_PALM := Vector3(0.015, 0.035, 0.004)
 const OPEN_CURL := {"thumb": [5, 10, 10], "point": [20, 25, 15], "middle": [22, 25, 15], "ring": [24, 25, 15], "pink": [26, 25, 15]}
 ## Each grip: where the middle of the right hand's hold is, and the grip's line from the little finger up to
 ## the first (a pistol grip rakes back at the foot; a straight stock's wrist slopes up to the action), in the
@@ -3998,6 +3987,10 @@ const GRIP := {"": {"R": Vector3(0.0, -0.03, 0.012), "axis": Vector3(0, 1, -0.3)
 
 
 func hand_pose(force := "") -> Dictionary:
+	return _hand_pose(force)
+
+
+func _hand_pose(force := "") -> Dictionary:
 	if not is_visible_in_tree() or player == null and force == "":
 		return {}
 	var cam_b: Basis = get_parent().global_transform.basis.orthonormalized() if get_parent() is Node3D else Basis()
@@ -4009,16 +4002,20 @@ func hand_pose(force := "") -> Dictionary:
 			return {}
 		var mt := mm.global_transform
 		var mb := mt.basis.orthonormalized()
-		return {"R": {"at": mt * Vector3(0.0, 0.035, 0.012), "f": mb * Vector3(-0.15, 0.0, -1.0), "a": mb * Vector3(0, 1, 0),
-			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL}, "L": down_l}
+		return {"R": {"at": mt * MELEE_PALM, "f": mb * Vector3(-0.15, 0.0, -1.0), "a": mb * Vector3(0, 1, 0),
+			"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": FIST_CURL, "shape": "grip"}, "L": down_l}
 	if _model == null or not _holder.visible:
 		return {}
 	if _model.has_meta("anim"):
 		_anim_sync()
 		if (_model.get_meta("anim_bones") as Dictionary).has("Rwrist"):
 			return _anim_hands()
-	if _model.has_meta("held") and not _reloading:
-		return _held_hands()
+	# A scan's own arms hold it; through a reload the left hand leaves that hold for the magazine and back
+	var held := {}
+	if _model.has_meta("held"):
+		held = _held_hands()
+		if not _reloading:
+			return held
 	var g := ArmsDB.look(gun())
 	var s := spec()
 	var mt := _model.global_transform
@@ -4026,10 +4023,13 @@ func hand_pose(force := "") -> Dictionary:
 	var grip: Dictionary = GRIP.get(g, GRIP[""])
 	var at_r: Vector3 = grip.get("R", GRIP[""].R)
 	var axis: Vector3 = (grip.get("axis", GRIP[""].axis) as Vector3).normalized()
-	# The hand across the grip: its fingers point forward as far as the grip's line lets them
+	# The hand on the grip as a real one takes it (and as the reference arms, whose finger shapes these are):
+	# the knuckles all but upright whatever the grip's rake, the back of the hand in line with the forearm,
+	# the fingers forward and curled round
 	var fwd := Vector3(-0.12, 0.0, -1.0)
-	var f_r := (fwd - axis * fwd.dot(axis)).normalized()
-	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * axis,
+	var a_r := (Vector3(0.14, 1.0, 0.0) + (axis - Vector3(0, 1, 0)) * GRIP_RAKE).normalized()
+	var f_r := (fwd - a_r * fwd.dot(a_r)).normalized()
+	var R := {"at": mt * (at_r + Vector3(0.012, 0, 0)), "f": mb * f_r, "a": mb * a_r,
 		"pole": cam_b * Vector3(0.7, -1, 0.3), "curl": GRIP_CURL, "shape": "grip", "gb": mb}
 	var L: Dictionary
 	if s.slot == "secondary":
@@ -4039,7 +4039,8 @@ func hand_pose(force := "") -> Dictionary:
 		# front of the grip, and its thumb laid along the frame toward the mark
 		var f_l := Vector3(0.55, 0.2, -0.8)
 		L = {"at": mt * (at_r + Vector3(-0.034, 0.008, -0.012)), "f": mb * f_l, "a": mb * axis,
-			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": SUPPORT_CURL, "shape": "support", "reach": "fore", "gb": mb}
+			"pole": cam_b * Vector3(-0.7, -1, 0.3), "curl": SUPPORT_CURL, "shape": "support", "reach": "fore", "gb": mb,
+			"thumb_dir": mb * Vector3(-0.15, 0.4, -1.0)}
 	else:
 		var fore: Vector3 = grip.get("L", (_model.get_meta("fore", Vector3(0, -0.04, -0.3)) as Vector3) + Vector3(0, 0.004, 0.0))
 		var ft := mt
@@ -4050,7 +4051,9 @@ func hand_pose(force := "") -> Dictionary:
 			var bk: Node3D = _model.get_meta("brk")
 			ft = bk.global_transform
 			fore -= bk.position
-		L = {"at": ft * fore, "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1),
+		# (the carbine and the hand cannon keep their own fitters' support hand)
+		var sup_f := Vector3(1.0, 0.3, -0.45) if g in ["carbine", "hand_cannon"] else SUPPORT_F
+		L = {"at": ft * fore, "f": mb * sup_f, "a": mb * Vector3(0, 0, -1),
 			"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FORE_CURL, "shape": "fore", "gb": mb}
 		if grip.has("L_axis"):
 			# A second upright grip: held in a fist, as the right holds its own
@@ -4058,10 +4061,14 @@ func hand_pose(force := "") -> Dictionary:
 			var f_l := (fwd * Vector3(-1, 1, 1) - ax2 * (fwd * Vector3(-1, 1, 1)).dot(ax2)).normalized()
 			L = {"at": mt * (fore + Vector3(-0.012, 0, 0)), "f": mb * f_l, "a": mb * ax2,
 				"pole": cam_b * Vector3(-0.8, -1, 0.2), "curl": FIST_CURL, "shape": "fore", "gb": mb}
+	if not held.is_empty():
+		R = held.R
+		L = held.L
 	if _reloading:
 		var k := _hand_k
 		var w := 0.0
 		var to := {}
+		var pre := []
 		if _model.has_meta("rig"):
 			# The cocking handle (back and up, and the slap home from above), and the magazine between
 			var sk: Skeleton3D = _model.get_meta("rig")
@@ -4070,8 +4077,16 @@ func hand_pose(force := "") -> Dictionary:
 			var wm := smoothstep(0.13, 0.17, k) * (1.0 - smoothstep(0.75, 0.79, k))
 			if wh > 0.0 and bones.has("handle"):
 				w = wh
-				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
-					"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}
+				if wm > 0.0 and bones.has("mag"):
+					# (handle and magazine overlap: the hand goes from the one straight to the other)
+					pre = [wh, {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
+						"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}]
+					w = wm
+					to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
+						"f": mb * Vector3(0.4, 1.0, -0.4), "a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+				else:
+					to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.handle).origin + mb * Vector3(-0.025, 0.03, 0.0),
+						"f": mb * Vector3(0.2, -0.3, -1.0), "a": mb * Vector3(1, 0, 0), "curl": CUP_CURL, "shape": "top"}
 			elif wm > 0.0 and bones.has("mag"):
 				w = wm
 				to = {"at": sk.global_transform * sk.get_bone_global_pose(bones.mag).origin + mb * Vector3(0, -0.07, 0.0),
@@ -4090,31 +4105,86 @@ func hand_pose(force := "") -> Dictionary:
 				var mid: Vector3 = ((shs[0] as Node3D).global_position + (shs[shs.size() - 1] as Node3D).global_position) * 0.5
 				# Palm up under the open breech, as under the fore-end, the fingers round the fresh shells
 				to = {"at": mid + mb * Vector3(-0.012, -0.035, 0.02), "f": mb * Vector3(1.0, 0.3, -0.45), "a": mb * Vector3(0, 0, -1), "curl": FORE_CURL, "shape": "fore"}
-		elif s.reload == "shell" and _shell_mesh and _shell_mesh.is_inside_tree():
-			w = 1.0 if _shell_mesh.visible else 0.0
-			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.03, 0.025), "f": mb * Vector3(0.3, 1.0, -0.3),
+		elif s.reload == "shell" and is_instance_valid(_shell_mesh) and _shell_mesh.is_inside_tree():
+			# To the shell, which it carries up into the port, and back to the fore-end (no leap either way)
+			w = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.8, 0.95, k))
+			to = {"at": _shell_mesh.global_position + mb * Vector3(0, -0.018, 0.02), "f": mb * Vector3(0.3, 1.0, -0.3),
 				"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
 		else:
 			var src: Node3D = _pump if s.mode == "rocket" else (_model.get_meta("mag") if _model.has_meta("mag") else null)
 			if src and src.find_children("*", "MeshInstance3D", true, false).size() > 0:
 				w = smoothstep(0.06, 0.14, k) * (1.0 - smoothstep(0.78, 0.88, k))
-				# A rocket is pushed home from below the tube, the hand only part way out, so the arm stays whole
-				var off := Vector3(-0.02, -0.08, 0.24) if s.mode == "rocket" else Vector3(0, -0.02, 0.0)
 				if s.mode == "rocket":
+					# A rocket is pushed home from below the tube, the hand only part way out, so the arm stays whole
 					w *= 0.6
-				to = {"at": src.global_transform * _part_mid(src) + mb * off, "f": mb * Vector3(0.4, 1.0, -0.4),
-					"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+					to = {"at": src.global_transform * _part_mid(src) + mb * Vector3(-0.02, -0.08, 0.24), "f": mb * Vector3(0.4, 1.0, -0.4),
+						"a": mb * Vector3(0, 0, -1), "curl": CUP_CURL, "shape": "mag"}
+				else:
+					# The magazine taken by its lower half: the palm flat on its left face, the first finger
+					# uppermost and the fingers round its front edge, the thumb behind
+					var bx := _part_box(src)
+					var grab := Vector3(bx.position.x - MAG_PALM, bx.position.y + minf(0.04, bx.size.y * 0.35), bx.get_center().z)
+					to = {"at": src.global_transform * grab, "f": mb * Vector3(0.0, -0.3, -1.0),
+						"a": mb * Vector3(0, 1, 0), "curl": FORE_CURL, "shape": "fore"}
 				if MAG_PALM_UP.has(g):
+					to.a = mb * Vector3(0, 0, -1)
+					to.curl = CUP_CURL
+					to.shape = "mag"
 					# Palm up under the magazine's foot, the wrist as it is under the fore-end
 					to.at = src.global_transform * _part_mid(src) + mb * (MAG_PALM_UP[g] as Vector3)
 					to.f = mb * Vector3(1.0, 0.3, -0.45)
+		if not pre.is_empty():
+			L = _toward(L, pre[1], pre[0])
 		if w > 0.0:
-			for key in ["at", "f", "a"]:
-				L[key] = (L[key] as Vector3).lerp(to[key], w)
-			L.curl = to.curl if w > 0.5 else L.curl
-			L.shape = to.shape if w > 0.5 else L.shape
-			L.reach = "top" if to.shape == "top" and w > 0.5 else "fore"
+			L = _toward(L, to, w)
 	return {"R": R, "L": L}
+
+
+## A hand part way (w) to another hold: its place along the line, its turn the shortest way round (the
+## frames' axes lerped apart can pass near opposite, and then the hand spins half round in a frame)
+static func _toward(h: Dictionary, to: Dictionary, w: float) -> Dictionary:
+	var o := h.duplicate()
+	o.at = (h.at as Vector3).lerp(to.at, w)
+	var q0 := _hold_q(h.f, h.a)
+	var q1 := _hold_q(to.f, to.a)
+	var bq := Basis(q0.slerp(q1, w))
+	o.f = bq.x * (h.f as Vector3).length()
+	o.a = bq.y * (h.a as Vector3).length()
+	if w > 0.5:
+		o.curl = to.curl
+		o.shape = to.shape
+		o.erase("shape_pts")
+		o.erase("thumb_dir")
+	return o
+
+
+static func _hold_q(f: Vector3, a: Vector3) -> Quaternion:
+	var x := f.normalized()
+	var y := (a - x * a.dot(x)).normalized()
+	return Basis(x, y, x.cross(y)).get_rotation_quaternion()
+
+
+## Where the support hand's fingers point under a fore-end (the gun's space): across to the right and a little
+## forward, the hand rolled a little onto its thumb side, so the forearm below it need not turn palm-up so far
+const SUPPORT_F := Vector3(0.85, 0.5, -0.45)
+## How much of a grip's rake the knuckles follow
+const GRIP_RAKE := 0.35
+## How far out from a magazine's side the palm's middle is held (the palm's own flesh).
+const MAG_PALM := 0.012
+
+
+## The extent of a moving part (a magazine, a rocket), in its own space.
+func _part_box(n: Node3D) -> AABB:
+	if n.has_meta("box"):
+		return n.get_meta("box")
+	var bb := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = n.transform.affine_inverse() * _chain(mi, n) * (mi as MeshInstance3D).get_aabb()
+		bb = a if first else bb.merge(a)
+		first = false
+	n.set_meta("box", bb)
+	return bb
 
 
 ## Guns whose magazine the left hand takes palm up from under its foot (where the palm goes from the magazine's middle).

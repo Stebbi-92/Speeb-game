@@ -9,13 +9,16 @@ static var _spark_m: StandardMaterial3D
 static var _smoke_m: StandardMaterial3D
 
 var light: OmniLight3D   ## flickered while the fire is seen
+var size := 1.0
 var _base := 1.0
 var _t := 0.0
+var _feel := 0.0
 
 
 ## A fire about `size` paces tall, its foot at this node's origin.
 static func make(size := 1.0, sparks := true, smoke := false, tint := Color(1.0, 0.5, 0.12)) -> WFire:
 	var f := WFire.new()
+	f.size = size
 	if _shader == null:
 		_shader = Shader.new()
 		_shader.code = SHADER
@@ -52,6 +55,12 @@ func with_light(l: OmniLight3D) -> WFire:
 
 
 func _process(delta: float) -> void:
+	# Fire is fire: one who walks into it burns (one's warmth beside it is not harmed)
+	_feel -= delta
+	if _feel <= 0.0:
+		_feel = 0.2 + randf() * 0.05
+		if is_visible_in_tree():
+			FirePool.touch(global_position, clampf(size * 0.6, 0.3, 2.5), size * 0.8 + 0.3, false)
 	if light == null or not is_instance_valid(light) or not is_visible_in_tree():
 		return
 	_t += delta

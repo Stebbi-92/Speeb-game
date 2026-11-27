@@ -78,6 +78,7 @@ func _making() -> void:
 func _building() -> void:
 	var t := "# Building\n\n" + NOTE
 	t += "Press **B** to build. Scroll to choose a piece, left click to place it, **R** to turn it, right click to take a built piece down (you get most of it back). A campfire makes a base: chests within it are used when you make or build there.\n"
+	t += _build_rungs()
 	for g in Items.GROUPS:
 		t += "\n## %s\n\n| Piece | Cost | Strength | Notes |\n|---|---|---|---|\n" % g
 		for id in Items.PIECE_ORDER:
@@ -85,6 +86,20 @@ func _building() -> void:
 			if p.group == g:
 				t += "| **%s** | %s | %d | %s |\n" % [p.name, _cost(p.cost), int(p.hp), p.text]
 	_write("Building", t)
+
+
+## What opens when: the rungs of building and the steps of building up (WBuildTiers).
+func _build_rungs() -> String:
+	var t := "\n## What opens when\n\nA new world builds only a camp. Each fire lit opens more, for the whole fellowship, and the later pieces want the stuff of the harder lands. Pieces not yet open show greyed in the build menu with what opens them.\n\n| Opens with | Pieces |\n|---|---|\n"
+	for r in WBuildTiers.RUNGS:
+		var names: Array = []
+		for k in r.pieces:
+			names.append(Items.PIECES[k].name)
+		t += "| %s | %s |\n" % [WBuildTiers.need_text(r.need) if not r.need.is_empty() else "The start", ", ".join(names)]
+	t += "\n## Building up\n\nLook at a wall, window, doorway or floor and press **E** to build it up a step.\n\n| Step | Strength | Cost | Opens with |\n|---|---|---|---|\n"
+	for m in WBuildTiers.MATERIALS:
+		t += "| %s | x%s | %s | %s |\n" % [m.name, str(m.hp), _cost(m.cost) if not m.cost.is_empty() else "", WBuildTiers.need_text(m.need) if not m.need.is_empty() else "The start"]
+	return t
 
 
 func _creatures() -> void:

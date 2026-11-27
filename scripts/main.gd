@@ -139,7 +139,11 @@ func _debug_call(method: String) -> void:
 	while not (is_instance_valid(level) and level.get("player")):
 		await get_tree().process_frame
 	await get_tree().create_timer(3.0).timeout
-	level.call(method)
+	if "." in method:
+		# A method of one of the level's parts: call=builder.debug_tiers
+		level.get(method.get_slice(".", 0)).call(method.get_slice(".", 1))
+	else:
+		level.call(method)
 
 
 ## Testing aid: saves screenshots at the given seconds, then quits.

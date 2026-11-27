@@ -7,7 +7,7 @@ pass=0; fail=0
 check() {   # name, call, then patterns that must all be in the output
 	local name=$1 call=$2; shift 2
 	local data=$D
-	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
+	{ [ "$name" = minds ] || [ "$name" = ending ] || [ "$name" = dev ] || [ "$name" = boat ] || [ "$name" = knock ] || [ "$name" = newarms ] || [ "$name" = floors ] || [ "$name" = tiers ]; } && data=$(mktemp -d)   # a fresh world: earlier checks leave camps and floors about
 	if [[ $call == sh:* ]]; then   # a check of its own, in a script (several programs at once)
 		GODOT=$G bash tools/${call#sh:} > "$D/$name.log" 2>&1
 	else
@@ -45,6 +45,7 @@ check hitbox    debug_hitbox   "HITBOX all=true heads=true"
 check meals     debug_meals    "MEALS hp=true stam=true three=true held=true swapped=true worn=true comfort=1 rested=true xp=true saved=true"
 check lands     debug_lands    "LANDS tiers=6 harder=true bites=true warded=true stuff=true"
 check build     debug_build    "BUILD up=true kept=true bed=true stove=true shelf=true snug=true"
+check tiers     builder.debug_tiers "TIERS start=true first=11 refused=true built=true paid=true stone_barred=true rungs=\\[true, true, true, true\\] stone=true iron_barred=true iron=true glass_barred=true glass=true made=7/7 ward=true strong=20 anvil=true great=true shrine=true hall=true saved=true"
 check campkit   debug_campkit  "CAMPKIT modelled=7/7 tent=true barrel=true anvil=true"
 check inn       debug_inn      "INN towns=true meal=true talk=true snug=true walls=true"
 check tabsfit    debug_tabsfit  "TABSFIT { \"craft\": 700, \"arms\": 700, \"wear\": 700, \"build\": 700 }"
@@ -150,6 +151,8 @@ check split      debug_split    "SPLIT half=true one=true all=true"
 check buildmenu  debug_buildmenu "BUILDMENU open=true tab=build group=true"
 check slotdrag   debug_slotdrag "SLOTDRAG clicked=true dragged=true"
 check flamer     debug_flamer   "FLAMER roaring=true quiet_after=true particles=true"
+check firetouch  debug_firetouch "FIRETOUCH beside_ok=true hurt=true burning=true still=true out=true pool=true"
+check firepool   debug_firepool "FIREPOOL burst=0\.[0-9]+ on_ground=true reach=4\.[0-9] burning=true harmed=true gave_way=true live=0 left=2 foe_cool=true"
 check coast      debug_coast    "COAST gen=3 bays=[1-9] wet=\[\] shore_varies=true"
 check warmup     debug_warmup   "WARMUP quiet=true hush_off=true flash_off=true"
 check isleshot   debug_isleshot "ISLESHOT own=2"
@@ -159,7 +162,7 @@ check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=
 check treebody   debug_treebody "TREEBODY bodies=[0-9]+ shapes=[0-9]+ solid=true"
 check fell       debug_fell     "FELL big land=[a-z]+ blows=1[0-2] aimed=true prompt='Cut the tree' chops=1[0-2] wood=[0-9]+ heartwood=[0-9]+ ok=true heard=chop,carve gone=true solid=false fell=1 stumps=1 batches=\+1 log_left=0" "FELL peer=true saved=true days=[3-6] early=true regrown=true dead_chops=[1-6] dead_wood=[0-9]+ dead_stumps=1"
 check doorwalk   debug_doorwalk "DOORWALK tried=8 inside=[7-8]"
-check townplans debug_townplans "TOWNPLANS towns=12 styles=7 shells=(2[7-9]|[34][0-9]|5[0-5]) barns=[5-7] kinds=17"
+check townplans debug_townplans "TOWNPLANS towns=12 styles=7 shells=(2[7-9]|[34][0-9]|5[0-5]) barns=[5-7] kinds=24"
 check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=6"
 check ownloot   debug_ownloot  "OWNLOOT alone=1 made=3 hidden=true seen=true kept=true"
 check damaged  debug_damaged  "DAMAGED tmp_first=true unread=true moved=true kept=true"
@@ -178,6 +181,7 @@ check tomb      debug_tomb     "TOMB door_open=true wall=true roof=true"
 check nights    debug_nights   "NIGHTS kinds=5 early_plain=true same=true themed=true paid=true"
 check glitchfix debug_glitchfix "GLITCHFIX trees=true stray=0 hound_own_head=true dots=true hip=false aimed=true tucked=true back=true"
 check hands debug_hands "HANDS guns=14 far=\[\] smg_rig=true locked=true home=true anim=true crane=true cig=true once=true burning=true seen=true"
+check handfit  debug_handfit  "HANDFIT rows=[1-9][0-9]* failing=[0-9]+ hard=0 "
 check gunlook debug_gunlook "HANDCHECK carbine worst stretch=0\.[0-9][0-9]% elbow=[0-9]+\.\.1[0-6][0-9] .*palm_miss=0\.0[0-4][0-9] wrong_bend=0" "HANDCHECK hand_cannon worst stretch=0\.[0-9][0-9]% elbow=[0-9]+\.\.1[0-6][0-9] .*palm_miss=0\.0[0-4][0-9] wrong_bend=0"
 check newbodies debug_newbodies "NEWBODIES hollow=moves,ok saltbone=moves,ok,own_arms saltrifle=moves,ok deacon=moves,ok ash_weaver=moves,ok tusker fur=true gait=[A-Za-z_0-9]+ gaits=4"
 check wings debug_wings "WINGS took=true flew=true landed=true high<6=true"

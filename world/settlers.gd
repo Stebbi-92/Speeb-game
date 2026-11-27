@@ -8,6 +8,7 @@ const MAX_AT := 3
 const GROUND := 40.0      ## a fire's ground, as Wasteland.BASE_SAFE
 const SNUG := 4          ## the comfort a base needs before anyone will stay
 const CHANCE := 0.5      ## of a wanderer coming, each dawn, to a base with room
+const BANNER_DRAW := 0.3  ## more, with a Fellowship Banner up at the fire
 const JOBS := {
 	"woodcutter": {"name": "woodcutter", "goods": {"wood": 8}, "line": "There's still good timber, if you know where to cut."},
 	"salter": {"name": "salt-digger", "goods": {"salt": 12}, "line": "Salt keeps. Salt pays. I dig."},
@@ -85,7 +86,8 @@ func host_dawn(chance := CHANCE) -> void:
 		_work(s)
 		_want_dawn(s)
 	for pid in w.pieces.keys():
-		if room_at(pid) and randf() < chance:
+		# A banner within the fire's ground is seen from far off: a wanderer is likelier to come
+		if room_at(pid) and randf() < (chance + BANNER_DRAW if w.builder.near_kind(w.pieces[pid].pos, "banner", GROUND) else chance):
 			var job: String = JOBS.keys()[randi() % JOBS.size()]
 			var nm: String = NAMES[randi() % NAMES.size()]
 			var wl: Array = WANTS[job]

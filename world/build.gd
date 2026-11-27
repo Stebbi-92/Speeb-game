@@ -14,15 +14,20 @@ const KIT_HOME := {"bed": ["fu-bedSingle", 1.3], "table": ["fu-table", 2.3], "ch
 	"stove": ["fu-kitchenStove", 2.2], "rug": ["fu-rugRectangle", 1.9], "floorlamp": ["fu-lampRoundFloor", 2.1],
 	# Camp pieces from Kenney's Survival Kit ("sv-" is that kit's folder)
 	"chest": ["sv-chest", 3.1], "bench": ["sv-workbench", 4.5], "bedroll": ["sv-bedroll", 3.3],
-	"tent": ["sv-tent-canvas", 5.4], "barrel": ["sv-barrel", 3.5], "anvil": ["sv-workbench-anvil", 4.0]}
+	"tent": ["sv-tent-canvas", 5.4], "barrel": ["sv-barrel", 3.5], "anvil": ["sv-workbench-anvil", 4.0],
+	# Later pieces: the Survival Kit's iron-bound box, the Castle Kit's long banner, the Pirate Kit's lookout ("is-" is isles/)
+	"strongbox": ["sv-box-large", 3.2], "banner": ["is-castle/flag-banner-long", 1.5], "watchtower": ["is-pirate/tower-watch", 1.5]}
 const KIT_SV := "res://assets/models/survival/"
-## Building up: timber, then stone, then iron. Each is tougher; each costs more to raise.
-const TIER_NAMES := ["Timber", "Stone", "Iron"]
-const TIER_HP := [1.0, 2.2, 3.5]
-const TIER_COST := [{}, {"stone": 8}, {"scrap": 6, "stone": 2}]
+const KIT_IS := "res://assets/models/isles/"
+## Building up: timber, then stone, iron and blackglass (see WBuildTiers.MATERIALS for costs and what opens each).
 const UPGRADES := ["wall", "window", "doorway", "floor"]
 ## Furniture that does the work of a camp piece
-const ACTS := {"bed": "bedroll", "stove": "cookpot", "shelf": "chest", "floorlamp": "lamp", "tent": "bedroll", "barrel": "chest", "anvil": "bench"}
+const ACTS := {"bed": "bedroll", "stove": "cookpot", "shelf": "chest", "floorlamp": "lamp", "tent": "bedroll", "barrel": "chest", "anvil": "bench",
+	"strongbox": "chest", "brazier": "lamp", "lamppost": "lamp", "banner": "table"}
+## A watchtower marks the foes within this reach of it for anyone near its foot; a barricade cuts what presses on it.
+const WATCH_REACH := 60.0
+const WATCH_NEAR := 40.0
+const BARRICADE_BITE := 30.0
 
 
 static func acts(k: String) -> String:
@@ -63,8 +68,19 @@ func toggle() -> void:
 
 
 func choose(d: int) -> void:
-	sel = posmod(sel + d, Items.PIECE_ORDER.size())
+	sel = step(sel, d)
 	_hint()
+
+
+## The next piece along that this world may build (the wheel passes over what is still barred).
+func step(from: int, d: int) -> int:
+	var n: int = Items.PIECE_ORDER.size()
+	var i := from
+	for _k in n:
+		i = posmod(i + (1 if d >= 0 else -1), n)
+		if WBuildTiers.open(w, Items.PIECE_ORDER[i]):
+			return i
+	return from
 
 
 func turn() -> void:
@@ -101,6 +117,42 @@ func _process(_delta: float) -> void:
 		mi.material_override = _ok_m if ok else _bad_m
 
 
+## The later pieces at work, twice a second: a watchtower marks the foes about it for anyone near its
+## foot (each player's own sight), and the host's barricades cut what presses on them.
+var _work_t := 0.0
+
+func _physics_process(delta: float) -> void:
+	_work_t -= delta
+	if _work_t > 0.0 or w == null or w.get("pieces") == null:
+		return
+	_work_t = 0.5
+	var me: Vector3 = w.player.global_position if w.player and not Net.dedicated else Vector3.INF
+	for pid in w.pieces:
+		var pc: Dictionary = w.pieces[pid]
+		if pc.kind == "watchtower" and me != Vector3.INF and me.distance_to(pc.pos) < WATCH_NEAR:
+			for e in w.enemies:
+				if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(pc.pos) < WATCH_REACH:
+					e.reveal(0.8)
+		elif pc.kind == "barricade" and Net.authority():
+			var along := Vector3(cos(pc.yaw), 0, -sin(pc.yaw))
+			for e in w.enemies:
+				if not is_instance_valid(e) or not e.is_alive():
+					continue
+				var d: Vector3 = e.global_position - pc.pos
+				d.y = 0.0
+				if absf(d.dot(along)) < GRID * 0.5 + 0.4 and (d - along * d.dot(along)).length() < 1.6:
+					e.hurt(BARRICADE_BITE * 0.5, Vector3.ZERO)
+
+
+## Whether a station of one of these kinds stands within a few steps (measured flat, as a bench is).
+func at_station(p: Vector3, kinds: Array) -> bool:
+	for pid in w.pieces:
+		var q: Vector3 = w.pieces[pid].pos
+		if w.pieces[pid].kind in kinds and Vector2(q.x - p.x, q.z - p.z).length() < 6.5 and absf(q.y - p.y) < 4.0:
+			return true
+	return false
+
+
 ## Where a piece would go, if set now.
 func _placement(k: String) -> Dictionary:
 	var cam: Camera3D = w.player.cam
@@ -130,7 +182,7 @@ func _placement(k: String) -> Dictionary:
 					hs.append(w.terrain.height_at((ci + c[0]) * GRID, (cj + c[1]) * GRID))
 				if base < hs.max() - 0.3 or base - hs.min() > 3.0:
 					out.ok = false
-		"wall", "stonewall", "doorway", "window", "palisade":
+		"wall", "stonewall", "doorway", "window", "palisade", "barricade":
 			var lx := at.x - cell_c.x
 			var lz := at.z - cell_c.z
 			var e := Vector3.ZERO
@@ -258,9 +310,9 @@ func place() -> void:
 		w.sfx("deny", -10)
 		return
 	var k: String = _plan.kind
-	var fires := int(Items.PIECES[k].get("fires", 0))
-	if fires > 0 and not w.has_verb(fires):
-		w.hud.notify("The %s comes with the %s fire." % [Items.PIECES[k].name, ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"][fires]])
+	var barred := WBuildTiers.why(w, k)
+	if barred != "":
+		w.hud.notify("The %s is not yet yours to build. %s." % [Items.PIECES[k].name, barred])
 		w.sfx("deny", -10)
 		return
 	var cost: Dictionary = w.skills.cost(Items.PIECES[k].cost)
@@ -301,19 +353,31 @@ func upgrade() -> bool:
 	var pid := _piece_from(get_world_3d().direct_space_state.intersect_ray(q))
 	if pid < 0:
 		return false
+	upgrade_pid(pid)
+	return true
+
+
+## Builds one piece up a step, if the world has opened that step and the makings are carried. True if it was paid for.
+func upgrade_pid(pid: int) -> bool:
 	var pc: Dictionary = w.pieces[pid]
+	var mats: Array = WBuildTiers.MATERIALS
 	if not pc.kind in UPGRADES:
 		w.hud.notify("Only walls, windows, doorways and floors can be built up.")
-		return true
+		return false
 	var t := int(pc.get("tier", 0))
-	if t >= TIER_NAMES.size() - 1:
-		w.hud.notify("It is iron already.")
-		return true
-	var cost: Dictionary = w.skills.cost(TIER_COST[t + 1])
-	if not w.stock_pay(cost):
-		w.hud.notify("To build it up to %s: %s." % [TIER_NAMES[t + 1].to_lower(), Items.cost_text(cost)])
+	if t >= mats.size() - 1:
+		w.hud.notify("It is %s already: it can be built up no further." % str(mats[t].name).to_lower())
+		return false
+	var barred := WBuildTiers.material_why(w, t + 1)
+	if barred != "":
+		w.hud.notify("%s comes later. %s." % [mats[t + 1].name, barred])
 		w.sfx("deny", -10)
-		return true
+		return false
+	var cost: Dictionary = w.skills.cost(mats[t + 1].cost)
+	if not w.stock_pay(cost):
+		w.hud.notify("To build it up to %s: %s." % [str(mats[t + 1].name).to_lower(), Items.cost_text(cost)])
+		w.sfx("deny", -10)
+		return false
 	w.sfx("crumble" if t == 0 else "mag_in", -4, pc.pos)
 	w.shared("_rq_tier", [Net.me(), pid, t + 1, cost])
 	w.award("build")
@@ -323,11 +387,12 @@ func upgrade() -> bool:
 func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
 	if not Net.authority():
 		return
-	if not w.pieces.has(pid) or int(w.pieces[pid].get("tier", 0)) != t - 1 or t >= TIER_NAMES.size():
-		Net.call_peer(by, "_w_give", [_refund(TIER_COST[clampi(t, 1, TIER_NAMES.size() - 1)], paid)])
+	var mats: Array = WBuildTiers.MATERIALS
+	if not w.pieces.has(pid) or int(w.pieces[pid].get("tier", 0)) != t - 1 or t >= mats.size():
+		Net.call_peer(by, "_w_give", [_refund(mats[clampi(t, 1, mats.size() - 1)].cost, paid)])
 		return
 	var k: String = w.pieces[pid].kind
-	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * TIER_HP[t]])
+	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * float(mats[t].hp)])
 
 
 ## A piece rebuilt in its new tier, where it stood.
@@ -358,7 +423,7 @@ func key_of(k: String, p: Vector3, yaw: float) -> String:
 	match k:
 		"floor", "roof":
 			return "%s:%d:%d" % [k, ci, cj]
-		"wall", "stonewall", "doorway", "window", "palisade":
+		"wall", "stonewall", "doorway", "window", "palisade", "barricade":
 			if absf(sin(yaw)) > 0.5:
 				return "edge:v:%d:%d" % [roundi(p.x / GRID), floori(p.z / GRID)]
 			return "edge:h:%d:%d" % [floori(p.x / GRID), roundi(p.z / GRID)]
@@ -385,7 +450,7 @@ func _rq_build(by: int, k: String, p: Vector3, yaw: float, hm := 1.0, paid = nul
 	if k in Wasteland.FIRE_KINDS:
 		w.shared("_w_fuel", [pid, w.world_hours() + Wasteland.FUEL_START])
 	if acts(k) == "chest":
-		w.shared("_w_cont", ["p%d" % pid, Inventory.new(16).to_data()])
+		w.shared("_w_cont", ["p%d" % pid, Inventory.new(int(Items.PIECES[k].get("slots", 16))).to_data()])
 
 
 ## What goes back for a build the host turned down: what was paid (a skill may have made it less), never more than it costs.
@@ -550,7 +615,8 @@ func near_kind(p, k: String, r: float) -> bool:
 
 # ------------------------------------------------------------------ the pieces themselves
 
-func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
+## footing: walls carry a footing below their line, for the ground; an upper storey's walls stand on a floor and have none.
+func _make(k: String, is_ghost: bool, tier := 0, footing := true) -> Node3D:
 	var n := Node3D.new()
 	var body := StaticBody3D.new()
 	body.collision_layer = 0 if is_ghost else (1 | 16)
@@ -559,14 +625,14 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 	n.set_meta("body", body)
 	var m: Dictionary = w._m
 	if KIT_WALLS.has(k):
-		_kit_wall(n, body, k, tier, is_ghost)
+		_kit_wall(n, body, k, tier, is_ghost, footing)
 		return n
 	if KIT_HOME.has(k):
 		_kit_home(n, body, k, is_ghost)
 		return n
 	match k:
 		"floor":
-			var fm: Material = [m.wood, m.stone, m.iron][clampi(tier, 0, 2)]
+			var fm: Material = [m.wood, m.stone, m.iron, _bound(3)][clampi(tier, 0, 3)]
 			_part(n, body, Vector3(GRID, 1.2, GRID), Vector3(0, -0.45, 0), fm if tier > 0 or is_ghost else m.darkwood, is_ghost)
 			if tier == 0 and not is_ghost:
 				_kit(n, "planks", Vector3(GRID, 1.0, GRID), Vector3(0, 0.12, 0), 0.0)
@@ -777,6 +843,32 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 				hl.position = Vector3(0, 2.4, 0.4)
 				n.add_child(hl)
 				n.set_meta("light", hl)
+		"brazier":
+			# Coals in an iron basket on a stone plinth: no wood wanted, and a ward like a torch's
+			_part(n, body, Vector3(0.9, 1.0, 0.9), Vector3(0, 0.5, 0), m.stone, is_ghost)
+			if not is_ghost:
+				_kit(n, "is-grave/fire-basket", Vector3.ONE * 2.6, Vector3(0, 1.0, 0), 0.0)
+				_fire(n, Vector3(0, 1.3, 0), 1.8, 12.0)
+		"lamppost":
+			_part(n, body, Vector3(0.3, 3.0, 0.3), Vector3(0, 1.5, 0), null, is_ghost)
+			if is_ghost:
+				_part(n, null, Vector3(0.2, 3.0, 0.2), Vector3(0, 1.5, 0), m.iron, true)
+			else:
+				_kit(n, "is-grave/lightpost-single", Vector3.ONE * 2.4, Vector3.ZERO, 0.0)
+				var l := OmniLight3D.new()
+				l.light_color = Color(1.0, 0.78, 0.5)
+				l.light_energy = 2.2
+				l.omni_range = 18.0
+				l.position = Vector3(0, 2.7, 0.55)
+				n.add_child(l)
+		"barricade":
+			# Kenney's fortified fence: three paces of stakes bound in iron, on a floor's edge
+			_part(n, body, Vector3(GRID, 3.0, 0.45), Vector3(0, 1.5, 0), null, is_ghost)
+			if is_ghost:
+				_part(n, null, Vector3(GRID, 3.0, 0.3), Vector3(0, 1.5, 0), m.wood, true)
+			else:
+				_kit(n, "sv-fence-fortified", Vector3(GRID / 0.5, 5.8, 6.0), Vector3.ZERO, 0.0)
+				_part(n, null, Vector3(GRID, 1.0, 0.4), Vector3(0, -0.5, 0), m.darkwood, false)
 		"shrine":
 			_part(n, body, Vector3(2.2, 1.2, 1.4), Vector3(0, 0.6, 0), null, is_ghost)
 			if is_ghost:
@@ -799,23 +891,46 @@ func _make(k: String, is_ghost: bool, tier := 0) -> Node3D:
 	return n
 
 
-## A kit model set into a piece: scaled, turned and placed. Iron binds it in dark metal.
-func _kit(n: Node3D, model: String, scale: Vector3, pos: Vector3, yaw: float, iron := false) -> Node3D:
-	var sc: PackedScene = load(((KIT_SV + model.substr(3)) if model.begins_with("sv-") else (KIT + model)) + ".glb")
+## A kit model set into a piece: scaled, turned and placed. From iron up (tier 2 and over), the
+## material it is built up in binds it all over.
+func _kit(n: Node3D, model: String, scale: Vector3, pos: Vector3, yaw: float, tier := 0) -> Node3D:
+	var path := KIT + model
+	if model.begins_with("sv-"):
+		path = KIT_SV + model.substr(3)
+	elif model.begins_with("is-"):
+		path = KIT_IS + model.substr(3)
+	var sc: PackedScene = load(path + ".glb")
 	var inst: Node3D = sc.instantiate()
 	inst.scale = scale
 	inst.rotation.y = yaw
 	inst.position = pos
 	n.add_child(inst)
-	if model.begins_with("sv-"):
+	if model.begins_with("sv-") or model.begins_with("is-"):
 		_weather_kit(inst)
-	if iron:
-		var im: StandardMaterial3D = (w._m.iron as StandardMaterial3D).duplicate()
-		im.metallic = 0.7
-		im.roughness = 0.45
+	if tier >= 2:
+		var im := _bound(tier)
 		for mi in inst.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).material_override = im
 	return inst
+
+
+## One shared material for each binding (iron, blackglass), so every piece built up draws with it.
+var _bound_m := {}
+func _bound(tier: int) -> Material:
+	if not _bound_m.has(tier):
+		var im: StandardMaterial3D = (w._m.iron as StandardMaterial3D).duplicate()
+		im.metallic = 0.7
+		im.roughness = 0.45
+		if tier >= 3:
+			# Blackglass: basalt glass set in the stone, dark and glossy, with a faint ember in it
+			im.albedo_color = Color(0.09, 0.08, 0.1)
+			im.metallic = 0.35
+			im.roughness = 0.12
+			im.emission_enabled = true
+			im.emission = Color(0.35, 0.12, 0.05)
+			im.emission_energy_multiplier = 0.15
+		_bound_m[tier] = im
+	return _bound_m[tier]
 
 
 ## The Survival Kit is painted bright; out in the waste its wood and canvas are worn grey-brown.
@@ -839,14 +954,15 @@ static func _weather_kit(inst: Node3D) -> void:
 
 ## A wall, window or doorway of the kit: three paces wide and three high on its footing, timber or stone.
 ## The kit's wall stands along the edge of its square, so it is turned to lie along x and drawn in to the middle.
-func _kit_wall(n: Node3D, body: StaticBody3D, k: String, tier: int, is_ghost: bool) -> void:
+func _kit_wall(n: Node3D, body: StaticBody3D, k: String, tier: int, is_ghost: bool, footing := true) -> void:
 	var m: Dictionary = w._m
 	var model: String = KIT_WALLS[k][0 if tier == 0 else 1]
-	_kit(n, model, Vector3.ONE * GRID, Vector3(0, 0, GRID * 0.45), PI * 0.5, tier >= 2)
+	_kit(n, model, Vector3.ONE * GRID, Vector3(0, 0, GRID * 0.45), PI * 0.5, tier)
 	# A footing below the ground line, for walls on a slope
-	var foot: Material = [m.darkwood, m.stone, m.iron][clampi(tier, 0, 2)]
+	var foot: Material = [m.darkwood, m.stone, m.iron, _bound(3)][clampi(tier, 0, 3)]
 	if not is_ghost:
-		_part(n, null, Vector3(GRID, 1.0, 0.34), Vector3(0, -0.5, 0), foot, false)
+		if footing:
+			_part(n, null, Vector3(GRID, 1.0, 0.34), Vector3(0, -0.5, 0), foot, false)
 		match k:
 			"wall":
 				_part(n, body, Vector3(GRID, 4.0, 0.3), Vector3(0, 1.0, 0), null, false)
@@ -953,3 +1069,210 @@ func _part(n: Node3D, body: StaticBody3D, size: Vector3, pos: Vector3, m: Materi
 		cs.position = pos
 		body.add_child(cs)
 	return mi
+
+
+# ------------------------------------------------------------------ testing aid
+
+## Testing aid (call=builder.debug_tiers): a new world builds only the first rung; each rung opens with its
+## fire or great ones; costs are paid; barred pieces and steps are refused and cost nothing; the new pieces
+## stand, do their work and come back through a save.
+func debug_tiers() -> void:
+	while not w.ready_world:
+		await get_tree().create_timer(1.0).timeout
+	w.clock = 12.0
+	w.lit = []
+	w.flags.erase("most_lit")
+	for f in w.flags.keys():
+		if str(f).begins_with("lair_"):
+			w.flags.erase(f)
+	w.inv.from_data([])
+	var first: Array = WBuildTiers.open_pieces(w)
+	var start_ok: bool = first.size() == WBuildTiers.RUNGS[0].pieces.size() and first.all(func(k): return k in WBuildTiers.RUNGS[0].pieces)
+	var f: Vector3 = -w.player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side: Vector3 = f.cross(Vector3.UP)
+	var spot := func(i: int, j := 0.0) -> Vector3:
+		var p: Vector3 = w.player.global_position + f * (5.0 + j) + side * (i - 4) * 4.2
+		p.y = w.terrain.height_at(p.x, p.z)
+		return p
+	var try := func(k: String, p: Vector3) -> bool:
+		var before: int = w.pieces.size()
+		_plan = {"ok": true, "kind": k, "pos": p, "yaw": 0.0, "key": key_of(k, p, 0.0)}
+		place()
+		await get_tree().create_timer(0.2).timeout
+		return w.pieces.size() == before + 1
+	var pid_of := func(k: String) -> int:   # the newest of a kind
+		var best := -1
+		for pid in w.pieces:
+			if w.pieces[pid].kind == k:
+				best = maxi(best, int(pid))
+		return best
+	# Barred: an anvil on a new world, with all its makings carried, is refused and nothing is taken
+	w.give([["scrap", 40], ["red_iron", 20], ["stone", 120], ["wood", 120], ["oil", 6], ["cloth", 20], ["tar", 6], ["salt_crystal", 4], ["obsidian", 8]])
+	var scrap0: int = w.inv.count("scrap")
+	var refused: bool = not await try.call("anvil", spot.call(0)) and w.inv.count("scrap") == scrap0
+	# Open: a chest is built and paid for
+	var wood0: int = w.inv.count("wood")
+	var built: bool = await try.call("chest", spot.call(1))
+	var paid: bool = wood0 - w.inv.count("wood") == int(w.skills.cost(Items.PIECES.chest.cost).wood)
+	# A timber wall cannot go up to stone before the first fire
+	var ws: Vector3 = spot.call(2, 8.0)
+	_rq_build(1, "wall", Vector3(ws.x, ws.y, roundf(ws.z / GRID) * GRID), 0.0)
+	await get_tree().create_timer(0.2).timeout
+	var wp: int = pid_of.call("wall")
+	var stone0: int = w.inv.count("stone")
+	var stone_barred: bool = not upgrade_pid(wp) and w.inv.count("stone") == stone0
+	# Each fire opens its rung, and with it the next step of building up
+	var opened := []
+	var made := []
+	for fire in [1, 2, 3, 4]:
+		w.flags["most_lit"] = fire
+		var r: int = fire
+		var rung_ok: bool = WBuildTiers.RUNGS[r].pieces.all(func(k): return WBuildTiers.open(w, k))
+		var next_shut: bool = r + 1 >= 5 or not WBuildTiers.open(w, WBuildTiers.RUNGS[r + 1].pieces[0])
+		opened.append(rung_ok and next_shut)
+	w.flags["most_lit"] = 1
+	var stone_up: bool = upgrade_pid(wp)
+	await get_tree().create_timer(0.2).timeout
+	stone_up = stone_up and int(w.pieces[wp].get("tier", 0)) == 1 and w.inv.count("stone") < stone0
+	var iron_barred: bool = not upgrade_pid(wp)
+	w.flags["most_lit"] = 3
+	var iron_up: bool = upgrade_pid(wp)
+	await get_tree().create_timer(0.2).timeout
+	iron_up = iron_up and int(w.pieces[wp].get("tier", 0)) == 2
+	var glass_barred: bool = not upgrade_pid(wp)
+	w.flags["most_lit"] = 5
+	var obs0: int = w.inv.count("obsidian")
+	var glass_up: bool = upgrade_pid(wp)
+	await get_tree().create_timer(0.2).timeout
+	glass_up = glass_up and int(w.pieces[wp].get("tier", 0)) == 3 and w.inv.count("obsidian") < obs0 and float(w.pieces[wp].hp) > float(Items.PIECES.wall.hp) * 4.0
+	# The new pieces, built the way a player builds them
+	var news := ["brazier", "strongbox", "watchtower", "banner", "lamppost", "anvil"]
+	for i in news.size():
+		if await try.call(news[i], spot.call(i, 16.0)):
+			made.append(news[i])
+	var bs: Vector3 = spot.call(7, 8.0)
+	_rq_build(1, "barricade", Vector3(bs.x, bs.y, roundf(bs.z / GRID) * GRID), 0.0)
+	await get_tree().create_timer(0.3).timeout
+	if pid_of.call("barricade") >= 0:
+		made.append("barricade")
+	# Their work: a brazier wards spawns, a strongbox holds twenty, an anvil works as a bench
+	var bz: int = pid_of.call("brazier")
+	var ward: bool = bz >= 0 and w.base_at(w.pieces[bz].pos + Vector3(10, 0, 0)) == bz and w.base_at(w.pieces[bz].pos + Vector3(20, 0, 0)) != bz
+	var sb: int = pid_of.call("strongbox")
+	var strong: int = w.containers["p%d" % sb].size() if sb >= 0 and w.containers.has("p%d" % sb) else 0
+	var anvil: bool = near_kind(w.pieces[pid_of.call("anvil")].pos, "bench", 0.5) if pid_of.call("anvil") >= 0 else false
+	# Great ones open the shrine, then the hall
+	var great_shut: bool = not WBuildTiers.open(w, "shrine")
+	w.flags["lair_ash"] = 1
+	var shrine: bool = WBuildTiers.open(w, "shrine") and not WBuildTiers.open(w, "trophy_hall")
+	w.flags["lair_dunes"] = 1
+	w.flags["lair_salt"] = 1
+	var hall: bool = WBuildTiers.open(w, "trophy_hall")
+	# Through a save: each new piece comes back where it was, the wall still blackglass
+	var d: Dictionary = w.world_data()
+	var kinds_before := {}
+	for pid in w.pieces:
+		kinds_before[pid] = w.pieces[pid].kind
+	for pid in w.pieces.keys():
+		_w_piece_gone(pid)
+	await get_tree().create_timer(0.3).timeout
+	for pid in d.pieces:
+		var p: Array = d.pieces[pid]
+		_w_piece(int(pid), p[0], p[1], p[2], p[3])
+		if int(p[5].get("tier", 0)) > 0:
+			_w_tier(int(pid), int(p[5].tier), float(p[3]))
+	var saved: bool = w.pieces.size() == kinds_before.size() and int(w.pieces[wp].get("tier", 0)) == 3
+	for pid in kinds_before:
+		saved = saved and w.pieces.has(pid) and w.pieces[pid].kind == kinds_before[pid]
+	print("TIERS start=%s first=%d refused=%s built=%s paid=%s stone_barred=%s rungs=%s stone=%s iron_barred=%s iron=%s glass_barred=%s glass=%s made=%d/7 ward=%s strong=%d anvil=%s great=%s shrine=%s hall=%s saved=%s" % [
+		start_ok, first.size(), refused, built, paid, stone_barred, opened, stone_up, iron_barred, iron_up, glass_barred, glass_up, made.size(), ward, strong, anvil, great_shut, shrine, hall, saved])
+	get_tree().quit()
+
+
+## Testing aid for screenshots: call=builder.debug_view_menu (a new world's build menu, later rungs greyed),
+## builder.debug_view_open (the same after five fires and three great ones), builder.debug_view_pieces (the
+## later pieces built in a row before you, with a wall built up in each material).
+func debug_view_menu(fires := 0, cat := "Defence") -> void:
+	while not w.ready_world:
+		await get_tree().create_timer(0.5).timeout
+	w.clock = 12.0
+	w.flags["most_lit"] = fires
+	if fires >= 5:
+		for l in ["lair_ash", "lair_dunes", "lair_salt"]:
+			w.flags[l] = 1
+	w.give([["wood", 60], ["stone", 40], ["scrap", 12], ["cloth", 8]])
+	sel = Items.PIECE_ORDER.find("watchtower")
+	await get_tree().create_timer(8.0).timeout
+	w.ui.open_inventory("build")
+	w.ui._bcat = cat
+	w.ui._redraw()
+	await _snap(0)
+	w.ui._bcat = "Camp" if cat != "Camp" else "Defence"
+	w.ui._redraw()
+	await _snap(1)
+	get_tree().quit()
+
+
+## Testing aid: saves what is on screen as user://shot_<i>.png, after a moment to settle.
+func _snap(i: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("user://shot_%d.png" % i)
+	print("snap %d" % i)
+
+
+func debug_view_open() -> void:
+	debug_view_menu(5, "Camp")
+
+
+func debug_view_pieces() -> void:
+	while not w.ready_world:
+		await get_tree().create_timer(0.5).timeout
+	w.clock = 10.0
+	w.flags["most_lit"] = 5
+	var f: Vector3 = -w.player.global_transform.basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var side: Vector3 = f.cross(Vector3.UP)
+	var at := func(a: float, b: float) -> Vector3:
+		var p: Vector3 = w.player.global_position + f * b + side * a
+		p.y = w.terrain.height_at(p.x, p.z)
+		return p
+	var row := [["brazier", -6.0, 9.0], ["lamppost", -3.5, 10.0], ["strongbox", -1.0, 8.5], ["banner", 1.0, 9.5], ["anvil", 3.0, 8.5], ["watchtower", 8.0, 15.0]]
+	for r in row:
+		_rq_build(1, r[0], at.call(r[1], r[2]), atan2(f.x, f.z) + PI)
+	# Four timber walls along a line, built up to stone, iron and blackglass, with a barricade beside them
+	var yaw := 0.0 if absf(f.z) > absf(f.x) else PI * 0.5
+	var wc: Vector3 = at.call(-6.0, 17.0)
+	var along := Vector3(1, 0, 0) if yaw == 0.0 else Vector3(0, 0, 1)
+	var ci := floori(wc.x / GRID)
+	var cj := floori(wc.z / GRID)
+	for i in 5:
+		var p := Vector3((ci + 0.5) * GRID, 0, cj * GRID) + along * GRID * i if yaw == 0.0 else Vector3(ci * GRID, 0, (cj + 0.5) * GRID) + along * GRID * i
+		p.y = w.terrain.height_at(p.x, p.z)
+		_rq_build(1, "barricade" if i == 4 else "wall", p, yaw)
+	await get_tree().create_timer(0.3).timeout
+	var t := 0
+	var ids: Array = w.pieces.keys()
+	ids.sort()
+	for pid in ids:
+		if w.pieces[pid].kind == "wall":
+			if t > 0:
+				_w_tier(pid, t, 900.0)
+			t += 1
+	for e in w.enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	await get_tree().create_timer(8.0).timeout
+	var c: Vector3 = at.call(0.0, 11.0)
+	w.player.place(w.player.global_position - f * 3.0 + Vector3(0, 0.0, 0), atan2(f.x, f.z) + PI)
+	w.player.pitch = -0.12
+	await _snap(0)
+	var eye: Vector3 = c + side * 13.0 - f * 3.0
+	eye.y = w.terrain.height_at(eye.x, eye.z) + 0.3
+	w.player.place(eye, atan2(-(c - eye).x, -(c - eye).z))
+	w.player.pitch = -0.1
+	await _snap(1)
+	get_tree().quit()

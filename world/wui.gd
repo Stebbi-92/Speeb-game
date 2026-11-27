@@ -428,6 +428,13 @@ func _release_check(e: InputEvent) -> void:
 			_redraw.call_deferred()
 
 
+## The highest steps of work on arms (Master-worked, Far-forged) are done only at an anvil.
+const ANVIL_FROM := 3
+
+func _anvil_ok(t: int) -> bool:
+	return t < ANVIL_FROM or debug_bench or w.builder.at_station(w.player.global_position, ["anvil"])
+
+
 ## Standing at a bench: near any bench piece (measured flat, so a bench a step up or down still counts),
 ## or near the one this screen was opened at.
 func at_bench() -> bool:
@@ -798,9 +805,8 @@ func set_build_bar(k: String, sel: int) -> void:
 		_build_hint.text = ""
 		return
 	var pc: Dictionary = Items.PIECES[k]
-	var n: int = Items.PIECE_ORDER.size()
-	var prev: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel - 1, n)]].name
-	var next: String = Items.PIECES[Items.PIECE_ORDER[posmod(sel + 1, n)]].name
+	var prev: String = Items.PIECES[Items.PIECE_ORDER[w.builder.step(sel, -1)]].name
+	var next: String = Items.PIECES[Items.PIECE_ORDER[w.builder.step(sel, 1)]].name
 	_build_title.text = "%s" % pc.name
 	_build_hint.text = "[center]%s\n[color=#8d877b]‹ %s      %s      %s ›[/color]\n[color=#8d877b][%s] choose a piece    %s on a wall or floor: build it up to stone, then iron[/color][/center]" % [cost_bb(w.skills.cost(pc.cost)), prev, pc.text, next, Game.key_text("pack"), Game.key_text("interact")]
 
@@ -1453,8 +1459,10 @@ func _arms_side(side: VBoxContainer, a: Dictionary, bench: bool) -> void:
 		side.add_child(_label("%s needs %s." % [WArms.TIERS[bt + 1], Items.iname(WArms.TIER_NEEDS[bt + 1])], 14, DIM))
 	elif ArmsDB.MELEE.has(id) and id in a.blades and bt < WArms.TIERS.size() - 1:
 		var tc: Dictionary = _acost(WArms.tier_cost(bt + 1, id))
-		side.add_child(_secondary("Work on it: %s" % WArms.TIERS[bt + 1], func(): _arms_pay(WArms.tier_cost(bt + 1, id), func(): a.tier[id] = bt + 1), bench and w.stock_has_all(tc)))
+		side.add_child(_secondary("Work on it: %s" % WArms.TIERS[bt + 1], func(): _arms_pay(WArms.tier_cost(bt + 1, id), func(): a.tier[id] = bt + 1), bench and _anvil_ok(bt + 1) and w.stock_has_all(tc)))
 		side.add_child(_cost_line(tc))
+		if not _anvil_ok(bt + 1):
+			side.add_child(_label("%s work is done at an anvil." % WArms.TIERS[bt + 1], 14, DIM))
 	if info.has("guard"):
 		_stat(side, "Turns aside", "%d%%" % int(round(float(info.guard) * 100.0)), clampf(float(info.guard) / 0.25, 0.05, 1.0))
 	if info.has("plate"):
@@ -1551,9 +1559,11 @@ func _gun_view(side: VBoxContainer, a: Dictionary, g: String, bench: bool) -> vo
 		left.add_child(_label("%s needs %s." % [WArms.TIERS[t + 1], Items.iname(WArms.TIER_NEEDS[t + 1])], 14, DIM))
 	elif t < WArms.TIERS.size() - 1:
 		var c: Dictionary = _acost(WArms.tier_cost(t + 1, g))
-		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1, g), func(): a.tier[g] = t + 1), bench and w.stock_has_all(c))
+		var wb := _secondary("Work on it: %s" % WArms.TIERS[t + 1], func(): _arms_pay(WArms.tier_cost(t + 1, g), func(): a.tier[g] = t + 1), bench and _anvil_ok(t + 1) and w.stock_has_all(c))
 		left.add_child(wb)
 		left.add_child(_cost_line(c))
+		if not _anvil_ok(t + 1):
+			left.add_child(_label("%s work is done at an anvil." % WArms.TIERS[t + 1], 14, DIM))
 	# Every part it can take, by place on the gun
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 3)
@@ -4042,6 +4052,7 @@ func _draw_portal() -> void:
 # ------------------------------------------------------------------ the build guide
 
 var _bcat := "Camp"
+const LOCKED_C := Color(0.86, 0.62, 0.42)   ## what a barred piece waits on
 
 
 func _draw_build_guide() -> void:
@@ -4081,16 +4092,21 @@ func _draw_build_guide() -> void:
 				w.builder.toggle()
 				w.player.set_armed(false)
 			w.builder._hint()
-		var fires := int(pc.get("fires", 0))
-		var known: bool = w.has_verb(fires)
-		var sub: String = ("Holds well" if float(pc.hp) >= 600.0 else pc.group) if known else "After fire %d" % fires
-		grid.add_child(_card("pc_" + k, pc.name, sub, DIM, cost, "Build", go, known and w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick))
+		# A piece the world has not opened yet shows greyed, with what opens it (WBuildTiers)
+		var barred := WBuildTiers.why(w, k)
+		var sub: String = ("Holds well" if float(pc.hp) >= 600.0 else pc.group) if barred == "" else barred
+		var card := _card("pc_" + k, pc.name, sub, DIM if barred == "" else LOCKED_C, cost, "Build", go, barred == "" and w.stock_has_all(cost), Items.PIECE_ORDER[w.builder.sel] == k, pick)
+		if barred != "":
+			card.modulate = Color(1, 1, 1, 0.5)
+		grid.add_child(card)
 	if chosen == "":
 		return
 	var pcs: Dictionary = Items.PIECES[chosen]
 	side.add_child(WGlyph.make("pc_" + chosen, 72))
 	side.add_child(_label(pcs.name, 23, PALE))
 	side.add_child(_wrap(pcs.text, 16, Color(PALE, 0.85), 220))
+	if WBuildTiers.why(w, chosen) != "":
+		side.add_child(_wrap("Not yet: %s." % WBuildTiers.why(w, chosen), 16, LOCKED_C, 220))
 	_stat(side, "Strength", str(int(pcs.hp)), clampf(float(pcs.hp) / 900.0, 0.05, 1.0))
 	side.add_child(_cost_line(w.skills.cost(pcs.cost)))
 

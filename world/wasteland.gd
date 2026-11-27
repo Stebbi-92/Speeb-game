@@ -1048,6 +1048,14 @@ func _town_plan(k: String) -> Array:
 		return 0.5 * Vector2(w, d).length()
 	var face_c := func(off: Vector2) -> float:
 		return atan2(-off.x, -off.y)
+	# And whether what stands there, as it is drawn (a house with its eaves and the porch before its door),
+	# keeps clear of what is already put up: the rounder test above lets eaves and porches run into a neighbour
+	var clear := func(cand: Dictionary) -> bool:
+		var mine := _plan_rect(cand)
+		for o in out:
+			if not Geometry2D.intersect_polygons(mine, _plan_rect(o)).is_empty():
+				return false
+		return true
 	# The inn first, toward the middle
 	var inn_fr: float = foot.call(3 * G, 2 * G)
 	# The inn first, toward the middle, on the side the town leans to (or across from it)
@@ -1058,7 +1066,7 @@ func _town_plan(k: String) -> Array:
 		var off := Vector2(cos(a), sin(a)) * inn_d
 		if fits.call(off, inn_fr - 1.0):
 			out.append({"kind": "inn", "off": off, "yaw": face_c.call(off), "w": 3, "d": 2, "fr": inn_fr - 1.0})
-			break
+			break   # (the first thing put up: nothing to keep clear of)
 	# Then the houses, of a few sizes
 	var want := 8 + rr.randi() % 4
 	if style in ["crescent", "quarters"]:
@@ -1124,7 +1132,10 @@ func _town_plan(k: String) -> Array:
 			continue
 		if not fits.call(off, fr):
 			continue
-		out.append({"kind": "house", "off": off, "yaw": yaw, "w": w, "d": d, "fr": fr})
+		var hb := {"kind": "house", "off": off, "yaw": yaw, "w": w, "d": d, "fr": fr}
+		if not clear.call(hb):
+			continue
+		out.append(hb)
 	# A town too tight for its way still has its homes: the rest put up wherever they fit
 	var homes := out.filter(func(o): return o.kind == "house").size()
 	tries = 0
@@ -1136,8 +1147,10 @@ func _town_plan(k: String) -> Array:
 		var a := rr.randf() * TAU
 		var off := Vector2(cos(a), sin(a)) * r * rr.randf_range(0.3, 0.75)
 		if fits.call(off, fr):
-			out.append({"kind": "house", "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.5, 0.5), "w": w, "d": d, "fr": fr})
-			homes += 1
+			var hb := {"kind": "house", "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.5, 0.5), "w": w, "d": d, "fr": fr}
+			if clear.call(hb):
+				out.append(hb)
+				homes += 1
 	# And what a town has besides: a smithy, a well, market stalls, a watchtower by the wall
 	var extras := [["smithy", 3.2], ["well", 1.6], ["stall", 1.8], ["stall", 1.8], ["tower", 1.8]]
 	if s.get("far", false) or s.has("shore"):
@@ -1147,8 +1160,9 @@ func _town_plan(k: String) -> Array:
 		var ya := town_lean(k) + PI + (1.15 if style == "quarters" else 0.0)
 		for t in 8:
 			var off := Vector2(cos(ya), sin(ya)) * r * (0.5 - t * 0.03)
-			if fits.call(off, 4.0):
-				out.append({"kind": "yard", "off": off, "yaw": face_c.call(off), "w": 1, "d": 1, "fr": 4.0})
+			var yb := {"kind": "yard", "off": off, "yaw": face_c.call(off), "w": 1, "d": 1, "fr": 4.0}
+			if fits.call(off, 4.0) and clear.call(yb):
+				out.append(yb)
 				break
 			ya += 0.25 * (1.0 if t % 2 == 0 else -1.0) * (t + 1)
 	for ex in extras:
@@ -1169,9 +1183,33 @@ func _town_plan(k: String) -> Array:
 			else:
 				ok = fits.call(off, float(ex[1]))
 			if ok:
-				out.append({"kind": ex[0], "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.3, 0.3), "w": 1, "d": 1, "fr": float(ex[1])})
-				break
+				var eb := {"kind": ex[0], "off": off, "yaw": face_c.call(off) + rr.randf_range(-0.3, 0.3), "w": 1, "d": 1, "fr": float(ex[1])}
+				if clear.call(eb):
+					out.append(eb)
+					break
 	return out
+
+
+## The ground a planned building covers as it is drawn: a house or inn with its eaves (half a pace out)
+## and the porch before its door (two paces), a little room kept about it; the rest a square of their reach.
+static func _plan_rect(b: Dictionary) -> PackedVector2Array:
+	var G := WBuilder.GRID
+	var hw: float
+	var front: float
+	var back: float
+	if b.kind in ["house", "inn"]:
+		hw = float(b.w) * G * 0.5 + 0.6
+		front = float(b.d) * G * 0.5 + 2.1
+		back = float(b.d) * G * 0.5 + 0.6
+	else:
+		hw = {"smithy": 2.7, "well": 1.2, "stall": 1.6, "tower": 1.6, "yard": 4.0}.get(b.kind, float(b.fr) * 0.8)
+		front = hw
+		back = hw
+	var pts := PackedVector2Array()
+	for q in [Vector2(-hw, -back), Vector2(hw, -back), Vector2(hw, front), Vector2(-hw, front)]:
+		var v := Vector3(q.x, 0, q.y).rotated(Vector3.UP, float(b.yaw))
+		pts.append((b.off as Vector2) + Vector2(v.x, v.z))
+	return pts
 
 
 ## Footpaths worn from the gates through the middle, and from each door to the fire.
@@ -1194,7 +1232,10 @@ func _town_paths(k: String) -> void:
 			continue
 		# From the door (on the house's front) out and on toward the fire
 		var front := Vector2(sin(float(b.yaw)), cos(float(b.yaw)))
-		var door: Vector2 = c + b.off + front * (float(b.d) * WBuilder.GRID * 0.5 + 1.0)
+		var side := Vector2(cos(float(b.yaw)), -sin(float(b.yaw)))
+		# The door is in the middle cell of the front: off the middle of a house two cells wide
+		var door_x := -float(b.w) * WBuilder.GRID * 0.5 + (int(b.w) / 2 + 0.5) * WBuilder.GRID
+		var door: Vector2 = c + b.off + front * (float(b.d) * WBuilder.GRID * 0.5 + 1.0) + side * door_x
 		var mid: Vector2 = door + front * 2.5
 		terrain.add_road(PackedVector2Array([door, mid, c + (mid - c).normalized() * 3.0]), 2.0)
 
@@ -1219,6 +1260,12 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		for cz in [-0.5, 0.5]:
 			var q := at + Vector3(cx * W, 0, cz * D).rotated(Vector3.UP, b.yaw)
 			hi = maxf(hi, terrain.height_at(q.x, q.z))
+	# ...and its footing reaches down to the lowest ground under its edges, so no side hangs in the air
+	var lo := hi
+	for cx in [-0.5, 0.0, 0.5]:
+		for cz in [-0.5, 0.0, 0.5]:
+			var q := at + Vector3(cx * (W + 0.4), 0, cz * (D + 0.4)).rotated(Vector3.UP, b.yaw)
+			lo = minf(lo, terrain.height_at(q.x, q.z))
 	n.position = Vector3(at.x, hi + 0.05, at.z)
 	n.rotation.y = b.yaw
 	var rr := RandomNumberGenerator.new()
@@ -1231,11 +1278,13 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	var roof_kind := rr.randi() % 4   # 0 thatch, 1 plank, 2 flat with a parapet, 3 iron lean-to
 	if inn:
 		roof_kind = 1
-	# The floor: one slab, its top at the house's ground
+	# The floor: one slab, its top at the house's ground, a plinth a hand wider than the walls' footings
+	# (so no face of the two lies in one plane) and deep enough to meet the land under every edge
 	var fb := StaticBody3D.new()
 	fb.collision_layer = 1
 	n.add_child(fb)
-	builder._part(n, fb, Vector3(W, 1.0, D), Vector3(0, -0.5, 0), _m.stone if tier else _m.darkwood, false)
+	var deep := maxf(1.0, n.position.y - lo + 0.3)
+	builder._part(n, fb, Vector3(W + 0.4, deep, D + 0.4), Vector3(0, -0.02 - deep * 0.5, 0), _m.stone if tier else _m.darkwood, false)
 	builder._kit(n, "planks", Vector3(W, 1.0, D), Vector3(0, -0.02, 0), 0.0)
 	# The walls, cell by cell; the door in the middle of the front, toward the fire
 	var door_i := int(b.w) / 2
@@ -1247,50 +1296,73 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 	town_doors.append([outside, n.position + Vector3(door_x, 0.2, D * 0.5 - G * 0.6).rotated(Vector3.UP, b.yaw)])
 	if lip > 0.12:
 		var run := sqrt(ramp_len * ramp_len + lip * lip)
-		var ramp := builder._part(n, fb, Vector3(G * 0.8, 0.2, run), Vector3(door_x, -lip * 0.5 - 0.1, D * 0.5 + ramp_len * 0.5), _m.darkwood, false)
 		var tilt := atan2(lip, ramp_len)
+		# Where the land also falls across the ramp, it is deeper below, so neither edge hangs over the ground
+		var extra := 0.0
+		for rz in [D * 0.5, D * 0.5 + ramp_len]:
+			var mid := _ground_under(n, Vector3(door_x, 0, rz))
+			for rx in [-G * 0.4, G * 0.4]:
+				extra = maxf(extra, mid - _ground_under(n, Vector3(door_x + rx, 0, rz)))
+		var thick := 0.2 + extra
+		var down := Vector3(0, cos(tilt), sin(tilt)) * (thick - 0.2) * 0.5
+		var ramp := builder._part(n, fb, Vector3(G * 0.8, thick, run), Vector3(door_x, -lip * 0.5 - 0.1, D * 0.5 + ramp_len * 0.5) - down, _m.darkwood, false)
 		if ramp is Node3D:
 			(ramp as Node3D).rotation.x = tilt
 		var rcs := fb.get_child(fb.get_child_count() - 1)
 		if rcs is CollisionShape3D:
 			(rcs as CollisionShape3D).rotation.x = tilt
+	# Each piece turned with its outer face (shutters, sill) out: the back walls a half turn, each side
+	# a quarter turn its own way. The side walls' end cells reach out over the corner, closing it.
 	for i in int(b.w):
 		var x := -W * 0.5 + (i + 0.5) * G
 		_town_wall(n, "doorway" if i == door_i else ("window" if rr.randf() < 0.6 else "wall"), Vector3(x, 0, D * 0.5), 0.0, tier)
-		_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, 0, -D * 0.5), 0.0, tier)
+		_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, 0, -D * 0.5), PI, tier)
 	for j in int(b.d):
 		var z := -D * 0.5 + (j + 0.5) * G
 		for side in [-1.0, 1.0]:
-			_town_wall(n, "window" if rr.randf() < 0.35 else "wall", Vector3(side * W * 0.5, 0, z), PI * 0.5, tier)
+			_town_wall(n, "window" if rr.randf() < 0.35 else "wall", Vector3(side * W * 0.5, 0, z), PI * 0.5 * side, tier, true, _corner_end(j, int(b.d), side))
 	# A ceiling; a second storey for some (seen from without, a loft within)
 	builder._part(n, fb, Vector3(W + 0.3, 0.12, D + 0.3), Vector3(0, 3.06, 0), _m.darkwood, false)
 	var top := 3.12
 	if tall:
+		# The upper storey stands on the floor between: its walls have no footing to hang down through it
 		for i in int(b.w):
 			var x := -W * 0.5 + (i + 0.5) * G
-			_town_wall(n, "window" if rr.randf() < 0.5 else "wall", Vector3(x, top, D * 0.5), 0.0, tier)
-			_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, top, -D * 0.5), 0.0, tier)
+			_town_wall(n, "window" if rr.randf() < 0.5 else "wall", Vector3(x, top, D * 0.5), 0.0, tier, false)
+			_town_wall(n, "window" if rr.randf() < 0.4 else "wall", Vector3(x, top, -D * 0.5), PI, tier, false)
 		for j in int(b.d):
 			var z := -D * 0.5 + (j + 0.5) * G
 			for side in [-1.0, 1.0]:
-				_town_wall(n, "wall", Vector3(side * W * 0.5, top, z), PI * 0.5, tier)
+				_town_wall(n, "wall", Vector3(side * W * 0.5, top, z), PI * 0.5 * side, tier, false, _corner_end(j, int(b.d), side))
 		builder._part(n, fb, Vector3(W + 0.3, 0.12, D + 0.3), Vector3(0, top + 3.06, 0), _m.darkwood, false)
 		top += 3.12
-	_town_roof(n, fb, roof_kind, W, D, top, rr)
+	var roof_h := _town_roof(n, fb, roof_kind, W, D, top, rr)
 	# A porch over the door, a chimney with its smoke, a lantern, and what is left out in the yard
 	var front := D * 0.5
 	if rr.randf() < (1.0 if inn else 0.45):
 		var pw: float = minf(W - 0.4, 4.2)
+		# Its roof falls away from the wall, and its posts stand on the ground and carry it
+		const TILT := 0.18
+		var post_top := 2.62 - 0.7 * tan(TILT) - 0.05 / cos(TILT)
 		for side in [-1.0, 1.0]:
-			builder._part(n, fb, Vector3(0.16, 2.5, 0.16), Vector3(side * pw * 0.5, 1.25, front + 1.6), _m.darkwood, false)
+			var pp := Vector3(side * pw * 0.5, 0, front + 1.6)
+			var foot := minf(0.0, _ground_under(n, pp)) - 0.1
+			builder._part(n, fb, Vector3(0.16, post_top - foot, 0.16), Vector3(pp.x, (post_top + foot) * 0.5, pp.z), _m.darkwood, false)
 		var aw := builder._part(n, null, Vector3(pw + 0.5, 0.1, 1.9), Vector3(0, 2.62, front + 0.9), _m.thatch if roof_kind == 0 else _m.darkwood, false)
-		aw.rotation.x = -0.18
+		aw.rotation.x = TILT
 	if rr.randf() < 0.4 or inn:
 		var cx := rr.randf_range(-W * 0.3, W * 0.3)
-		builder._part(n, fb, Vector3(0.7, 2.2, 0.7), Vector3(cx, top + 0.9, -D * 0.25), _m.stone, false)
+		var cz := -D * 0.25
+		# Standing on the ceiling and up through the roof, its top well clear of the roof where it rises
+		var over := 0.0
+		for q in [Vector2(-0.35, -0.35), Vector2(0.35, -0.35), Vector2(-0.35, 0.35), Vector2(0.35, 0.35)]:
+			over = maxf(over, float(roof_h.call(cx + q.x, cz + q.y)))
+		# (and over the ridge, as a chimney should be, that its smoke clears the roof)
+		var ch := maxf(maxf(over + 0.7, float(roof_h.call(cx, 0.0)) + 0.3), 1.6)
+		builder._part(n, fb, Vector3(0.7, ch + 0.06, 0.7), Vector3(cx, top + (ch - 0.06) * 0.5, cz), _m.stone, false)   # its foot in the ceiling
 		if _town_smokes < 3:
 			_town_smokes += 1
-			_smoke(n.to_global(Vector3(cx, top + 2.2, -D * 0.25)) if n.is_inside_tree() else n.position + Vector3(0, top + 2.2, 0))
+			_smoke(n.position + Vector3(cx, top + ch + 0.2, cz).rotated(Vector3.UP, n.rotation.y))
 	var lan := builder._part(n, null, Vector3(0.18, 0.26, 0.18), Vector3(G * 0.5 + 0.2 - W * 0.5 + int(b.w) / 2 * G + 0.75, 2.2, front + 0.18), _m.ember, false)
 	lan.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for i in rr.randi() % 4:
@@ -1299,6 +1371,9 @@ func _town_house(k: String, c: Vector3, b: Dictionary) -> void:
 		at2.x = clampf(at2.x, -W * 0.5 - 0.9, W * 0.5 + 0.9)
 		if absf(at2.x) < W * 0.5 + 0.4:
 			at2.x = signf(at2.x if at2.x != 0.0 else 1.0) * (W * 0.5 + 0.7)
+		# on the land beside the house, not at its floor's height (where it falls away, at its lowest under the thing)
+		at2.y = minf(minf(_ground_under(n, at2 + Vector3(0.4, 0, 0)), _ground_under(n, at2 - Vector3(0.4, 0, 0))),
+			minf(_ground_under(n, at2 + Vector3(0, 0, 0.4)), _ground_under(n, at2 - Vector3(0, 0, 0.4))))
 		WDress.yard(n, k, at2, rr)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(1.0, 0.72, 0.42) if rr.randf() < 0.7 else Color(1.0, 0.82, 0.6)
@@ -1332,7 +1407,8 @@ var _town_smokes := 0
 
 
 ## A house's roof: thatch or planks pitched over it, a flat top behind a low parapet, or a rusted lean-to.
-func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top: float, rr: RandomNumberGenerator) -> void:
+## Returns how high the roof's top stands over (x, z), above `top`, for what must clear it (a chimney).
+func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top: float, rr: RandomNumberGenerator) -> Callable:
 	match kind:
 		0, 1:
 			var roof := MeshInstance3D.new()
@@ -1349,14 +1425,49 @@ func _town_roof(n: Node3D, fb: StaticBody3D, kind: int, W: float, D: float, top:
 			if along_x:
 				roof.rotation.y = PI * 0.5
 			n.add_child(roof)
+			var half := ((D if along_x else W) + 1.0) * 0.5
+			return func(x: float, z: float) -> float: return pitch * clampf(1.0 - absf(z if along_x else x) / half, 0.0, 1.0)
 		2:
 			builder._part(n, fb, Vector3(W + 0.3, 0.2, D + 0.3), Vector3(0, top + 0.1, 0), _m.stone, false)
 			for side in [-1.0, 1.0]:
 				builder._part(n, fb, Vector3(W + 0.3, 0.6, 0.25), Vector3(0, top + 0.5, side * (D * 0.5 + 0.03)), _m.stone, false)
-				builder._part(n, fb, Vector3(0.25, 0.6, D + 0.3), Vector3(side * (W * 0.5 + 0.03), top + 0.5, 0), _m.stone, false)
-		3:
-			var sheet := builder._part(n, null, Vector3(W + 0.8, 0.12, D + 1.0), Vector3(0, top + 0.55, 0), _m.rust, false)
-			sheet.rotation.x = 0.28 * (1.0 if rr.randf() < 0.5 else -1.0)
+				# The side parapets run between the front and back ones, not through them
+				builder._part(n, fb, Vector3(0.25, 0.6, D - 0.19), Vector3(side * (W * 0.5 + 0.03), top + 0.5, 0), _m.stone, false)
+			return func(_x: float, _z: float) -> float: return 0.8
+		_:
+			# A lean-to: the roof rises from one long wall to the other over plank gables that close its
+			# sides, the rusted sheet laid on the slope with its eaves out over the walls
+			var hs := 1.0 if rr.randf() < 0.5 else -1.0   # which side stands high
+			var span := D + 0.3
+			var rise := span * tan(0.2)
+			var wedge := MeshInstance3D.new()
+			var pm := PrismMesh.new()
+			pm.size = Vector3(span, rise, W + 0.3)
+			pm.left_to_right = 0.0 if hs > 0.0 else 1.0   # its top edge over the high wall (the prism's x is the house's -z)
+			wedge.mesh = pm
+			wedge.material_override = _m.darkwood
+			wedge.position = Vector3(0, top + rise * 0.5, 0)
+			wedge.rotation.y = PI * 0.5
+			n.add_child(wedge)
+			var lo_e := Vector3(0, top, -hs * span * 0.5)
+			var hi_e := Vector3(0, top + rise, hs * span * 0.5)
+			var u := (hi_e - lo_e).normalized()
+			var up := Vector3(0, absf(u.z), -u.y * signf(u.z))
+			var sheet := builder._part(n, null, Vector3(W + 0.8, 0.1, (hi_e - lo_e).length() + 0.9), Vector3.ZERO, _m.rust, false)
+			sheet.transform = Transform3D(Basis(Vector3.RIGHT, up, u), (lo_e + hi_e) * 0.5 - u * 0.15 + up * 0.05)
+			return func(_x: float, z: float) -> float: return rise * clampf(0.5 + hs * z / span, 0.0, 1.0) + 0.1
+
+
+## How high the land stands under a point of a house (its own space), against the house's floor.
+func _ground_under(n: Node3D, local: Vector3) -> float:
+	var g := n.position + Vector3(local.x, 0, local.z).rotated(Vector3.UP, n.rotation.y)
+	return terrain.height_at(g.x, g.z) - n.position.y
+
+
+## Which way a side wall's cell reaches over the corner: its end cells do, toward their end of the house.
+func _corner_end(j: int, cells: int, side: float) -> float:
+	var e := -1.0 if j == 0 else (1.0 if j == cells - 1 else 0.0)
+	return -e * side
 
 
 ## What a town has besides houses: a smithy with its glowing forge, a well, market stalls under
@@ -1375,11 +1486,12 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 	match str(b.kind):
 		"smithy":
 			# An open shed: four posts and a roof, the forge at the back, the anvil before it
+			# The posts reach from the ground up to the sloping roof's underside
 			for p in [Vector2(-2.2, -1.8), Vector2(2.2, -1.8), Vector2(-2.2, 1.8), Vector2(2.2, 1.8)]:
-				builder._part(n, fb, Vector3(0.2, 3.0, 0.2), Vector3(p.x, 1.5, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.2, 0.2), p, 3.1 - p.y * tan(0.15) - 0.07 / cos(0.15), _m.darkwood)
 			var rf := builder._part(n, null, Vector3(5.2, 0.14, 4.4), Vector3(0, 3.1, 0), _m.rust, false)
 			rf.rotation.x = 0.15
-			builder._part(n, fb, Vector3(1.6, 1.0, 1.2), Vector3(0, 0.5, -1.4), _m.stone, false)
+			_stand(n, fb, Vector2(1.6, 1.2), Vector2(0, -1.4), 1.0, _m.stone)
 			var coals := builder._part(n, null, Vector3(1.1, 0.12, 0.8), Vector3(0, 1.04, -1.4), _m.ember, false)
 			coals.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			builder._part(n, fb, Vector3(0.5, 2.6, 0.5), Vector3(0, 2.3, -1.6), _m.darkstone, false)
@@ -1389,12 +1501,12 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			fl.omni_range = 7.0
 			fl.position = Vector3(0, 1.4, -1.0)
 			n.add_child(fl)
-			builder._part(n, fb, Vector3(0.35, 0.6, 0.35), Vector3(0.4, 0.3, 0.4), _m.darkwood, false)
+			_stand(n, fb, Vector2(0.35, 0.35), Vector2(0.4, 0.4), 0.6, _m.darkwood)
 			builder._part(n, fb, Vector3(0.7, 0.22, 0.3), Vector3(0.4, 0.71, 0.4), _m.iron, false)
-			WDress.kp(n, "scan", "barrel_03", Vector3(-1.7, 0, 1.2), rr.randf(), 1.0, true)
-			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0, 1.0), 0.2, 2.4)
-			WDress.kp(n, "castle", "tree-log", Vector3(1.8, 0.6, 1.0), -0.1, 2.4)
-			WDress.kp(n, "pirate", "cannon-ball", Vector3(-1.2, 0, -0.4), 0.0, 0.5)
+			WDress.kp(n, "scan", "barrel_03", _on_ground(n, Vector3(-1.7, 0, 1.2)), rr.randf(), 1.0, true)
+			WDress.kp(n, "castle", "tree-log", _on_ground(n, Vector3(1.8, 0, 1.0)), 0.2, 2.4)
+			WDress.kp(n, "castle", "tree-log", _on_ground(n, Vector3(1.8, 0.6, 1.0)), -0.1, 2.4)
+			WDress.kp(n, "pirate", "cannon-ball", _on_ground(n, Vector3(-1.2, 0, -0.4)), 0.0, 0.5)
 		"well":
 			var ring := MeshInstance3D.new()
 			var cm := CylinderMesh.new()
@@ -1407,28 +1519,30 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 			n.add_child(ring)
 			builder._part(n, fb, Vector3(2.0, 0.9, 2.0), Vector3(0, 0.45, 0), null, false)
 			builder._part(n, null, Vector3(1.6, 0.05, 1.6), Vector3(0, 0.8, 0), _m.cold, false)
+			# Its posts carry the little roof (its underside at 2.46), the windlass beam between them
 			for side in [-1.0, 1.0]:
-				builder._part(n, fb, Vector3(0.15, 2.2, 0.15), Vector3(side * 0.9, 1.1, 0), _m.darkwood, false)
-			builder._part(n, null, Vector3(2.1, 0.14, 0.14), Vector3(0, 2.15, 0), _m.darkwood, false)
-			var rf := builder._part(n, null, Vector3(2.4, 0.08, 1.6), Vector3(0, 2.5, 0), _m.thatch, false)
-			rf.rotation.z = 0.0
+				_stand(n, fb, Vector2(0.15, 0.15), Vector2(side * 0.9, 0), 2.46, _m.darkwood)
+			builder._part(n, null, Vector3(1.65, 0.14, 0.14), Vector3(0, 2.15, 0), _m.darkwood, false)
+			builder._part(n, null, Vector3(2.4, 0.08, 1.6), Vector3(0, 2.5, 0), _m.thatch, false)
 		"stall":
 			var cloths := [Color(0.5, 0.18, 0.12), Color(0.55, 0.45, 0.2), Color(0.25, 0.32, 0.36), Color(0.4, 0.38, 0.3)]
 			var cm := mat(cloths[rr.randi() % cloths.size()], 1.0, 0.3, 1.0)
+			# Posts up to the tilted cloth's underside
 			for p in [Vector2(-1.3, -0.8), Vector2(1.3, -0.8), Vector2(-1.3, 0.8), Vector2(1.3, 0.8)]:
-				builder._part(n, fb, Vector3(0.12, 2.3, 0.12), Vector3(p.x, 1.15, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.12, 0.12), p, 2.35 + p.y * tan(0.12) - 0.03 / cos(0.12), _m.darkwood)
 			var awn := builder._part(n, null, Vector3(3.0, 0.06, 2.1), Vector3(0, 2.35, 0), cm, false)
 			awn.rotation.x = -0.12
-			builder._part(n, fb, Vector3(2.6, 0.9, 0.9), Vector3(0, 0.45, 0.3), _m.wood, false)
+			_stand(n, fb, Vector2(2.4, 0.9), Vector2(0, 0.3), 0.9, _m.wood)
 			WDress.wares(n, k, Vector3(0, 0.9, 0.3), rr)
-			WDress.kp(n, "town", "stall-stool", Vector3(0.6, 0, -0.5), rr.randf(), 2.4)
+			WDress.kp(n, "town", "stall-stool", _on_ground(n, Vector3(0.6, 0, -0.5)), rr.randf(), 2.4)
 		"tower":
 			for p in [Vector2(-1.1, -1.1), Vector2(1.1, -1.1), Vector2(-1.1, 1.1), Vector2(1.1, 1.1)]:
-				builder._part(n, fb, Vector3(0.24, 6.4, 0.24), Vector3(p.x, 3.2, p.y), _m.darkwood, false)
+				_stand(n, fb, Vector2(0.24, 0.24), p, 6.4, _m.darkwood)
 			builder._part(n, fb, Vector3(2.8, 0.18, 2.8), Vector3(0, 5.2, 0), _m.wood, false)
 			for side in [-1.0, 1.0]:
 				builder._part(n, fb, Vector3(2.8, 0.8, 0.1), Vector3(0, 5.7, side * 1.35), _m.wood, false)
-				builder._part(n, fb, Vector3(0.1, 0.8, 2.8), Vector3(side * 1.35, 5.7, 0), _m.wood, false)
+				# the side boards between the front and back ones, not through their ends
+				builder._part(n, fb, Vector3(0.1, 0.8, 2.6), Vector3(side * 1.35, 5.7, 0), _m.wood, false)
 			var tr := MeshInstance3D.new()
 			var pm := PrismMesh.new()
 			pm.size = Vector3(3.2, 1.2, 3.2)
@@ -1446,32 +1560,60 @@ func _town_extra(k: String, c: Vector3, b: Dictionary) -> void:
 		"yard":
 			# The open side of the town: a rail fence about worked ground, its gap toward the fire, and stores
 			var half := 3.6
+			# One post at each spot: the corners are shared by two sides of the fence
+			var posts := {}
 			for i in 9:
 				var t := -half + i * half * 2.0 / 8.0
 				for post in [Vector2(t, -half), Vector2(-half, t), Vector2(half, t)]:
-					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(post.x, 0.5, post.y), _m.darkwood, false)
+					posts[post] = true
 				if absf(t) > 1.2:
-					builder._part(n, fb, Vector3(0.14, 1.1, 0.14), Vector3(t, 0.5, half), _m.darkwood, false)
+					posts[Vector2(t, half)] = true
+			for post in posts:
+				_stand(n, fb, Vector2(0.14, 0.14), post, 1.05, _m.darkwood)
 			for h in [0.45, 0.9]:
 				builder._part(n, fb, Vector3(half * 2.0, 0.08, 0.06), Vector3(0, h, -half), _m.wood, false)
 				for side in [-1.0, 1.0]:
-					builder._part(n, fb, Vector3(0.06, 0.08, half * 2.0), Vector3(side * half, h, 0), _m.wood, false)
+					# the side rails stop at the back and front rails, not through them
+					builder._part(n, fb, Vector3(0.06, 0.08, half * 2.0 - 0.06), Vector3(side * half, h, 0), _m.wood, false)
 					builder._part(n, fb, Vector3(half - 1.2, 0.08, 0.06), Vector3(side * (half + 1.2) * 0.5, h, half), _m.wood, false)
 			for row in 5:
 				var furrow := box(Vector3.ZERO, Vector3(half * 1.6, 0.12, 0.45), _m.darkwood, false)
-				_add(n, furrow, Vector3(0, 0.02, -2.4 + row * 1.0))
-			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.0, 0, -1.5), rr.randf() * TAU, 1.2)
-			WDress.kp(n, "scan", "cement_bag", Vector3(half + 1.3, 0, -0.8), rr.randf() * TAU, 1.2)
-			WDress.kp(n, "scan", "wooden_bucket_01", Vector3(-half - 0.8, 0, 1.0), 0.0, 1.0)
-			WDress.kp(n, "scan", "barrel_03", Vector3(-half - 1.0, 0, -1.6), rr.randf() * TAU, 1.0, true)
-			WDress.kp(n, "scan", "old_military_crate", Vector3(-half - 1.1, 0, -0.4), rr.randf() * TAU, 1.2, true)
+				_add(n, furrow, Vector3(0, _ground_under(n, Vector3(0, 0, -2.4 + row * 1.0)) + 0.02, -2.4 + row * 1.0))
+			WDress.kp(n, "scan", "cement_bag", _on_ground(n, Vector3(half + 1.0, 0, -1.5)), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "cement_bag", _on_ground(n, Vector3(half + 1.3, 0, -0.8)), rr.randf() * TAU, 1.2)
+			WDress.kp(n, "scan", "wooden_bucket_01", _on_ground(n, Vector3(-half - 0.8, 0, 1.0)), 0.0, 1.0)
+			WDress.kp(n, "scan", "barrel_03", _on_ground(n, Vector3(-half - 1.0, 0, -1.6)), rr.randf() * TAU, 1.0, true)
+			WDress.kp(n, "scan", "old_military_crate", _on_ground(n, Vector3(-half - 1.1, 0, -0.4)), rr.randf() * TAU, 1.2, true)
 	_fade_far(n, 260.0)
 
 
-func _town_wall(n: Node3D, kind: String, pos: Vector3, yaw: float, tier: int) -> void:
-	var wl := builder._make(kind, false, tier)
+## A point of an extra (its own space) lifted or lowered onto the land there, keeping its height above it.
+func _on_ground(n: Node3D, local: Vector3) -> Vector3:
+	return Vector3(local.x, local.y + _ground_under(n, local), local.z)
+
+
+## A box standing on the land under an extra (a post, a forge, a counter): from just below the ground,
+## wherever it lies at that spot, up to top (in the extra's own space).
+func _stand(n: Node3D, fb: StaticBody3D, size: Vector2, at: Vector2, top: float, m: Material) -> void:
+	var foot := 0.0
+	for c in [Vector2(-0.5, -0.5), Vector2(0.5, -0.5), Vector2(-0.5, 0.5), Vector2(0.5, 0.5)]:
+		foot = minf(foot, _ground_under(n, Vector3(at.x + c.x * size.x, 0, at.y + c.y * size.y)))
+	foot -= 0.1
+	builder._part(n, fb, Vector3(size.x, top - foot, size.y), Vector3(at.x, (top + foot) * 0.5, at.y), m, false)
+
+
+## A kit wall of a town house. reach: a side wall's end cell is drawn a little longer toward that end
+## (along its own x, +1 or -1), over the outer corner the walls' thickness would otherwise leave open.
+func _town_wall(n: Node3D, kind: String, pos: Vector3, yaw: float, tier: int, footing := true, reach := 0.0) -> void:
+	var wl := builder._make(kind, false, tier, footing)
 	wl.position = pos
 	wl.rotation.y = yaw
+	if reach != 0.0:
+		const OVER := 0.16   # the walls' half thickness, and a centimetre proud so no two faces share a plane
+		for c in wl.get_children():
+			if c is Node3D and (c as Node3D).scene_file_path != "":
+				var kit := c as Node3D
+				kit.transform = Transform3D(Basis.from_scale(Vector3((WBuilder.GRID + OVER) / WBuilder.GRID, 1, 1)), Vector3(reach * OVER * 0.5, 0, 0)) * kit.transform
 	n.add_child(wl)
 
 
@@ -1488,7 +1630,7 @@ func _inn_inside(k: String, n: Node3D, W: float, D: float) -> void:
 	var name: String = INN_NAMES[absi(hash(k)) % INN_NAMES.size()]
 	var sign_l := label3d(name, Vector3.ZERO, 0.7, Color(0.95, 0.82, 0.55))
 	sign_l.reparent(n, false)
-	sign_l.position = Vector3(0, 3.9, D * 0.5 + 0.7)
+	sign_l.position = Vector3(0, 3.5, D * 0.5 + 0.17)   # on the wall, between the porch roof and the upper windows
 	sign_l.rotation = Vector3.ZERO
 	sign_l.visibility_range_end = 60.0
 	var ir := RandomNumberGenerator.new()
@@ -2915,7 +3057,8 @@ const TORCH_SAFE := 15.0
 func base_at(p: Vector3, extra := 0.0, fires_only := false) -> int:
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		var r := BASE_SAFE if pc.kind == "campfire" else (TORCH_SAFE if pc.kind == "torch" and not fires_only else -1.0)
+		# A torch, brazier or lamp-post wards its own few paces (its "ward"); only a campfire makes a camp
+		var r := BASE_SAFE if pc.kind == "campfire" else (float(Items.PIECES.get(pc.kind, {}).get("ward", -1.0)) if not fires_only else -1.0)
 		if r > 0.0 and not burning(pid):
 			continue
 		if r > 0.0 and Vector2(p.x, p.z).distance_to(Vector2(pc.pos.x, pc.pos.z)) < r + extra:
@@ -3529,7 +3672,7 @@ func comfort(at: Vector3) -> int:
 	var walls := 0
 	for pid in pieces:
 		var pc: Dictionary = pieces[pid]
-		if pc.kind in ["wall", "window", "doorway", "stonewall", "palisade"] and pc.pos.distance_to(at) < 8.0:
+		if pc.kind in ["wall", "window", "doorway", "stonewall", "palisade", "barricade"] and pc.pos.distance_to(at) < 8.0:
 			walls += 1
 	if walls >= 3:
 		c += 1
@@ -9200,6 +9343,106 @@ func debug_flamer() -> void:
 	var parts := find_children("*", "CPUParticles3D", false, false).size() - smoke0
 	await get_tree().create_timer(0.4).timeout
 	print("FLAMER roaring=%s quiet_after=%s particles=%s" % [roaring, not wpn._flame_snd.playing, parts >= 8])   # twelve jets and their smoke, less any other fire that burns out meanwhile
+	get_tree().quit()
+
+
+## Testing aid: one who stands in a campfire is scorched and set burning; one who stands beside it to
+## warm is not; and the ground a fire bottle leaves burns one too.
+func debug_firetouch() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var at: Vector3 = player.global_position + fwd * 6.0
+	at.y = terrain.height_at(at.x, at.z)
+	var fire := WFire.make(1.1, true, true)
+	add_child(fire)
+	fire.global_position = at + Vector3(0, 0.25, 0)
+	# Beside it, warming: no harm
+	_burn = 0.0
+	player.health = player.max_health
+	player.place(at + fwd.cross(Vector3.UP) * 1.5, 0.0)
+	await get_tree().create_timer(1.5).timeout
+	var beside_ok := player.health >= player.max_health - 0.01 and _burn <= 0.0
+	# In it: scorched, and burning after
+	var s0 := FirePool.scorched
+	player.place(at, 0.0)
+	await get_tree().create_timer(0.4).timeout
+	var h_in := player.health
+	var burning := _burn > 0.0
+	player.place(at + fwd.cross(Vector3.UP) * 3.0, 0.0)
+	await get_tree().create_timer(0.5).timeout
+	var still := _burn > 0.0
+	await get_tree().create_timer(2.0).timeout
+	var out := _burn <= 0.0
+	# A fire bottle's ground burns one as it does a foe
+	_burn = 0.0
+	player.health = player.max_health
+	var s1 := FirePool.scorched
+	Arms.Thrown.burn(self, at + fwd * 10.0, 5.0, 0.0, 3.0, false, true)
+	player.place(at + fwd * 10.0 + fwd.cross(Vector3.UP) * 3.0, 0.0)
+	await get_tree().create_timer(1.0).timeout
+	var pool := FirePool.scorched > s1 and player.health < player.max_health
+	fire.queue_free()
+	print("FIRETOUCH beside_ok=%s hurt=%s burning=%s still=%s out=%s pool=%s" % [beside_ok, h_in < player.max_health and FirePool.scorched > s0, burning, still, out, pool])
+	get_tree().quit()
+
+
+## Testing aid: a fire bottle breaks where it lands, and its fire lies on the ground out to the edge of
+## the harm; a form in it burns and is harmed; a fellow's word of where it broke wins over their bottle
+## here; and all of it is gone again in the end, but for the char.
+func debug_firepool() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var fp: Vector3 = player.global_position + fwd * 8.0
+	fp.y = terrain.height_at(fp.x, fp.z)
+	var foe := spawn_at("hollow", fp)
+	foe.set_physics_process(false)
+	foe.hp = 100000.0
+	var wp: Arms = player.weapon
+	wp.grenade = "incendiary"
+	wp.grenades = 3
+	player.pitch = -0.36
+	await get_tree().process_frame
+	var made0 := FirePool.made
+	wp.throw_grenade()
+	var t := 0.0
+	while FirePool.made == made0 and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	var pool: FirePool = null
+	for c in get_children():
+		if c is FirePool:
+			pool = c
+	var on_ground := pool != null and pool.feet.size() >= 20
+	var reach := 0.0
+	if pool:
+		for f in pool.feet:
+			var w: Vector3 = pool.global_position + f
+			reach = maxf(reach, Vector2(w.x - pool.global_position.x, w.z - pool.global_position.z).length())
+			if absf(w.y - terrain.height_at(w.x, w.z)) > 0.35:
+				on_ground = false
+	await get_tree().create_timer(2.0, false).timeout
+	var burning := foe.has_meta("ablaze")
+	var harmed := foe.hp < 100000.0
+	# A fellow's bottle, still flying here when their word comes, gives way to it
+	var shown := Arms.Thrown.make(self, "fire", fp + Vector3(3, 5, 0), Vector3.ZERO, true)
+	var made1 := FirePool.made
+	net_fx(0, "firepool", fp + Vector3(3, 0.25, 0), Vector3(5.0, 7.0, 0))
+	await get_tree().create_timer(2.6, false).timeout
+	var gave_way := not is_instance_valid(shown) and FirePool.made == made1 + 1
+	await get_tree().create_timer(13.0, false).timeout
+	var left := 0
+	for c in get_children():
+		if c is FirePool:
+			left += c.get_child_count()
+	print("FIREPOOL burst=%.2f on_ground=%s reach=%.1f burning=%s harmed=%s gave_way=%s live=%d left=%d foe_cool=%s" % [t, on_ground, reach, burning, harmed, gave_way, FirePool.live, left, not foe.has_meta("ablaze")])
 	get_tree().quit()
 
 
