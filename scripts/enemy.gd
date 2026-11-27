@@ -1082,13 +1082,13 @@ func _spider_move(delta: float, p: Node3D, dist: float, frozen: bool) -> void:
 			_cry("skitter" if randf() < 0.5 else "critter_%d" % (randi() % 3), -2)
 	if kind == "howler":
 		_howl_cd -= delta
-		if _howl_cd <= 0.0 and dist < 18.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+		if _howl_cd <= 0.0 and dist < 18.0 and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 			_howl_cd = randf_range(5.0, 7.0)
 			_howl(p)
-	if kind == "elite" and _attack_cd <= 0.0 and dist < 22.0 and dist > 4.0 and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+	if kind == "elite" and _attack_cd <= 0.0 and dist < 22.0 and dist > 4.0 and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 		_attack_cd = randf_range(2.0, 3.0)
 		for k in [-0.2, 0.0, 0.2]:
-			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3, 0) - global_position).rotated(Vector3.UP, k))
+			_spit(global_position + Vector3(0, 0.8, 0) + (p.global_position + Vector3(0, 1.3 - _low(p), 0) - global_position).rotated(Vector3.UP, k))
 		return
 	var reach: float = 1.2 + spec.radius
 	if _charge > 0.0:
@@ -3001,7 +3001,7 @@ func _do_way(w: String, p: Node3D) -> void:
 			get_tree().create_timer(0.55, false).timeout.connect(func():
 				if not _alive or not is_instance_valid(p):
 					return
-				var target := p.global_position + Vector3(0, 1.2, 0)
+				var target := p.global_position + Vector3(0, 1.2 - _low(p), 0)
 				for k in ([-0.4, -0.2, 0.0, 0.2, 0.4] if _wroth else [-0.3, -0.15, 0.0, 0.15, 0.3]):
 					_spit(global_position + (target - global_position).rotated(Vector3.UP, k)))
 		"charge":
@@ -3337,7 +3337,7 @@ class Bolt extends Area3D:
 ## How the Unlit and the dead move and fight. Melee foes close in and spread around their prey
 ## instead of queueing; a gunman keeps its distance, draws a bead and fires in bursts, reloads, and
 ## backs off when badly hurt; the Lost Vigil drifts through the air.
-## Whether it can see the pilgrim: near enough (less at night, or treading softly), in front of it
+## Whether it can see the pilgrim: near enough (less at night, or crouched), in front of it
 ## (or very close), and nothing in the way.
 func sees(p: Node3D) -> bool:
 	var to := p.global_position - global_position
@@ -3345,8 +3345,8 @@ func sees(p: Node3D) -> bool:
 	var reach := 48.0 if spec.get("role", "") == "gun" else 34.0
 	if level.get("night"):
 		reach *= 0.6
-	if p == level.player and Game.held("soft"):
-		reach *= 0.55
+	if (p == level.player and Game.held("soft")) or p.get("crouched") == true:
+		reach *= 0.55   # a friend crouching far off counts too
 	if p == level.player and level.has_method("power_k"):
 		reach *= 1.0 - 0.45 * level.power_k("hush")
 	if d > reach:
@@ -3355,10 +3355,17 @@ func sees(p: Node3D) -> bool:
 	var flat := Vector3(to.x, 0, to.z).normalized()
 	if d > 6.0 and fwd.dot(flat) < 0.2:
 		return false
-	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3, 0))
+	# It looks for the chest, lower when crouched: a low wall, a rock or a crate hides one crouched behind it
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.8, 0), p.global_position + Vector3(0, 1.3 - _low(p), 0))
 	q.exclude = [get_rid(), p.get_rid()] if p is CollisionObject3D else [get_rid()]
 	q.collision_mask = 1
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## How much lower one is for crouching (0 standing): where foes aim and look.
+static func _low(p: Node3D) -> float:
+	var d = p.get("crouch_drop")
+	return float(d) if d != null else 0.0
 
 
 ## A beacon's attackers come from afar at a run, and slow to their fighting pace once they close in.
@@ -3840,14 +3847,14 @@ func _gun_tick(delta: float, p: Node3D, dist: float) -> void:
 			elif _burst == 0:
 				_attack_cd = randf_range(1.4, 2.4)
 		return
-	if _attack_cd <= 0.0 and dist < float(spec.get("sight", 45.0)) and _can_see(p.global_position + Vector3(0, 1.3, 0)):
+	if _attack_cd <= 0.0 and dist < float(spec.get("sight", 45.0)) and _can_see(p.global_position + Vector3(0, 1.3 - _low(p), 0)):
 		_aim = float(spec.get("aim", 0.75))
 		level.shared("_w_glint", [net_id])
 
 
 func _shoot_at(p: Node3D, dist: float) -> void:
 	var from: Vector3 = _fb.muzzle.global_position if _fb and _fb.muzzle else global_position + Vector3(0, 0.6, 0)
-	var at := p.global_position + Vector3(0, 1.2, 0)
+	var at := p.global_position + Vector3(0, 1.2 - _low(p), 0)
 	var moving := 0.0
 	if p is CharacterBody3D:
 		moving = Vector2(p.velocity.x, p.velocity.z).length()
@@ -3862,7 +3869,7 @@ func _shoot_at(p: Node3D, dist: float) -> void:
 	if pellets > 1:
 		# A shotgun: a spray of shot, hard close up and thin far off
 		level.sfx("shotgun", Arms.shot_db("shotgun") + Arms.FOE_DB, from, 0.95)   # foes' guns are as loud as their round
-		var aim_at := p.global_position + Vector3(0, 1.1, 0)
+		var aim_at := p.global_position + Vector3(0, 1.1 - _low(p), 0)
 		for i in pellets:
 			var sp := aim_at + Vector3(randf_range(-1, 1), randf_range(-0.6, 0.6), randf_range(-1, 1)) * (0.15 + dist * 0.06)
 			var pb := Bolt.new()

@@ -540,6 +540,7 @@ func shot_spread() -> float:
 	if s.mode in ["auto", "spin"]:
 		spread *= 1.0 + _climb * 0.6
 	spread *= 1.0 + _bloom * (1.0 - 0.8 * _aim)
+	spread *= player.steady()   # crouched and still, the gun holds a little truer
 	return spread
 
 
@@ -953,6 +954,7 @@ func sway_amp(scoped: bool) -> float:
 	var sk = _skills()
 	if sk:
 		amp *= (1.0 - 0.055 * sk.use_level(g)) * WSkills.shot_sway(sk.shot_level())
+	amp *= player.steady()
 	return amp
 
 
@@ -1184,6 +1186,7 @@ func _try_fire() -> void:
 	_ui()
 	_cool = float(s.rate)
 	var steady := 0.65 if fitted("foregrip") else 1.0
+	steady *= 1.0 - 0.15 * player.crouch_k   # crouched, it kicks a little less
 	_kick = minf(1.0, _kick + float(s.kick) * (0.35 if s.mode in ["auto", "spin"] else 1.0))
 	player.shake(0.18 * float(s.kick) * (1.0 - 0.5 * _aim) * steady)
 	var climb := 0.045 * float(s.kick) * (1.0 - 0.5 * _aim) * steady

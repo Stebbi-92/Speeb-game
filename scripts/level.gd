@@ -2286,7 +2286,7 @@ func _net_tick(delta: float) -> void:
 			r.current() if r and player.armed else "", player.armed, r.lantern_lit if r else false,
 			player.weapon.gun() if player.weapon else "shotgun",
 			Game.mounts_of(player.weapon.gun()) if player.weapon else [],
-			_cat_pose(), _smoking_now()])
+			_cat_pose(), _smoking_now(), player.crouched])
 	if Net.is_host():
 		_foes_t -= delta
 		if _foes_t <= 0.0:
@@ -3085,6 +3085,97 @@ func debug_heldshot() -> void:
 		var yaw: float = player.yaw + PI + [0.0, 1.57, 0.8, 1.57, -1.57][i % 5]
 		c.pose([at, yaw, [0.0, 0.0, 0.0, 0.5, -0.5][i % 5], false, 1.0, "shotgun", true, false, gs[i]])
 		c._label.visible = false
+
+
+## Testing aid (rendered, any land): first person standing and crouched behind a low wall, with a figure
+## beyond it, then friends standing, crouched and crouch-walking seen from the side and the front.
+## A floor of its own is laid high over the land, so nothing else is in the way. Saves <SHOT_OUT>_*.png.
+func debug_crouchshot() -> void:
+	var out := OS.get_environment("SHOT_OUT")
+	combat_frozen = true
+	Game.toggles["soft"] = false
+	var sun := DirectionalLight3D.new()
+	sun.light_energy = 2.2
+	sun.shadow_enabled = true
+	sun.rotation = Vector3(-0.8, 0.6, 0)
+	add_child(sun)
+	var at := player.global_position + Vector3(0, 200, 0)
+	var grey := StandardMaterial3D.new()
+	grey.albedo_color = Color(0.5, 0.46, 0.4)
+	var floor_b := _debug_slab(at + Vector3(0, -0.25, 0), Vector3(60, 0.5, 60), grey)
+	player.place(at + Vector3(0, 0.05, 0), 0.0)
+	await get_tree().create_timer(0.8).timeout
+	var stone := StandardMaterial3D.new()
+	stone.albedo_color = Color(0.36, 0.33, 0.3)
+	var wall := _debug_slab(at + Vector3(0, 0.5, -1.2), Vector3(3.0, 1.0, 0.35), stone)
+	var foe := Figure.new().setup(Figure.seeded(17))
+	add_child(foe)
+	foe.global_position = at + Vector3(0, 0, -8.0)
+	player.pitch = -0.04
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out + "_fp_standing.png")
+	print("CROUCHSHOT standing eye=%.2f" % (player.head.global_position.y - at.y))
+	Input.action_press("soft")
+	await get_tree().create_timer(0.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(out + "_fp_crouched.png")
+	print("CROUCHSHOT crouched eye=%.2f" % (player.head.global_position.y - at.y))
+	if player.weapon:
+		player.weapon.debug_aim = true
+		await get_tree().create_timer(0.6).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out + "_fp_crouched_aim.png")
+		player.weapon.debug_aim = false
+	Input.action_release("soft")
+	wall.free()
+	foe.queue_free()
+	await get_tree().create_timer(0.5).timeout
+	# Friends, from 4 m: standing, crouched, and crouched walking to and fro
+	hud.root.visible = false
+	if player.weapon:
+		player.weapon.enabled = false
+	var cs := []
+	for i in 3:
+		var c := Companion.new().setup(1)
+		add_child(c)
+		c._label.visible = false
+		cs.append(c)
+	var spots := [-1.3, 0.0, 1.3]
+	var views := [["side", 0.0, Vector3.ZERO, -PI / 2], ["front", 90.0, Vector3(4.0, 0, -4.0), -PI / 2]]
+	for v in views:
+		player.place(at + (v[2] as Vector3) + Vector3(0, 0.05, 0), deg_to_rad(float(v[1])))
+		player.pitch = -0.12
+		for f in 120:
+			for i in 3:
+				var z: float = -4.0 + (fmod(f * 1.3 / 60.0, 1.2) - 0.6 if i == 2 else 0.0)
+				(cs[i] as Companion).pose([at + Vector3(spots[i], 0, z), float(v[3]) if i != 2 else PI, 0.0, false, 1.0, "shotgun", true, false,
+					"sniper" if i == 1 else "shotgun", [], "", false, i > 0])
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out + "_friends_%s.png" % v[0])
+	floor_b.free()
+	print("CROUCHSHOT done")
+	get_tree().quit()
+
+
+## Testing aid: a plain block that things stand on and see against.
+func _debug_slab(at: Vector3, size: Vector3, mat: Material = null) -> StaticBody3D:
+	var b := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	b.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = mat
+	b.add_child(mi)
+	add_child(b)
+	b.global_position = at
+	return b
 
 
 ## Test: every gun laid out side on, bare above and fully fitted below.

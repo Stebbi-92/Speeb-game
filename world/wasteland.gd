@@ -13125,6 +13125,92 @@ func debug_sprint() -> void:
 	print("SPRINT faster=%s spends=%s" % [run > walk * 1.5, st < 100.0])
 	get_tree().quit()
 
+## Testing aid: crouching lowers the eye and shortens the body, a low roof keeps you down, foes see you from
+## less far and not over a low wall, the aim steadies, and a friend's crouch shows with their feet on the ground.
+func debug_crouch() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	await _debug_home()
+	ui.close_all()
+	night = false
+	clock = 12.0
+	Game.toggles["soft"] = false
+	# A floor of its own high over the land, so nothing else is in the way
+	var at := player.global_position + Vector3(0, 300, 0)
+	var floor_b := _debug_slab(at + Vector3(0, -0.25, 0), Vector3(80, 0.5, 80))
+	player.place(at + Vector3(0, 0.05, 0), 0.0)
+	await get_tree().create_timer(0.6).timeout
+	var eye0: float = player.head.position.y
+	var tall0: float = player._cap.height
+	Input.action_press("soft")
+	await get_tree().create_timer(0.5).timeout
+	var eye1: float = player.head.position.y
+	var tall1: float = player._cap.height
+	# A low roof just over a crouched head: let go, and you stay down; take it away, and you stand
+	var roof := _debug_slab(player.global_position + Vector3(0, 1.45, 0), Vector3(3, 0.2, 3))
+	Input.action_release("soft")
+	await get_tree().create_timer(0.5).timeout
+	var kept: bool = player.crouched and player.head.position.y < eye0 - 0.4
+	roof.free()
+	await get_tree().create_timer(0.5).timeout
+	var stood: bool = not player.crouched and absf(player.head.position.y - eye0) < 0.05
+	# A form 25 m off, looking at you: it sees you standing, not crouched
+	var e := spawn_at("rusher", player.global_position + Vector3(0, 0.3, -25))
+	e.set_physics_process(false)
+	e.set_process(false)
+	await get_tree().create_timer(0.2).timeout
+	e.global_position = player.global_position + Vector3(0, 0, -25)
+	e.rotation.y = 0.0   # facing +Z, toward you
+	var far_up: bool = e.sees(player)
+	Input.action_press("soft")
+	await get_tree().create_timer(0.5).timeout
+	var far_down: bool = e.sees(player)
+	# Nearer, behind a wall a metre high: over it standing, hidden by it crouched
+	e.global_position = player.global_position + Vector3(0, 0, -10)
+	var wall := _debug_slab(player.global_position + Vector3(0, 0.5, -1.2), Vector3(3, 1.0, 0.3))
+	await get_tree().create_timer(0.1).timeout
+	var wall_down: bool = e.sees(player)
+	var sw_down: float = player.weapon.sway_amp(true) if player.weapon else 0.0
+	Input.action_release("soft")
+	await get_tree().create_timer(0.5).timeout
+	var wall_up: bool = e.sees(player)
+	var sw_up: float = player.weapon.sway_amp(true) if player.weapon else 0.0
+	wall.free()
+	e.die(false)
+	# A friend crouching, as their pose says: lowered, with both feet on the ground
+	var c := Companion.new().setup(1)
+	add_child(c)
+	var cat := player.global_position + Vector3(2, 0, -3)
+	c.pose([cat, PI, 0.0, false, 1.0, "shotgun", true, false, "shotgun", [], "", false, true])
+	await get_tree().create_timer(0.6).timeout
+	var low: float = c.crouch_drop
+	var feet := []
+	for a in c._fig._ankles:
+		feet.append(snappedf((a as Node3D).global_position.y - cat.y, 0.01))
+	# Walking crouched, the foot on the ground stays put while the body goes on
+	var slips := 0.0
+	var planted := 0
+	var trod0: float = c._fig.trod
+	var was: Array = []
+	for i in 40:
+		cat += Vector3(0, 0, 1.3 / 30.0)
+		c.pose([cat, PI, 0.0, false, 1.0, "shotgun", true, false, "shotgun", [], "", false, true])
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var now: Array = c._fig._ankles.map(func(a): return (a as Node3D).global_position)
+		for k in was.size():
+			if now[k].y - cat.y < 0.1005 and was[k].y - cat.y < 0.1005:
+				slips = maxf(slips, Vector2(now[k].x - was[k].x, now[k].z - was[k].z).length())
+				planted += 1
+		was = now
+	floor_b.free()
+	print("CROUCH eye=%.2f>%.2f tall=%.2f>%.2f kept=%s stood=%s far=%s>%s wall=%s>%s steadier=%s friend=%.2f feet=%s" % [eye0, eye1, tall0, tall1,
+		kept, stood, far_up, far_down, wall_up, wall_down, sw_down < sw_up * 0.8, low, feet])
+	print("CROUCH walked=%.2f planted=%d slip=%.3f" % [c._fig.trod - trod0, planted, slips])
+	c.queue_free()
+	get_tree().quit()
+
+
 ## Testing aid: two long guns, a side arm and a blade are carried; what is carried changes only at camp,
 ## in a town or at a workbench; the bar's keys take up each gun; the second long gun is saved.
 func debug_carry() -> void:

@@ -2249,7 +2249,7 @@ func _page_access() -> void:
 	_choice("Menu and text size", ["90%", "100%", "110%", "120%"], Game.ui_scale, func(i): Game.ui_scale = i; _apply_display())
 	_toggle("Colour-blind friendly map colours", Game.colorblind, func(on): Game.colorblind = on; Game.save())
 	_section("Holding keys")
-	for tg in [["run", "Sprint"], ["soft", "Sneak"], ["aim", "Aim and guard"]]:
+	for tg in [["run", "Sprint"], ["soft", "Crouch"], ["aim", "Aim and guard"]]:
 		var act: String = tg[0]
 		_choice(tg[1], ["Hold", "Press to switch"], 1 if Game.toggles[act] else 0, func(i): Game.toggles[act] = i == 1; Game.untoggle(act); Game.save())
 	_section("Motion")

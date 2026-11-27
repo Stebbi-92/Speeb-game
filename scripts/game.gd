@@ -172,7 +172,7 @@ func _json(path: String) -> Variant:
 const CONTROLS := [
 	["move_forward", "Walk forward", [KEY_W, KEY_UP]], ["move_back", "Walk back", [KEY_S, KEY_DOWN]],
 	["move_left", "Step left", [KEY_A, KEY_LEFT]], ["move_right", "Step right", [KEY_D, KEY_RIGHT]],
-	["jump", "Jump", [KEY_SPACE]], ["run", "Sprint", [KEY_SHIFT]], ["soft", "Sneak", [KEY_CTRL, KEY_C]],
+	["jump", "Jump", [KEY_SPACE]], ["run", "Sprint", [KEY_SHIFT]], ["soft", "Crouch", [KEY_CTRL, KEY_C]],
 	["interact", "Interact", [KEY_E]],
 	["fire", "Fire, use, or build", [-1]], ["aim", "Aim, or take down a built piece", [-2]],
 	["reload", "Reload, or turn a piece", [KEY_R]], ["swap_gun", "Change gun", [KEY_X]],

@@ -32,6 +32,17 @@ var seated := false        ## astride a riding cat, legs either side of it
 var arms_forward := true   ## holding something before them
 var hold := false          ## both hands on a gun, at GRIP and FORE
 var aim := 0.0             ## how far the gun is raised or lowered, in radians
+var bends := false         ## legs that bend at the knee and ankle, so it may crouch (set before it is built: a friend's)
+var crouch := 0.0          ## 0 standing, 1 crouched: the owner lowers and leans the body; the legs bend to keep the feet down
+var ground: Node3D         ## crouched, the node whose level (y = 0) is the ground under the feet
+var trod := 0.0            ## metres walked, for the crouched step (the owner adds to it)
+var going := Vector2(0, 1) ## the way they walk, in their own frame (x to the side, y forward)
+const CROUCH_DROP := 0.48  ## how far the hips come down crouched
+const CROUCH_LEAN := 0.42  ## and how far the body leans forward over them, about the hips
+const HIP_Y := 0.92
+const THIGH := 0.44        ## hip to knee
+const SHIN := 0.38         ## knee to ankle; the ankle is 0.1 off the ground
+const STEP := 0.42         ## a crouched step, heel to heel
 const SHOULDER_Y := 1.45
 const GRIP := Vector3(0.17, 1.2, 0.44)   ## where the near hand holds a gun, with the gun level
 const FORE := Vector3(0.1, 1.19, 0.52)   ## where the far hand steadies it
@@ -42,6 +53,9 @@ var talk_t := 0.0          ## seconds left of moving the mouth, while words are 
 var _mouth: MeshInstance3D
 var _talk_ph := 0.0
 var _legs: Array = []
+var _knees: Array = []
+var _skirt: Node3D   ## (legs that bend) what hangs from the hips, coat tails and cloak, so it can gather up crouched
+var _ankles: Array = []
 var _arms: Array = []
 ## A real body (see Person) in place of the plain shapes, for the people of the waste; their faces, skins and
 ## clothes are their own, and the look picks which of them it is. Players and the appearance screen keep the shapes.
@@ -140,6 +154,9 @@ func rebuild() -> void:
 		remove_child(c)
 		c.queue_free()
 	_legs.clear()
+	_skirt = null
+	_knees.clear()
+	_ankles.clear()
 	_arms.clear()
 	person = null
 	var L := look
@@ -162,14 +179,28 @@ func rebuild() -> void:
 	var hair_c: Color = HAIRS[mini(L.hair, 3)]
 	var hair := _mat(hair_c, 0.0, 0.9)
 	var trousers := _mat(Color(0.17, 0.16, 0.14), 0.0, 0.95)
-	# Legs, from the hip: each a pivot so they may swing
+	# Legs, from the hip: each a pivot so they may swing. Those that bend have a knee and an ankle too;
+	# straight, they are the same one leg from hip to sole (two more parts each, so only where needed).
 	for side in [-1, 1]:
 		var hip := Node3D.new()
-		hip.position = Vector3(0.1 * side * w, 0.92, 0)
+		hip.position = Vector3(0.1 * side * w, HIP_Y, 0)
 		add_child(hip)
 		_legs.append(hip)
-		_box(hip, Vector3(0.13 * w, 0.84, 0.14), Vector3(0, -0.44, 0), trousers)
-		_box(hip, Vector3(0.14 * w, 0.1, 0.24), Vector3(0, -0.87, 0.04), leather)
+		if not bends:
+			_box(hip, Vector3(0.13 * w, 0.84, 0.14), Vector3(0, -0.44, 0), trousers)
+			_box(hip, Vector3(0.14 * w, 0.1, 0.24), Vector3(0, -0.87, 0.04), leather)
+			continue
+		_box(hip, Vector3(0.13 * w, 0.47, 0.14), Vector3(0, -0.255, 0), trousers)
+		var knee := Node3D.new()
+		knee.position = Vector3(0, -THIGH, 0)
+		hip.add_child(knee)
+		_knees.append(knee)
+		_box(knee, Vector3(0.128 * w, 0.42, 0.138), Vector3(0, -0.21, 0), trousers)
+		var ankle := Node3D.new()
+		ankle.position = Vector3(0, -SHIN, 0)
+		knee.add_child(ankle)
+		_ankles.append(ankle)
+		_box(ankle, Vector3(0.14 * w, 0.1, 0.24), Vector3(0, -0.05, 0.04), leather)
 	# Torso, neck and head
 	_box(self, Vector3(0.4 * w, 0.58, 0.22), Vector3(0, 1.22, 0), cloth)
 	_box(self, Vector3(0.36 * w, 0.12, 0.2), Vector3(0, 0.95, 0), leather)
@@ -239,20 +270,29 @@ func rebuild() -> void:
 		2:
 			_cyl(self, 0.1, 0.1, Vector3(0, 1.55, 0), cloth2, Vector3.ZERO)
 			_box(self, Vector3(0.07, 0.3, 0.02), Vector3(0.07, 1.36, 0.13), cloth2)
+	# What hangs below the hips: on legs that bend, from a node of its own at the hips
+	var lo: Node3D = self
+	var lo_y := 0.0
+	if bends:
+		_skirt = Node3D.new()
+		_skirt.position = Vector3(0, HIP_Y, 0)
+		add_child(_skirt)
+		lo = _skirt
+		lo_y = HIP_Y
 	match int(L.get("cloak", 0)):
 		1, 2:
 			var cc := _mat(Color(0.45, 0.14, 0.1), 0.0, 0.9) if int(L.cloak) == 1 else _mat(dye.darkened(0.5), 0.0, 0.95)
-			var cl := _box(self, Vector3(0.58 * w, 1.2, 0.04), Vector3(0, 0.88, -0.17), cc)
+			var cl := _box(lo, Vector3(0.58 * w, 1.2, 0.04), Vector3(0, 0.88 - lo_y, -0.17), cc)
 			cl.rotation.x = 0.07
 			_box(self, Vector3(0.5 * w, 0.1, 0.3), Vector3(0, 1.48, -0.02), cc)
 	# The coat over all
 	match L.coat:
 		0:
-			_cyl(self, 0.2 * w, 1.15, Vector3(0, 0.62, 0), cloth, Vector3.ZERO, 0.42 * w)
+			_cyl(lo, 0.2 * w, 1.15, Vector3(0, 0.62 - lo_y, 0), cloth, Vector3.ZERO, 0.42 * w)
 			_box(self, Vector3(0.44 * w, 0.5, 0.25), Vector3(0, 1.25, 0), cloth)
 		1:
 			_box(self, Vector3(0.44 * w, 0.62, 0.26), Vector3(0, 1.22, 0), cloth)
-			_box(self, Vector3(0.46 * w, 0.5, 0.27), Vector3(0, 0.68, 0), cloth)
+			_box(lo, Vector3(0.46 * w, 0.5, 0.27), Vector3(0, 0.68 - lo_y, 0), cloth)
 			_box(self, Vector3(0.03, 0.9, 0.01), Vector3(0, 1.0, 0.14), cloth2)
 		2:
 			_box(self, Vector3(0.45 * w, 0.6, 0.27), Vector3(0, 1.2, 0), cloth)
@@ -260,14 +300,14 @@ func rebuild() -> void:
 				_box(self, Vector3(0.1, 0.08, 0.02), Vector3(0.1 * side, 1.12, 0.14), cloth2)
 		3:
 			_box(self, Vector3(0.44 * w, 0.62, 0.26), Vector3(0, 1.22, 0), cloth)
-			_box(self, Vector3(0.5 * w, 0.85, 0.27), Vector3(0, 0.52, 0), cloth)
+			_box(lo, Vector3(0.5 * w, 0.85, 0.27), Vector3(0, 0.52 - lo_y, 0), cloth)
 			_box(self, Vector3(0.52 * w, 0.22, 0.3), Vector3(0, 1.42, 0), cloth2)
 		4:
 			_box(self, Vector3(0.42 * w, 0.58, 0.24), Vector3(0, 1.22, 0), cloth2)
-			var cape := _box(self, Vector3(0.56 * w, 1.15, 0.04), Vector3(0, 0.88, -0.16), cloth)
+			var cape := _box(lo, Vector3(0.56 * w, 1.15, 0.04), Vector3(0, 0.88 - lo_y, -0.16), cloth)
 			cape.rotation.x = 0.06
 			for i in 4:
-				_box(self, Vector3(0.1, 0.12, 0.04), Vector3((i - 1.5) * 0.13 * w, 0.27, -0.19), cloth)
+				_box(lo, Vector3(0.1, 0.12, 0.04), Vector3((i - 1.5) * 0.13 * w, 0.27 - lo_y, -0.19), cloth)
 	# Arms, from the shoulder, holding forward
 	for side in [-1, 1]:
 		var sh := Node3D.new()
@@ -334,7 +374,7 @@ func rebuild() -> void:
 				_box(self, Vector3(0.025, 0.07, 0.015), Vector3(-0.1 + i * 0.1, 0.86, 0.14), _mat(Color(0.85, 0.82, 0.74)))
 	# Each part that moves as one (the body, the head, each leg and arm) is joined into one mesh, so
 	# a figure is drawn in a handful of calls instead of thirty: a town full of folk stays light.
-	for part in [self, head] + _legs + _arms:
+	for part in [self, head] + _legs + _knees + _ankles + _arms + ([_skirt] if _skirt else []):
 		_join(part)
 	for c in find_children("*", "MeshInstance3D", true, false):
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -443,6 +483,14 @@ func _process(delta: float) -> void:
 	else:
 		_legs[0].rotation = Vector3(s, 0, 0)
 		_legs[1].rotation = Vector3(-s, 0, 0)
+		if crouch > 0.001 and ground and _knees.size() == 2:
+			_crouch_legs()
+		elif _knees.size() == 2 and _knees[0].rotation.x != 0.0:
+			for i in 2:
+				_knees[i].rotation = Vector3.ZERO
+				_ankles[i].basis = Basis()
+			if _skirt:
+				_skirt.basis = Basis()
 	if hold:
 		var pts := [fore_at, grip_at]
 		for i in 2:
@@ -461,6 +509,49 @@ func _process(delta: float) -> void:
 	_arms[1].rotation.x = fwd + s * (0.15 if arms_forward else 0.6)
 	_arms[0].rotation.z = -0.35 if arms_forward else 0.05
 	_arms[1].rotation.z = 0.15 if arms_forward else -0.05
+
+
+## The legs crouched: each ankle is put where its foot stands (or steps, walking), and the hip and
+## knee bend to reach it, the knee forward; the foot is kept flat. A stance foot goes back exactly as
+## fast as the body goes on, so it stays put on the ground.
+func _crouch_legs() -> void:
+	var gt := global_transform.affine_inverse() * ground.global_transform   # the ground's frame, here
+	var gi := gt.affine_inverse()
+	var up := gt.basis.y.normalized()
+	var fwd := (Vector3.BACK - up * up.dot(Vector3.BACK)).normalized()
+	var flat := Basis(up.cross(fwd), up, fwd)
+	if _skirt:
+		# Coat tails and cloak hang straight down from the hips and gather on the ground
+		var hy: float = (gi * _skirt.position).y
+		_skirt.basis = Basis(flat.x, flat.y * clampf(hy / HIP_Y, 0.3, 1.0), flat.z)
+	var go := Vector3(going.x, 0.0, going.y)
+	var amp := clampf(stride * 6.0, 0.0, 1.0)   # full steps from half a metre a second (stride is pace / 3)
+	var w := smoothstep(0.0, 0.35, crouch)
+	for i in 2:
+		var hip: Node3D = _legs[i]
+		var hg: Vector3 = gi * hip.position
+		var f := fposmod(trod / (STEP * 2.0) + 0.5 * i, 1.0)
+		var off := 0.0
+		var lift := 0.0
+		if f < 0.5:
+			off = lerpf(STEP * 0.5, -STEP * 0.5, f / 0.5)   # on the ground, going back under the body
+		else:
+			var u := (f - 0.5) / 0.5
+			off = lerpf(-STEP * 0.5, STEP * 0.5, smoothstep(0.0, 1.0, u))   # lifted and brought through
+			lift = sin(u * PI) * 0.08
+		var foot := Vector3(hg.x * 1.2, 0.1 + lift * amp, hg.z + (0.12 if i == 0 else -0.04)) + go * off * amp
+		var to: Vector3 = gt * foot - hip.position
+		var d := clampf(to.length(), 0.08, THIGH + SHIN - 0.002)
+		var dn := to.normalized()
+		var sd := (Vector3.RIGHT - dn * dn.dot(Vector3.RIGHT)).normalized()
+		var a := acos(clampf((THIGH * THIGH + d * d - SHIN * SHIN) / (2.0 * THIGH * d), -1.0, 1.0))
+		var bend := PI - acos(clampf((THIGH * THIGH + SHIN * SHIN - d * d) / (2.0 * THIGH * SHIN), -1.0, 1.0))
+		var hb := Basis(sd, -dn, sd.cross(-dn)) * Basis(Vector3.RIGHT, -a)
+		var kb := Basis(Vector3.RIGHT, bend)
+		hip.basis = Basis(hip.basis.get_rotation_quaternion().slerp(hb.get_rotation_quaternion(), w))
+		_knees[i].basis = Basis(Vector3.RIGHT, bend * w)
+		var ab := (hb * kb).inverse() * flat
+		_ankles[i].basis = Basis(Quaternion.IDENTITY.slerp(ab.get_rotation_quaternion(), w))
 
 
 func _mat(c: Color, metal := 0.0, rough := 0.7) -> StandardMaterial3D:
