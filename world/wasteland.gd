@@ -61,6 +61,7 @@ var lit: Array = []
 var flags := {}
 var rep := {}
 var nodes: Array = []
+var woodcut := WFell.new(self)   ## every standing tree, to be cut down (see world/fell.gd)
 var ruins: Array = []
 var crates := {}
 var containers := {}
@@ -5662,16 +5663,20 @@ func _gather_fx(nd: Dictionary, last: bool) -> void:
 	tw.tween_property(n, "rotation", r0 + Vector3(0.06, 0, -0.05), 0.05)
 	tw.tween_property(n, "rotation", r0 + Vector3(-0.04, 0, 0.04), 0.06)
 	tw.tween_property(n, "rotation", r0, 0.08)
+	var to_me := player.global_position - n.global_position
+	to_me.y = 0.0
+	to_me = to_me.normalized() if to_me.length() > 0.1 else Vector3.FORWARD
 	var kind := str(nd.kind)
+	_gather_chips(kind, n.global_position + Vector3(0, 0.9 if kind == "tree" else 0.4, 0) + to_me * 0.4, to_me, last)
+
+
+## Bits of what was struck fly from it toward the one who struck, and lie a moment on the ground.
+func _gather_chips(kind: String, from: Vector3, to_me: Vector3, last: bool) -> void:
 	if not _chip_mats.has(kind):
 		var m := StandardMaterial3D.new()
 		m.albedo_color = CHIP_COLOURS.get(kind, Color(0.5, 0.5, 0.5))
 		m.roughness = 1.0
 		_chip_mats[kind] = m
-	var to_me := player.global_position - n.global_position
-	to_me.y = 0.0
-	to_me = to_me.normalized() if to_me.length() > 0.1 else Vector3.FORWARD
-	var from := n.global_position + Vector3(0, 0.9 if kind == "tree" else 0.4, 0) + to_me * 0.4
 	for i in (14 if last else 6):
 		var c := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -5733,20 +5738,36 @@ func _rq_gather(by: int, id: int) -> void:
 			if rr.randf() < 0.2:
 				out.append(["cloth", 1])
 	var np: Vector3 = nd.pos if nd.pos is Vector3 else Vector3(nd.pos.x, 0, nd.pos.y)
-	var ls: Array = LAND_STUFF.get(land_at(np), [])
-	if not ls.is_empty() and ls[0] == nd.kind and rr.randf() < float(ls[2]):
-		out.append([ls[1], rr.randi_range(1, 2)])
-	# Out past the sea, the land's own stuff comes up with whatever else is taken
-	var ff := far_find(np)
-	if ff != "" and nd.kind != "herb" and rr.randf() < 0.3:
-		out.append([ff, rr.randi_range(1, 2)])
+	out.append_array(_land_finds(str(nd.kind), np, rr))
 	shared("_w_node", [id, nd.charges - 1, day + 2])
 	Net.call_peer(by, "_w_gathered", [id, out])
 
 
+## What the land gives besides with a blow at a node of this kind here: heartwood in the forest,
+## red iron in the dunes, and out past the sea the far land's own stuff (the trees of the woods too).
+func _land_finds(kind: String, np: Vector3, rr: RandomNumberGenerator) -> Array:
+	var out: Array = []
+	var ls: Array = LAND_STUFF.get(land_at(np), [])
+	if not ls.is_empty() and ls[0] == kind and rr.randf() < float(ls[2]):
+		out.append([ls[1], rr.randi_range(1, 2)])
+	# Out past the sea, the land's own stuff comes up with whatever else is taken
+	var ff := far_find(np)
+	if ff != "" and kind != "herb" and rr.randf() < 0.3:
+		out.append([ff, rr.randi_range(1, 2)])
+	return out
+
+
 ## A pilgrim's own hands, with the right tool, take twice as much.
 func _w_gathered(id: int, out: Array) -> void:
-	var nk: Dictionary = NODE_KINDS[nodes[id].kind]
+	_take_gathered(str(nodes[id].kind), out)
+	_gather_float(nodes[id], out)
+	award("gather")
+	quests.on_event("gathered", {})
+
+
+## What a blow took, into the pack: doubled with the kind's tool in hand, then by skill, rules and wear.
+func _take_gathered(kind: String, out: Array) -> void:
+	var nk: Dictionary = NODE_KINDS[kind]
 	if nk.tool != "" and inv.count(nk.tool) > 0:
 		for it in out:
 			if it[0] in ["wood", "stone", "salt"]:
@@ -5757,15 +5778,12 @@ func _w_gathered(id: int, out: Array) -> void:
 			if it[0] != "coin":
 				it[1] = maxi(1, int(ceil(int(it[1]) * gm)))
 	_w_give(out)
-	_gather_float(nodes[id], out)
-	award("gather")
-	quests.on_event("gathered", {})
 
 
 ## What was taken rises off the node for a moment: "+4 Wood".
 var gather_floats := 0   ## (for the tests)
 func _gather_float(nd: Dictionary, out: Array) -> void:
-	if Net.dedicated or out.is_empty() or not nd.node is Node3D or not is_instance_valid(nd.node):
+	if Net.dedicated or out.is_empty() or (not nd.has("at") and (not nd.node is Node3D or not is_instance_valid(nd.node))):
 		return
 	var parts: Array = []
 	for it in out:
@@ -5782,7 +5800,7 @@ func _gather_float(nd: Dictionary, out: Array) -> void:
 	l.outline_modulate = Color(0, 0, 0, 0.8)
 	add_child(l)
 	gather_floats += 1
-	var at: Vector3 = (nd.node as Node3D).global_position + Vector3(0, 1.8 if nd.kind == "tree" else 1.0, 0)
+	var at: Vector3 = nd.at if nd.has("at") else (nd.node as Node3D).global_position + Vector3(0, 1.8 if nd.kind == "tree" else 1.0, 0)
 	l.global_position = at
 	var tw := l.create_tween()
 	tw.tween_property(l, "global_position", at + Vector3(0, 0.7, 0), 1.3).set_ease(Tween.EASE_OUT)
@@ -5841,6 +5859,21 @@ func _w_node(id: int, charges: int, back: int) -> void:
 		nd.node.scale = Vector3.ONE * (0.6 + 0.4 * charges / float(NODE_KINDS[nd.kind].charges))
 	elif charges > 0:
 		nd.node.scale = Vector3.ONE
+
+
+## A blow at a standing tree of the woods (see WFell): the host takes it, everyone sees it.
+func _rq_chop_tree(by: int, key: String, i: int) -> void:
+	if Net.authority():
+		woodcut.host_chop(by, key, i)
+
+
+func _w_tree_cut(key: String, i: int, left: int, back: int) -> void:
+	woodcut.set_blows(key, i, left, back)
+
+
+## What one's own blow at a tree took (only ever from the host, to the one who struck).
+func _tree_take(key: String, i: int, out: Array) -> void:
+	woodcut.take(key, i, out)
 
 
 ## Small stones and dry scrub, for the look of the land only.
@@ -6406,6 +6439,7 @@ func _dawn_world() -> void:
 	for nd in nodes:
 		if nd.charges <= 0 and day >= int(nd.back):
 			shared("_w_node", [nd.id, int(NODE_KINDS[nd.kind].charges), 0])
+	woodcut.dawn()
 	quests.refresh_offers()
 	settlers.host_dawn()
 	_age_satchels()
@@ -7985,7 +8019,7 @@ func world_data() -> Dictionary:
 		sat[sid] = [satchels[sid].pos, satchels[sid].grave, str(satchels[sid].get("owner", "")), int(satchels[sid].get("day", day)), bool(satchels[sid].get("keep", false))]
 	return {
 		"v": 2, "gen": world_gen, "uid": world_uid, "seed": world_seed, "day": day, "clock": clock, "nights": nights, "night": night, "lit": lit, "flags": flags, "rep": rep, "safety": safety, "deeds": deeds,
-		"mined": mined, "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
+		"mined": mined, "fell": woodcut.to_data(), "pieces": pcs, "piece_next": piece_next, "containers": containers, "crates": crate_days, "settlers": settlers.to_data(),
 		"satchels": sat, "satchel_next": satchel_next, "quests": quests.to_data(), "tracked": quests.tracked,
 		"marks": map_marks, "rules": rules, "boats": _boats_data(), "boat_next": boat_next,
 		"weather": [weather.kind, weather.left, sea.wind_ang if sea else 0.0],
@@ -8015,6 +8049,7 @@ func apply_world(d: Dictionary) -> void:
 	for id in d.get("mined", {}):
 		var m: Array = d.mined[id]
 		_w_node(int(id), int(m[0]), int(m[1]))
+	woodcut.from_data(d.get("fell", {}))
 	for pid in d.get("pieces", {}):
 		var p: Array = d.pieces[pid]
 		builder._w_piece(int(pid), p[0], p[1], p[2], p[3])
@@ -17807,6 +17842,15 @@ func debug_raidcamp() -> void:
 	await get_tree().create_timer(0.5).timeout
 	print("CAMP dug=%s foes=%d broken=%s paid=%s" % [dug, foes, not events.active.has(camp_id), inv.count("salt") > salt0])
 	get_tree().quit()
+
+
+## Testing aid: a great pine of the woods cut down, its wood, its stump, the fellowship's and the saved world (see WFell).
+func debug_fell() -> void:
+	await woodcut.debug_test()
+
+
+func debug_fellshot() -> void:
+	await woodcut.debug_shot(OS.get_environment("SHOTS") if OS.get_environment("SHOTS") != "" else "user://")
 
 
 ## Testing aid: a tree that can be cut beside the dead trees that cannot; saves what is seen.

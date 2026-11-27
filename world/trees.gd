@@ -204,6 +204,7 @@ static func plant(w, feet: Array, rr: RandomNumberGenerator, mix := MIX, size_lo
 	mid /= feet.size()
 	holder.global_position = mid
 	var by_kind := {}
+	var cuts: Array = []   # each tree, to be cut down: [kind, place in its batch, trunk, foot, height, girth, its place there]
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
@@ -222,6 +223,7 @@ static func plant(w, feet: Array, rr: RandomNumberGenerator, mix := MIX, size_lo
 			by_kind[key] = [k[0], []]
 		by_kind[key][1].append(t)
 		var cs := CollisionShape3D.new()
+		cuts.append([key, by_kind[key][1].size() - 1, cs, f, float(k[2]) * s, float(k[1]) * s, t])
 		var cyl := CylinderShape3D.new()
 		cyl.radius = float(k[1]) * s
 		cyl.height = minf(float(k[2]) * s, 6.0)
@@ -242,6 +244,12 @@ static func plant(w, feet: Array, rr: RandomNumberGenerator, mix := MIX, size_lo
 		mmi.visibility_range_end_margin = 40.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		holder.add_child(mmi)
+		by_kind[key].append(mmi)
+	# Every tree can be cut down (see WFell): nothing more is made for it until it is struck
+	if w.get("woodcut") is WFell:
+		for c in cuts:
+			c[0] = by_kind[c[0]][2]
+		w.woodcut.add_stand("t", body, cuts)
 	return holder
 
 

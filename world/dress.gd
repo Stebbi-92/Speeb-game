@@ -216,21 +216,30 @@ static func cover(w) -> void:
 				mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 				w.add_child(mmi)
 				if not spec[1] in SOFT_COVER:
-					_cover_body(w, mid, ts, (mt[0] as Mesh).get_aabb(), spec[1])
+					var cuts = [] if spec[1] in FELLED and w.get("woodcut") is WFell else null
+					var body := _cover_body(w, mid, ts, (mt[0] as Mesh).get_aabb(), spec[1], cuts)
+					if cuts != null and body != null:
+						for c in cuts:
+							c[0] = mmi
+						w.woodcut.add_stand("d", body, cuts, true)
 
 
 ## Cover you walk around, not through: fallen branches and sand patches are soft.
 const SOFT_COVER := ["dead_quiver_branch_01", "patch-sand"]
 
+## The dead trees of the cover, which can be cut down as the deadwood is (see WFell).
+const FELLED := ["dead_quiver_trunk", "dead_tree_trunk_02"]
+
 ## One still body per tile, with an upright cylinder for each trunk or rock: its foot, its girth.
-static func _cover_body(w, mid: Vector3, ts: Array, bb: AABB, model: String) -> void:
+## With cuts, each trunk is listed there to be cut down: [batch, index in it, trunk, foot, height, girth, its place there].
+static func _cover_body(w, mid: Vector3, ts: Array, bb: AABB, model: String, cuts = null) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	body.collision_mask = 0
 	body.position = mid
 	var trunk := "trunk" in model or "pine" in model
-	for t in ts:
-		var tr: Transform3D = t
+	for ti in ts.size():
+		var tr: Transform3D = ts[ti]
 		var sx := tr.basis.get_scale()
 		var r := minf(bb.size.x * sx.x, bb.size.z * sx.z) * (0.18 if trunk else 0.36)
 		var h := bb.size.y * sx.y * (1.0 if trunk else 0.85)
@@ -244,10 +253,13 @@ static func _cover_body(w, mid: Vector3, ts: Array, bb: AABB, model: String) -> 
 		var foot: Vector3 = tr * Vector3(bb.get_center().x, bb.position.y, bb.get_center().z)
 		cs.position = foot - mid + Vector3(0, h * 0.5, 0)
 		body.add_child(cs)
+		if cuts != null:
+			cuts.append([null, ti, cs, foot, h, r, tr.translated(-mid)])
 	if body.get_child_count() > 0:
 		w.add_child(body)
-	else:
-		body.free()
+		return body
+	body.free()
+	return null
 
 
 # ------------------------------------------------------------------ ruins

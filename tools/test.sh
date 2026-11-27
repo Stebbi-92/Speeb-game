@@ -157,6 +157,7 @@ check raidcamp   debug_raidcamp "CAMP dug=true foes=([6-9]|1[0-9]) broken=true p
 check stuck      debug_stuck    "STUCK spots=[1-6] kept_ok=true back=true menu=true"
 check escape     debug_escape   "ESCAPE dialogs=1->0 menu_kept=true menu_closed=true"
 check treebody   debug_treebody "TREEBODY bodies=[0-9]+ shapes=[0-9]+ solid=true"
+check fell       debug_fell     "FELL big land=[a-z]+ blows=1[0-2] aimed=true prompt='Cut the tree' chops=1[0-2] wood=[0-9]+ heartwood=[0-9]+ ok=true heard=chop,carve gone=true solid=false fell=1 stumps=1 batches=\+1 log_left=0" "FELL peer=true saved=true days=[3-6] early=true regrown=true dead_chops=[1-6] dead_wood=[0-9]+ dead_stumps=1"
 check doorwalk   debug_doorwalk "DOORWALK tried=8 inside=[7-8]"
 check townplans debug_townplans "TOWNPLANS towns=12 styles=7 shells=(2[7-9]|[34][0-9]|5[0-5]) barns=[5-7] kinds=17"
 check events    debug_events   "EVENTS started=1 kind=[a-z]+ shown=true ended=true gave=true made=6"
