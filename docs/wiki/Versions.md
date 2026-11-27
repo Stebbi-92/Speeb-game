@@ -2,6 +2,12 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.25.0 (through any door)
+
+- **Co-op:** joining from the list or by code gets through any router, by a relay if needed. Full download needed.
+- **Saves:** worlds from 0.17 and later are checked to load whole.
+- **Building:** building up counts the Mason skill.
+
 ## 0.24.0 (people of the waste)
 
 - **People:** townsfolk and the people you speak with have real, animated bodies.

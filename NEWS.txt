@@ -1,3 +1,10 @@
+Brelm alpha 0.25.0: through any door
+
+- Co-op through any router: friends who join from the internet list or by the fellowship's code now get in whatever the host's router is, with no port to open, mobile networks included. Brelm finds a way straight through, or goes by a relay when nothing else works. Joining by typed address and on the same network work as before.
+- This version is a full download, not an in-game update: the new connection part sits beside the game, and an update cannot bring it. Download it from the release page; your saves carry over.
+- Saves from older versions keep loading: worlds kept by 0.17 and later are checked to come back whole, with every building, beacon, pack and weapon.
+- Building up a wall or floor now counts the Mason skill, as a new piece does, and its tip shows the strength it will have.
+
 Brelm alpha 0.24.0: people of the waste
 
 - The townsfolk, the people you speak with, the lost and Lena have real bodies: men and women of the waste who stand, walk, run, talk with their hands, wave and work.

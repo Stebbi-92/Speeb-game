@@ -16,6 +16,10 @@ You can also set a word that joiners must give. Once hosting, the gathering plac
 
 Type the join code (or an address and port) and press **Join**, or pick a game from the **Fellowships** list. Each one shows where it walks, how full it is, its day and how many fires are lit, and whether it is closed. Search it, hide full or closed games, and sort by players, name or nearness. A closed game wants its word in the field above before you join.
 
+## Getting through any router
+
+Joining from the internet list or by code works whatever the host's router is, with no port to open, even on mobile networks. Brelm connects the two of you straight when it can, and by a relay when nothing else gets through. Joining by a typed address still needs the host's port open (HOSTING.txt says how). This came in 0.25, which is a full download.
+
 ## In the game
 
 - Press **L** to show the fellowship: each player's health and how far away they are. Otherwise only a fallen friend is shown, so the screen stays clear.
