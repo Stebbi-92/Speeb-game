@@ -4453,7 +4453,7 @@ func upgrade_bb(k: String, t: int, with_key := true) -> String:
 		return "[color=#dccca8]%s, %s:[/color]  [color=#9e988c]as strong as it can be built[/color]" % [Items.PIECES[k].name, str(mats[-1].name).to_lower()]
 	var hp: float = float(Items.PIECES[k].hp)
 	var to: String = mats[t + 1].name
-	var lines := ["[color=#dccca8]Build up to %s:[/color]  strength %d to %d, mended whole" % [to.to_lower(), roundi(hp * float(mats[t].hp)), roundi(hp * float(mats[t + 1].hp))]]
+	var lines := ["[color=#dccca8]Build up to %s:[/color]  strength %d to %d, mended whole" % [to.to_lower(), roundi(hp * float(mats[t].hp) * w.skills.build_hp_mult()), roundi(hp * float(mats[t + 1].hp) * w.skills.build_hp_mult())]]
 	var why := WBuildTiers.material_why(w, t + 1)
 	if why != "":
 		lines.append("[color=#d0904a]Not yet: %s[/color]" % why)

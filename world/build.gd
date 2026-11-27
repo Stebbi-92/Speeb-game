@@ -393,12 +393,12 @@ func upgrade_pid(pid: int) -> bool:
 		w.sfx("deny", -10)
 		return false
 	w.sfx("crumble" if t == 0 else "mag_in", -4, pc.pos)
-	w.shared("_rq_tier", [Net.me(), pid, t + 1, cost])
+	w.shared("_rq_tier", [Net.me(), pid, t + 1, cost, w.skills.build_hp_mult()])
 	w.award("build")
 	return true
 
 
-func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
+func _rq_tier(by: int, pid: int, t: int, paid = null, hm := 1.0) -> void:
 	if not Net.authority():
 		return
 	var mats: Array = WBuildTiers.MATERIALS
@@ -406,7 +406,7 @@ func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
 		Net.call_peer(by, "_w_give", [_refund(mats[clampi(t, 1, mats.size() - 1)].cost, paid)])
 		return
 	var k: String = w.pieces[pid].kind
-	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * float(mats[t].hp)])
+	w.shared("_w_tier", [pid, t, float(Items.PIECES[k].hp) * float(mats[t].hp) * clampf(hm, 1.0, 1.6)])   # Mason counts as it does for a new piece
 
 
 ## A piece rebuilt in its new tier, where it stood.
