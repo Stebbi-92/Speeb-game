@@ -1,6 +1,8 @@
 name = "brelm-lobby"
 main = "lobby-worker.js"
 compatibility_date = "2025-01-01"
+# Keep variables set in the Cloudflare dashboard when a push deploys (the TURN key, if set as text)
+keep_vars = true
 
 [[durable_objects.bindings]]
 name = "LOBBY"
