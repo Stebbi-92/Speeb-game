@@ -9762,7 +9762,7 @@ func debug_snapclient() -> void:
 	for k in flags:
 		if str(k).begins_with("pad_"):
 			pads += 1
-	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s brisk=%s" % [ready_world, day, pads, snap_wait, Net.brisk_links.has(1)])
+	print("SNAPCLIENT ready=%s day=%d pads=%d waiting=%s brisk=%s link=%s" % [ready_world, day, pads, snap_wait, Net.brisk_links.has(1), Net.via_link])
 	get_tree().quit()
 
 
@@ -10265,6 +10265,28 @@ func debug_oldsave() -> void:
 	print("OLDSAVE from=%s same=%s kept=%s diffs=%d" % [OS.get_environment("OLDSAVE_FROM"), diffs.is_empty(), kept, diffs.size()])
 	for d in diffs:
 		print("  " + d)
+	get_tree().quit()
+
+
+## Testing aid: how much a pilgrim come in by a WebRTC link sends and gets over a minute in the waste
+## (what the TURN relay would carry for them, were the link relayed).
+func debug_linkrate() -> void:
+	while not ready_world or snap_wait:
+		await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(5.0).timeout
+	var up0 := Net.tunnel.bytes_up
+	var down0 := Net.tunnel.bytes_down
+	var secs := float(OS.get_environment("LINKRATE_SECS")) if OS.get_environment("LINKRATE_SECS") != "" else 60.0
+	# Walk about, as a pilgrim does, so the host has movement to send back
+	var t := 0.0
+	while t < secs:
+		var a := t * 0.4
+		player.velocity = Vector3(cos(a), 0, sin(a)) * 5.0
+		await get_tree().create_timer(0.5).timeout
+		t += 0.5
+	var up := (Net.tunnel.bytes_up - up0) / secs / 1024.0
+	var down := (Net.tunnel.bytes_down - down0) / secs / 1024.0
+	print("LINKRATE link=%s up_kbs=%.1f down_kbs=%.1f players=%d" % [Net.via_link, up, down, Net.players.size()])
 	get_tree().quit()
 
 

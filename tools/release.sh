@@ -4,16 +4,16 @@
 #   dist/Brelm-Windows.zip           Windows, unzip and play
 #   dist/Brelm-macOS.zip             macOS app
 #   dist/Brelm-Linux.zip             Linux and Steam Deck, unzip and play
-#   dist/Brelm-Windows-godot4.3.pck  game data, fetched by the in-game updater
-#   dist/Brelm-macOS-godot4.3.pck
-#   dist/Brelm-Linux-godot4.3.pck
+#   dist/Brelm-Windows-godot4.3-rtc1.pck  game data, fetched by the in-game updater
+#   dist/Brelm-macOS-godot4.3-rtc1.pck
+#   dist/Brelm-Linux-godot4.3-rtc1.pck
 # Then, to publish (needs gh signed in):  tools/release.sh publish
 set -e
 cd "$(dirname "$0")/.."
 G=${GODOT:-/home/user/godot/Godot_v4.3-stable_linux.x86_64}
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
 NUM=${VERSION%%-*}
-ENGINE=godot4.3
+ENGINE=godot4.3-rtc1   # keep in step with Updater.LIBS
 mkdir -p build build-mac build-linux dist
 
 if [ "$1" != "publish" ]; then

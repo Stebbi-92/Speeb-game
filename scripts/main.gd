@@ -95,11 +95,16 @@ func _ready() -> void:
 		if a.begins_with("word="):
 			Net.join_word = a.substr(5)
 	for a in args:
+		if a.begins_with("joincode="):
+			Net.debug_code = a.substr(9)
+	for a in args:
 		if a.begins_with("host="):
 			Net.host(int(a.substr(5)), "Test fellowship", "public" in args, false, "private" in args, Net.join_word)
 		elif a.begins_with("join="):
 			var hp := Net.split_address(a.substr(5))
 			Net.join(hp[0], hp[1])
+		elif a.begins_with("code="):
+			Net.join_code_lookup(a.substr(5))
 	if "browse" in args:
 		_debug_browse()
 	for a in args:

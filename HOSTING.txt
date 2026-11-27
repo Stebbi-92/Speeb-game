@@ -16,7 +16,14 @@ fellowship must run the same version of Brelm.
 
 
 2. OVER THE INTERNET, HOSTING FROM YOUR OWN PC
-   When you host, Brelm asks your router to open the port by itself (UPnP).
+   Friends who join from the internet list, or by the fellowship's join
+   code, get in whatever your router is: Brelm finds a way through (WebRTC),
+   by a relay if nothing else works. Nothing to set up. This needs the full
+   download of 0.25 or later on both sides (an in-game update alone does not
+   bring it), and both must be able to reach game.speeb.org.
+
+   Joining by typed address still needs the port open. When you host, Brelm
+   asks your router to open the port by itself (UPnP).
    The gathering place tells you whether it worked:
      "The router opened UDP port 24600."  Friends join at the internet
         address shown under it.
@@ -28,9 +35,8 @@ fellowship must run the same version of Brelm.
         c. Forward UDP port 24600 to that local address.
         d. Your internet address is at https://ifconfig.me ; friends join
            at that address, port 24600.
-   Some internet providers share one address among many homes (CGNAT). If
-   forwarding is set up and friends still cannot join, that is the likely
-   cause; a dedicated server on a rented machine (below) gets around it.
+   Some internet providers share one address among many homes (CGNAT), and
+   then no port can be opened: have friends join by the code instead.
 
 
 3. A DEDICATED SERVER (no player of its own)

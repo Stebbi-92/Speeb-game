@@ -1051,8 +1051,6 @@ func _server_card(d: Dictionary, full: bool, other: bool) -> Control:
 	right.add_theme_constant_override("separation", 2)
 	right.custom_minimum_size.x = 110
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var ip: String = d.ip
-	var p := int(d.port)
 	var locked: bool = d.get("locked", false)
 	var label := "Full" if full else ("Other version" if other else "Join")
 	var b := _pill(label, func():
@@ -1062,7 +1060,7 @@ func _server_card(d: Dictionary, full: bool, other: bool) -> Control:
 				_jword.grab_focus()
 			return
 		Net.join_word = _jword.text.strip_edges() if _jword else ""
-		Net.join(ip, p), hud.GOLD, 16)
+		Net.join_listed(d), hud.GOLD, 16)
 	b.disabled = full or other
 	b.custom_minimum_size.x = 104
 	right.add_child(b)

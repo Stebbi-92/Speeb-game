@@ -10,6 +10,10 @@ class_name = "Lobby"
 name = "REPORTS"
 class_name = "Reports"
 
+[[durable_objects.bindings]]
+name = "MEET"
+class_name = "Meet"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Lobby"]
@@ -17,6 +21,10 @@ new_sqlite_classes = ["Lobby"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Reports"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Meet"]
 
 [vars]
 GITHUB_REPO = "Stebbi-92/Speeb-game"

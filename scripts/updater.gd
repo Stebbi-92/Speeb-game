@@ -3,7 +3,9 @@ extends Node
 ##
 ## On start it asks the lobby worker (or GitHub directly, if the worker is silent) for the newest release.
 ## A release carries the game's data as one pack per platform, named for the engine it was built with:
-##   Brelm-Windows-godot4.3.pck, Brelm-macOS-godot4.3.pck
+##   Brelm-Windows-godot4.3-rtc1.pck, Brelm-macOS-godot4.3-rtc1.pck
+## ("rtc1": the builds that carry the WebRTC plugin, a library beside the game that a pack cannot bring;
+## a build from before it finds no pack of its name, and is pointed to the full download.)
 ## The player chooses to fetch it; it is kept in user://update/ and the game restarts onto it with
 ## --main-pack. The installed files are never touched, so a failed download can never break the game.
 ## If the engine changed between releases there is no pack for this build, and the player is pointed
@@ -15,6 +17,8 @@ signal finished(ok: bool, message: String)
 signal check_failed(message: String)   ## the look for a new version found no answer
 
 const REPO := "Stebbi-92/Speeb-game"
+## What the installed build carries beside its pack (see the top). Raised when a plugin's library changes.
+const LIBS := "rtc1"
 const DIR := "user://update/"
 const PACK := DIR + "Brelm.pck"
 const VERSION_FILE := DIR + "version.txt"
@@ -186,7 +190,7 @@ static func file_sha256(path: String) -> String:
 static func pack_name() -> String:
 	var os := "macOS" if OS.get_name() == "macOS" else "Windows" if OS.get_name() == "Windows" else OS.get_name()
 	var v := Engine.get_version_info()
-	return "Brelm-%s-godot%d.%d.pck" % [os, v.major, v.minor]
+	return "Brelm-%s-godot%d.%d-%s.pck" % [os, v.major, v.minor, LIBS]
 
 
 # ------------------------------------------------------------------ fetching

@@ -1,5 +1,6 @@
 """Packages the exported builds into the Windows, macOS and Linux zips. Run from the project root after exporting.
 Usage: python3 tools/package.py <out_dir>"""
+import glob
 import sys, zipfile, os
 out = sys.argv[1]
 readme = open("README.txt").read()
@@ -21,6 +22,8 @@ with zipfile.ZipFile(os.path.join(out, "Brelm-Windows.zip"), "w", zipfile.ZIP_DE
     z.write("build/Brelm.exe", "Brelm.exe")
     z.write("build/Brelm (compatibility mode).bat", "Brelm (compatibility mode).bat")
     z.write("build/Brelm Server.bat", "Brelm Server.bat")
+    for lib in sorted(glob.glob("build/*.dll")):   # the WebRTC plugin, for co-op through any router
+        z.write(lib, os.path.basename(lib))
     z.writestr(text_info("HOSTING.txt"), open("HOSTING.txt").read())
     z.writestr(text_info("README.txt"), readme)
     z.writestr(text_info("THIRD-PARTY-NOTICES.txt"), open("THIRD-PARTY-NOTICES.txt").read())
@@ -50,6 +53,8 @@ def exe_info(name):
     zi = text_info(name); zi.external_attr = 0o100755 << 16; return zi
 with zipfile.ZipFile(os.path.join(out, "Brelm-Linux.zip"), "w", zipfile.ZIP_DEFLATED) as z:
     z.writestr(exe_info("Brelm.x86_64"), open("build-linux/Brelm.x86_64", "rb").read())
+    for lib in sorted(glob.glob("build-linux/*.so")):
+        z.writestr(exe_info(os.path.basename(lib)), open(lib, "rb").read())
     z.writestr(exe_info("Brelm Server.sh"), open("build-linux/Brelm Server.sh").read())
     z.writestr(exe_info("Brelm (compatibility mode).sh"), open("build-linux/Brelm (compatibility mode).sh").read())
     z.writestr(text_info("README.txt"), readme.replace("RUNNING\n", linux_note + "RUNNING (WINDOWS)\n", 1))

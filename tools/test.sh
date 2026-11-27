@@ -191,6 +191,7 @@ check vigilwave debug_vigilwave "VIGILWAVE n=[1-9][0-9]* far=true one_side=true 
 check autoloot debug_autoloot "AUTOLOOT took=true stayed=true back=true off=true"
 check gunskill debug_gunskill "GUNSKILL start=0 top=9 wider=true steadier=true blade_free=true top_mult=1.00"
 check stranger debug_stranger "STRANGER spoke=true warned=true drew=true gun=true fired=true"
+check link        sh:link_test.sh "LINKTEST listed=true joined=true fellback=false LINKRATE link=true"
 check server_world sh:server_test.sh "SERVERWORLD made=true idle_paused=true held=true joined=true ran=true saved=true repaused=true banned=true"
 check server_api sh:"server_test.sh api" "SERVERAPI override=true,true,true options=true saved=true made=true worlds=apitest,second refused=true loaded=true restarted=true detail=true"
 check serverui "none server port=24690 panelcheck" "PANEL tabs=Players,World,Settings,Updates,Log chips=9 settings=9 cfg=true order=true" "PANELPAUSE paused=true ticks=true log=true save=true confirm=true updater=true"

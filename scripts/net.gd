@@ -61,6 +61,15 @@ var _http_list: HTTPRequest
 var _http_post: HTTPRequest
 var _upnp_thread: Thread
 var _upnp: UPNP
+## The way through any router (scripts/tunnel.gd): a host waits at the lobby's meeting place, and a pilgrim
+## from the internet list or a join code comes in by a WebRTC link when one can be made.
+var tunnel: Tunnel
+var _host_key := ""         ## this fellowship's secret at the meeting place
+var _relay_to := {}         ## the listed fellowship a pilgrim is linking to (joined straight if the link fails)
+var _keep_tunnel := false
+var via_link := false       ## this pilgrim came in by a WebRTC link (not straight to the host's address)
+var debug_code := ""        ## (for the tests: the join code a host takes, instead of a random one)
+var debug_link := "linkonly" in OS.get_cmdline_user_args()   ## (for the tests: link even to a host on this network)
 
 ## The dedicated server's persistent world (see "the dedicated server's world" below).
 var persist := false          ## the server keeps one open world running, instead of waiting in the gathering
@@ -103,6 +112,11 @@ func _ready() -> void:
 	_http_code.timeout = 8.0
 	_http_code.request_completed.connect(_on_code)
 	add_child(_http_code)
+	tunnel = Tunnel.new()
+	add_child(tunnel)
+	tunnel.opened.connect(_on_tunnel_open)
+	tunnel.failed.connect(_on_tunnel_failed)
+	tunnel.log_line.connect(_log)
 	if "status_log" in OS.get_cmdline_user_args():   # (for the tests: the server says its state each time it changes)
 		server_state_changed.connect(func(): print("STATUS ", JSON.stringify(server_status())))
 	if "api_test" in OS.get_cmdline_user_args():
@@ -156,7 +170,7 @@ func pilgrims() -> Array:
 
 
 func _log(t: String) -> void:
-	if dedicated or Engine.is_editor_hint():
+	if dedicated or Engine.is_editor_hint() or debug_link:
 		print("[%s] %s" % [Time.get_time_string_from_system(), t])
 	status_changed.emit(t)
 
@@ -185,6 +199,8 @@ func host(p: int, sname: String, listed: bool, headless := false, priv := false,
 	join_code = ""
 	for k in 6:
 		join_code += CODE_CHARS[randi() % CODE_CHARS.length()]
+	if debug_code != "":
+		join_code = debug_code
 	seq = 0
 	in_level = -1
 	players.clear()
@@ -193,6 +209,9 @@ func host(p: int, sname: String, listed: bool, headless := false, priv := false,
 	leader = 0 if headless else 1
 	_open_discovery()
 	_open_port_upnp()
+	if public:
+		_host_key = "%x%x" % [randi(), randi()]
+		tunnel.host_start(lobby_url(), join_code, _host_key, p)
 	_announce_t = 2.0
 	if headless:
 		_started_unix = int(Time.get_unix_time_from_system())
@@ -202,8 +221,11 @@ func host(p: int, sname: String, listed: bool, headless := false, priv := false,
 	return OK
 
 
-func join(address: String, p: int) -> Error:
+func join(address: String, p: int, by_link := false) -> Error:
+	_keep_tunnel = by_link
 	leave("")
+	_keep_tunnel = false
+	via_link = by_link
 	peer = ENetMultiplayerPeer.new()
 	var err := peer.create_client(address, p)
 	if err != OK:
@@ -213,8 +235,41 @@ func join(address: String, p: int) -> Error:
 	multiplayer.multiplayer_peer = peer
 	_joining = true
 	_join_t = 8.0
-	_log("Seeking the fellowship at %s:%d..." % [address, p])
+	_log("Seeking the fellowship at %s:%d..." % [address, p] if not by_link else "Seeking the fellowship over the link...")
 	return OK
+
+
+## Joins a fellowship from the internet list or found by its code: by a WebRTC link through the lobby's
+## meeting place when the host waits there (this gets through any router), else straight to its address.
+func join_listed(d: Dictionary) -> void:
+	if not _should_link(d):
+		join(str(d.get("ip", "")), int(d.get("port", DEFAULT_PORT)))
+		return
+	leave("")
+	_relay_to = d.duplicate()
+	tunnel.join_start(lobby_url(), str(d.code))
+	_joining = true
+	_join_t = Tunnel.JOIN_WAIT + 12.0
+	_log("Finding a way through to %s..." % str(d.get("name", "the fellowship")))
+
+
+func _should_link(d: Dictionary) -> bool:
+	return bool(d.get("relay", false)) and str(d.get("code", "")) != "" and lobby_url() != "" \
+		and str(d.get("source", "Internet")) != "LAN" and (debug_link or not bool(d.get("same", false))) and Tunnel.available()
+
+
+func _on_tunnel_open(local_port: int) -> void:
+	_relay_to = {}
+	join("127.0.0.1", local_port, true)
+
+
+func _on_tunnel_failed(why: String) -> void:
+	var d := _relay_to
+	_relay_to = {}
+	if d.is_empty() or not _joining:
+		return
+	_log("%s Trying its address instead." % why)
+	join(best_address(d), int(d.get("port", DEFAULT_PORT)))
 
 
 ## Parses "host", "host:port" or "[v6]:port".
@@ -238,6 +293,10 @@ func leave(reason := "") -> void:
 	if is_host():
 		_announce_remove()
 	_close_port_upnp()
+	if not _keep_tunnel:
+		tunnel.stop()
+		_relay_to = {}
+		via_link = false
 	if _disc:
 		_disc.close()
 		_disc = null
@@ -957,7 +1016,7 @@ func _info() -> Dictionary:
 	return {"name": server_name, "port": port, "players": players.size(), "max": cap(),
 		"level": in_level, "proto": PROTOCOL, "version": str(ProjectSettings.get_setting("application/config/version", "")),
 		"code": join_code, "private": not listed_public, "locked": password != "", "detail": _detail(),
-		"ip4": external_ip, "lan": local_addresses()}
+		"ip4": external_ip, "lan": local_addresses(), "relay": tunnel.role == "host"}
 
 
 ## A line on how far the fellowship has come, for the list (the waste: its day and its fires).
@@ -1002,7 +1061,9 @@ func _on_code(result: int, code: int, _headers: PackedStringArray, body: PackedB
 		last_error = "That fellowship walks Brelm %s, and you have %s. Update to join." % [data.get("version", "?"), mine]
 		_log(last_error)
 		return
-	join(best_address(data), int(data.port))
+	data["source"] = "Internet"
+	data["ip"] = best_address(data)
+	join_listed(data)
 
 
 ## Where to reach a fellowship from the internet list: inside our own network if we share it with the
@@ -1256,7 +1317,9 @@ func world_saved(ok: bool) -> void:
 
 func _address_of(id: int) -> String:
 	if peer and peer.get_peer(id):
-		return peer.get_peer(id).get_remote_address()
+		var a := peer.get_peer(id).get_remote_address()
+		# One come in by a link shows as this machine: no address of theirs to keep (or ban)
+		return "" if a == "127.0.0.1" or a == "::1" else a
 	return ""
 
 

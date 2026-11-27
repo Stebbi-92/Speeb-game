@@ -7,6 +7,9 @@
 //   GET  /list      -> {servers: [{name, ip, ip4, port, players, max, level, proto, version, locked, same, lan?}]}   (private ones are left out)
 //   (ip4 is the host's public IPv4 as its router told it; same/lan say whether the asker shares the host's network)
 //   GET  /code/XXXXXX -> {name, ip, port, players, max, level, proto, version, locked}   (a fellowship by its join code)
+//   GET  /meet/XXXXXX/host?key=K  (WebSocket) the host of fellowship XXXXXX waits here for pilgrims to come in
+//   GET  /meet/XXXXXX/join         (WebSocket) a pilgrim meets that host: the two swap WebRTC offers through it
+//   GET  /turn      -> {iceServers: [...]}   (STUN, plus short-lived TURN relay logins when a TURN key is set)
 //   GET  /latest    -> {version, tag, name, notes, published, page, assets: {name: url}, news}
 //   POST /report    {version, platform, kind, text}   (an error report the player chose to send)
 //   GET  /reports   -> {reports: [{version, platform, kind, text, count, first, last}]}   (newest first)
@@ -132,6 +135,7 @@ export class Lobby {
         code: clean(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
         private: !!body.private,
         locked: !!body.locked,
+        relay: !!body.relay,
         detail: clean(body.detail, 60),
         ip4: ipv4(body.ip4),
         lan: lanList(body.lan),
@@ -141,6 +145,115 @@ export class Lobby {
       return json({ ok: true, ip });
     }
     return json({ error: "not found" }, 404);
+  }
+}
+
+// The meeting place: one Durable Object per join code. A host and the pilgrims coming to it can seldom
+// reach each other straight away (routers, carrier-grade NAT), so they swap WebRTC offers and network
+// candidates here; WebRTC then finds a way through, by the Cloudflare TURN relay if nothing else works.
+// The game's own traffic never passes through this object. Messages are small JSON texts:
+//   pilgrim -> {t, ...}        reaches the host as {from: id, t, ...}
+//   host    -> {to: id, t, ...} reaches that pilgrim as {t, ...}
+// and the host hears {from: id, t: "bye"} when a pilgrim's socket closes. The first host socket for a code
+// sets its key; a later host socket must give the same key, so no one else can take a fellowship's code.
+const MEET_MAX_JOINERS = 16;
+const MEET_MAX_MSG = 16_000;
+
+export class Meet {
+  constructor(state, env) {
+    this.state = state;
+  }
+
+  async fetch(request) {
+    if (request.headers.get("upgrade") !== "websocket") return json({ error: "websocket only" }, 426);
+    const url = new URL(request.url);
+    const role = url.pathname.split("/")[3] || "";
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    if (role === "host") {
+      const key = clean(url.searchParams.get("key"), 64);
+      if (key.length < 8) return json({ error: "no key" }, 400);
+      const known = await this.state.storage.get("key");
+      if (known && known !== key) return json({ error: "this code is taken" }, 403);
+      if (!known) await this.state.storage.put("key", key);
+      for (const old of this.state.getWebSockets("host")) old.close(1000, "replaced");
+      this.state.acceptWebSocket(server, ["host"]);
+    } else if (role === "join") {
+      if (this.state.getWebSockets("join").length >= MEET_MAX_JOINERS) return json({ error: "busy" }, 429);
+      const id = 2 + Math.floor(Math.random() * 0x3fff_fff0);
+      this.state.acceptWebSocket(server, ["join", "j" + id]);
+      server.serializeAttachment({ id });
+      server.send(JSON.stringify({ t: "id", id, host: this.state.getWebSockets("host").length > 0 }));
+    } else {
+      return json({ error: "not found" }, 404);
+    }
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  webSocketMessage(ws, msg) {
+    if (typeof msg !== "string" || msg.length > MEET_MAX_MSG) return;
+    let m;
+    try {
+      m = JSON.parse(msg);
+    } catch {
+      return;
+    }
+    if (!m || typeof m !== "object") return;
+    const tags = this.state.getTags(ws);
+    if (tags.includes("host")) {
+      const to = Number(m.to) | 0;
+      delete m.to;
+      for (const j of this.state.getWebSockets("j" + to)) j.send(JSON.stringify(m));
+    } else {
+      const at = ws.deserializeAttachment() || {};
+      m.from = at.id;
+      for (const h of this.state.getWebSockets("host")) h.send(JSON.stringify(m));
+    }
+  }
+
+  webSocketClose(ws, code, reason) {
+    const tags = this.state.getTags(ws);
+    if (tags.includes("join")) {
+      const at = ws.deserializeAttachment() || {};
+      for (const h of this.state.getWebSockets("host")) h.send(JSON.stringify({ from: at.id, t: "bye" }));
+    } else if (tags.includes("host")) {
+      for (const j of this.state.getWebSockets("join")) j.send(JSON.stringify({ t: "gone" }));
+    }
+    try {
+      ws.close(code, reason);
+    } catch {}
+    // A code with no host and no one waiting forgets its key a day on, so the object can be let go
+    if (this.state.getWebSockets().length <= 1) this.state.storage.setAlarm(Date.now() + 86_400_000);
+  }
+
+  webSocketError(ws) {
+    this.webSocketClose(ws, 1011, "error");
+  }
+
+  async alarm() {
+    if (this.state.getWebSockets().length === 0) await this.state.storage.deleteAll();
+  }
+}
+
+// Network help for WebRTC: Cloudflare's free STUN always, and TURN relay logins (valid a day) when the
+// worker has a TURN key (the secrets TURN_KEY_ID and TURN_KEY_API_TOKEN, set in the Cloudflare dashboard).
+async function turn(env) {
+  const stun = { iceServers: [{ urls: ["stun:stun.cloudflare.com:3478"] }] };
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json(stun);
+  try {
+    const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({ ttl: 86400 }),
+    });
+    if (!r.ok) return json(stun);
+    const d = await r.json();
+    if (!Array.isArray(d.iceServers)) return json(stun);
+    // Browsers alone are kept off port 53; the game needs none of the TCP ways either way
+    const servers = d.iceServers.map((s) => ({ ...s, urls: [].concat(s.urls || []).filter((u) => !/:53\b/.test(u)) }));
+    return json({ iceServers: servers, relay: true });
+  } catch {
+    return json(stun);
   }
 }
 
@@ -253,6 +366,13 @@ async function latest(request, env, ctx) {
 export default {
   async fetch(request, env, ctx) {
     if (new URL(request.url).pathname === "/latest" && request.method === "GET") return latest(request, env, ctx);
+    const path0 = new URL(request.url).pathname;
+    if (path0 === "/turn" && request.method === "GET") return turn(env);
+    if (path0.startsWith("/meet/")) {
+      const code = clean(path0.split("/")[2], 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (code.length < 4) return json({ error: "bad code" }, 400);
+      return env.MEET.get(env.MEET.idFromName(code)).fetch(request);
+    }
     const ip = request.headers.get("cf-connecting-ip") || "";
     const headers = new Headers(request.headers);
     headers.set("x-brelm-ip", ip);
