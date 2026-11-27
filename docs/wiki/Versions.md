@@ -9,6 +9,16 @@ Brelm is in alpha. Each version is on the [Releases page](https://github.com/Ste
 - **Foes:** Unlit gunmen raise their rifles to aim. Spirit-cats run on a real cat's body.
 - **Co-op:** a friend's perfect guard is now heard and felt by them.
 - **Fixed:** a crash report after restarting to update.
+- **Crouch:** lower view, quieter steps, steadier aim, hidden behind low cover.
+- **Trees:** every waste tree can be felled; bigger trees give more wood and regrow in days.
+- **Building:** pieces and wall materials open with each beacon fire; six new later pieces; blackglass walls.
+- **Menus:** search in build, make, arms and wear; build-up tooltips; HUD text no longer overlaps.
+- **Guns:** new Sunglass Carbine and break-open Hand Cannon; loudness by calibre; beefier shotguns; new gunship sound.
+- **Fire:** the fire grenade spreads a real pool of flame; walking through fire hurts.
+- **Villages:** roofs, footings and sunk cabins fixed.
+- **Balance:** the prayer weapon needs faith first; killstreaks need 15/25/40 kills; ghosts resist bullets.
+- **Dedicated server:** a persistent world that pauses when empty, run from its own window.
+- **Fixed:** sky colour flashes, constant vignette, base drone and whispers, salt rifleman aim, unlit beacon columns everywhere.
 
 ## 0.23.0 (a steadier hand)
 

@@ -10,6 +10,22 @@ Brelm alpha 0.24.0: people of the waste
 - Dedicated servers keep one world of the waste running. Players walk straight into it. It pauses while no one is there and runs again when someone joins, and it is saved every five minutes, when the last player leaves and when the server closes. Run with world=NAME to choose the world, or persist=0 for the old trial server.
 - The dedicated server has a window to run it from: who is here (kick, ban, a word to all), its worlds (save, load, make, when it runs), its settings (kept in server.cfg), updates and the log. Without a window, the same commands are typed at its terminal.
 - Fixed: restarting the game to update no longer sends a crash report.
+- Crouch: the old soft-walk key now crouches. Your view drops, steps are quieter, aim steadies when still, and a low wall or crate hides you from foes. Friends see you crouch.
+- Every tree in the waste can be cut down. Bigger trees take more blows and give more wood. Felled trees leave a stump and grow back after a few days.
+- Building opens step by step: you start with a camp, and each beacon fire opens more pieces and stronger walls. New later pieces: Iron Brazier, Strongbox, Watchtower, Fellowship Banner, Iron-bound Barricade and Tar Lamp-post. Walls can be built up to stone, iron and at last blackglass, each with rarer stuff of the harder lands.
+- The build, make, arms and wear menus have a search box (click it, or press / or Ctrl+F). Build cards and a new "Build it up" box explain what building up gives and costs.
+- The HUD no longer piles text on text at any text size: the quest card wraps beside the compass, compass names keep apart, and food and rest sit above the health bar.
+- The Sunglass Carbine is a new semi-automatic battle rifle. A rail goes on when a sight is fitted, and every attachment sits where it should. The Dome-steel Hand Cannon is now a sawed-off double barrel that breaks open to reload.
+- The fire grenade bursts where it lands into a spreading pool of real flame that hugs the ground, lights the dark and leaves a scorch. Foes in it burn. Campfires, hearths, stoves, torches and burning ground hurt you if you walk through them.
+- Village buildings stand right: no more floating roof plates, sunk log cabins or houses overlapping each other.
+- Every gun is as loud as its round: pistols and SMGs quietest, rifles and the sniper loudest. The shotguns are much beefier, and the gunship has a new rotor, cannon and missiles, all much louder.
+- The prayer weapon must gather faith before its first use, from slaying forms, kindling beacons and felling great ones.
+- Killstreaks need far more kills: 15, 25 and 40.
+- U turns walking-over pickup of satchels on or off.
+- Ghosts shrug off most of a bullet; blades, fire and holy things still bite.
+- Beacons you cannot light yet no longer stand as red and purple columns everywhere; only the next one shows from afar.
+- First-person arms keep their bones and wrists true on every weapon, and the minigun reload and pistol thumb are fixed.
+- Fixed: the sky flashing odd colours on High, the constant dark vignette, whispers and a drone in the base, and the salt rifleman firing into the ground.
 
 Brelm alpha 0.23.0: a steadier hand
 
