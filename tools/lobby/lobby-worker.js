@@ -239,21 +239,23 @@ export class Meet {
 // worker has a TURN key (the secrets TURN_KEY_ID and TURN_KEY_API_TOKEN, set in the Cloudflare dashboard).
 async function turn(env) {
   const stun = { iceServers: [{ urls: ["stun:stun.cloudflare.com:3478"] }] };
-  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json(stun);
+  // "why" says what kept the relay away (never the key itself), so a missing or wrong secret can be told
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN)
+    return json({ ...stun, why: `no ${!env.TURN_KEY_ID ? "TURN_KEY_ID" : ""}${!env.TURN_KEY_ID && !env.TURN_KEY_API_TOKEN ? " or " : ""}${!env.TURN_KEY_API_TOKEN ? "TURN_KEY_API_TOKEN" : ""} secret` });
   try {
     const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
       method: "POST",
       headers: { authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "content-type": "application/json" },
       body: JSON.stringify({ ttl: 86400 }),
     });
-    if (!r.ok) return json(stun);
+    if (!r.ok) return json({ ...stun, why: `Cloudflare TURN answered ${r.status}` });
     const d = await r.json();
-    if (!Array.isArray(d.iceServers)) return json(stun);
+    if (!Array.isArray(d.iceServers)) return json({ ...stun, why: "Cloudflare TURN sent no servers" });
     // Browsers alone are kept off port 53; the game needs none of the TCP ways either way
     const servers = d.iceServers.map((s) => ({ ...s, urls: [].concat(s.urls || []).filter((u) => !/:53\b/.test(u)) }));
     return json({ iceServers: servers, relay: true });
-  } catch {
-    return json(stun);
+  } catch (e) {
+    return json({ ...stun, why: "Cloudflare TURN could not be reached" });
   }
 }
 
