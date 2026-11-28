@@ -12956,6 +12956,29 @@ func debug_guide() -> void:
 	get_tree().quit()
 
 
+## Testing aid: first steps done before the guide asks for them still count: dodge, gather, pack, make
+## and a fire all done on the first step, the guide runs through to the town as soon as the walk is done.
+func debug_guideearly() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	guide.begin(0)
+	await get_tree().create_timer(1.0).timeout
+	player.dodge_t = 0.3
+	award("gather")
+	award("gather")
+	ui.open_inventory("pack")
+	await get_tree().create_timer(0.5).timeout
+	award("make")
+	ui.close_all()
+	award("build")
+	await get_tree().create_timer(1.0).timeout
+	var held := guide.step
+	player.global_position += Vector3(15, 0, 0)
+	await get_tree().create_timer(4.0).timeout
+	print("GUIDEEARLY held=%d after_walk=%d town=%s" % [held, guide.step, guide.step >= 0 and WGuide.STEPS[guide.step][0] == "town"])
+	get_tree().quit()
+
+
 func debug_guideshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout

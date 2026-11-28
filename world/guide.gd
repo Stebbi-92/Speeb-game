@@ -73,11 +73,13 @@ func _lab(px: int, c: Color) -> Label:
 
 func begin(at: int) -> void:
 	step = at
+	_seen.clear()
+	_base = -1
 	_enter()
 
 
 func event(kind: String) -> void:
-	_seen[kind] = true
+	_seen[kind] = int(_seen.get(kind, 0)) + 1
 
 
 func _enter() -> void:
@@ -85,8 +87,6 @@ func _enter() -> void:
 		visible = false
 		return
 	_from = Vector3.INF
-	_base = w.inv.count("wood") + w.inv.count("stone")
-	_seen.clear()
 	_head.text = "First steps   %d of %d" % [step + 1, STEPS.size()]
 	_text.text = _keys(STEPS[step][1])
 	visible = true
@@ -114,9 +114,10 @@ func _done() -> bool:
 		"dodge":
 			return _seen.has("dodge")
 		"gather":
-			return w.inv.count("wood") + w.inv.count("stone") >= _base + 5
+			# two pulls at a tree or rock, even if the wood went into a fire before this step came up
+			return int(_seen.get("gather", 0)) >= 2 or w.inv.count("wood") + w.inv.count("stone") >= _base + 5
 		"pack":
-			return w.ui._panel_name == "pack"
+			return _seen.has("pack")
 		"make":
 			return _seen.has("make")
 		"build":
@@ -126,9 +127,9 @@ func _done() -> bool:
 		"talk":
 			return w.quests.main_stage() > 0 or _seen.has("step_main")
 		"map":
-			return w.ui._panel_name == "map"
+			return _seen.has("map")
 		"journal":
-			return w.ui._panel_name == "journal"
+			return _seen.has("journal")
 		"night":
 			return _seen.has("dawn")
 	return true
@@ -155,16 +156,20 @@ func _process(delta: float) -> void:
 		_enter()
 	follow_quest()
 	# A dodge lasts less than a check's wait, so the key is watched every frame
-	if STEPS[step][0] == "dodge" and (w.player.dodge_t > 0.0 or Input.is_action_just_pressed("dash")):
+	# Done early still counts: a step already done when it comes up is passed at once
+	if w.player.dodge_t > 0.0 or Input.is_action_just_pressed("dash"):
 		_seen["dodge"] = true
+	if w.ui != null and w.ui._panel_name in ["pack", "map", "journal"]:
+		_seen[w.ui._panel_name] = true
 	# Kept out of the way of open screens
 	_box.visible = w.ui == null or not w.ui.is_open() or STEPS[step][0] in ["make", "pack"]
 	_t -= delta
 	if _t > 0.0:
 		return
+	if _base < 0:   # what was carried when the guide began: wood and stone gathered since count
+		_base = w.inv.count("wood") + w.inv.count("stone")
 	if _from == Vector3.INF:
 		_from = w.player.global_position
-		_base = w.inv.count("wood") + w.inv.count("stone")
 		return
 	_t = 0.4
 	if _done():

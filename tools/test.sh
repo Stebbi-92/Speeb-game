@@ -21,6 +21,7 @@ check() {   # name, call, then patterns that must all be in the output
 check take_all   debug_takeall  "TAKEALL asked=3 hide=3 meat=2 bone=6 satchel_gone=true" "TAKEALL full asked=1 still_there=true" "TIDY wood=12"
 check combat     debug_combat   "COMBAT wind frames=[1-9]" "COMBAT dodged hp ([0-9]+) -> \\1$" "COMBAT staggered=true wind_cancelled=true" "head ray hits=true body ray hits=false"
 check guide      debug_guide    "GUIDE start step=0" "GUIDE saved step=[1-9]"
+check guideearly debug_guideearly "GUIDEEARLY held=0 after_walk=6 town=true"
 check base_stock debug_basestock "STOCK paid true"
 check knock      debug_knock    "KNOCK idol start=[0-9.]+ furthest=(1[0-2]|[0-9])\\." "KNOCK rusher start=[0-9.]+ furthest=(1[0-3]|[0-9])\\."
 check chest_name debug_chestname "CHESTNAME .*panel=container saved=mjikbr"
