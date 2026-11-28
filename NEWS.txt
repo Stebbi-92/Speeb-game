@@ -1,3 +1,12 @@
+Brelm alpha 0.25.1: back to the old faces
+
+- Fixed: building a wall or floor up to the next tier took the materials and did nothing. It builds up again, with the Mason skill counted.
+- The villagers, the people you speak with, the lost and Lena are the hand-made figures of old again.
+- The Autoshotgun's red dot clamps onto its rail, and the belt gun's sits on its feed cover: no more floating sights.
+- The Hand Cannon's shells show brass heads with a primer at the open breech.
+- Suppressed guns sound like the real thing: the boom is gone, a flat slap is left, the action is heard working, and a rifle's bullet still cracks. Pistols, SMGs, rifles and shotguns each have their own.
+- An in-game update from 0.25.0.
+
 Brelm alpha 0.25.0: through any door
 
 - Co-op through any router: friends who join from the internet list or by the fellowship's code now get in whatever the host's router is, with no port to open, mobile networks included. Brelm finds a way straight through, or goes by a relay when nothing else works. Joining by typed address and on the same network work as before.

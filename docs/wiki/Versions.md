@@ -2,6 +2,12 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.25.1 (back to the old faces)
+
+- **Fixed:** building a wall or floor up a tier works again.
+- **People:** villagers and named people are the hand-made figures again.
+- **Guns:** no floating sights on the Autoshotgun and belt gun; brass Hand Cannon shell heads; lifelike suppressed shots.
+
 ## 0.25.0 (through any door)
 
 - **Co-op:** joining from the list or by code gets through any router, by a relay if needed. Full download needed.
