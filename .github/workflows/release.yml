@@ -10,7 +10,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50   # the first release with split parts sends every part once
     steps:
       - uses: actions/checkout@v4
       - name: Fetch Godot 4.3 and its export templates

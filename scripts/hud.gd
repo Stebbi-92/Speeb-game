@@ -2349,6 +2349,31 @@ func _page_game() -> void:
 	_section("Error reports")
 	_choice("Send error reports", ["Ask me", "Always send", "Never send"], Game.reports, func(i): Game.reports = i; Game.save())
 	_note_line("After an error or a sudden close, a short report helps fix it. It holds only the error and the game version.")
+	_section("Game files")
+	var note := _label("Reads the game's files and fetches again any that are damaged.", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var cb := button("Check game files", func(): pass, 18)
+	cb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	cb.pressed.connect(func():
+		cb.disabled = true
+		note.text = "Checking the game's files..."
+		Updater.check_files())
+	var shown := func(ok: bool, message: String):
+		if is_instance_valid(note):
+			note.text = message
+		if is_instance_valid(cb):
+			cb.disabled = not ok and Updater.busy
+	var fetched := func(_ok: bool, message: String):
+		if is_instance_valid(note) and is_instance_valid(cb) and cb.disabled:
+			note.text = message
+			cb.disabled = false
+	Updater.files_checked.connect(shown)
+	Updater.finished.connect(fetched)
+	cb.tree_exiting.connect(func():
+		Updater.files_checked.disconnect(shown)
+		Updater.finished.disconnect(fetched))
+	_options_list.add_child(cb)
+	_options_list.add_child(note)
 
 
 func _page_together() -> void:

@@ -1,3 +1,10 @@
+Brelm alpha 0.26.0: lighter updates
+
+- Updates fetch only what changed. The game's data now comes in parts (code, arms, foes, world, textures, sound), and an update brings just the parts that are new: often about 15 MB instead of the whole 550 MB. The first update after this one fetches every part once.
+- When a new version needs more than an update (a new engine or a new file beside the game), Brelm downloads the whole game and puts it in place by itself on restart, on Windows and Linux. On macOS it points you to the download page.
+- Check game files: a button under Settings > Game checks the downloaded parts and fetches again any that are damaged.
+- An in-game update from 0.25.
+
 Brelm alpha 0.25.1: back to the old faces
 
 - Fixed: building a wall or floor up to the next tier took the materials and did nothing. It builds up again, with the Mason skill counted.

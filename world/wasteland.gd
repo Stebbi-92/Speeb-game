@@ -8890,6 +8890,40 @@ func debug_facetalk() -> void:
 
 
 
+## Testing aid for updates (tools/update_test.sh): on version WANT, says what it runs on and ends; on any
+## other, looks for the newest release, fetches it and restarts onto it.
+func debug_updtest() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var want := OS.get_environment("WANT")
+	if Updater.current == want:
+		var from := {}
+		for n in Updater.parts_from:
+			from[str(n).get_slice("-", 4)] = "install" if Updater.parts_from[n] == "install" else "fetched"
+		print("UPDTEST on %s code_pack=%s parts=%s missing=%d" % [Updater.current, Updater.on_code_pack, from, Updater.parts_missing.size()])
+		print("UPDTEST leftovers=%s" % DirAccess.dir_exists_absolute(Updater.INSTALL_DIR))
+		print("UPDTEST folk %s" % ("ok" if people.has("maud") and people.maud.fig != null else "missing"))
+		get_tree().quit()
+		return
+	Updater.check()
+	await Updater.checked
+	print("UPDTEST from %s: latest=%s can_patch=%s whole=%s size=%d queue=%s" % [Updater.current, Updater.latest.get("version", ""), Updater.can_patch, Updater.can_reinstall, int(Updater.latest.get("pack_size", 0)), ",".join(Updater._queue.map(func(q): return str(q.dest).get_file()))])
+	if Updater.can_reinstall:
+		print("UPDTEST whole game %d bytes" % int(Updater.latest.get("zip_size", 0)))
+		Updater.download_install()
+	elif not Updater.can_patch:
+		get_tree().quit()
+		return
+	else:
+		Updater.download()
+	var r = await Updater.finished
+	print("UPDTEST fetched ok=%s %s" % [r[0], r[1]])
+	if r[0]:
+		Updater.restart()
+	else:
+		get_tree().quit()
+
+
 ## Testing aid: the village elder and the folk about her, seen face on, saved to SHOT_OUT (a picture of how
 ## the villagers are drawn).
 func debug_folkshot() -> void:
@@ -10357,7 +10391,7 @@ func debug_voices() -> void:
 	var cam := get_viewport().get_camera_3d()
 	var at: Vector3 = cam.global_position if cam else player.global_position
 	for i in 60:
-		sfx("horror_deep", -20, at + Vector3(150, 0, 0))
+		sfx("horror_deep", -20, at + Vector3(100, 0, 0))
 	var faint: int = _voices.filter(func(v): return is_instance_valid(v) and not v.is_queued_for_deletion()).size()
 	sfx("horror_deep", 0, at + Vector3(2, 0, 0))
 	var near_in: bool = _voices.any(func(v): return is_instance_valid(v) and v.volume_db == 0.0)

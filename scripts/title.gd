@@ -511,9 +511,13 @@ func _build_update(box: Control) -> void:
 func _update_shown() -> void:
 	if not is_instance_valid(_upd_text):
 		return
-	if Updater.staged != "":
-		_upd_text.text = "Version %s waits. Restart to walk it." % Updater.staged
+	if Updater.staged != "" or Updater.reinstall_ready != "":
+		_upd_text.text = "Version %s waits. Restart to walk it." % (Updater.staged if Updater.staged != "" else Updater.reinstall_ready)
 		_upd_btn.text = "Restart now"
+	elif Updater.can_reinstall:
+		var zmb := int(Updater.latest.get("zip_size", 0)) / 1048576.0
+		_upd_text.text = "%s has come. This one brings the whole game (%.0f MB)." % [_vname(), zmb]
+		_upd_btn.text = "Update"
 	elif Updater.can_patch:
 		var mb := int(Updater.latest.pack_size) / 1048576.0
 		_upd_text.text = "%s has come.%s" % [_vname(), (" (%.0f MB)" % mb) if mb > 0 else ""]
@@ -536,8 +540,12 @@ func _vname() -> String:
 
 
 func _update_pressed() -> void:
-	if Updater.staged != "":
+	if Updater.staged != "" or Updater.reinstall_ready != "":
 		Updater.restart()
+	elif Updater.can_reinstall:
+		_upd_btn.disabled = true
+		_upd_text.text = "Fetching..."
+		Updater.download_install()
 	elif Updater.can_patch:
 		_upd_btn.disabled = true
 		_upd_text.text = "Fetching..."

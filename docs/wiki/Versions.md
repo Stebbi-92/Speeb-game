@@ -2,6 +2,12 @@
 
 Brelm is in alpha. Each version is on the [Releases page](https://github.com/Stebbi-92/Speeb-game/releases).
 
+## 0.26.0 (lighter updates)
+
+- **Updates:** only the parts that changed are fetched, often about 15 MB. The first fetches all parts once.
+- **Whole-game updates:** put in place by themselves on Windows and Linux.
+- **Check game files:** finds and re-fetches damaged parts.
+
 ## 0.25.1 (back to the old faces)
 
 - **Fixed:** building a wall or floor up a tier works again.
