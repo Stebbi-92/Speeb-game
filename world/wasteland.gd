@@ -1715,7 +1715,6 @@ func _person(pid: String, p: Vector3, yaw: float) -> void:
 			c.queue_free()
 	var dressed := Figure.new().setup(Figure.townsman(pid.hash(), str(pd.at)))
 	dressed.arms_forward = false
-	dressed.real = true
 	f.add_child(dressed)
 	var body: StaticBody3D = f.get_meta("body")
 	body.collision_layer = 1 | 16
@@ -8550,8 +8549,8 @@ func _rq_door(pid: int) -> void:
 	builder._rq_door(pid)
 
 
-func _rq_tier(by: int, pid: int, t: int, paid = null) -> void:
-	builder._rq_tier(by, pid, t, paid)
+func _rq_tier(by: int, pid: int, t: int, paid = null, hm := 1.0) -> void:
+	builder._rq_tier(by, pid, t, paid, hm)
 
 
 func _w_tier(pid: int, t: int, hp: float) -> void:
@@ -8759,7 +8758,6 @@ func make_lost(qid: String, p: Vector3, nm: String) -> Node3D:
 	var dressed := Figure.new().setup(Figure.seeded(qid.hash()))
 	dressed.arms_forward = true
 	dressed.seated = true
-	dressed.real = true
 	dressed.position.y = -0.32
 	f.add_child(dressed)
 	WDress.kp(f, "pirate", "crate", Vector3(0, 0, -0.1), PI * 0.5, 0.75, false, Vector3.ZERO, 120.0)
@@ -8890,6 +8888,21 @@ func debug_facetalk() -> void:
 	await get_tree().create_timer(3.5).timeout
 	print("BACK now %.2f yaw0 %.2f mouth %.2f" % [e.node.rotation.y, e.yaw, e.fig._mouth.scale.y])
 
+
+
+## Testing aid: the village elder and the folk about her, seen face on, saved to SHOT_OUT (a picture of how
+## the villagers are drawn).
+func debug_folkshot() -> void:
+	while not ready_world:
+		await get_tree().create_timer(0.5).timeout
+	var e: Dictionary = people.maud
+	var off := Vector3(3.2, 0, 0).rotated(Vector3.UP, float(e.yaw) + 1.3)
+	player.place(e.pos + off + Vector3(0, 0.3, 0), atan2(off.x, off.z))
+	player.pitch = -0.08
+	await get_tree().create_timer(4.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(OS.get_environment("SHOT_OUT"))
+	get_tree().quit()
 
 
 ## Testing aid: cuttable dead trees wear nothing stuck on (no red band, no notch box), the fire hound
@@ -18311,65 +18324,6 @@ func debug_falls() -> void:
 		get_tree().quit()
 
 
-## Testing aid: the people of the waste in their own bodies (one of each), four standing and talking and four
-## walking about. With shots= on the command line they stay to be seen.
-func debug_people() -> void:
-	while not ready_world:
-		await get_tree().create_timer(1.0).timeout
-	await _debug_home()
-	var f := -player.global_transform.basis.z
-	f.y = 0.0
-	f = f.normalized()
-	var side := f.cross(Vector3.UP)
-	var keys := []
-	for p in Person.PAIRS:
-		keys.append(p[0] + "_m")
-		keys.append(p[0] + "_f")
-	var figs := []
-	for i in keys.size():
-		var at: Vector3 = player.global_position + f * 6.0 + side * (i - 3.5) * 1.3
-		at.y = terrain.height_at(at.x, at.z)
-		if i % 2 == 0:
-			var t := WTownsfolk.new().setup(self, at, 4.0, 300 + i * 17)
-			t.person_key = keys[i]
-			add_child(t)
-			t.global_position = at
-			figs.append(t.fig)
-		else:
-			var g := Figure.new().setup(Figure.townsman(i * 31, "hesk"))
-			g.real = true
-			g.person_key = keys[i]
-			add_child(g)
-			g.global_position = at
-			g.look_at(player.global_position, Vector3.UP, true)
-			g.talk_t = 30.0
-			figs.append(g)
-	# Over six seconds: each body moves, and each of the wanderers is seen walking at some time
-	var walked := {}
-	var moved := {}
-	for i in 24:
-		await get_tree().create_timer(0.25).timeout
-		for g in figs:
-			var fg := g as Figure
-			if fg.person and fg.person._clip in ["Walk", "Run"]:
-				walked[fg] = true
-			if fg.person and fg.person._ap.is_playing():
-				moved[fg] = true
-	var ok := moved.size()
-	var walking := walked.size()
-	var tall := []
-	for g in figs:
-		var fg := g as Figure
-		if fg.person:
-			var hi := fg.person._sk.global_transform * fg.person._sk.get_bone_global_pose(fg.person._bone("HeadTop_End")).origin
-			tall.append("%.2f" % (hi.y - fg.global_position.y))
-	print("PEOPLE ok=%d/%d walking=%d tall=%s" % [ok, figs.size(), walking, ",".join(tall)])
-	if not Array(OS.get_cmdline_user_args()).any(func(a): return str(a).begins_with("shots=")):
-		get_tree().quit()
-	else:
-		clock = 16.5   # in the afternoon light, to be seen
-
-
 ## Testing aid: a figure is drawn in a handful of meshes, not thirty.
 func debug_figjoin() -> void:
 	var most := 0
@@ -18630,51 +18584,6 @@ func debug_feet() -> void:
 			if is_instance_valid(b[1]):
 				b[1].queue_free()
 		await get_tree().create_timer(0.3).timeout
-	if "synth" in only:
-		# A body walked by hand along the way it faces, at a pace its walk is played for: the measure's own check
-		var batch := []
-		var walkers := []
-		for sp in [0.9, 1.3]:
-			var holder := Node3D.new()
-			add_child(holder)
-			var at: Vector3 = player.global_position + f * 6.0 + side * (batch.size() * 3.0 - 1.5)
-			holder.global_position = at
-			holder.look_at(at - side, Vector3.UP)   # faces +Z along -side... set below
-			holder.rotation = Vector3(0, atan2(side.x, side.z), 0)
-			var ps := Person.new().setup("nordic_m", 7, 1)
-			holder.add_child(ps)
-			batch.append(["synth%.1f" % sp, holder])
-			walkers.append([holder, ps, sp])
-		var mover := func(dt: float) -> void:
-			for wk in walkers:
-				var h: Node3D = wk[0]
-				var ps2: Person = wk[1]
-				ps2.pace = wk[2]
-				var p2: Vector3 = h.global_position + h.global_basis.z * float(wk[2]) * dt
-				p2.y = terrain.height_at(p2.x, p2.z)
-				h.global_position = p2
-		_feet_tick = mover
-		await get_tree().create_timer(1.0).timeout
-		lines.append_array(await _feet_measure(batch, 5.0))
-		_feet_tick = Callable()
-	if only == "" or "folk" in only:
-		var batch := []
-		for p in Person.PAIRS:
-			for sx in ["m", "f"]:
-				var at: Vector3 = player.global_position + f * 8.0 + side * (batch.size() - 3.5) * 2.5
-				at.y = terrain.height_at(at.x, at.z)
-				var t := WTownsfolk.new().setup(self, at, 5.0, 900 + batch.size() * 13)
-				t.person_key = p[0] + "_" + sx
-				add_child(t)
-				t.global_position = at
-				batch.append(["folk:" + t.person_key, t])
-		await get_tree().create_timer(1.0).timeout
-		for b in batch:
-			var t: WTownsfolk = b[1]
-			print("FOLKDBG ", is_instance_valid(t), " ", t.fig.person if is_instance_valid(t) and t.fig else null, " ", t.fig.person._built if is_instance_valid(t) and t.fig and t.fig.person else false, " ", _feet_skel(t) if is_instance_valid(t) else null)
-		lines.append_array(await _feet_measure(batch, 8.0))
-		for b in batch:
-			b[1].queue_free()
 	if only == "" or "beast" in only:
 		var batch := []
 		var n := 0
@@ -18698,7 +18607,6 @@ func debug_feet() -> void:
 ## Watches these bodies for a while; one line each. The body's pace is taken over a quarter second (it moves in
 ## physics steps, its bones every frame); the foot that bears it moves in the body's own frame by its walk, so a
 ## walk in step carries that foot back exactly as fast as the body goes forward.
-var _feet_tick := Callable()       ## (testing aid) moves bodies by hand each frame while they are watched
 var _feet_lead := Vector3.ZERO   ## (testing aid) the one they follow walks on, so they walk after him
 
 
@@ -18713,8 +18621,6 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 		if dt <= 0.0:
 			continue
 		t += dt
-		if _feet_tick.is_valid():
-			_feet_tick.call(dt)
 		if _feet_lead != Vector3.ZERO:
 			var pp := player.global_position + _feet_lead * dt
 			pp.y = terrain.height_at(pp.x, pp.z) + 0.05
@@ -18789,8 +18695,6 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			if lb == d.lb:
 				d.span = maxf(d.span, (q - d.lq).length() / dts)
 			var mv := vb.length()
-			if e is WTownsfolk and (e as WTownsfolk).fig and (e as WTownsfolk).fig.person:
-				d["pace"] = d.get("pace", []) + [(e as WTownsfolk).fig.person.pace] if mv > 0.6 else d.get("pace", [])
 			if is_instance_valid(d.stp):
 				d["step"] = true
 			if e is LesserSpeeb and (e as LesserSpeeb)._fb and (e as LesserSpeeb)._fb.anim and mv > 0.6:
@@ -18870,10 +18774,6 @@ func _feet_measure(batch: Array, secs: float) -> Array:
 			flag = " BAD"
 		var sk2 := _feet_skel(b[1]) if is_instance_valid(b[1]) else null
 		var fb := ",".join(PackedStringArray((d.get("feet", []) as Array).slice(0, 2).map(func(x): return sk2.get_bone_name(x) if sk2 else "?")))
-		if d.has("pace"):
-			b[0] += " pace=%.2f" % _med(d.pace)
-			var ps: Person = (b[1] as WTownsfolk).fig.person
-			b[0] += " stride=%.2f sc=%.2f" % [Stride.of(ps._sk, ps._ap, "moves/Walk"), ps._ap.speed_scale]
 		if d.has("clips"):
 			var hk: Dictionary = d.clips
 			var ks := hk.keys()

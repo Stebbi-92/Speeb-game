@@ -57,12 +57,6 @@ var _knees: Array = []
 var _skirt: Node3D   ## (legs that bend) what hangs from the hips, coat tails and cloak, so it can gather up crouched
 var _ankles: Array = []
 var _arms: Array = []
-## A real body (see Person) in place of the plain shapes, for the people of the waste; their faces, skins and
-## clothes are their own, and the look picks which of them it is. Players and the appearance screen keep the shapes.
-var real := false
-var person: Person
-var person_key := ""   ## (testing aid) which body, in place of the one the look picks
-var _walk_was := 0.0
 
 
 ## Gear of the waste worn over the look: goggles, a mask, a veil or scarf, a cloak, gloves (0 = none).
@@ -158,17 +152,7 @@ func rebuild() -> void:
 	_knees.clear()
 	_ankles.clear()
 	_arms.clear()
-	person = null
 	var L := look
-	if real:
-		var k := person_key if person_key != "" else Person.pick(L, hash(L))
-		if Person.can(k):
-			person = Person.new().setup(k, hash(L), int(L.build))
-			person.seated = seated
-			add_child(person)
-			hand_r = person.hand_r
-			_hold_item(L)
-			return
 	var w: float = [0.88, 1.0, 1.14][L.build]
 	var skin := _mat(SKINS[L.skin], 0.0, 0.75)
 	var dye: Color = DYES[L.dye]
@@ -446,22 +430,13 @@ func _join(p: Node3D) -> void:
 func _hold_item(L: Dictionary) -> void:
 	var held: Array = HELD[int(L.get("held", 0))]
 	if not held.is_empty() and hand_r:
-		# (a real hand is smaller than the shapes' mitten: what it holds is too)
-		var k := float(held[2]) * (0.6 if person else 1.0)
+		var k := float(held[2])
 		var it := WIsleLife.put(hand_r, held[0], held[1], Vector3(0, -0.04, 0.02), 0.0, k, false, Vector3.ZERO, null, 80.0)
 		var bb := WIsleLife.bounds(held[0] + "/" + held[1], it)
-		it.position -= Vector3(bb.get_center().x, bb.end.y, bb.get_center().z) * k - Vector3(0, 0.06 if not person else 0.02, 0)
+		it.position -= Vector3(bb.get_center().x, bb.end.y, bb.get_center().z) * k - Vector3(0, 0.06, 0)
 
 
 func _process(delta: float) -> void:
-	if person:
-		# Its owner turns the stride's phase as it goes (5.5 a metre): that is its pace over the ground
-		person.pace = (walk - _walk_was) / maxf(delta, 0.001) / 5.5 * minf(stride * 1.5, 1.0)
-		_walk_was = walk
-		person.talking = talk_t > 0.0
-		if talk_t > 0.0:
-			talk_t -= delta
-		return
 	if _legs.size() < 2:
 		return
 	if _mouth:

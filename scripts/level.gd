@@ -2423,7 +2423,7 @@ func net_fx(id: int, kind: String, a: Vector3, b: Vector3) -> void:
 					if is_instance_valid(fs) and Time.get_ticks_msec() >= int(fs.get_meta("until", 0)):
 						fs.stop())
 			return
-		sfx("supp" if quiet else str(g.sound), Arms.shot_db(parts[1], quiet) + Arms.REMOTE_DB, a, Arms.shot_pitch(parts[1]))
+		sfx(Arms.supp_sound(parts[1]) if quiet else str(g.sound), Arms.shot_db(parts[1], quiet) + Arms.REMOTE_DB, a, Arms.shot_pitch(parts[1]))
 		if av and is_instance_valid(av) and not quiet:
 			av.muzzle()
 		if g.mode == "rocket":
@@ -3514,8 +3514,37 @@ func debug_gunlook() -> void:
 					w._eject()
 				await get_tree().process_frame
 			if out != "":
+				# CLOSEUP=ox,oy,oz/tx,ty,tz: also seen from that point in the gun's own frame, looking at the other
+				var close := OS.get_environment("CLOSEUP")
+				var near: Camera3D = null
+				if close != "":
+					var ab := close.split("/")
+					var o := ab[0].split_floats(",")
+					var t := ab[1].split_floats(",") if ab.size() > 1 else PackedFloat64Array([0, 0, 0])
+					var mt: Transform3D = w._model.global_transform
+					near = Camera3D.new()
+					near.fov = 30.0
+					near.near = 0.005
+					add_child(near)
+					near.global_position = mt * Vector3(o[0], o[1], o[2])
+					near.look_at(mt * Vector3(t[0], t[1], t[2]), mt.basis.y.normalized())
+					near.current = true
+					if OS.get_environment("NOHANDS") != "":
+						h.set_process(false)
+						h.visible = false   # the gun alone, for a part the hands would hide
+					if w._model.has_meta("brk_shells"):
+						for sh in w._model.get_meta("brk_shells") as Array:
+							var shn := sh as MeshInstance3D
+							var tt: Transform3D = mt.affine_inverse() * shn.global_transform
+							var bx: AABB = tt * shn.mesh.get_aabb()
+							print("SHELL %s at %s size %s" % [ph, bx.get_center(), bx.size])
+					await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png("%s_%s.png" % [out, ph])
+				if near:
+					near.queue_free()
+					player.cam.current = true
+					h.set_process(true)
 			_hand_measure(w, h, ph, worst)
 		w.debug_aim = false
 		w._reloading = false

@@ -25,9 +25,6 @@ var _voice: AudioStreamPlayer3D
 var _rng := RandomNumberGenerator.new()
 
 
-var person_key := ""   ## (testing aid) which body to wear, in place of the one the look picks
-
-
 func setup(lvl, at: Vector3, r: float, seed: int) -> WTownsfolk:
 	w = lvl
 	home = at
@@ -41,8 +38,6 @@ func setup(lvl, at: Vector3, r: float, seed: int) -> WTownsfolk:
 func _ready() -> void:
 	fig = Figure.new().setup(Figure.townsman(who.hash(), w.settlement_at(home) if w.has_method("settlement_at") else ""))
 	fig.arms_forward = false
-	fig.real = true
-	fig.person_key = person_key
 	add_child(fig)
 	_voice = AudioStreamPlayer3D.new()
 	_voice.unit_size = 4.0

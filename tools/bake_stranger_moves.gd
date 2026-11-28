@@ -10,9 +10,9 @@ extends SceneTree
 ## and legs), so they are carried to the end of the baked forearm and shin.
 
 const TGT_COAT := "res://assets/models/foes/stranger/man_in_coat.glb"
-## TGT=<scene> bakes for another Mixamo-named body (PREFIX: its bones' prefix, "mixamorig_" by default). The PS2
-## people (tools/make_people.gd) are baked with ONLY_MAPPED=1: only the bones the donor moves get tracks, and the
-## rest (their faces' many bones, their fingers) keep their own rest under them
+## TGT=<scene> bakes for another Mixamo-named body (PREFIX: its bones' prefix, "mixamorig_" by default). With
+## ONLY_MAPPED=1 only the bones the donor moves get tracks, and the rest (a face's many bones, fingers) keep
+## their own rest under them
 var TGT := OS.get_environment("TGT") if OS.get_environment("TGT") != "" else TGT_COAT
 var R := OS.get_environment("PREFIX").strip_edges() if OS.has_environment("PREFIX") else "mixamorig_"
 var only_mapped := OS.get_environment("ONLY_MAPPED") != ""

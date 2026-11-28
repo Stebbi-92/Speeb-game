@@ -810,6 +810,44 @@ func _break_pose(k: float) -> void:
 		_kick = maxf(_kick, 0.3)
 
 
+## The hand cannon model's shells are one glossy red from end to end, so their heads, which face out of the
+## open breech, read as rounded red noses. Painted here as a shell is: a brass head (its last quarter, mesh +z; the crimp is at -z)
+## with a primer at its middle, the red hull kept from the model's own picture.
+static var _shell_head_m: ShaderMaterial
+static func _shell_head_mat(mesh: Mesh) -> Material:
+	if _shell_head_m == null:
+		var sh := Shader.new()
+		sh.code = """shader_type spatial;
+uniform sampler2D hull : source_color;
+uniform float head_z = 0.3;
+varying vec3 lp;
+varying vec3 cap_n;
+void vertex() {
+	lp = VERTEX;
+	cap_n = normalize((MODELVIEW_MATRIX * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
+}
+void fragment() {
+	vec3 c = texture(hull, UV).rgb;
+	float head = smoothstep(head_z - 0.02, head_z + 0.02, lp.z);
+	float face = step(0.985, lp.z);              // the flat end, its smoothed normals put straight
+	float r = length(lp.xy);
+	float primer = (1.0 - smoothstep(0.17, 0.2, r)) * face;
+	float ring = smoothstep(0.17, 0.2, r) * (1.0 - smoothstep(0.22, 0.25, r)) * face;
+	vec3 brass = vec3(0.66, 0.48, 0.22) * (1.0 - 0.25 * smoothstep(0.85, 1.0, r) * face);
+	ALBEDO = mix(mix(mix(c, brass, head), vec3(0.6, 0.58, 0.55), primer), vec3(0.12, 0.1, 0.08), ring);
+	METALLIC = mix(0.0, 0.85, head);
+	ROUGHNESS = mix(0.45, 0.4, head) + primer * 0.15;
+	NORMAL = normalize(mix(NORMAL, cap_n, face));
+}
+"""
+		_shell_head_m = ShaderMaterial.new()
+		_shell_head_m.shader = sh
+		var m := mesh.surface_get_material(0)
+		if m is BaseMaterial3D:
+			_shell_head_m.set_shader_parameter("hull", (m as BaseMaterial3D).albedo_texture)
+	return _shell_head_m
+
+
 ## How far a break action's spent shells come back out of the chambers, and from how far behind the fresh ones go in.
 const SHELL_DRAW := 0.05
 const SHELL_FEED := 0.075
@@ -1095,10 +1133,20 @@ const SHOT_DB := {
 	"sniper": 8.5,         # 7.62x54R bolt rifle, ~168.5: the loudest
 	"rocket": -2.0,        # the launcher's whoosh was made full and loud already
 }
-## A suppressed shot, by the same rule: a 9 mm can about 130 dB, a rifle's about 137-140.
-const SUPP_DB := {"pistol": -13.5, "smg": -14.0, "pistol9": -13.0, "shotgun": -9.0, "autoshotgun": -9.0,
-	"machine_gun": -11.0, "carbine": -9.0, "lmg": -10.0, "sniper": -9.0}
+## A suppressed shot, by the same rule: a 9 mm can about 130 dB, a rifle's about 137-140, so some 25-30 dB under
+## the bare shot. Played about 15 dB under it: still a gunshot, loud close by, as a real one is.
+const SUPP_DB := {"pistol": -5.0, "smg": -5.5, "pistol9": -4.5, "revolver": -3.0, "shotgun": -1.0, "autoshotgun": -1.0,
+	"hand_cannon": 0.0, "machine_gun": -2.0, "carbine": 0.0, "lmg": -1.0, "sniper": 0.0, "minigun": -1.0}
 const HEAVY_SUPP_DB := -3.0   ## the heavy suppressor, quieter again
+## Each gun's suppressed shot (tools/make_supp_audio.py): its own kind's slap through the can, its action
+## cycling, and from a rifle the bullet's crack, which no suppressor takes away.
+const SUPP_SOUND := {"pistol": "supp_pistol", "pistol9": "supp_pistol", "revolver": "supp_pistol", "smg": "supp_smg",
+	"machine_gun": "supp_rifle", "carbine": "supp_rifle", "lmg": "supp_rifle", "sniper": "supp_rifle", "minigun": "supp_rifle",
+	"shotgun": "supp_shotgun", "autoshotgun": "supp_shotgun", "hand_cannon": "supp_shotgun"}
+
+
+static func supp_sound(g: String) -> String:
+	return str(SUPP_SOUND.get(g, "supp"))
 const SHOT_PITCH := {"hand_cannon": 1.06, "carbine": 0.93}
 const REMOTE_DB := -2.0       ## another pilgrim's shot, beside one's own
 const FOE_DB := -7.0          ## a foe's shot, beside one's own with the same round
@@ -1107,7 +1155,7 @@ const FOE_DB := -7.0          ## a foe's shot, beside one's own with the same ro
 ## How loud a gun's shot is played (by the gun's name; a sound's name for anything else).
 static func shot_db(g: String, quiet := false) -> float:
 	if quiet:
-		return float(SUPP_DB.get(g, -12.0))
+		return float(SUPP_DB.get(g, -4.0))
 	return float(SHOT_DB.get(g, GUN_DB))
 
 
@@ -1260,7 +1308,7 @@ func _try_fire() -> void:
 	var lvl = player.get_parent()
 	var quiet := fitted("suppressor") or fitted("heavy_suppressor")
 	if s.mode != "flame":
-		lvl.sfx("supp" if quiet else str(s.sound), shot_db(gun(), quiet) + (HEAVY_SUPP_DB if fitted("heavy_suppressor") else 0.0), null, shot_pitch(gun()))
+		lvl.sfx(supp_sound(gun()) if quiet else str(s.sound), shot_db(gun(), quiet) + (HEAVY_SUPP_DB if fitted("heavy_suppressor") else 0.0), null, shot_pitch(gun()))
 	if not quiet and str(s.sound) in ["shotgun", "autoshotgun"]:
 		player.shake(0.05)   # a 12-gauge's boom is felt as much as heard
 	# Foes about hear it: a suppressed shot carries a short way, a bare one far across the waste
@@ -2321,7 +2369,7 @@ const ACC := {
 const SIGHT_CUT := {"red_dot": 0.008, "reflex": 0.0072, "holo": 0.008, "scope": 0.0068, "combat_scope": 0.0092}
 ## The guns with a rail along their top.
 ## (The carbine's is its scope mount, put on only with a sight: so it is railed whenever a sight is there to sit on it.)
-const RAILED := ["machine_gun", "carbine"]
+const RAILED := ["machine_gun", "carbine", "autoshotgun"]
 ## How long a scanned gun's own brake or flash hider is: a fitted muzzle part goes on in its place.
 const BRAKE_LEN := {"lmg": 0.0935, "machine_gun": 0.049, "carbine": 0.093}
 
@@ -2336,7 +2384,7 @@ const SCAN_REAR_Z := {"carbine": 0.01, "hand_cannon": -0.08, "autoshotgun": -0.0
 const SIGHT_SINK := {"pistol9": 0.006, "pistol": 0.006}
 ## A gun whose top the cut lines cannot read (a rigged body): [its metal's height, where the sight's foot sits]
 ## under a fitted sight. The SMG's sight sits on a claw mount over the bumps on its receiver.
-const SIGHT_SEAT := {"smg": [0.095, 0.104]}
+const SIGHT_SEAT := {"smg": [0.095, 0.104], "lmg": [0.046, 0.055, -0.075]}
 ## The pack's pieces are not all to one scale: most are a tenth, the grips and rails larger
 const ACC_SCALE := {"Cube": 0.25, "Cube_001": 0.26, "Plane": 0.25, "Rail 1": 0.17, "Rail 2": 0.17, "Rail 3": 0.17}
 ## The pack's grips are cut thin (a hand's grip is near 3 cm across): widened to that.
@@ -2590,6 +2638,8 @@ func _put_sight(n: Node3D, g: String, m: String, top: float, rear_z: float) -> f
 	if p == null:
 		return -1.0
 	var z := rear_z - (0.12 if m in ["scope", "combat_scope"] else 0.08)
+	if SIGHT_SEAT.has(g) and SIGHT_SEAT[g].size() > 2:
+		z = float(SIGHT_SEAT[g][2])   # its top is open there: moved onto solid metal
 	var bb: AABB = p.get_meta("bb")
 	n.add_child(p)
 	# Its clamp's jaws close round the gun's rail: the cut in its foot takes the rail, so the foot
@@ -3118,6 +3168,8 @@ func _scan_gun(g: String, n: Node3D, fit: Array) -> float:
 		copy.mesh = (mi as MeshInstance3D).mesh
 		copy.material_override = copy_mat.get(mi)
 		copy.transform = tr
+		if role == "shell":
+			copy.material_override = _shell_head_mat(copy.mesh)
 		if role == "shell" and brk != null:
 			copy.set_meta("rest", tr)
 			(n.get_meta("brk_shells") as Array).append(copy)
