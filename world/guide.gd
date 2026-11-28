@@ -95,6 +95,7 @@ func _enter() -> void:
 
 
 var _pad_shown := false
+var _dodge_later := false   ## the dodge step came with no foe about: it is taught when the first one comes near
 
 
 func _keys(t: String) -> String:
@@ -112,7 +113,12 @@ func _done() -> bool:
 		"walk":
 			return Vector2(w.player.global_position.x - _from.x, w.player.global_position.z - _from.z).length() > 12.0
 		"dodge":
-			return _seen.has("dodge")
+			if _seen.has("dodge"):
+				return true
+			if _foe_near(45.0):
+				return false
+			_dodge_later = true   # nothing to dodge yet: taught when a foe first comes near
+			return true
 		"gather":
 			# two pulls at a tree or rock, even if the wood went into a fire before this step came up
 			return int(_seen.get("gather", 0)) >= 2 or w.inv.count("wood") + w.inv.count("stone") >= _base + 5
@@ -148,6 +154,8 @@ func _process(delta: float) -> void:
 	if visible and step >= 0 and step < STEPS.size() and _pad_shown != Game.using_pad:
 		_text.text = _keys(STEPS[step][1])   # a controller picked up, or put down: the words follow it
 	if step < 0 or w == null or w.player == null:
+		if w != null and w.player != null and Game.guide:
+			_teach_dodge()
 		return
 	if not Game.guide:
 		visible = false
@@ -155,6 +163,7 @@ func _process(delta: float) -> void:
 	if not visible:
 		_enter()
 	follow_quest()
+	_teach_dodge()
 	# A dodge lasts less than a check's wait, so the key is watched every frame
 	# Done early still counts: a step already done when it comes up is passed at once
 	if w.player.dodge_t > 0.0 or Input.is_action_just_pressed("dash"):
@@ -182,3 +191,18 @@ func _process(delta: float) -> void:
 		else:
 			_enter()
 		w.autosave_soon(5.0)
+
+
+func _foe_near(r: float) -> bool:
+	var p: Vector3 = w.player.global_position
+	for e in w.enemies:
+		if is_instance_valid(e) and e.is_alive() and e.global_position.distance_to(p) < r:
+			return true
+	return false
+
+
+## The dodge, put off for want of a foe, said once the first one comes near.
+func _teach_dodge() -> void:
+	if _dodge_later and _foe_near(30.0):
+		_dodge_later = false
+		w.hud.say(_keys(STEPS[1][1]), 7.0)

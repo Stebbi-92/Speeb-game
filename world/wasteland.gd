@@ -12979,6 +12979,27 @@ func debug_guideearly() -> void:
 	get_tree().quit()
 
 
+## Testing aid: with no foe about, the dodge step waits for one: it passes, and is said when a foe comes near.
+func debug_guidedodge() -> void:
+	while not ready_world:
+		await get_tree().create_timer(1.0).timeout
+	for e in enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	enemies.clear()
+	guide.begin(1)
+	await get_tree().create_timer(1.5).timeout
+	var passed := guide.step > 1
+	var said0: String = hud.narration.text
+	var f := -player.global_transform.basis.z
+	var foe := spawn_at("hollow", player.global_position + f * 12.0 + Vector3(0, 1.0, 0))
+	foe.set_physics_process(false)
+	await get_tree().create_timer(1.0).timeout
+	var said: String = hud.narration.text
+	print("GUIDEDODGE passed=%s later_said=%s" % [passed, said != said0 and said.contains("dodge")])
+	get_tree().quit()
+
+
 func debug_guideshot() -> void:
 	while not ready_world:
 		await get_tree().create_timer(1.0).timeout
